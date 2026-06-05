@@ -36,11 +36,17 @@ describe('bookingToRow', () => {
     expect(String(row[0]).startsWith("'")).toBe(false)
   })
 
-  it('multi-day: cell A starts with apostrophe followed by the range', () => {
+  it('multi-day without end time: cell A is "\'start time-end" with time only on start', () => {
     const booking = parseBooking({ ...baseInput, dateTo: '05.06.2026' })
     const row = bookingToRow(booking)
     expect(typeof row[0]).toBe('string')
-    expect(String(row[0])).toBe("'04.06.2026-05.06.2026")
+    expect(String(row[0])).toBe("'04.06.2026 10:00-05.06.2026")
+  })
+
+  it('multi-day with end time: cell A includes both start and end times', () => {
+    const booking = parseBooking({ ...baseInput, dateTo: '05.06.2026', timeTo: '18:30' })
+    const row = bookingToRow(booking)
+    expect(String(row[0])).toBe("'04.06.2026 10:00-05.06.2026 18:30")
   })
 
   it('undefined readiness → empty string in cell I', () => {

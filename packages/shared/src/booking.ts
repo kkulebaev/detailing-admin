@@ -3,13 +3,15 @@ import { READINESS, MASTERS } from './enums.js'
 import { parseDdmmyyyy } from './date.js'
 import { normalizePhone } from './phone.js'
 
-const ddmmyyyy = z.string().max(10).regex(/^\d{2}\.\d{2}\.\d{4}$/)
+const ddmmyyyy = z.string().max(10).regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Укажите дату в формате ДД.ММ.ГГГГ')
+const hhmm = z.string().max(5).regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Укажите время в формате ЧЧ:ММ')
 
 export const bookingSchema = z
   .object({
     dateFrom: ddmmyyyy,
     dateTo: ddmmyyyy.optional(),
-    time: z.string().max(5).regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    time: hhmm,
+    timeTo: hhmm.optional(),
     name: z.string().max(120).default(''),
     phone: z.string().max(40).default(''),
     car: z.string().max(200).default(''),
@@ -36,8 +38,12 @@ export const bookingSchema = z
   .transform((b, ctx) => {
     try {
       const phone = normalizePhone(b.phone)
-      const dateTo = b.dateTo && b.dateTo !== b.dateFrom ? b.dateTo : undefined
-      return { ...b, phone, dateTo }
+      const sameDay = b.dateTo && b.dateTo === b.dateFrom
+      const dateTo = sameDay ? undefined : b.dateTo
+      // If we're collapsing the range to a single day, drop the end-time too —
+      // it has no place on a non-range row.
+      const timeTo = sameDay ? undefined : b.timeTo
+      return { ...b, phone, dateTo, timeTo }
     } catch (e) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

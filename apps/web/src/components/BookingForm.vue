@@ -67,6 +67,11 @@ function calToString(d: DateValue): string {
 const dateFromText = ref(calToString(todayVal))
 const dateToText = ref(calToString(todayVal))
 const timeValue = ref('')
+const timeToValue = ref('')
+
+// Hide "Invalid" / regex error labels until the user actually tries to submit,
+// otherwise an empty initial form flashes red on mount.
+const submitAttempted = ref(false)
 
 function maskDateText(raw: string): string {
   const d = raw.replace(/\D/g, '').slice(0, 8)
@@ -171,6 +176,7 @@ const {
     dateFrom: calToString(todayVal),
     dateTo: undefined as string | undefined,
     time: '',
+    timeTo: undefined as string | undefined,
     name: '',
     phone: '',
     car: '',
@@ -237,6 +243,17 @@ function onTimeTextInput(e: Event) {
   setFieldValue('time', masked)
 }
 
+function onTimeToTextInput(e: Event) {
+  const target = e.target as HTMLInputElement
+  const masked = maskTimeText(target.value)
+  if (target.value !== masked) {
+    timeToValue.value = masked
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+  if (isMultiDay.value) setFieldValue('timeTo', masked)
+}
+
 // ── Amount input handler ──────────────────────────────────────────────────────
 // amountRaw stores the formatted (with spaces) display value. Form field
 // `amount` stores the parsed integer (or '' when empty).
@@ -296,8 +313,10 @@ function toggleMultiDay(val: boolean) {
   isMultiDay.value = val
   if (val) {
     setFieldValue('dateTo', dateToText.value)
+    setFieldValue('timeTo', timeToValue.value)
   } else {
     setFieldValue('dateTo', undefined)
+    setFieldValue('timeTo', undefined)
   }
 }
 
@@ -338,11 +357,13 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
     phoneRaw.value = PHONE_PREFIX
     amountRaw.value = ''
     timeValue.value = ''
+    timeToValue.value = ''
     dateFromText.value = calToString(today(localTz))
     dateToText.value = calToString(today(localTz))
     dateFromCal.value = today(localTz)
     dateToCal.value = today(localTz)
     isMultiDay.value = false
+    submitAttempted.value = false
     clearDraft()
   } else if (result.error === 'unavailable' && result.reason === 'headers_mismatch') {
     unavailableBanner.value = {
@@ -376,6 +397,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
 // validate (which runs normalizePhone) and POST. See F7.
 // Empty-out the prefix-only case so normalizePhone doesn't reject "+7 (" as garbage.
 async function onSubmit() {
+  submitAttempted.value = true
   setFieldValue('phone', effectivePhone())
   await handleValidatedSubmit()
 }
@@ -387,6 +409,7 @@ interface Draft {
   dateFromText: string
   dateToText: string
   timeValue: string
+  timeToValue: string
   isMultiDay: boolean
   name: string
   phoneRaw: string
@@ -409,6 +432,7 @@ function saveDraft() {
       dateFromText: dateFromText.value,
       dateToText: dateToText.value,
       timeValue: timeValue.value,
+      timeToValue: timeToValue.value,
       isMultiDay: isMultiDay.value,
       name: values.name ?? '',
       phoneRaw: phoneRaw.value,
@@ -449,6 +473,10 @@ function loadDraft() {
     if (d.isMultiDay) {
       isMultiDay.value = true
       setFieldValue('dateTo', d.dateToText)
+      if (d.timeToValue) {
+        timeToValue.value = d.timeToValue
+        setFieldValue('timeTo', d.timeToValue)
+      }
     }
     if (d.timeValue) {
       timeValue.value = d.timeValue
@@ -488,7 +516,7 @@ function scheduleSave() {
 
 watch(
   [
-    dateFromText, dateToText, timeValue, isMultiDay,
+    dateFromText, dateToText, timeValue, timeToValue, isMultiDay,
     phoneRaw, amountRaw,
     () => values.name, () => values.car, () => values.service,
     () => values.note, () => values.readiness, () => values.master,
@@ -563,7 +591,7 @@ watch(
             @input="onTimeTextInput"
           />
         </div>
-        <p v-if="errors.time" class="text-sm font-medium text-destructive mt-1">
+        <p v-if="submitAttempted && errors.time" class="text-sm font-medium text-destructive mt-1">
           {{ errors.time }}
         </p>
       </div>
@@ -577,36 +605,52 @@ watch(
         <Label class="cursor-pointer">Несколько дней</Label>
       </div>
 
-      <!-- Date to (revealed when multi-day) -->
+      <!-- Date + time of end (revealed when multi-day) -->
       <div v-if="isMultiDay" class="mb-4">
-        <Label class="mb-2 block">по</Label>
-        <div class="relative">
+        <Label class="mb-2 block">Окончание работ</Label>
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <Input
+              type="text"
+              inputmode="numeric"
+              class="h-11 pr-10"
+              placeholder="ДД.ММ.ГГГГ"
+              v-model="dateToText"
+              @input="onDateToTextInput"
+            />
+            <Popover v-model:open="dateToOpen">
+              <PopoverTrigger as-child>
+                <button
+                  type="button"
+                  aria-label="Выбрать дату в календаре"
+                  class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto p-0" align="start">
+                <Calendar
+                  :model-value="dateToCal"
+                  @update:model-value="onDateToSelect"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           <Input
             type="text"
             inputmode="numeric"
-            class="h-11 pr-10"
-            placeholder="ДД.ММ.ГГГГ"
-            v-model="dateToText"
-            @input="onDateToTextInput"
+            class="h-11 w-24"
+            placeholder="ЧЧ:ММ"
+            v-model="timeToValue"
+            @input="onTimeToTextInput"
           />
-          <Popover v-model:open="dateToOpen">
-            <PopoverTrigger as-child>
-              <button
-                type="button"
-                aria-label="Выбрать дату в календаре"
-                class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent class="w-auto p-0" align="start">
-              <Calendar
-                :model-value="dateToCal"
-                @update:model-value="onDateToSelect"
-              />
-            </PopoverContent>
-          </Popover>
         </div>
+        <p v-if="submitAttempted && errors.timeTo" class="text-sm font-medium text-destructive mt-1">
+          {{ errors.timeTo }}
+        </p>
+        <p v-if="submitAttempted && errors.dateTo" class="text-sm font-medium text-destructive mt-1">
+          {{ errors.dateTo }}
+        </p>
       </div>
 
       <!-- Name -->
