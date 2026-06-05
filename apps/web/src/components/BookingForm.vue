@@ -13,6 +13,7 @@ import {
 } from '@detailing-admin/shared'
 import type { BookingApiResult } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
+import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +23,7 @@ import { Switch } from '@/components/ui/switch'
 import { Calendar } from '@/components/ui/calendar'
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
@@ -206,6 +208,58 @@ const {
     responsible: undefined,
   },
 })
+
+// ── Car suggestions (autocomplete combobox) ──────────────────────────────────
+// Placed after useForm so the computed/watch can read `values.car` without TDZ.
+const carPopoverOpen = ref(false)
+const carActiveIndex = ref(0)
+const carListEl = ref<HTMLElement | null>(null)
+const MAX_CAR_SUGGESTIONS = 30
+const filteredCars = computed<readonly string[]>(() => {
+  const q = (values.car ?? '').trim().toLowerCase()
+  if (!q) return CAR_SUGGESTIONS.slice(0, MAX_CAR_SUGGESTIONS)
+  return CAR_SUGGESTIONS
+    .filter((c) => c.toLowerCase().includes(q))
+    .slice(0, MAX_CAR_SUGGESTIONS)
+})
+watch(filteredCars, () => { carActiveIndex.value = 0 })
+
+function selectCar(car: string) {
+  setFieldValue('car', car)
+  carPopoverOpen.value = false
+}
+
+function scrollActiveCarIntoView() {
+  requestAnimationFrame(() => {
+    const el = carListEl.value?.querySelector<HTMLElement>('[data-active="true"]')
+    el?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+function onCarKeydown(e: KeyboardEvent) {
+  const list = filteredCars.value
+  if (e.key === 'ArrowDown') {
+    if (!carPopoverOpen.value && list.length) carPopoverOpen.value = true
+    if (!list.length) return
+    e.preventDefault()
+    carActiveIndex.value = (carActiveIndex.value + 1) % list.length
+    scrollActiveCarIntoView()
+  } else if (e.key === 'ArrowUp') {
+    if (!list.length) return
+    e.preventDefault()
+    carActiveIndex.value = (carActiveIndex.value - 1 + list.length) % list.length
+    scrollActiveCarIntoView()
+  } else if (e.key === 'Enter') {
+    if (!carPopoverOpen.value || !list.length) return
+    e.preventDefault()
+    const picked = list[carActiveIndex.value]
+    if (picked) selectCar(picked)
+  } else if (e.key === 'Escape') {
+    if (!carPopoverOpen.value) return
+    e.preventDefault()
+    carPopoverOpen.value = false
+  }
+}
 
 // ── Phone input handler ───────────────────────────────────────────────────────
 // Bind via v-model="phoneRaw" — shadcn-vue Input uses useVModel internally, so
@@ -782,18 +836,48 @@ watch(
         </p>
       </div>
 
-      <!-- Car -->
+      <!-- Car (autocomplete: Input as Popover anchor, free text allowed) -->
       <FormField v-slot="{ componentField }" name="car">
         <FormItem class="mb-4">
           <FormLabel>Машина</FormLabel>
-          <FormControl>
-            <Input
-              type="text"
-              class="h-11"
-              placeholder="Toyota Camry"
-              v-bind="componentField"
-            />
-          </FormControl>
+          <Popover :open="carPopoverOpen && filteredCars.length > 0">
+            <PopoverAnchor as-child>
+              <FormControl>
+                <Input
+                  type="text"
+                  class="h-11"
+                  placeholder="Toyota Camry"
+                  autocomplete="off"
+                  v-bind="componentField"
+                  @focus="carPopoverOpen = true"
+                  @input="carPopoverOpen = true"
+                  @blur="carPopoverOpen = false"
+                  @keydown="onCarKeydown"
+                />
+              </FormControl>
+            </PopoverAnchor>
+            <PopoverContent
+              class="w-(--reka-popover-trigger-width) p-0 max-h-72 overflow-auto"
+              align="start"
+              :side-offset="4"
+              @open-auto-focus.prevent
+              @pointer-down-outside.prevent
+            >
+              <ul ref="carListEl" class="py-1">
+                <li v-for="(car, i) in filteredCars" :key="car">
+                  <button
+                    type="button"
+                    :data-active="i === carActiveIndex"
+                    class="w-full text-left px-3 py-2 text-sm outline-none data-[active=true]:bg-accent"
+                    @mousedown.prevent="selectCar(car)"
+                    @mousemove="carActiveIndex = i"
+                  >
+                    {{ car }}
+                  </button>
+                </li>
+              </ul>
+            </PopoverContent>
+          </Popover>
           <FormMessage />
         </FormItem>
       </FormField>
