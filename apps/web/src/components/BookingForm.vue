@@ -662,7 +662,7 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-muted/30">
     <!-- Non-dismissable unavailable banner -->
     <div
       v-if="unavailableBanner && unavailableBanner.kind === 'headers_mismatch'"
@@ -697,417 +697,431 @@ watch(
         </Button>
       </div>
 
-      <!-- Date + time -->
-      <div class="mb-4">
-        <Label class="mb-2 block">Дата и время</Label>
+      <div class="space-y-3">
+        <!-- Когда: дата и время -->
+        <section class="rounded-xl border border-border bg-card p-4">
+          <h2 class="text-base font-semibold mb-4">Когда</h2>
 
-        <!-- Quick date chips -->
-        <div class="flex flex-wrap gap-2 mb-2">
-          <button
-            type="button"
-            :data-active="isTodayActive"
-            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-            @click="pickDay(0)"
-          >
-            Сегодня
-          </button>
-          <button
-            type="button"
-            :data-active="isTomorrowActive"
-            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-            @click="pickDay(1)"
-          >
-            Завтра
-          </button>
-          <button
-            type="button"
-            :data-active="isDayAfter2Active"
-            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-            @click="pickDay(2)"
-          >
-            Послезавтра
-          </button>
-          <button
-            type="button"
-            :data-active="isRangeMode"
-            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-            @click="toggleRangeMode"
-          >
-            Диапазон
-          </button>
-        </div>
+          <!-- Quick date chips -->
+          <div class="flex flex-wrap gap-2 mb-2">
+            <button
+              type="button"
+              :data-active="isTodayActive"
+              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+              @click="pickDay(0)"
+            >
+              Сегодня
+            </button>
+            <button
+              type="button"
+              :data-active="isTomorrowActive"
+              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+              @click="pickDay(1)"
+            >
+              Завтра
+            </button>
+            <button
+              type="button"
+              :data-active="isDayAfter2Active"
+              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+              @click="pickDay(2)"
+            >
+              Послезавтра
+            </button>
+            <button
+              type="button"
+              :data-active="isRangeMode"
+              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+              @click="toggleRangeMode"
+            >
+              Диапазон
+            </button>
+          </div>
 
-        <div class="flex gap-2">
-          <!-- Date text input + calendar icon trigger -->
-          <div class="relative flex-1">
+          <div class="flex gap-2">
+            <!-- Date text input + calendar icon trigger -->
+            <div class="relative flex-1">
+              <Input
+                type="text"
+                inputmode="numeric"
+                class="h-11 pr-10"
+                placeholder="ДД.ММ.ГГГГ"
+                v-model="dateFromText"
+                @input="onDateFromTextInput"
+              />
+              <Popover v-model:open="dateFromOpen">
+                <PopoverTrigger as-child>
+                  <button
+                    type="button"
+                    aria-label="Выбрать дату в календаре"
+                    class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0" align="start">
+                  <Calendar
+                    :model-value="dateFromCal"
+                    @update:model-value="onDateFromSelect"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <!-- Time text input (masked HH:MM) -->
             <Input
               type="text"
               inputmode="numeric"
-              class="h-11 pr-10"
-              placeholder="ДД.ММ.ГГГГ"
-              v-model="dateFromText"
-              @input="onDateFromTextInput"
+              class="h-11 w-24"
+              placeholder="ЧЧ:ММ"
+              v-model="timeValue"
+              @input="onTimeTextInput"
             />
-            <Popover v-model:open="dateFromOpen">
-              <PopoverTrigger as-child>
-                <button
-                  type="button"
-                  aria-label="Выбрать дату в календаре"
-                  class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent class="w-auto p-0" align="start">
-                <Calendar
-                  :model-value="dateFromCal"
-                  @update:model-value="onDateFromSelect"
-                />
-              </PopoverContent>
-            </Popover>
           </div>
-          <!-- Time text input (masked HH:MM) -->
-          <Input
-            type="text"
-            inputmode="numeric"
-            class="h-11 w-24"
-            placeholder="ЧЧ:ММ"
-            v-model="timeValue"
-            @input="onTimeTextInput"
-          />
-        </div>
 
-        <!-- Time quick chips -->
-        <div class="flex flex-wrap gap-1.5 mt-2">
-          <button
-            v-for="t in TIME_PRESETS"
-            :key="t"
-            type="button"
-            :data-active="timeValue === t"
-            class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-            @click="pickTime(t)"
+          <!-- Time quick chips -->
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            <button
+              v-for="t in TIME_PRESETS"
+              :key="t"
+              type="button"
+              :data-active="timeValue === t"
+              class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+              @click="pickTime(t)"
+            >
+              {{ t }}
+            </button>
+          </div>
+
+          <p v-if="submitAttempted && errors.time" class="text-sm font-medium text-destructive mt-1">
+            {{ errors.time }}
+          </p>
+
+          <!-- End of work — smoothly expands/collapses when toggling range mode.
+               Outer grid animates grid-template-rows 0fr↔1fr; inner overflow-hidden
+               clips during the transition. pt-4 on the innermost wrapper provides
+               spacing above the range section when expanded and collapses with the
+               row when hidden (preventing a ghost margin).
+               NB: 0fr suffix is `!` (Tailwind v4 important) — without it, Tailwind
+               emits grid-rows-[1fr] after grid-rows-[0fr] in source order, so the
+               baseline class always wins and the transition never sees a change. -->
+          <Transition
+            enter-active-class="transition-[grid-template-rows] duration-200 ease-out"
+            leave-active-class="transition-[grid-template-rows] duration-200 ease-out"
+            enter-from-class="grid-rows-[0fr]!"
+            leave-to-class="grid-rows-[0fr]!"
           >
-            {{ t }}
-          </button>
-        </div>
+            <div v-if="isRangeMode" class="grid grid-rows-[1fr]">
+              <div class="overflow-hidden">
+                <div class="pt-4">
+                  <Label class="mb-2 block">Окончание работ</Label>
+                  <div class="flex gap-2">
+                    <div class="relative flex-1">
+                      <Input
+                        type="text"
+                        inputmode="numeric"
+                        class="h-11 pr-10"
+                        placeholder="ДД.ММ.ГГГГ"
+                        v-model="dateToText"
+                        @input="onDateToTextInput"
+                      />
+                      <Popover v-model:open="dateToOpen">
+                        <PopoverTrigger as-child>
+                          <button
+                            type="button"
+                            aria-label="Выбрать дату окончания в календаре"
+                            class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent class="w-auto p-0" align="start">
+                          <Calendar
+                            :model-value="dateToCal"
+                            @update:model-value="onDateToSelect"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Input
+                      type="text"
+                      inputmode="numeric"
+                      class="h-11 w-24"
+                      placeholder="ЧЧ:ММ"
+                      v-model="timeToValue"
+                      @input="onTimeToTextInput"
+                    />
+                  </div>
+                  <div class="flex flex-wrap gap-1.5 mt-2">
+                    <button
+                      v-for="t in TIME_PRESETS"
+                      :key="t"
+                      type="button"
+                      :data-active="timeToValue === t"
+                      class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                      @click="pickTimeTo(t)"
+                    >
+                      {{ t }}
+                    </button>
+                  </div>
+                  <p v-if="submitAttempted && errors.timeTo" class="text-sm font-medium text-destructive mt-1">
+                    {{ errors.timeTo }}
+                  </p>
+                  <p v-if="submitAttempted && errors.dateTo" class="text-sm font-medium text-destructive mt-1">
+                    {{ errors.dateTo }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </section>
 
-        <p v-if="submitAttempted && errors.time" class="text-sm font-medium text-destructive mt-1">
-          {{ errors.time }}
-        </p>
-      </div>
-
-      <!-- End of work — smoothly expands/collapses when toggling range mode.
-           Outer grid animates grid-template-rows 0fr↔1fr; inner overflow-hidden
-           clips during the transition. Use pb-4 on the innermost wrapper so
-           the bottom gap collapses with the row instead of leaving a 16px
-           ghost margin when collapsed.
-           NB: 0fr suffix is `!` (Tailwind v4 important) — without it, Tailwind
-           emits grid-rows-[1fr] after grid-rows-[0fr] in source order, so the
-           baseline class always wins and the transition never sees a change. -->
-      <Transition
-        enter-active-class="transition-[grid-template-rows] duration-200 ease-out"
-        leave-active-class="transition-[grid-template-rows] duration-200 ease-out"
-        enter-from-class="grid-rows-[0fr]!"
-        leave-to-class="grid-rows-[0fr]!"
-      >
-        <div v-if="isRangeMode" class="grid grid-rows-[1fr]">
-          <div class="overflow-hidden">
-            <div class="pb-4">
-              <Label class="mb-2 block">Окончание работ</Label>
-              <div class="flex gap-2">
-                <div class="relative flex-1">
+        <!-- Клиент -->
+        <section class="rounded-xl border border-border bg-card p-4">
+          <h2 class="text-base font-semibold mb-4">Клиент</h2>
+          <div class="space-y-4">
+            <FormField v-slot="{ componentField }" name="name">
+              <FormItem>
+                <FormLabel>Имя</FormLabel>
+                <FormControl>
                   <Input
                     type="text"
-                    inputmode="numeric"
-                    class="h-11 pr-10"
-                    placeholder="ДД.ММ.ГГГГ"
-                    v-model="dateToText"
-                    @input="onDateToTextInput"
+                    class="h-11"
+                    placeholder="Иван"
+                    v-bind="componentField"
                   />
-                  <Popover v-model:open="dateToOpen">
-                    <PopoverTrigger as-child>
-                      <button
-                        type="button"
-                        aria-label="Выбрать дату окончания в календаре"
-                        class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent class="w-auto p-0" align="start">
-                      <Calendar
-                        :model-value="dateToCal"
-                        @update:model-value="onDateToSelect"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+
+            <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
+            <div>
+              <Label class="mb-2 block">Номер телефона</Label>
+              <div class="relative">
                 <Input
-                  type="text"
-                  inputmode="numeric"
-                  class="h-11 w-24"
-                  placeholder="ЧЧ:ММ"
-                  v-model="timeToValue"
-                  @input="onTimeToTextInput"
+                  type="tel"
+                  inputmode="tel"
+                  class="h-11 pr-24"
+                  placeholder="+7 (___) ___-__-__"
+                  v-model="phoneRaw"
+                  @input="onPhoneInput"
+                  @paste="onPhonePaste"
                 />
-              </div>
-              <div class="flex flex-wrap gap-1.5 mt-2">
                 <button
-                  v-for="t in TIME_PRESETS"
-                  :key="t"
                   type="button"
-                  :data-active="timeToValue === t"
-                  class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-                  @click="pickTimeTo(t)"
+                  aria-label="Вставить номер из буфера обмена"
+                  class="absolute right-1 top-1/2 -translate-y-1/2 h-9 px-3 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground text-xs font-medium"
+                  @click="onClickPastePhone"
                 >
-                  {{ t }}
+                  Вставить
                 </button>
               </div>
-              <p v-if="submitAttempted && errors.timeTo" class="text-sm font-medium text-destructive mt-1">
-                {{ errors.timeTo }}
-              </p>
-              <p v-if="submitAttempted && errors.dateTo" class="text-sm font-medium text-destructive mt-1">
-                {{ errors.dateTo }}
+              <p v-if="errors.phone" class="text-sm font-medium text-destructive mt-1">
+                {{ errors.phone }}
               </p>
             </div>
           </div>
-        </div>
-      </Transition>
+        </section>
 
-      <!-- Name -->
-      <FormField v-slot="{ componentField }" name="name">
-        <FormItem class="mb-4">
-          <FormLabel>Имя</FormLabel>
-          <FormControl>
-            <Input
-              type="text"
-              class="h-11"
-              placeholder="Иван"
-              v-bind="componentField"
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      </FormField>
-
-      <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
-      <div class="mb-4">
-        <Label class="mb-2 block">Номер телефона</Label>
-        <div class="relative">
-          <Input
-            type="tel"
-            inputmode="tel"
-            class="h-11 pr-24"
-            placeholder="+7 (___) ___-__-__"
-            v-model="phoneRaw"
-            @input="onPhoneInput"
-            @paste="onPhonePaste"
-          />
-          <button
-            type="button"
-            aria-label="Вставить номер из буфера обмена"
-            class="absolute right-1 top-1/2 -translate-y-1/2 h-9 px-3 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground text-xs font-medium"
-            @click="onClickPastePhone"
-          >
-            Вставить
-          </button>
-        </div>
-        <p v-if="errors.phone" class="text-sm font-medium text-destructive mt-1">
-          {{ errors.phone }}
-        </p>
-      </div>
-
-      <!-- Car (autocomplete: Input as Popover anchor, free text allowed) -->
-      <FormField v-slot="{ componentField }" name="car">
-        <FormItem class="mb-4">
-          <FormLabel>Машина</FormLabel>
-          <Popover :open="carPopoverOpen && filteredCars.length > 0">
-            <PopoverAnchor as-child>
-              <FormControl>
-                <Input
-                  type="text"
-                  class="h-11"
-                  placeholder="Toyota Camry"
-                  autocomplete="off"
-                  v-bind="componentField"
-                  @focus="carPopoverOpen = true"
-                  @input="carPopoverOpen = true"
-                  @blur="carPopoverOpen = false"
-                  @keydown="onCarKeydown"
-                />
-              </FormControl>
-            </PopoverAnchor>
-            <PopoverContent
-              class="w-(--reka-popover-trigger-width) p-0 max-h-72 overflow-auto"
-              align="start"
-              :side-offset="4"
-              @open-auto-focus.prevent
-              @pointer-down-outside.prevent
-            >
-              <ul ref="carListEl" class="py-1">
-                <li v-for="(car, i) in filteredCars" :key="car">
-                  <button
-                    type="button"
-                    :data-active="i === carActiveIndex"
-                    class="w-full text-left px-3 py-2 text-sm outline-none data-[active=true]:bg-accent"
-                    @mousedown.prevent="selectCar(car)"
-                    @mousemove="carActiveIndex = i"
+        <!-- Заказ -->
+        <section class="rounded-xl border border-border bg-card p-4">
+          <h2 class="text-base font-semibold mb-4">Заказ</h2>
+          <div class="space-y-4">
+            <FormField v-slot="{ componentField }" name="car">
+              <FormItem>
+                <FormLabel>Машина</FormLabel>
+                <Popover :open="carPopoverOpen && filteredCars.length > 0">
+                  <PopoverAnchor as-child>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        class="h-11"
+                        placeholder="Toyota Camry"
+                        autocomplete="off"
+                        v-bind="componentField"
+                        @focus="carPopoverOpen = true"
+                        @input="carPopoverOpen = true"
+                        @blur="carPopoverOpen = false"
+                        @keydown="onCarKeydown"
+                      />
+                    </FormControl>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    class="w-(--reka-popover-trigger-width) p-0 max-h-72 overflow-auto"
+                    align="start"
+                    :side-offset="4"
+                    @open-auto-focus.prevent
+                    @pointer-down-outside.prevent
                   >
-                    {{ car }}
-                  </button>
-                </li>
-              </ul>
-            </PopoverContent>
-          </Popover>
-          <FormMessage />
-        </FormItem>
-      </FormField>
+                    <ul ref="carListEl" class="py-1">
+                      <li v-for="(car, i) in filteredCars" :key="car">
+                        <button
+                          type="button"
+                          :data-active="i === carActiveIndex"
+                          class="w-full text-left px-3 py-2 text-sm outline-none data-[active=true]:bg-accent"
+                          @mousedown.prevent="selectCar(car)"
+                          @mousemove="carActiveIndex = i"
+                        >
+                          {{ car }}
+                        </button>
+                      </li>
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-      <!-- Service -->
-      <FormField v-slot="{ componentField }" name="service">
-        <FormItem class="mb-4">
-          <FormLabel>Услуга</FormLabel>
-          <div class="flex flex-wrap gap-2 mb-2">
+            <FormField v-slot="{ componentField }" name="service">
+              <FormItem>
+                <FormLabel>Услуга</FormLabel>
+                <div class="flex flex-wrap gap-2 mb-2">
+                  <button
+                    v-for="preset in SERVICE_PRESETS"
+                    :key="preset"
+                    type="button"
+                    class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
+                    @click="addServicePreset(preset)"
+                  >
+                    + {{ preset }}
+                  </button>
+                </div>
+                <FormControl>
+                  <Textarea
+                    rows="3"
+                    placeholder="Полировка, химчистка..."
+                    class="[field-sizing:content]"
+                    v-bind="componentField"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+
+            <FormField v-slot="{ componentField }" name="note">
+              <FormItem>
+                <FormLabel>Примечание</FormLabel>
+                <FormControl>
+                  <Textarea
+                    rows="3"
+                    class="[field-sizing:content]"
+                    v-bind="componentField"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+          </div>
+        </section>
+
+        <!-- Оплата -->
+        <section class="rounded-xl border border-border bg-card p-4">
+          <h2 class="text-base font-semibold mb-4">Оплата</h2>
+          <Label class="mb-2 block">Сумма, ₽</Label>
+          <Input
+            type="text"
+            inputmode="numeric"
+            class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            placeholder="0"
+            v-model="amountRaw"
+            @input="onAmountInput"
+          />
+          <div class="flex flex-wrap gap-2 mt-2">
             <button
-              v-for="preset in SERVICE_PRESETS"
-              :key="preset"
+              v-for="delta in AMOUNT_PRESETS"
+              :key="delta"
               type="button"
               class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
-              @click="addServicePreset(preset)"
+              @click="addAmount(delta)"
             >
-              + {{ preset }}
+              +{{ formatAmount(String(delta)) }}
             </button>
           </div>
-          <FormControl>
-            <Textarea
-              rows="3"
-              placeholder="Полировка, химчистка..."
-              class="[field-sizing:content]"
-              v-bind="componentField"
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      </FormField>
+          <p v-if="errors.amount" class="text-sm font-medium text-destructive mt-1">
+            {{ errors.amount }}
+          </p>
+        </section>
 
-      <!-- Note -->
-      <FormField v-slot="{ componentField }" name="note">
-        <FormItem class="mb-4">
-          <FormLabel>Примечание</FormLabel>
-          <FormControl>
-            <Textarea
-              rows="3"
-              class="[field-sizing:content]"
-              v-bind="componentField"
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      </FormField>
+        <!-- Статус -->
+        <section class="rounded-xl border border-border bg-card p-4">
+          <h2 class="text-base font-semibold mb-4">Статус</h2>
+          <div class="space-y-4">
+            <FormField v-slot="{ componentField }" name="readiness">
+              <FormItem>
+                <FormLabel>Готовность</FormLabel>
+                <Select v-bind="componentField">
+                  <FormControl>
+                    <SelectTrigger class="h-11">
+                      <SelectValue placeholder="Не выбрано" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="r in READINESS"
+                      :key="r"
+                      :value="r"
+                    >
+                      {{ r }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-      <!-- Amount (custom raw binding, outside FormField) -->
-      <div class="mb-4">
-        <Label class="mb-2 block">Сумма, ₽</Label>
-        <Input
-          type="text"
-          inputmode="numeric"
-          class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-          placeholder="0"
-          v-model="amountRaw"
-          @input="onAmountInput"
-        />
-        <div class="flex flex-wrap gap-2 mt-2">
-          <button
-            v-for="delta in AMOUNT_PRESETS"
-            :key="delta"
-            type="button"
-            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
-            @click="addAmount(delta)"
-          >
-            +{{ formatAmount(String(delta)) }}
-          </button>
-        </div>
-        <p v-if="errors.amount" class="text-sm font-medium text-destructive mt-1">
-          {{ errors.amount }}
-        </p>
-      </div>
+            <FormField v-slot="{ componentField }" name="master">
+              <FormItem>
+                <FormLabel>Мастер</FormLabel>
+                <Select v-bind="componentField">
+                  <FormControl>
+                    <SelectTrigger class="h-11">
+                      <SelectValue placeholder="Не выбрано" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="m in MASTERS"
+                      :key="m"
+                      :value="m"
+                    >
+                      {{ m }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-      <!-- Readiness -->
-      <FormField v-slot="{ componentField }" name="readiness">
-        <FormItem class="mb-4">
-          <FormLabel>Готовность</FormLabel>
-          <Select v-bind="componentField">
-            <FormControl>
-              <SelectTrigger class="h-11">
-                <SelectValue placeholder="Не выбрано" />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              <SelectItem
-                v-for="r in READINESS"
-                :key="r"
-                :value="r"
-              >
-                {{ r }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      </FormField>
+            <FormField v-slot="{ componentField }" name="responsible">
+              <FormItem>
+                <FormLabel>Ответственный</FormLabel>
+                <Select v-bind="componentField">
+                  <FormControl>
+                    <SelectTrigger class="h-11">
+                      <SelectValue placeholder="Не выбрано" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="r in MASTERS"
+                      :key="r"
+                      :value="r"
+                    >
+                      {{ r }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-      <!-- Master -->
-      <FormField v-slot="{ componentField }" name="master">
-        <FormItem class="mb-4">
-          <FormLabel>Мастер</FormLabel>
-          <Select v-bind="componentField">
-            <FormControl>
-              <SelectTrigger class="h-11">
-                <SelectValue placeholder="Не выбрано" />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              <SelectItem
-                v-for="m in MASTERS"
-                :key="m"
-                :value="m"
-              >
-                {{ m }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      </FormField>
-
-      <!-- Responsible -->
-      <FormField v-slot="{ componentField }" name="responsible">
-        <FormItem class="mb-4">
-          <FormLabel>Ответственный</FormLabel>
-          <Select v-bind="componentField">
-            <FormControl>
-              <SelectTrigger class="h-11">
-                <SelectValue placeholder="Не выбрано" />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              <SelectItem
-                v-for="r in MASTERS"
-                :key="r"
-                :value="r"
-              >
-                {{ r }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      </FormField>
-
-      <!-- Send notification toggle — placeholder, серверная логика ещё не подключена -->
-      <div class="flex items-center gap-3 mb-4">
-        <Switch v-model="sendNotification" />
-        <Label class="cursor-pointer">Отправить уведомление</Label>
+            <!-- Уведомление — заглушка, серверная отправка пока не подключена -->
+            <div class="flex items-center gap-3 pt-2 border-t border-border">
+              <Switch v-model="sendNotification" />
+              <Label class="cursor-pointer">Отправить уведомление</Label>
+            </div>
+          </div>
+        </section>
       </div>
     </form>
 
