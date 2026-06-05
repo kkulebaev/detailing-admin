@@ -1,0 +1,58 @@
+# Dependencies — must be installed inside the image, never copied from host
+**/node_modules
+
+# Build outputs — generated inside the image
+**/dist
+**/*.tsbuildinfo
+
+# Environment files — NEVER ship secrets (apps/api/.env holds
+# GOOGLE_SERVICE_ACCOUNT_JSON_B64). Examples are allowed.
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.production
+!**/.env.example
+
+# Credential files
+service-account*.json
+*-credentials.json
+*.pem
+*.key
+
+# Git & VCS
+.git
+.gitignore
+.gitattributes
+
+# Editor / IDE
+.idea
+.vscode
+.editorconfig
+
+# OS
+.DS_Store
+
+# Logs / coverage
+**/*.log
+coverage
+
+# Tooling state (not needed inside the image)
+.claude
+.omc
+.turbo
+.railway
+
+# Generated typecheck artefacts (mirrors .gitignore)
+apps/web/src/**/*.vue.d.ts
+apps/web/src/**/*.vue.js
+apps/web/src/**/*.js
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
+packages/shared/src/**/*.d.ts
+packages/shared/src/**/*.js
+!apps/web/src/vite-env.d.ts
+
+# Docs / planning — not needed in image
+README.md
+CLAUDE.md
