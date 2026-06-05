@@ -73,21 +73,32 @@ type UnavailableBanner =
 const unavailableBanner = ref<UnavailableBanner | null>(null)
 
 // ── Phone raw display value (NOT the zod-transformed output) ─────────────────
-const phoneRaw = ref('')
+// Always starts with the +7 prefix so the first user keystroke is the first
+// significant digit, not a country code re-entry.
+const PHONE_PREFIX = '+7 ('
+const phoneRaw = ref(PHONE_PREFIX)
 // ── Amount display value ──────────────────────────────────────────────────────
 const amountRaw = ref('')
 
 function formatPhone(input: string): string {
   const digits = input.replace(/\D/g, '')
-  // strip leading 7 or 8 (will be re-added as +7)
+  // strip leading 7 or 8 — they're absorbed into the +7 prefix
   let base = digits
   if (base.startsWith('7') || base.startsWith('8')) base = base.slice(1)
   const d = base.slice(0, 10)
-  if (d.length === 0) return ''
+  if (d.length === 0) return PHONE_PREFIX
   if (d.length <= 3) return `+7 (${d}`
   if (d.length <= 6) return `+7 (${d.slice(0, 3)}) ${d.slice(3)}`
   if (d.length <= 8) return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
   return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8)}`
+}
+
+// Returns the phone value to send on submit:
+//   '' when the user hasn't typed any real digits past the prefix,
+//   the raw masked string otherwise (server transform normalises to E.164).
+function effectivePhone(): string {
+  const digits = phoneRaw.value.replace(/\D/g, '')
+  return digits.length <= 1 ? '' : phoneRaw.value
 }
 
 // ── Form ──────────────────────────────────────────────────────────────────────
@@ -203,7 +214,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
         responsible: undefined,
       },
     })
-    phoneRaw.value = ''
+    phoneRaw.value = PHONE_PREFIX
     amountRaw.value = ''
     dateFromCal.value = today(localTz)
     dateToCal.value = today(localTz)
@@ -238,8 +249,9 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
 
 // Sync the masked raw phone into the form field once, then let vee-validate
 // validate (which runs normalizePhone) and POST. See F7.
+// Empty-out the prefix-only case so normalizePhone doesn't reject "+7 (" as garbage.
 async function onSubmit() {
-  setFieldValue('phone', phoneRaw.value)
+  setFieldValue('phone', effectivePhone())
   await handleValidatedSubmit()
 }
 </script>
