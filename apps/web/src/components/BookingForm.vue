@@ -102,9 +102,16 @@ const LATIN_TO_CYRILLIC: Record<string, string> = {
   O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
 }
 
+function capitalizeWords(raw: string): string {
+  return raw.replace(/(^|[\s\-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'))
+}
+
 function maskName(raw: string): string {
-  const noDigits = raw.replace(/\d/g, '')
-  return noDigits.replace(/(^|[\s\-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'))
+  return capitalizeWords(raw.replace(/\d/g, ''))
+}
+
+function maskCar(raw: string): string {
+  return capitalizeWords(raw)
 }
 
 function maskLicensePlate(raw: string): string {
@@ -438,6 +445,17 @@ function onNameInput(e: Event) {
     target.setSelectionRange(masked.length, masked.length)
   }
   setFieldValue('name', masked)
+}
+
+function onCarInput(e: Event) {
+  carPopoverOpen.value = true
+  const target = e.target as HTMLInputElement
+  const masked = maskCar(target.value)
+  if (target.value !== masked) {
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+  setFieldValue('car', masked)
 }
 
 function onLicensePlateInput(e: Event) {
@@ -992,7 +1010,7 @@ watch(
                         autocomplete="off"
                         v-bind="componentField"
                         @focus="carPopoverOpen = true"
-                        @input="carPopoverOpen = true"
+                        @input="onCarInput"
                         @blur="carPopoverOpen = false"
                         @keydown="onCarKeydown"
                       />
