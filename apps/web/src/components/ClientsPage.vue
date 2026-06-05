@@ -44,14 +44,22 @@ onMounted(load)
 
 const { copy, isSupported: clipboardSupported } = useClipboard({ legacy: true })
 
+function formatPhone(raw: string): string {
+  const match = /^(.+?)(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(raw)
+  if (!match) return raw
+  const [, prefix, a, b, c, d] = match
+  return `${prefix}-${a}-${b}-${c}-${d}`
+}
+
 async function copyPhone(phone: string) {
+  const formatted = formatPhone(phone)
   if (!clipboardSupported.value) {
     toast.error('Копирование недоступно в этом браузере')
     return
   }
   try {
-    await copy(phone)
-    toast.success('Телефон скопирован', { description: phone })
+    await copy(formatted)
+    toast.success('Телефон скопирован', { description: formatted })
   } catch {
     toast.error('Не удалось скопировать телефон')
   }
@@ -107,10 +115,10 @@ async function copyPhone(phone: string) {
                 <button
                   type="button"
                   class="rounded px-1 py-0.5 text-left hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  :title="`Скопировать ${client.phone}`"
+                  :title="`Скопировать ${formatPhone(client.phone)}`"
                   @click="copyPhone(client.phone)"
                 >
-                  {{ client.phone }}
+                  {{ formatPhone(client.phone) }}
                 </button>
               </td>
             </tr>
