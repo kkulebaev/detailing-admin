@@ -12,6 +12,7 @@ export const READINESS = [
 ] as const
 export type Readiness = (typeof READINESS)[number]
 
+// Single list of people — used for both Мастер and Ответственный fields.
 export const MASTERS = [
   'Вячеслав Толстов',
   'Иван Содель',
@@ -20,13 +21,3 @@ export const MASTERS = [
   'Андрей и ко.',
 ] as const
 export type Master = (typeof MASTERS)[number]
-
-export const RESPONSIBLES = [
-  'Вячеслав Толстов',
-  'Иван Содель',
-  'Сергей Теплов',
-  'Дмитрий Глотов',
-  'Андрей и ко.',
-  'Отмена',
-] as const
-export type Responsible = (typeof RESPONSIBLES)[number]

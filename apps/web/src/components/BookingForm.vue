@@ -10,7 +10,6 @@ import {
   bookingSchema,
   READINESS,
   MASTERS,
-  RESPONSIBLES,
 } from '@detailing-admin/shared'
 import type { BookingApiResult } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
@@ -525,7 +524,7 @@ async function onSubmit() {
             </FormControl>
             <SelectContent>
               <SelectItem
-                v-for="r in RESPONSIBLES"
+                v-for="r in MASTERS"
                 :key="r"
                 :value="r"
               >

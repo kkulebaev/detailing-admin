@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { READINESS, MASTERS, RESPONSIBLES } from './enums.js'
+import { READINESS, MASTERS } from './enums.js'
 import { parseDdmmyyyy } from './date.js'
 import { normalizePhone } from './phone.js'
 
@@ -18,7 +18,7 @@ export const bookingSchema = z
     amount: z.union([z.literal(''), z.number().int().nonnegative()]).default(''),
     readiness: z.enum(READINESS).or(z.literal('')).default(''),
     master: z.enum(MASTERS).or(z.literal('')).default(''),
-    responsible: z.enum(RESPONSIBLES).or(z.literal('')).default(''),
+    responsible: z.enum(MASTERS).or(z.literal('')).default(''),
   })
   .superRefine((v, ctx) => {
     if (v.dateTo) {
