@@ -39,4 +39,7 @@ COPY --from=builder /app/pnpm-workspace.yaml ./
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "pnpm -F @detailing-admin/web preview -- --port ${PORT:-8080} --host 0.0.0.0"]
+# Use `pnpm exec` from apps/web rather than `pnpm -F ... preview --`: recent
+# pnpm forwards the `--` separator literally to the script, and vite preview
+# stops arg parsing on `--`, which silently falls back to port 4173.
+CMD ["sh", "-c", "cd apps/web && pnpm exec vite preview --port ${PORT:-8080} --host 0.0.0.0"]
