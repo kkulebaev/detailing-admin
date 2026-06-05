@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarPlus, Users, X } from '@lucide/vue'
+import { BadgeRussianRuble, CalendarPlus, Users, X } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 
 defineProps<{ mobileOpen: boolean }>()
@@ -8,6 +8,7 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 const navItems = [
   { to: { name: 'booking' }, label: 'Запись', icon: CalendarPlus },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users },
+  { to: { name: 'pricelist' }, label: 'Прайс', icon: BadgeRussianRuble },
 ] as const
 </script>
 

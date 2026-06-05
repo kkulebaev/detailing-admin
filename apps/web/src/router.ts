@@ -8,6 +8,11 @@ const routes: RouteRecordRaw[] = [
     name: 'clients',
     component: () => import('@/components/ClientsPage.vue'),
   },
+  {
+    path: '/pricelist',
+    name: 'pricelist',
+    component: () => import('@/components/PricelistPage.vue'),
+  },
   { path: '/:pathMatch(.*)*', redirect: { name: 'booking' } },
 ]
 
