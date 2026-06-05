@@ -4,6 +4,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { env } from './env.js'
 import healthzRouter from './routes/healthz.js'
 import bookingsRouter from './routes/bookings.js'
+import clientsRouter from './routes/clients.js'
 
 export function createApp(): Hono {
   const app = new Hono()
@@ -25,6 +26,7 @@ export function createApp(): Hono {
 
   app.route('/healthz', healthzRouter)
   app.route('/api/bookings', bookingsRouter)
+  app.route('/api/clients', clientsRouter)
 
   app.notFound((c) => c.json({ ok: false, error: 'not_found' }, 404))
 

@@ -9,6 +9,11 @@ export interface UpsertResult {
   client: Client | null
 }
 
+export async function listClients(): Promise<Client[]> {
+  const db = getDb()
+  return db.select().from(clients)
+}
+
 /**
  * Upsert a client by phone. Caller must pass an already-normalized E.164 phone
  * (or empty string — empty phones are skipped, since phone is the natural key).
