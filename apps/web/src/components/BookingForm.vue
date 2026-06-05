@@ -46,6 +46,10 @@ const idempotencyKey = ref(uuid())
 // ── Multi-day toggle ──────────────────────────────────────────────────────────
 const isMultiDay = ref(false)
 
+// TODO: уведомления пока не реализованы — этот тоггл только для UI,
+// серверной отправки нет.
+const sendNotification = ref(false)
+
 // ── Calendar state ────────────────────────────────────────────────────────────
 const localTz = getLocalTimeZone()
 const todayVal = today(localTz)
@@ -934,6 +938,12 @@ watch(
           <FormMessage />
         </FormItem>
       </FormField>
+
+      <!-- Send notification toggle — placeholder, серверная логика ещё не подключена -->
+      <div class="flex items-center gap-3 mb-4">
+        <Switch v-model="sendNotification" />
+        <Label class="cursor-pointer">Отправить уведомление</Label>
+      </div>
     </form>
 
     <!-- Sticky submit bar (safe-area aware) -->
