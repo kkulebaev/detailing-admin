@@ -132,14 +132,18 @@ const {
 // vee-validate would otherwise re-run the schema (including normalizePhone, which
 // throws on partial input) and flash a transient phone error mid-typing.
 // We sync phoneRaw -> form field once in onSubmit (below).
+//
+// Write the formatted value to the DOM synchronously in the same event tick —
+// using nextTick caused a race where a fast second keystroke saw the old DOM
+// value before Vue's reactive update flushed, so every other character was lost.
 function onPhoneInput(e: Event) {
   const target = e.target as HTMLInputElement
   const formatted = formatPhone(target.value)
   phoneRaw.value = formatted
-  void nextTick(() => {
+  if (target.value !== formatted) {
     target.value = formatted
-    target.setSelectionRange(formatted.length, formatted.length)
-  })
+  }
+  target.setSelectionRange(formatted.length, formatted.length)
 }
 
 // ── Amount input handler ──────────────────────────────────────────────────────
