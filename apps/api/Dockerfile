@@ -33,10 +33,15 @@ FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Production node_modules (hoisted by pnpm)
+# Production node_modules: pnpm workspace stores deps under .pnpm at root and
+# symlinks per-package — we need BOTH the root store and the per-package
+# node_modules symlink directory or Node's resolver can't find packages like
+# @hono/node-server from apps/api/dist/main.js.
 COPY --from=pruner /app/node_modules ./node_modules
+COPY --from=pruner /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=pruner /app/apps/api/package.json ./apps/api/
 
-# Compiled API bundle
+# Compiled API bundle (shared is bundled in via tsup noExternal)
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3000
