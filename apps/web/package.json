@@ -1,0 +1,41 @@
+{
+  "name": "@detailing-admin/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@detailing-admin/shared": "workspace:*",
+    "@internationalized/date": "^3.5.6",
+    "@lucide/vue": "^1.17.0",
+    "@vee-validate/zod": "^4.15.1",
+    "@vueuse/core": "^11.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-vue-next": "^0.475.0",
+    "reka-ui": "^2.9.9",
+    "tailwind-merge": "^2.6.0",
+    "tw-animate-css": "^1.0.1",
+    "uuid": "^11.0.5",
+    "vee-validate": "^4.15.1",
+    "vue": "^3.5.0",
+    "vue-sonner": "^1.3.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vitest": "^2.0.0",
+    "vue-tsc": "^2.1.0"
+  }
+}
