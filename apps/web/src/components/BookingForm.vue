@@ -102,6 +102,11 @@ const LATIN_TO_CYRILLIC: Record<string, string> = {
   O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
 }
 
+function maskName(raw: string): string {
+  const noDigits = raw.replace(/\d/g, '')
+  return noDigits.replace(/(^|[\s\-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'))
+}
+
 function maskLicensePlate(raw: string): string {
   let out = ''
   for (const ch of raw.toUpperCase()) {
@@ -423,6 +428,16 @@ function onTimeToTextInput(e: Event) {
     target.setSelectionRange(masked.length, masked.length)
   }
   setFieldValue('timeTo', masked)
+}
+
+function onNameInput(e: Event) {
+  const target = e.target as HTMLInputElement
+  const masked = maskName(target.value)
+  if (target.value !== masked) {
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+  setFieldValue('name', masked)
 }
 
 function onLicensePlateInput(e: Event) {
@@ -930,6 +945,7 @@ watch(
                     class="h-11"
                     placeholder="Иван"
                     v-bind="componentField"
+                    @input="onNameInput"
                   />
                 </FormControl>
                 <FormMessage />
