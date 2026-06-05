@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, nextTick } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { v4 as uuid } from 'uuid'
@@ -54,12 +54,20 @@ const dateFromCal = shallowRef<DateValue>(todayVal)
 const dateToCal = shallowRef<DateValue>(todayVal)
 const dateFromOpen = ref(false)
 const dateToOpen = ref(false)
+// Time value is kept locally so we can show it inside the date Popover trigger
+// label. setFieldValue('time', …) keeps the vee-validate form state in sync.
+const timeValue = ref('')
 
 function calToString(d: DateValue): string {
   const dd = String(d.day).padStart(2, '0')
   const mm = String(d.month).padStart(2, '0')
   return `${dd}.${mm}.${d.year}`
 }
+
+const dateFromLabel = computed(() => {
+  const date = calToString(dateFromCal.value)
+  return timeValue.value ? `${date} ${timeValue.value}` : date
+})
 
 // ── Unavailable banner (non-dismissable) ─────────────────────────────────────
 type UnavailableBanner =
@@ -128,34 +136,40 @@ const {
 })
 
 // ── Phone input handler ───────────────────────────────────────────────────────
-// Bind ONLY the raw ref to the input; do not call setFieldValue on every keystroke.
-// vee-validate would otherwise re-run the schema (including normalizePhone, which
-// throws on partial input) and flash a transient phone error mid-typing.
-// We sync phoneRaw -> form field once in onSubmit (below).
-//
-// Write the formatted value to the DOM synchronously in the same event tick —
-// using nextTick caused a race where a fast second keystroke saw the old DOM
-// value before Vue's reactive update flushed, so every other character was lost.
+// Bind via v-model="phoneRaw" — shadcn-vue Input uses useVModel internally, so
+// :value+@input fought with its internal state and "ate" every other keystroke.
+// With v-model, Vue already syncs phoneRaw from the DOM. The handler only steps
+// in when formatPhone diverges from what the user typed (non-digit, leading 7/8,
+// over-length) and rewrites both the ref and the DOM so the mask snaps back.
 function onPhoneInput(e: Event) {
   const target = e.target as HTMLInputElement
   const formatted = formatPhone(target.value)
-  phoneRaw.value = formatted
   if (target.value !== formatted) {
+    phoneRaw.value = formatted
     target.value = formatted
+    target.setSelectionRange(formatted.length, formatted.length)
   }
-  target.setSelectionRange(formatted.length, formatted.length)
+}
+
+// ── Time input handler ───────────────────────────────────────────────────────
+function onTimeInput(e: Event) {
+  const v = (e.target as HTMLInputElement).value
+  timeValue.value = v
+  setFieldValue('time', v)
 }
 
 // ── Amount input handler ──────────────────────────────────────────────────────
+// Same v-model pattern as phone — shadcn Input's useVModel races with :value.
 function onAmountInput(e: Event) {
   const target = e.target as HTMLInputElement
-  const val = target.value.replace(/\D/g, '')
-  amountRaw.value = val
-  const parsed: '' | number = val === '' ? '' : parseInt(val, 10)
+  const stripped = target.value.replace(/\D/g, '')
+  if (target.value !== stripped) {
+    amountRaw.value = stripped
+    target.value = stripped
+    target.setSelectionRange(stripped.length, stripped.length)
+  }
+  const parsed: '' | number = stripped === '' ? '' : parseInt(stripped, 10)
   setFieldValue('amount', parsed)
-  void nextTick(() => {
-    target.value = val
-  })
 }
 
 // ── Calendar selection handlers ───────────────────────────────────────────────
@@ -220,6 +234,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
     })
     phoneRaw.value = PHONE_PREFIX
     amountRaw.value = ''
+    timeValue.value = ''
     dateFromCal.value = today(localTz)
     dateToCal.value = today(localTz)
     isMultiDay.value = false
@@ -283,10 +298,10 @@ async function onSubmit() {
     <form class="max-w-lg mx-auto px-4 pt-6 pb-36" @submit.prevent="onSubmit">
       <h1 class="text-xl font-semibold mb-6">Новая запись</h1>
 
-      <!-- Date from -->
+      <!-- Date + time (single popover) -->
       <FormField name="dateFrom">
         <FormItem class="mb-4">
-          <FormLabel>Дата</FormLabel>
+          <FormLabel>Дата и время</FormLabel>
           <Popover v-model:open="dateFromOpen">
             <PopoverTrigger as-child>
               <Button
@@ -294,7 +309,7 @@ async function onSubmit() {
                 variant="outline"
                 class="w-full h-11 justify-start font-normal"
               >
-                {{ calToString(dateFromCal) }}
+                {{ dateFromLabel }}
               </Button>
             </PopoverTrigger>
             <PopoverContent class="w-auto p-0" align="start">
@@ -302,8 +317,21 @@ async function onSubmit() {
                 :model-value="dateFromCal"
                 @update:model-value="onDateFromSelect"
               />
+              <div class="border-t p-3 flex items-center gap-3">
+                <Label for="booking-time" class="text-sm font-medium">Время</Label>
+                <input
+                  id="booking-time"
+                  type="time"
+                  :value="timeValue"
+                  @input="onTimeInput"
+                  class="border-input bg-transparent flex h-9 w-32 rounded-md border px-3 py-1 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+                >
+              </div>
             </PopoverContent>
           </Popover>
+          <p v-if="errors.time" class="text-sm font-medium text-destructive mt-1">
+            {{ errors.time }}
+          </p>
           <FormMessage />
         </FormItem>
       </FormField>
@@ -342,17 +370,6 @@ async function onSubmit() {
         </FormItem>
       </FormField>
 
-      <!-- Time -->
-      <FormField v-slot="{ componentField }" name="time">
-        <FormItem class="mb-4">
-          <FormLabel>Время</FormLabel>
-          <FormControl>
-            <Input type="time" class="h-11" v-bind="componentField" />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      </FormField>
-
       <!-- Name -->
       <FormField v-slot="{ componentField }" name="name">
         <FormItem class="mb-4">
@@ -377,7 +394,7 @@ async function onSubmit() {
           inputmode="tel"
           class="h-11"
           placeholder="+7 (___) ___-__-__"
-          :value="phoneRaw"
+          v-model="phoneRaw"
           @input="onPhoneInput"
         />
         <p v-if="errors.phone" class="text-sm font-medium text-destructive mt-1">
@@ -440,7 +457,7 @@ async function onSubmit() {
           inputmode="numeric"
           class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           placeholder="0"
-          :value="amountRaw"
+          v-model="amountRaw"
           @input="onAmountInput"
         />
         <p v-if="errors.amount" class="text-sm font-medium text-destructive mt-1">
