@@ -1,5 +1,5 @@
-export type { Readiness, Master, Responsible } from './enums.js'
-export { READINESS, MASTERS, RESPONSIBLES } from './enums.js'
+export type { Readiness, Master } from './enums.js'
+export { READINESS, MASTERS } from './enums.js'
 export { parseDdmmyyyy, formatDdmmyyyy } from './date.js'
 export { normalizePhone } from './phone.js'
 export { bookingSchema } from './booking.js'
