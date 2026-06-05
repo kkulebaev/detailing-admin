@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed } from 'vue'
+import { ref, shallowRef, computed, watch, onMounted } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { v4 as uuid } from 'uuid'
 import { toast } from 'vue-sonner'
-import { today, getLocalTimeZone } from '@internationalized/date'
+import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
@@ -54,9 +54,6 @@ const dateFromCal = shallowRef<DateValue>(todayVal)
 const dateToCal = shallowRef<DateValue>(todayVal)
 const dateFromOpen = ref(false)
 const dateToOpen = ref(false)
-// Time value is kept locally so we can show it inside the date Popover trigger
-// label. setFieldValue('time', …) keeps the vee-validate form state in sync.
-const timeValue = ref('')
 
 function calToString(d: DateValue): string {
   const dd = String(d.day).padStart(2, '0')
@@ -64,10 +61,39 @@ function calToString(d: DateValue): string {
   return `${dd}.${mm}.${d.year}`
 }
 
-const dateFromLabel = computed(() => {
-  const date = calToString(dateFromCal.value)
-  return timeValue.value ? `${date} ${timeValue.value}` : date
-})
+// Date/time live in their own refs so the user can type directly into masked
+// text inputs. The calendar popover is just an alternative input that writes
+// back into these refs.
+const dateFromText = ref(calToString(todayVal))
+const dateToText = ref(calToString(todayVal))
+const timeValue = ref('')
+
+function maskDateText(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 2) return d
+  if (d.length <= 4) return `${d.slice(0, 2)}.${d.slice(2)}`
+  return `${d.slice(0, 2)}.${d.slice(2, 4)}.${d.slice(4)}`
+}
+
+function maskTimeText(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 4)
+  if (d.length <= 2) return d
+  return `${d.slice(0, 2)}:${d.slice(2)}`
+}
+
+function parseDateText(text: string): DateValue | null {
+  const m = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+  if (!m) return null
+  const day = parseInt(m[1], 10)
+  const month = parseInt(m[2], 10)
+  const year = parseInt(m[3], 10)
+  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) return null
+  try {
+    return new CalendarDate(year, month, day)
+  } catch {
+    return null
+  }
+}
 
 // ── Unavailable banner (non-dismissable) ─────────────────────────────────────
 type UnavailableBanner =
@@ -85,8 +111,29 @@ const unavailableBanner = ref<UnavailableBanner | null>(null)
 // significant digit, not a country code re-entry.
 const PHONE_PREFIX = '+7 ('
 const phoneRaw = ref(PHONE_PREFIX)
-// ── Amount display value ──────────────────────────────────────────────────────
+// ── Amount display value (formatted with thousand separators) ────────────────
 const amountRaw = ref('')
+
+function formatAmount(digits: string): string {
+  if (!digits) return ''
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}
+
+function amountDigits(formatted: string): string {
+  return formatted.replace(/\D/g, '')
+}
+
+// ── Quick-pick presets ───────────────────────────────────────────────────────
+const SERVICE_PRESETS = [
+  'Полная мойка',
+  'Химчистка',
+  'Полировка',
+  'Тонировка',
+  'Оклейка фар',
+  'Антихром',
+] as const
+
+const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
 
 function formatPhone(input: string): string {
   const digits = input.replace(/\D/g, '')
@@ -115,6 +162,7 @@ const {
   setFieldValue,
   setFieldError,
   resetForm,
+  values,
   errors,
   isSubmitting,
 } = useForm({
@@ -151,40 +199,95 @@ function onPhoneInput(e: Event) {
   }
 }
 
-// ── Time input handler ───────────────────────────────────────────────────────
-function onTimeInput(e: Event) {
-  const v = (e.target as HTMLInputElement).value
-  timeValue.value = v
-  setFieldValue('time', v)
+// ── Date / time text input handlers ──────────────────────────────────────────
+function onDateFromTextInput(e: Event) {
+  const target = e.target as HTMLInputElement
+  const masked = maskDateText(target.value)
+  if (target.value !== masked) {
+    dateFromText.value = masked
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+  setFieldValue('dateFrom', masked)
+  const parsed = parseDateText(masked)
+  if (parsed) dateFromCal.value = parsed
+}
+
+function onDateToTextInput(e: Event) {
+  const target = e.target as HTMLInputElement
+  const masked = maskDateText(target.value)
+  if (target.value !== masked) {
+    dateToText.value = masked
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+  if (isMultiDay.value) setFieldValue('dateTo', masked)
+  const parsed = parseDateText(masked)
+  if (parsed) dateToCal.value = parsed
+}
+
+function onTimeTextInput(e: Event) {
+  const target = e.target as HTMLInputElement
+  const masked = maskTimeText(target.value)
+  if (target.value !== masked) {
+    timeValue.value = masked
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+  setFieldValue('time', masked)
 }
 
 // ── Amount input handler ──────────────────────────────────────────────────────
-// Same v-model pattern as phone — shadcn Input's useVModel races with :value.
+// amountRaw stores the formatted (with spaces) display value. Form field
+// `amount` stores the parsed integer (or '' when empty).
 function onAmountInput(e: Event) {
   const target = e.target as HTMLInputElement
-  const stripped = target.value.replace(/\D/g, '')
-  if (target.value !== stripped) {
-    amountRaw.value = stripped
-    target.value = stripped
-    target.setSelectionRange(stripped.length, stripped.length)
+  const digits = amountDigits(target.value)
+  const formatted = formatAmount(digits)
+  if (target.value !== formatted) {
+    amountRaw.value = formatted
+    target.value = formatted
+    target.setSelectionRange(formatted.length, formatted.length)
   }
-  const parsed: '' | number = stripped === '' ? '' : parseInt(stripped, 10)
+  const parsed: '' | number = digits === '' ? '' : parseInt(digits, 10)
   setFieldValue('amount', parsed)
+}
+
+function addAmount(delta: number) {
+  const current = parseInt(amountDigits(amountRaw.value), 10) || 0
+  const next = current + delta
+  amountRaw.value = formatAmount(String(next))
+  setFieldValue('amount', next)
+}
+
+function addServicePreset(text: string) {
+  const current = (values.service ?? '').trim()
+  if (!current) {
+    setFieldValue('service', text)
+    return
+  }
+  // avoid double-appending the same preset back-to-back
+  if (current.endsWith(text)) return
+  setFieldValue('service', `${current}, ${text}`)
 }
 
 // ── Calendar selection handlers ───────────────────────────────────────────────
 function onDateFromSelect(date: DateValue | undefined) {
   if (!date) return
   dateFromCal.value = date
-  setFieldValue('dateFrom', calToString(date))
+  const str = calToString(date)
+  dateFromText.value = str
+  setFieldValue('dateFrom', str)
   dateFromOpen.value = false
 }
 
 function onDateToSelect(date: DateValue | undefined) {
   if (!date) return
   dateToCal.value = date
+  const str = calToString(date)
+  dateToText.value = str
   if (isMultiDay.value) {
-    setFieldValue('dateTo', calToString(date))
+    setFieldValue('dateTo', str)
   }
   dateToOpen.value = false
 }
@@ -192,7 +295,7 @@ function onDateToSelect(date: DateValue | undefined) {
 function toggleMultiDay(val: boolean) {
   isMultiDay.value = val
   if (val) {
-    setFieldValue('dateTo', calToString(dateToCal.value))
+    setFieldValue('dateTo', dateToText.value)
   } else {
     setFieldValue('dateTo', undefined)
   }
@@ -235,9 +338,12 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
     phoneRaw.value = PHONE_PREFIX
     amountRaw.value = ''
     timeValue.value = ''
+    dateFromText.value = calToString(today(localTz))
+    dateToText.value = calToString(today(localTz))
     dateFromCal.value = today(localTz)
     dateToCal.value = today(localTz)
     isMultiDay.value = false
+    clearDraft()
   } else if (result.error === 'unavailable' && result.reason === 'headers_mismatch') {
     unavailableBanner.value = {
       kind: 'headers_mismatch',
@@ -273,6 +379,123 @@ async function onSubmit() {
   setFieldValue('phone', effectivePhone())
   await handleValidatedSubmit()
 }
+
+// ── Draft persistence (localStorage) ─────────────────────────────────────────
+const DRAFT_KEY = 'detailing-admin:booking-draft:v1'
+
+interface Draft {
+  dateFromText: string
+  dateToText: string
+  timeValue: string
+  isMultiDay: boolean
+  name: string
+  phoneRaw: string
+  car: string
+  service: string
+  note: string
+  amountRaw: string
+  readiness?: string
+  master?: string
+  responsible?: string
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY) } catch { /* storage may be disabled */ }
+}
+
+function saveDraft() {
+  try {
+    const draft: Draft = {
+      dateFromText: dateFromText.value,
+      dateToText: dateToText.value,
+      timeValue: timeValue.value,
+      isMultiDay: isMultiDay.value,
+      name: values.name ?? '',
+      phoneRaw: phoneRaw.value,
+      car: values.car ?? '',
+      service: values.service ?? '',
+      note: values.note ?? '',
+      amountRaw: amountRaw.value,
+      readiness: values.readiness,
+      master: values.master,
+      responsible: values.responsible,
+    }
+    // Don't persist an essentially-empty form
+    const meaningful =
+      draft.timeValue || draft.name || draft.car || draft.service ||
+      draft.note || draft.amountRaw || draft.readiness || draft.master ||
+      draft.responsible || (draft.phoneRaw && draft.phoneRaw !== PHONE_PREFIX)
+    if (!meaningful) { clearDraft(); return }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+  } catch { /* ignore */ }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return
+    const d = JSON.parse(raw) as Partial<Draft>
+    if (d.dateFromText) {
+      dateFromText.value = d.dateFromText
+      const parsed = parseDateText(d.dateFromText)
+      if (parsed) dateFromCal.value = parsed
+      setFieldValue('dateFrom', d.dateFromText)
+    }
+    if (d.dateToText) {
+      dateToText.value = d.dateToText
+      const parsed = parseDateText(d.dateToText)
+      if (parsed) dateToCal.value = parsed
+    }
+    if (d.isMultiDay) {
+      isMultiDay.value = true
+      setFieldValue('dateTo', d.dateToText)
+    }
+    if (d.timeValue) {
+      timeValue.value = d.timeValue
+      setFieldValue('time', d.timeValue)
+    }
+    if (d.name) setFieldValue('name', d.name)
+    if (d.phoneRaw) phoneRaw.value = d.phoneRaw
+    if (d.car) setFieldValue('car', d.car)
+    if (d.service) setFieldValue('service', d.service)
+    if (d.note) setFieldValue('note', d.note)
+    if (d.amountRaw) {
+      amountRaw.value = d.amountRaw
+      const digits = amountDigits(d.amountRaw)
+      if (digits) setFieldValue('amount', parseInt(digits, 10))
+    }
+    if (d.readiness) setFieldValue('readiness', d.readiness as never)
+    if (d.master) setFieldValue('master', d.master as never)
+    if (d.responsible) setFieldValue('responsible', d.responsible as never)
+    toast('Восстановлен черновик', {
+      description: 'Если не хочешь — поправь любое поле или очисти страницу.',
+    })
+  } catch { /* corrupted draft: ignore */ }
+}
+
+onMounted(loadDraft)
+
+// Debounce-ish: schedule a save on the next frame; coalesces bursts of edits
+let saveScheduled = false
+function scheduleSave() {
+  if (saveScheduled) return
+  saveScheduled = true
+  requestAnimationFrame(() => {
+    saveScheduled = false
+    saveDraft()
+  })
+}
+
+watch(
+  [
+    dateFromText, dateToText, timeValue, isMultiDay,
+    phoneRaw, amountRaw,
+    () => values.name, () => values.car, () => values.service,
+    () => values.note, () => values.readiness, () => values.master,
+    () => values.responsible,
+  ],
+  scheduleSave,
+)
 </script>
 
 <template>
@@ -298,42 +521,52 @@ async function onSubmit() {
     <form class="max-w-lg mx-auto px-4 pt-6 pb-36" @submit.prevent="onSubmit">
       <h1 class="text-xl font-semibold mb-6">Новая запись</h1>
 
-      <!-- Date + time (single popover) -->
-      <FormField name="dateFrom">
-        <FormItem class="mb-4">
-          <FormLabel>Дата и время</FormLabel>
-          <Popover v-model:open="dateFromOpen">
-            <PopoverTrigger as-child>
-              <Button
-                type="button"
-                variant="outline"
-                class="w-full h-11 justify-start font-normal"
-              >
-                {{ dateFromLabel }}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-auto p-0" align="start">
-              <Calendar
-                :model-value="dateFromCal"
-                @update:model-value="onDateFromSelect"
-              />
-              <div class="border-t p-3 flex items-center gap-3">
-                <Label for="booking-time" class="text-sm font-medium">Время</Label>
-                <input
-                  id="booking-time"
-                  type="time"
-                  :value="timeValue"
-                  @input="onTimeInput"
-                  class="border-input bg-transparent flex h-9 w-32 rounded-md border px-3 py-1 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+      <!-- Date + time (typeable inputs with optional calendar popover) -->
+      <div class="mb-4">
+        <Label class="mb-2 block">Дата и время</Label>
+        <div class="flex gap-2">
+          <!-- Date text input + calendar icon trigger -->
+          <div class="relative flex-1">
+            <Input
+              type="text"
+              inputmode="numeric"
+              class="h-11 pr-10"
+              placeholder="ДД.ММ.ГГГГ"
+              v-model="dateFromText"
+              @input="onDateFromTextInput"
+            />
+            <Popover v-model:open="dateFromOpen">
+              <PopoverTrigger as-child>
+                <button
+                  type="button"
+                  aria-label="Выбрать дату в календаре"
+                  class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
                 >
-              </div>
-            </PopoverContent>
-          </Popover>
-          <p v-if="errors.time" class="text-sm font-medium text-destructive mt-1">
-            {{ errors.time }}
-          </p>
-        </FormItem>
-      </FormField>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto p-0" align="start">
+                <Calendar
+                  :model-value="dateFromCal"
+                  @update:model-value="onDateFromSelect"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <!-- Time text input (masked HH:MM) -->
+          <Input
+            type="text"
+            inputmode="numeric"
+            class="h-11 w-24"
+            placeholder="ЧЧ:ММ"
+            v-model="timeValue"
+            @input="onTimeTextInput"
+          />
+        </div>
+        <p v-if="errors.time" class="text-sm font-medium text-destructive mt-1">
+          {{ errors.time }}
+        </p>
+      </div>
 
       <!-- Multi-day toggle -->
       <div class="flex items-center gap-3 mb-4">
@@ -345,18 +578,26 @@ async function onSubmit() {
       </div>
 
       <!-- Date to (revealed when multi-day) -->
-      <FormField v-if="isMultiDay" name="dateTo">
-        <FormItem class="mb-4">
-          <FormLabel>по</FormLabel>
+      <div v-if="isMultiDay" class="mb-4">
+        <Label class="mb-2 block">по</Label>
+        <div class="relative">
+          <Input
+            type="text"
+            inputmode="numeric"
+            class="h-11 pr-10"
+            placeholder="ДД.ММ.ГГГГ"
+            v-model="dateToText"
+            @input="onDateToTextInput"
+          />
           <Popover v-model:open="dateToOpen">
             <PopoverTrigger as-child>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                class="w-full h-11 justify-start font-normal"
+                aria-label="Выбрать дату в календаре"
+                class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
               >
-                {{ calToString(dateToCal) }}
-              </Button>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+              </button>
             </PopoverTrigger>
             <PopoverContent class="w-auto p-0" align="start">
               <Calendar
@@ -365,9 +606,8 @@ async function onSubmit() {
               />
             </PopoverContent>
           </Popover>
-          <FormMessage />
-        </FormItem>
-      </FormField>
+        </div>
+      </div>
 
       <!-- Name -->
       <FormField v-slot="{ componentField }" name="name">
@@ -421,6 +661,17 @@ async function onSubmit() {
       <FormField v-slot="{ componentField }" name="service">
         <FormItem class="mb-4">
           <FormLabel>Услуга</FormLabel>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <button
+              v-for="preset in SERVICE_PRESETS"
+              :key="preset"
+              type="button"
+              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
+              @click="addServicePreset(preset)"
+            >
+              + {{ preset }}
+            </button>
+          </div>
           <FormControl>
             <Textarea
               rows="3"
@@ -459,6 +710,17 @@ async function onSubmit() {
           v-model="amountRaw"
           @input="onAmountInput"
         />
+        <div class="flex flex-wrap gap-2 mt-2">
+          <button
+            v-for="delta in AMOUNT_PRESETS"
+            :key="delta"
+            type="button"
+            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
+            @click="addAmount(delta)"
+          >
+            +{{ formatAmount(String(delta)) }}
+          </button>
+        </div>
         <p v-if="errors.amount" class="text-sm font-medium text-destructive mt-1">
           {{ errors.amount }}
         </p>
