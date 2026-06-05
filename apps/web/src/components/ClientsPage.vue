@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useClipboard } from '@vueuse/core'
+import { onMounted, ref } from 'vue'
+import { useClipboard, useSorted } from '@vueuse/core'
+import { ChevronDown, ChevronsUpDown, ChevronUp } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import { fetchClients, type Client } from '@/lib/clients-api'
 
@@ -10,15 +11,26 @@ const error = ref<string | null>(null)
 
 const collator = new Intl.Collator('ru', { sensitivity: 'base' })
 
-const clients = computed<Client[]>(() => {
-  return [...rawClients.value].sort((a, b) => {
-    const aEmpty = a.name.length === 0
-    const bEmpty = b.name.length === 0
-    if (aEmpty !== bEmpty) return aEmpty ? 1 : -1
-    const byName = collator.compare(a.name, b.name)
-    if (byName !== 0) return byName
-    return a.phone.localeCompare(b.phone)
-  })
+type SortKey = 'name' | 'phone'
+type SortDir = 'asc' | 'desc'
+
+const sortKey = ref<SortKey>('name')
+const sortDir = ref<SortDir>('asc')
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  }
+}
+
+const clients = useSorted(rawClients, (a, b) => {
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  return sortKey.value === 'name'
+    ? collator.compare(a.name, b.name) * dir
+    : a.phone.localeCompare(b.phone) * dir
 })
 
 async function load() {
@@ -98,9 +110,34 @@ async function copyPhone(phone: string) {
         <table class="w-full text-sm">
           <thead class="bg-muted/50 text-left text-muted-foreground">
             <tr>
-              <th class="px-4 py-2 font-medium">#</th>
-              <th class="px-4 py-2 font-medium">Имя</th>
-              <th class="px-4 py-2 font-medium">Телефон</th>
+              <th scope="col" class="px-4 py-2 font-medium">#</th>
+              <th
+                v-for="col in [
+                  { key: 'name', label: 'Имя' },
+                  { key: 'phone', label: 'Телефон' },
+                ] as { key: SortKey; label: string }[]"
+                :key="col.key"
+                scope="col"
+                class="px-4 py-2 font-medium"
+                :aria-sort="
+                  sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+                "
+              >
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  :class="{ 'text-foreground': sortKey === col.key }"
+                  @click="toggleSort(col.key)"
+                >
+                  <span>{{ col.label }}</span>
+                  <ChevronUp v-if="sortKey === col.key && sortDir === 'asc'" class="size-3.5" />
+                  <ChevronDown
+                    v-else-if="sortKey === col.key && sortDir === 'desc'"
+                    class="size-3.5"
+                  />
+                  <ChevronsUpDown v-else class="size-3.5 opacity-50" />
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
