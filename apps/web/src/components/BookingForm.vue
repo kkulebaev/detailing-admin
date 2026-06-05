@@ -153,6 +153,20 @@ function formatPhone(input: string): string {
   return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8)}`
 }
 
+// Pasted strings may carry a country code, separators, or no prefix at all.
+// Reduce to the 10 significant digits before reusing formatPhone — typing
+// goes through a different path that can't safely strip a "leading 7/8" twice.
+function formatPastedPhone(input: string): string {
+  const digits = input.replace(/\D/g, '')
+  let ten = digits
+  if (ten.length === 11 && (ten.startsWith('7') || ten.startsWith('8'))) {
+    ten = ten.slice(1)
+  } else if (ten.length > 10) {
+    ten = ten.slice(-10)
+  }
+  return formatPhone(ten)
+}
+
 // Returns the phone value to send on submit:
 //   '' when the user hasn't typed any real digits past the prefix,
 //   the raw masked string otherwise (server transform normalises to E.164).
@@ -202,6 +216,28 @@ function onPhoneInput(e: Event) {
     phoneRaw.value = formatted
     target.value = formatted
     target.setSelectionRange(formatted.length, formatted.length)
+  }
+}
+
+// Native Ctrl+V: bypass mixing the pasted text with the existing +7 ( prefix —
+// just take the clipboard payload verbatim and format it.
+function onPhonePaste(e: ClipboardEvent) {
+  const text = e.clipboardData?.getData('text') ?? ''
+  if (!text) return
+  e.preventDefault()
+  phoneRaw.value = formatPastedPhone(text)
+}
+
+async function onClickPastePhone() {
+  try {
+    const text = await navigator.clipboard.readText()
+    if (!text.trim()) {
+      toast.error('Буфер обмена пуст')
+      return
+    }
+    phoneRaw.value = formatPastedPhone(text)
+  } catch {
+    toast.error('Не удалось прочитать буфер обмена')
   }
 }
 
@@ -580,7 +616,20 @@ watch(
     </div>
 
     <form class="max-w-lg mx-auto px-4 pt-6 pb-36" @submit.prevent="onSubmit">
-      <h1 class="text-xl font-semibold mb-6">Новая запись</h1>
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-xl font-semibold">Новая запись</h1>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground"
+          :disabled="isSubmitting"
+          @click="clearForm"
+          aria-label="Очистить форму"
+        >
+          Очистить
+        </Button>
+      </div>
 
       <!-- Date + time (typeable inputs with optional calendar popover) -->
       <div class="mb-4">
@@ -705,14 +754,25 @@ watch(
       <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
       <div class="mb-4">
         <Label class="mb-2 block">Номер телефона</Label>
-        <Input
-          type="tel"
-          inputmode="tel"
-          class="h-11"
-          placeholder="+7 (___) ___-__-__"
-          v-model="phoneRaw"
-          @input="onPhoneInput"
-        />
+        <div class="relative">
+          <Input
+            type="tel"
+            inputmode="tel"
+            class="h-11 pr-24"
+            placeholder="+7 (___) ___-__-__"
+            v-model="phoneRaw"
+            @input="onPhoneInput"
+            @paste="onPhonePaste"
+          />
+          <button
+            type="button"
+            aria-label="Вставить номер из буфера обмена"
+            class="absolute right-1 top-1/2 -translate-y-1/2 h-9 px-3 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground text-xs font-medium"
+            @click="onClickPastePhone"
+          >
+            Вставить
+          </button>
+        </div>
         <p v-if="errors.phone" class="text-sm font-medium text-destructive mt-1">
           {{ errors.phone }}
         </p>
@@ -876,22 +936,12 @@ watch(
       </FormField>
     </form>
 
-    <!-- Sticky submit + clear bar (safe-area aware) -->
+    <!-- Sticky submit bar (safe-area aware) -->
     <div class="fixed bottom-0 left-0 right-0 px-4 py-4 bg-background border-t border-border pb-safe">
-      <div class="max-w-lg mx-auto flex gap-2">
+      <div class="max-w-lg mx-auto">
         <Button
           type="button"
-          variant="outline"
-          class="h-12 px-4"
-          :disabled="isSubmitting"
-          @click="clearForm"
-          aria-label="Очистить форму"
-        >
-          Очистить
-        </Button>
-        <Button
-          type="button"
-          class="flex-1 h-12 text-base font-medium"
+          class="w-full h-12 text-base font-medium"
           :disabled="isSubmitting"
           @click="onSubmit"
         >
