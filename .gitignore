@@ -26,3 +26,6 @@ service-account*.json
 *-credentials.json
 *.pem
 *.key
+
+# Seed dumps from Google Sheets — contain PII (phone numbers, names)
+.seed/

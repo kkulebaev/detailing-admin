@@ -16,7 +16,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "seed:dump": "tsx --env-file=.env scripts/seed-dump.ts",
+    "seed:load": "tsx --env-file=.env scripts/seed-load.ts",
+    "seed": "pnpm seed:dump && pnpm seed:load"
   },
   "dependencies": {
     "@detailing-admin/shared": "workspace:*",
