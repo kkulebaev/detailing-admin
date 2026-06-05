@@ -45,9 +45,6 @@ import {
 // ── Idempotency key: same across retries, regenerated on success ──────────────
 const idempotencyKey = ref(uuid())
 
-// ── Multi-day toggle ──────────────────────────────────────────────────────────
-const isMultiDay = ref(false)
-
 // TODO: уведомления пока не реализованы — этот тоггл только для UI,
 // серверной отправки нет.
 const sendNotification = ref(false)
@@ -58,6 +55,11 @@ const todayVal = today(localTz)
 // shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it)
 const dateFromCal = shallowRef<DateValue>(todayVal)
 const dateToCal = shallowRef<DateValue>(todayVal)
+
+// Range mode (replaces the old Switch). When on, the second row
+// «Окончание работ» appears with its own date + time inputs.
+const isRangeMode = ref(false)
+
 const dateFromOpen = ref(false)
 const dateToOpen = ref(false)
 
@@ -106,6 +108,11 @@ function parseDateText(text: string): DateValue | null {
   }
 }
 
+function sameDay(a: DateValue | undefined, b: DateValue | undefined): boolean {
+  if (!a || !b) return false
+  return a.year === b.year && a.month === b.month && a.day === b.day
+}
+
 // ── Unavailable banner (non-dismissable) ─────────────────────────────────────
 type UnavailableBanner =
   | {
@@ -145,6 +152,12 @@ const SERVICE_PRESETS = [
 ] as const
 
 const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
+
+// Working hours of the detailing shop: 10:00–20:00 hourly.
+const TIME_PRESETS = [
+  '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
+  '16:00', '17:00', '18:00', '19:00', '20:00',
+] as const
 
 function formatPhone(input: string): string {
   const digits = input.replace(/\D/g, '')
@@ -209,8 +222,53 @@ const {
   },
 })
 
+// ── Quick date chips ─────────────────────────────────────────────────────────
+function shiftedDate(days: number): DateValue {
+  return todayVal.add({ days })
+}
+
+function pickDay(days: number) {
+  const d = shiftedDate(days)
+  isRangeMode.value = false
+  dateFromCal.value = d
+  dateFromText.value = calToString(d)
+  setFieldValue('dateFrom', calToString(d))
+  setFieldValue('dateTo', undefined)
+  setFieldValue('timeTo', undefined)
+  timeToValue.value = ''
+}
+
+function toggleRangeMode() {
+  if (isRangeMode.value) {
+    isRangeMode.value = false
+    setFieldValue('dateTo', undefined)
+    setFieldValue('timeTo', undefined)
+    timeToValue.value = ''
+    return
+  }
+  isRangeMode.value = true
+  // Mirror dateFrom into dateTo so the user can adjust just the end, and a
+  // half-filled range never lands in the form fields.
+  dateToCal.value = dateFromCal.value
+  dateToText.value = dateFromText.value
+  setFieldValue('dateTo', dateFromText.value)
+}
+
+const isTodayActive = computed(() => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(0)))
+const isTomorrowActive = computed(() => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(1)))
+const isDayAfter2Active = computed(() => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(2)))
+
+function pickTime(t: string) {
+  timeValue.value = t
+  setFieldValue('time', t)
+}
+
+function pickTimeTo(t: string) {
+  timeToValue.value = t
+  setFieldValue('timeTo', t)
+}
+
 // ── Car suggestions (autocomplete combobox) ──────────────────────────────────
-// Placed after useForm so the computed/watch can read `values.car` without TDZ.
 const carPopoverOpen = ref(false)
 const carActiveIndex = ref(0)
 const carListEl = ref<HTMLElement | null>(null)
@@ -262,11 +320,6 @@ function onCarKeydown(e: KeyboardEvent) {
 }
 
 // ── Phone input handler ───────────────────────────────────────────────────────
-// Bind via v-model="phoneRaw" — shadcn-vue Input uses useVModel internally, so
-// :value+@input fought with its internal state and "ate" every other keystroke.
-// With v-model, Vue already syncs phoneRaw from the DOM. The handler only steps
-// in when formatPhone diverges from what the user typed (non-digit, leading 7/8,
-// over-length) and rewrites both the ref and the DOM so the mask snaps back.
 function onPhoneInput(e: Event) {
   const target = e.target as HTMLInputElement
   const formatted = formatPhone(target.value)
@@ -277,8 +330,6 @@ function onPhoneInput(e: Event) {
   }
 }
 
-// Native Ctrl+V: bypass mixing the pasted text with the existing +7 ( prefix —
-// just take the clipboard payload verbatim and format it.
 function onPhonePaste(e: ClipboardEvent) {
   const text = e.clipboardData?.getData('text') ?? ''
   if (!text) return
@@ -321,7 +372,7 @@ function onDateToTextInput(e: Event) {
     target.value = masked
     target.setSelectionRange(masked.length, masked.length)
   }
-  if (isMultiDay.value) setFieldValue('dateTo', masked)
+  setFieldValue('dateTo', masked)
   const parsed = parseDateText(masked)
   if (parsed) dateToCal.value = parsed
 }
@@ -345,12 +396,10 @@ function onTimeToTextInput(e: Event) {
     target.value = masked
     target.setSelectionRange(masked.length, masked.length)
   }
-  if (isMultiDay.value) setFieldValue('timeTo', masked)
+  setFieldValue('timeTo', masked)
 }
 
 // ── Amount input handler ──────────────────────────────────────────────────────
-// amountRaw stores the formatted (with spaces) display value. Form field
-// `amount` stores the parsed integer (or '' when empty).
 function onAmountInput(e: Event) {
   const target = e.target as HTMLInputElement
   const digits = amountDigits(target.value)
@@ -377,7 +426,6 @@ function addServicePreset(text: string) {
     setFieldValue('service', text)
     return
   }
-  // avoid double-appending the same preset back-to-back
   if (current.endsWith(text)) return
   setFieldValue('service', `${current}, ${text}`)
 }
@@ -397,24 +445,8 @@ function onDateToSelect(date: DateValue | undefined) {
   dateToCal.value = date
   const str = calToString(date)
   dateToText.value = str
-  if (isMultiDay.value) {
-    setFieldValue('dateTo', str)
-  }
+  setFieldValue('dateTo', str)
   dateToOpen.value = false
-}
-
-function toggleMultiDay(val: boolean | string) {
-  // Reka's emit signature is `boolean | string` (matches checkbox tri-state);
-  // we only care about the boolean case.
-  const next = val === true
-  isMultiDay.value = next
-  if (next) {
-    setFieldValue('dateTo', dateToText.value)
-    setFieldValue('timeTo', timeToValue.value)
-  } else {
-    setFieldValue('dateTo', undefined)
-    setFieldValue('timeTo', undefined)
-  }
 }
 
 // ── Submit ────────────────────────────────────────────────────────────────────
@@ -424,7 +456,6 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   try {
     result = await submitBooking(values, idempotencyKey.value)
   } catch {
-    // Network / fetch failure
     const retry = () => { void onSubmit() }
     toast.error('Ошибка при сохранении', {
       action: { label: 'Повторить', onClick: retry },
@@ -435,32 +466,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   if (result.ok) {
     toast.success('Запись сохранена')
     idempotencyKey.value = uuid()
-    resetForm({
-      values: {
-        dateFrom: calToString(today(localTz)),
-        dateTo: undefined,
-        time: '',
-        name: '',
-        phone: '',
-        car: '',
-        service: '',
-        note: '',
-        amount: '',
-        readiness: undefined,
-        master: '',
-        responsible: undefined,
-      },
-    })
-    phoneRaw.value = PHONE_PREFIX
-    amountRaw.value = ''
-    timeValue.value = ''
-    timeToValue.value = ''
-    dateFromText.value = calToString(today(localTz))
-    dateToText.value = calToString(today(localTz))
-    dateFromCal.value = today(localTz)
-    dateToCal.value = today(localTz)
-    isMultiDay.value = false
-    submitAttempted.value = false
+    resetFormState()
     clearDraft()
   } else if (result.error === 'unavailable' && result.reason === 'headers_mismatch') {
     unavailableBanner.value = {
@@ -490,19 +496,18 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   }
 })
 
-// Sync the masked raw phone into the form field once, then let vee-validate
-// validate (which runs normalizePhone) and POST. See F7.
-// Empty-out the prefix-only case so normalizePhone doesn't reject "+7 (" as garbage.
 async function onSubmit() {
   submitAttempted.value = true
   setFieldValue('phone', effectivePhone())
   await handleValidatedSubmit()
 }
 
-function clearForm() {
+// Shared reset for both the clear-button and post-submit flows.
+function resetFormState() {
+  const fresh = today(localTz)
   resetForm({
     values: {
-      dateFrom: calToString(today(localTz)),
+      dateFrom: calToString(fresh),
       dateTo: undefined,
       time: '',
       timeTo: undefined,
@@ -521,26 +526,31 @@ function clearForm() {
   amountRaw.value = ''
   timeValue.value = ''
   timeToValue.value = ''
-  dateFromText.value = calToString(today(localTz))
-  dateToText.value = calToString(today(localTz))
-  dateFromCal.value = today(localTz)
-  dateToCal.value = today(localTz)
-  isMultiDay.value = false
+  dateFromText.value = calToString(fresh)
+  dateToText.value = calToString(fresh)
+  dateFromCal.value = fresh
+  dateToCal.value = fresh
+  isRangeMode.value = false
   submitAttempted.value = false
+}
+
+function clearForm() {
+  resetFormState()
   idempotencyKey.value = uuid()
   unavailableBanner.value = null
   clearDraft()
 }
 
 // ── Draft persistence (localStorage) ─────────────────────────────────────────
-const DRAFT_KEY = 'detailing-admin:booking-draft:v1'
+// v3: chip-based range mode (isRangeMode replaces multi-day switch).
+const DRAFT_KEY = 'detailing-admin:booking-draft:v3'
 
 interface Draft {
   dateFromText: string
   dateToText: string
   timeValue: string
   timeToValue: string
-  isMultiDay: boolean
+  isRangeMode: boolean
   name: string
   phoneRaw: string
   car: string
@@ -563,7 +573,7 @@ function saveDraft() {
       dateToText: dateToText.value,
       timeValue: timeValue.value,
       timeToValue: timeToValue.value,
-      isMultiDay: isMultiDay.value,
+      isRangeMode: isRangeMode.value,
       name: values.name ?? '',
       phoneRaw: phoneRaw.value,
       car: values.car ?? '',
@@ -574,9 +584,8 @@ function saveDraft() {
       master: values.master,
       responsible: values.responsible,
     }
-    // Don't persist an essentially-empty form
     const meaningful =
-      draft.timeValue || draft.name || draft.car || draft.service ||
+      draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.service ||
       draft.note || draft.amountRaw || draft.readiness || draft.master ||
       draft.responsible || (draft.phoneRaw && draft.phoneRaw !== PHONE_PREFIX)
     if (!meaningful) { clearDraft(); return }
@@ -600,8 +609,8 @@ function loadDraft() {
       const parsed = parseDateText(d.dateToText)
       if (parsed) dateToCal.value = parsed
     }
-    if (d.isMultiDay) {
-      isMultiDay.value = true
+    if (d.isRangeMode) {
+      isRangeMode.value = true
       setFieldValue('dateTo', d.dateToText)
       if (d.timeToValue) {
         timeToValue.value = d.timeToValue
@@ -630,7 +639,6 @@ function loadDraft() {
 
 onMounted(loadDraft)
 
-// Debounce-ish: schedule a save on the next frame; coalesces bursts of edits
 let saveScheduled = false
 function scheduleSave() {
   if (saveScheduled) return
@@ -643,7 +651,7 @@ function scheduleSave() {
 
 watch(
   [
-    dateFromText, dateToText, timeValue, timeToValue, isMultiDay,
+    dateFromText, dateToText, timeValue, timeToValue, isRangeMode,
     phoneRaw, amountRaw,
     () => values.name, () => values.car, () => values.service,
     () => values.note, () => values.readiness, () => values.master,
@@ -689,9 +697,46 @@ watch(
         </Button>
       </div>
 
-      <!-- Date + time (typeable inputs with optional calendar popover) -->
+      <!-- Date + time -->
       <div class="mb-4">
         <Label class="mb-2 block">Дата и время</Label>
+
+        <!-- Quick date chips -->
+        <div class="flex flex-wrap gap-2 mb-2">
+          <button
+            type="button"
+            :data-active="isTodayActive"
+            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+            @click="pickDay(0)"
+          >
+            Сегодня
+          </button>
+          <button
+            type="button"
+            :data-active="isTomorrowActive"
+            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+            @click="pickDay(1)"
+          >
+            Завтра
+          </button>
+          <button
+            type="button"
+            :data-active="isDayAfter2Active"
+            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+            @click="pickDay(2)"
+          >
+            Послезавтра
+          </button>
+          <button
+            type="button"
+            :data-active="isRangeMode"
+            class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+            @click="toggleRangeMode"
+          >
+            Диапазон
+          </button>
+        </div>
+
         <div class="flex gap-2">
           <!-- Date text input + calendar icon trigger -->
           <div class="relative flex-1">
@@ -731,67 +776,103 @@ watch(
             @input="onTimeTextInput"
           />
         </div>
+
+        <!-- Time quick chips -->
+        <div class="flex flex-wrap gap-1.5 mt-2">
+          <button
+            v-for="t in TIME_PRESETS"
+            :key="t"
+            type="button"
+            :data-active="timeValue === t"
+            class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+            @click="pickTime(t)"
+          >
+            {{ t }}
+          </button>
+        </div>
+
         <p v-if="submitAttempted && errors.time" class="text-sm font-medium text-destructive mt-1">
           {{ errors.time }}
         </p>
       </div>
 
-      <!-- Multi-day toggle -->
-      <div class="flex items-center gap-3 mb-4">
-        <Switch
-          :model-value="isMultiDay"
-          @update:model-value="toggleMultiDay"
-        />
-        <Label class="cursor-pointer">Несколько дней</Label>
-      </div>
-
-      <!-- Date + time of end (revealed when multi-day) -->
-      <div v-if="isMultiDay" class="mb-4">
-        <Label class="mb-2 block">Окончание работ</Label>
-        <div class="flex gap-2">
-          <div class="relative flex-1">
-            <Input
-              type="text"
-              inputmode="numeric"
-              class="h-11 pr-10"
-              placeholder="ДД.ММ.ГГГГ"
-              v-model="dateToText"
-              @input="onDateToTextInput"
-            />
-            <Popover v-model:open="dateToOpen">
-              <PopoverTrigger as-child>
-                <button
-                  type="button"
-                  aria-label="Выбрать дату в календаре"
-                  class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent class="w-auto p-0" align="start">
-                <Calendar
-                  :model-value="dateToCal"
-                  @update:model-value="onDateToSelect"
+      <!-- End of work — smoothly expands/collapses when toggling range mode.
+           Outer grid animates grid-template-rows 0fr↔1fr; inner overflow-hidden
+           clips during the transition. Use pb-4 on the innermost wrapper so
+           the bottom gap collapses with the row instead of leaving a 16px
+           ghost margin when collapsed.
+           NB: 0fr suffix is `!` (Tailwind v4 important) — without it, Tailwind
+           emits grid-rows-[1fr] after grid-rows-[0fr] in source order, so the
+           baseline class always wins and the transition never sees a change. -->
+      <Transition
+        enter-active-class="transition-[grid-template-rows] duration-200 ease-out"
+        leave-active-class="transition-[grid-template-rows] duration-200 ease-out"
+        enter-from-class="grid-rows-[0fr]!"
+        leave-to-class="grid-rows-[0fr]!"
+      >
+        <div v-if="isRangeMode" class="grid grid-rows-[1fr]">
+          <div class="overflow-hidden">
+            <div class="pb-4">
+              <Label class="mb-2 block">Окончание работ</Label>
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <Input
+                    type="text"
+                    inputmode="numeric"
+                    class="h-11 pr-10"
+                    placeholder="ДД.ММ.ГГГГ"
+                    v-model="dateToText"
+                    @input="onDateToTextInput"
+                  />
+                  <Popover v-model:open="dateToOpen">
+                    <PopoverTrigger as-child>
+                      <button
+                        type="button"
+                        aria-label="Выбрать дату окончания в календаре"
+                        class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent class="w-auto p-0" align="start">
+                      <Calendar
+                        :model-value="dateToCal"
+                        @update:model-value="onDateToSelect"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Input
+                  type="text"
+                  inputmode="numeric"
+                  class="h-11 w-24"
+                  placeholder="ЧЧ:ММ"
+                  v-model="timeToValue"
+                  @input="onTimeToTextInput"
                 />
-              </PopoverContent>
-            </Popover>
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <button
+                  v-for="t in TIME_PRESETS"
+                  :key="t"
+                  type="button"
+                  :data-active="timeToValue === t"
+                  class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                  @click="pickTimeTo(t)"
+                >
+                  {{ t }}
+                </button>
+              </div>
+              <p v-if="submitAttempted && errors.timeTo" class="text-sm font-medium text-destructive mt-1">
+                {{ errors.timeTo }}
+              </p>
+              <p v-if="submitAttempted && errors.dateTo" class="text-sm font-medium text-destructive mt-1">
+                {{ errors.dateTo }}
+              </p>
+            </div>
           </div>
-          <Input
-            type="text"
-            inputmode="numeric"
-            class="h-11 w-24"
-            placeholder="ЧЧ:ММ"
-            v-model="timeToValue"
-            @input="onTimeToTextInput"
-          />
         </div>
-        <p v-if="submitAttempted && errors.timeTo" class="text-sm font-medium text-destructive mt-1">
-          {{ errors.timeTo }}
-        </p>
-        <p v-if="submitAttempted && errors.dateTo" class="text-sm font-medium text-destructive mt-1">
-          {{ errors.dateTo }}
-        </p>
-      </div>
+      </Transition>
 
       <!-- Name -->
       <FormField v-slot="{ componentField }" name="name">
