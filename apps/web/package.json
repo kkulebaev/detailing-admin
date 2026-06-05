@@ -7,7 +7,7 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc -b --noEmit"
   },
   "dependencies": {
     "@detailing-admin/shared": "workspace:*",
