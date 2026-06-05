@@ -332,7 +332,9 @@ async function onSubmit() {
           <p v-if="errors.time" class="text-sm font-medium text-destructive mt-1">
             {{ errors.time }}
           </p>
-          <FormMessage />
+          <p v-if="errors.dateFrom" class="text-sm font-medium text-destructive mt-1">
+            {{ errors.dateFrom }}
+          </p>
         </FormItem>
       </FormField>
 
