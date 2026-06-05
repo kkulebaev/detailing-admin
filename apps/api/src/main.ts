@@ -11,6 +11,16 @@ await init()
 
 const app = createApp()
 
-serve({ fetch: app.fetch, port: env.PORT })
+const server = serve({ fetch: app.fetch, port: env.PORT })
 
 baseLogger.info({ event: 'listening', port: env.PORT }, 'API server listening')
+
+// Graceful shutdown: without this, Node as PID 1 ignores SIGTERM, Railway
+// waits the full grace period and SIGKILLs — which can sever an in-flight
+// Sheets append mid-write and leave an orphan row or a duplicate on client retry.
+const shutdown = (signal: string) => {
+  baseLogger.info({ event: 'shutdown', signal }, 'received shutdown signal')
+  server.close(() => process.exit(0))
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
