@@ -1,7 +1,7 @@
 # ── Stage 1: install all workspace dependencies ──────────────────────────────
 FROM node:22-alpine AS deps
 
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN pnpm -F @detailing-admin/web build
 # ── Stage 3: minimal runtime — vite preview ──────────────────────────────────
 FROM node:22-alpine AS runtime
 
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
 
 WORKDIR /app
 
