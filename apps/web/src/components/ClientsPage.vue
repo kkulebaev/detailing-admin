@@ -28,9 +28,13 @@ function toggleSort(key: SortKey) {
 
 const clients = useSorted(rawClients, (a, b) => {
   const dir = sortDir.value === 'asc' ? 1 : -1
-  return sortKey.value === 'name'
-    ? collator.compare(a.name, b.name) * dir
-    : a.phone.localeCompare(b.phone) * dir
+  if (sortKey.value === 'name') {
+    const aEmpty = a.name.length === 0
+    const bEmpty = b.name.length === 0
+    if (aEmpty !== bEmpty) return aEmpty ? 1 : -1
+    return collator.compare(a.name, b.name) * dir
+  }
+  return a.phone.localeCompare(b.phone) * dir
 })
 
 async function load() {
