@@ -1162,7 +1162,7 @@ watch(
     </form>
 
     <!-- Sticky submit bar (safe-area aware) -->
-    <div class="fixed bottom-0 left-0 right-0 px-4 py-4 bg-background border-t border-border pb-safe">
+    <div class="fixed bottom-0 left-0 right-0 md:left-64 px-4 py-4 bg-background border-t border-border pb-safe">
       <div class="max-w-lg mx-auto">
         <Button
           type="button"
