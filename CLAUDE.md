@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Mobile booking form for a detailing shop. One submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`). No database, no auth — this is intentional, time-boxed risk.
+Mobile booking form for a detailing shop. One submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`) — Sheets is the source of truth for bookings. Postgres holds auxiliary data: `clients` (upserted by phone on each successful booking, best-effort) and the pricelist (`sections` + `services`). No auth — intentional, time-boxed risk.
 
 ## Commands
 
@@ -29,22 +29,36 @@ pnpm --filter @detailing-admin/shared test     # vitest
 
 Single test file: `pnpm --filter <pkg> exec vitest run path/to/file.test.ts`
 
-Local dev needs `apps/api/.env` (copy from `apps/api/.env.example`, supply `GOOGLE_SERVICE_ACCOUNT_JSON_B64`). Web `.env.local` is optional — Vite dev server proxies `/api` to `localhost:3000` by default; override with `VITE_API_PROXY_TARGET` to point dev at a remote API.
+Postgres + seed (api package):
+
+```bash
+docker compose up -d postgres                          # local Postgres (port 5432)
+pnpm --filter @detailing-admin/api db:generate         # regenerate migration after schema.ts change
+pnpm --filter @detailing-admin/api db:migrate          # apply migrations against DATABASE_URL
+pnpm --filter @detailing-admin/api db:studio           # drizzle studio
+pnpm --filter @detailing-admin/api seed:dump           # dump clients from Sheets → .seed/clients.json
+pnpm --filter @detailing-admin/api seed:load           # upsert clients from .seed/clients.json
+pnpm --filter @detailing-admin/api seed:pricelist      # load pricelist from .seed/pricelist.json
+```
+
+Local dev needs `apps/api/.env` (copy from `apps/api/.env.example`, supply `GOOGLE_SERVICE_ACCOUNT_JSON_B64`; `DATABASE_URL` already points at the docker-compose instance). API runs migrations automatically on boot. Web `.env.local` is optional — Vite dev server proxies `/api` to `localhost:3000` by default; override with `VITE_API_PROXY_TARGET` to point dev at a remote API.
 
 ## Architecture
 
 pnpm workspace, three packages:
 
 - **`packages/shared`** — single Zod schema (`bookingSchema`) is the wire contract. No build step; both apps import `.ts` directly via tsconfig path aliases (`@detailing-admin/shared/*` resolves to `packages/shared/src/*.ts`). Exports: schema, enums (`READINESS`, `MASTERS`), helpers (`normalizePhone`, `parseDdmmyyyy`), `bookingToRow`, `EXPECTED_HEADERS`, and the `ApiResult` discriminated union.
-- **`apps/api`** — Hono on `@hono/node-server`. Two routes: `POST /api/bookings`, `GET /healthz`. Sheets writes via `googleapis`. Module-level state machine for boot health (see below).
-- **`apps/web`** — Vue 3 + Vite + Tailwind v4 + shadcn-vue. The entire form is one component: `apps/web/src/components/BookingForm.vue`. `vee-validate` + `@vee-validate/zod` consumes the shared schema via `toTypedSchema(bookingSchema)`.
+- **`apps/api`** — Hono on `@hono/node-server`. Routes: `POST /api/bookings`, `GET /api/clients`, `GET /api/pricelist`, `GET /healthz`. Sheets writes via `googleapis`; Postgres queries via Drizzle (`drizzle-orm` + `postgres-js`). Module-level state machine for boot health (see below).
+- **`apps/web`** — Vue 3 + Vite + Tailwind v4 + shadcn-vue + vue-router. SPA wrapped by `AppLayout` + `AppSidebar`. Three pages: booking form (`/` → `BookingForm.vue`), clients list (`/clients` → `ClientsPage.vue`), pricelist table (`/pricelist` → `PricelistPage.vue`). The booking form uses `vee-validate` + `@vee-validate/zod` with the shared schema via `toTypedSchema(bookingSchema)`.
 
 ### Boot state machine (`apps/api/src/boot.ts`)
 
-On startup `init()` calls `verifyHeaders()` (reads `A1:K1` from the sheet) and sets `_bootState` to one of `'ok' | 'headers_mismatch' | 'not_configured'`. **It never calls `process.exit`** — the listener always binds. While `_bootState !== 'ok'`:
+On startup `init()` calls `initDb()` (applies drizzle migrations against `DATABASE_URL`) and then `verifyHeaders()` (reads `A1:K1` from the sheet). `_bootState` ends up `'ok' | 'headers_mismatch' | 'not_configured'`. **It never calls `process.exit`** — the listener always binds. While `_bootState !== 'ok'`:
 - `GET /healthz` and `POST /api/bookings` return HTTP 503 with the `unavailable` variant of `ApiResult`.
 - The booking route short-circuits **before** validation, idempotency lookup, and any Sheets call — no per-request log line (the single `boot.headers.mismatch` / `boot.init.error` line at startup is the signal).
 - Recovery requires a process restart after fixing the sheet (or updating `EXPECTED_HEADERS`).
+
+DB readiness is tracked separately via `isDbReady()` (`_dbReady` flag). If migrations fail, `_dbReady` stays `false` but `_bootState` may still be `'ok'` — bookings continue to flow to Sheets and client upserts are silently skipped. Routes that strictly require Postgres (`/api/clients`, `/api/pricelist`) return 503 `unavailable` when `isDbReady()` is `false`. Never gate the booking flow on DB readiness — Sheets is the source of truth.
 
 This is deliberate: Railway treats a crash-loop as zero healthy revisions, hiding the root cause. A live listener returning structured 503s is observable.
 
@@ -78,7 +92,9 @@ Client (`BookingForm.vue`) generates a UUID v4 at form mount and reuses it acros
 - **Tailwind v4:** Avoid `[arbitrary]` brackets for sizing/spacing — use the dynamic spacing scale (e.g. `min-w-200` = 50rem). Brackets are OK for variant selectors and arbitrary CSS properties without a utility equivalent.
 - **Russian-only:** UI strings, error messages, sheet headers, enum values are Russian. Phone numbers are `+7`-only by design.
 - **Commits:** Conventional Commits 1.0.0 (`feat`, `fix`, `chore`, `refactor`, etc., optional scope). Description only — no body. No `Co-Authored-By` trailer.
-- **Tests:** Vitest unit tests under `<package>/test/`. The Sheets client is mocked via `_setClientForTest()` and boot state via `_resetForTest()` — never make real Sheets calls in tests.
+- **Tests:** Vitest unit tests under `<package>/test/`. The Sheets client is mocked via `_setClientForTest()` and boot state via `_resetForTest()` / `_setDbReadyForTest()` — never make real Sheets or DB calls in tests.
+- **Drizzle:** `drizzle.config.ts` has `casing: 'snake_case'` — write columns in camelCase TS (`sectionId`) and they map to `section_id` in SQL. Migrations live in `apps/api/drizzle/`; never hand-edit the generated SQL — change `schema.ts` and re-run `db:generate`. Migration files and `drizzle/meta/*` must be committed together.
+- **Seed data:** `apps/api/.seed/` is gitignored (contains PII: client phones from historical sheets). The pricelist JSON also lives there and is intentionally outside git — regenerate it manually if a fresh checkout needs it. `seed:dump` regenerates `clients.json` from Sheets; there is no dump script for the pricelist.
 
 ## Pitfalls
 
@@ -87,3 +103,5 @@ Client (`BookingForm.vue`) generates a UUID v4 at form mount and reuses it acros
 - **Don't cache non-ok results in the idempotency map** — the route relies on `ok: true` being the only thing in the map and evicts anything else on hit.
 - **Don't fix the `Ответсвенный` typo** without updating both the sheet and `EXPECTED_HEADERS` in the same change.
 - **Don't switch to `RAW`** for the Sheets append — `USER_ENTERED` is what makes column H a number, column A a date, and columns I/J/K satisfy data validation.
+- **Don't make the booking route depend on Postgres.** Client upsert is best-effort; if the DB is down, the booking still goes to Sheets. Only `/api/clients` and `/api/pricelist` should consult `isDbReady()`.
+- **Don't commit anything from `apps/api/.seed/`.** The directory is gitignored on purpose (PII in `clients.json`; pricelist intentionally regenerated locally). If a fresh checkout needs the pricelist, regenerate `pricelist.json` from the source Sheets — there is no dump script for it.
