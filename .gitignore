@@ -1,0 +1,28 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+.DS_Store
+coverage
+.turbo
+.railway
+.omc/state/
+.claude/
+
+# Generated typecheck artefacts (vue-tsc / tsc shadows)
+apps/web/src/**/*.vue.d.ts
+apps/web/src/**/*.vue.js
+apps/web/src/**/*.js
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
+packages/shared/src/**/*.d.ts
+packages/shared/src/**/*.js
+!apps/web/src/vite-env.d.ts
+**/*.tsbuildinfo
+
+# Service account / credential files (never commit)
+service-account*.json
+*-credentials.json
+*.pem
+*.key
