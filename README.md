@@ -37,8 +37,6 @@ detailing-admin/
 │       └── .env.example
 ├── packages/
 │   └── shared/                # Zod schema, enums, sheet-row helpers
-├── .omc/plans/
-│   └── mvp-booking-form.md    # Авторитетный архитектурный план
 ├── package.json               # pnpm workspace root
 └── pnpm-workspace.yaml
 ```
@@ -173,12 +171,6 @@ pnpm test        # vitest — packages/shared + apps/api (unit-тесты с м�
 pnpm typecheck   # tsc --noEmit для всех пакетов
 pnpm build       # tsup (api) + vue-tsc + vite build (web)
 ```
-
----
-
-## Архитектура
-
-Детальное описание принятых решений, data-контракт (columns A–K), Sheets-интеграцию, идемпотентность, header-верификацию и полный список рисков см. в [`.omc/plans/mvp-booking-form.md`](.omc/plans/mvp-booking-form.md).
 
 ---
 

@@ -7,7 +7,7 @@ dist
 coverage
 .turbo
 .railway
-.omc/state/
+.omc/
 .claude/
 
 # Generated typecheck artefacts (vue-tsc / tsc shadows)

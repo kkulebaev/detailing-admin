@@ -4,9 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Mobile booking form for a detailing shop. One submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`). No database, no auth — this is intentional, time-boxed risk (see `.omc/plans/mvp-booking-form.md` §11).
-
-Authoritative architectural plan with all decisions, data contract, and risks: **`.omc/plans/mvp-booking-form.md`** — read it before any non-trivial change.
+Mobile booking form for a detailing shop. One submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`). No database, no auth — this is intentional, time-boxed risk.
 
 ## Commands
 
