@@ -8,7 +8,6 @@ import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
-  READINESS,
   MASTERS,
 } from '@detailing-admin/shared'
 import type { BookingApiResult } from '@detailing-admin/shared'
@@ -244,7 +243,6 @@ const {
     service: '',
     note: '',
     amount: '' as '' | number,
-    readiness: undefined,
     master: '',
     responsible: undefined,
   },
@@ -558,7 +556,6 @@ function resetFormState() {
       service: '',
       note: '',
       amount: '',
-      readiness: undefined,
       master: '',
       responsible: undefined,
     },
@@ -601,7 +598,6 @@ interface Draft {
   service: string
   note: string
   amountRaw: string
-  readiness?: string
   master?: string
   responsible?: string
 }
@@ -625,13 +621,12 @@ function saveDraft() {
       service: values.service ?? '',
       note: values.note ?? '',
       amountRaw: amountRaw.value,
-      readiness: values.readiness,
       master: values.master,
       responsible: values.responsible,
     }
     const meaningful =
       draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.licensePlate ||
-      draft.service || draft.note || draft.amountRaw || draft.readiness || draft.master ||
+      draft.service || draft.note || draft.amountRaw || draft.master ||
       draft.responsible || (draft.phoneRaw && draft.phoneRaw !== PHONE_PREFIX)
     if (!meaningful) { clearDraft(); return }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
@@ -677,7 +672,6 @@ function loadDraft() {
       const digits = amountDigits(d.amountRaw)
       if (digits) setFieldValue('amount', parseInt(digits, 10))
     }
-    if (d.readiness) setFieldValue('readiness', d.readiness as never)
     if (d.master) setFieldValue('master', d.master as never)
     if (d.responsible) setFieldValue('responsible', d.responsible as never)
   } catch { /* corrupted draft: ignore */ }
@@ -700,7 +694,7 @@ watch(
     dateFromText, dateToText, timeValue, timeToValue, isRangeMode,
     phoneRaw, licensePlate, amountRaw,
     () => values.name, () => values.car, () => values.service,
-    () => values.note, () => values.readiness, () => values.master,
+    () => values.note, () => values.master,
     () => values.responsible,
   ],
   scheduleSave,
@@ -1111,29 +1105,6 @@ watch(
         <section class="rounded-xl border border-border bg-card p-4">
           <h2 class="text-base font-semibold mb-4">Статус</h2>
           <div class="space-y-4">
-            <FormField v-slot="{ componentField }" name="readiness">
-              <FormItem>
-                <FormLabel>Готовность</FormLabel>
-                <Select v-bind="componentField">
-                  <FormControl>
-                    <SelectTrigger class="h-11">
-                      <SelectValue placeholder="Не выбрано" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="r in READINESS"
-                      :key="r"
-                      :value="r"
-                    >
-                      {{ r }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            </FormField>
-
             <FormField v-slot="{ componentField }" name="master">
               <FormItem>
                 <FormLabel>Мастер</FormLabel>
