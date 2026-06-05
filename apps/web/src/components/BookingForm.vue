@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, onMounted } from 'vue'
+import { ref, shallowRef, computed, watch, onMounted, provide } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { v4 as uuid } from 'uuid'
@@ -40,6 +40,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { FORM_SHOW_ERRORS_KEY } from '@/components/ui/form/injectionKeys'
 
 // ── Idempotency key: same across retries, regenerated on success ──────────────
 const idempotencyKey = ref(uuid())
@@ -79,6 +80,7 @@ const timeToValue = ref('')
 // Hide "Invalid" / regex error labels until the user actually tries to submit,
 // otherwise an empty initial form flashes red on mount.
 const submitAttempted = ref(false)
+provide(FORM_SHOW_ERRORS_KEY, submitAttempted)
 
 function maskDateText(raw: string): string {
   const d = raw.replace(/\D/g, '').slice(0, 8)
@@ -239,6 +241,7 @@ const {
   setFieldValue,
   setFieldError,
   resetForm,
+  validate,
   values,
   errors,
   isSubmitting,
@@ -571,6 +574,9 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
 async function onSubmit() {
   submitAttempted.value = true
   setFieldValue('phone', effectivePhone())
+  // Surface errors for all fields up front — handleSubmit alone does not
+  // propagate schema errors to registered FormFields that were never touched.
+  await validate()
   await handleValidatedSubmit()
 }
 
@@ -820,6 +826,7 @@ watch(
                 class="h-11 pr-10"
                 placeholder="ДД.ММ.ГГГГ"
                 v-model="dateFromText"
+                :aria-invalid="submitAttempted && !!errors.dateFrom"
                 @input="onDateFromTextInput"
               />
               <Popover v-model:open="dateFromOpen">
@@ -848,6 +855,7 @@ watch(
               class="h-11 w-24"
               placeholder="ЧЧ:ММ"
               v-model="timeValue"
+              :aria-invalid="submitAttempted && !!errors.time"
               @input="onTimeTextInput"
             />
           </div>
@@ -896,6 +904,7 @@ watch(
                         class="h-11 pr-10"
                         placeholder="ДД.ММ.ГГГГ"
                         v-model="dateToText"
+                        :aria-invalid="submitAttempted && !!errors.dateTo"
                         @input="onDateToTextInput"
                       />
                       <Popover v-model:open="dateToOpen">
@@ -923,6 +932,7 @@ watch(
                       class="h-11 w-24"
                       placeholder="ЧЧ:ММ"
                       v-model="timeToValue"
+                      :aria-invalid="submitAttempted && !!errors.timeTo"
                       @input="onTimeToTextInput"
                     />
                   </div>
@@ -980,6 +990,7 @@ watch(
                   class="h-11 pr-24"
                   placeholder="+7 (___) ___-__-__"
                   v-model="phoneRaw"
+                  :aria-invalid="submitAttempted && !!errors.phone"
                   @input="onPhoneInput"
                   @paste="onPhonePaste"
                 />
@@ -1120,6 +1131,7 @@ watch(
             class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             placeholder="0"
             v-model="amountRaw"
+            :aria-invalid="submitAttempted && !!errors.amount"
             @input="onAmountInput"
           />
           <div class="flex flex-wrap gap-2 mt-2">
