@@ -3,25 +3,36 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "files": [
+    "dist",
+    "drizzle"
+  ],
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "tsup",
     "start": "node dist/main.js",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@detailing-admin/shared": "workspace:*",
     "@hono/node-server": "^2.0.4",
     "@hono/zod-validator": "^0.4.3",
+    "drizzle-orm": "^0.45.2",
     "googleapis": "^173.0.0",
     "hono": "^4.6.20",
     "pino": "^10.3.1",
+    "postgres": "^3.4.9",
     "uuid": "^14.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "drizzle-kit": "^0.31.10",
     "pino-pretty": "^13.0.0",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",

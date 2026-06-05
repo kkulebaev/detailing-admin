@@ -5,6 +5,7 @@ const envSchema = z.object({
   SPREADSHEET_ID: z.string().min(1),
   SHEET_NAME: z.string().min(1).default('Запись 2026'),
   GOOGLE_SERVICE_ACCOUNT_JSON_B64: z.string().min(1),
+  DATABASE_URL: z.string().min(1),
   WEB_ORIGIN: z.string().min(1).default('http://localhost:5173'),
   LOG_LEVEL: z
     .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
@@ -18,8 +19,8 @@ export function parseEnv(raw: Record<string, string | undefined> = process.env):
   if (!result.success) {
     const lines = result.error.issues.map((issue) => {
       const path = issue.path.join('.')
-      // Never expose the raw service account key value in error output
-      if (path === 'GOOGLE_SERVICE_ACCOUNT_JSON_B64') {
+      // Never expose raw secret values in error output
+      if (path === 'GOOGLE_SERVICE_ACCOUNT_JSON_B64' || path === 'DATABASE_URL') {
         return `  ${path}: [REDACTED] — ${issue.message}`
       }
       return `  ${path}: ${issue.message}`

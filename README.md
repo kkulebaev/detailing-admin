@@ -4,7 +4,7 @@
 
 Мобильная форма записи клиентов для детейлинг-мастерской.  
 MVP: Vue 3-фронтенд + Hono-бэкенд; одна запись формы → одна строка в Google Sheets.  
-Без авторизации, без базы данных — только форма и таблица.
+Параллельно в Postgres ведётся справочник клиентов (`clients`), который пополняется upsert'ом по телефону при каждой успешной записи. Sheets остаётся источником истины по бронированиям; DB-запись best-effort и не блокирует ответ.
 
 ---
 
@@ -15,9 +15,10 @@ MVP: Vue 3-фронтенд + Hono-бэкенд; одна запись форм�
 | Frontend | Vue 3, Vite 6, shadcn-vue, Tailwind CSS v4 |
 | Backend | Hono, `@hono/node-server`, Node 22 |
 | Validation | Zod (shared schema), vee-validate, `@hono/zod-validator` |
-| Storage | Google Sheets API v4 (service account) |
+| Storage | Google Sheets API v4 (service account) — основное |
+| Clients DB | Postgres + Drizzle ORM (`drizzle-orm`, `postgres`, `drizzle-kit`) |
 | Shared types | `packages/shared` — pnpm workspace, без отдельного build-шага |
-| Deploy | Railway (два сервиса: `detailing-api` и `detailing-web`) |
+| Deploy | Railway (`detailing-api`, `detailing-web`, Postgres-аддон) |
 
 ---
 
@@ -28,6 +29,8 @@ detailing-admin/
 ├── apps/
 │   ├── api/                   # Hono backend — POST /api/bookings, GET /healthz
 │   │   ├── src/
+│   │   ├── drizzle/           # SQL-миграции (drizzle-kit generate)
+│   │   ├── drizzle.config.ts
 │   │   ├── Dockerfile
 │   │   ├── railway.json
 │   │   └── .env.example
@@ -51,17 +54,35 @@ detailing-admin/
 # 1. Установить зависимости
 pnpm install
 
-# 2. Создать .env для API (заполнить GOOGLE_SERVICE_ACCOUNT_JSON_B64 и др.)
-cp apps/api/.env.example apps/api/.env
+# 2. Поднять локальный Postgres (порт 5432, БД detailing, пользователь detailing/detailing)
+docker compose up -d
 
-# 3. Создать .env для web
+# 3. Создать .env для API (заполнить GOOGLE_SERVICE_ACCOUNT_JSON_B64 и др.)
+cp apps/api/.env.example apps/api/.env
+# DATABASE_URL уже указывает на локальный compose-инстанс
+
+# 4. Создать .env для web
 cp apps/web/.env.example apps/web/.env.local
 # По умолчанию VITE_API_BASE_URL=http://localhost:3000 — менять не нужно
 
-# 4. Запустить оба сервиса параллельно
+# 5. Запустить оба сервиса параллельно
 pnpm dev
 # web → http://localhost:5173
 # api → http://localhost:3000
+# Миграции применяются на старте API автоматически (см. apps/api/src/boot.ts).
+```
+
+### DB-команды (drizzle-kit)
+
+```bash
+# Сгенерировать новую миграцию после правок apps/api/src/db/schema.ts
+pnpm --filter @detailing-admin/api db:generate
+
+# Применить миграции к БД из DATABASE_URL (вне runtime-инициализации)
+pnpm --filter @detailing-admin/api db:migrate
+
+# Drizzle Studio — браузерный просмотр содержимого
+pnpm --filter @detailing-admin/api db:studio
 ```
 
 Открыть `http://localhost:5173` в браузере. Для мобильного вьюпорта: DevTools → Toggle device toolbar (Ctrl+Shift+M / Cmd+Shift+M).
@@ -106,7 +127,8 @@ pnpm dev
 ### Подготовка
 
 - Создать аккаунт на [railway.app](https://railway.app), подключить репозиторий.
-- Создать один **проект** и внутри него два **сервиса**: `detailing-api` и `detailing-web`.
+- Создать один **проект** и внутри него три ресурса: сервисы `detailing-api`, `detailing-web` и **Postgres** (New → Database → PostgreSQL).
+- В сервисе `detailing-api` в **Settings → Variables** связать переменную `DATABASE_URL` с Postgres через **+ New Variable Reference → Postgres.DATABASE_URL**. Это даст приватный URL внутри проекта и переживёт перезапуск БД.
 
 ---
 
@@ -123,6 +145,7 @@ pnpm dev
    | `SPREADSHEET_ID` | `1VmOCwNpADAHmRBC28Z_DtjWF50zlMVvQ4o5Lz6To8Lw` |
    | `SHEET_NAME` | `Запись 2026` |
    | `GOOGLE_SERVICE_ACCOUNT_JSON_B64` | base64-строка из шага 7 выше |
+   | `DATABASE_URL` | reference на Postgres (см. «Подготовка» выше) |
    | `WEB_ORIGIN` | `https://<detailing-web>.up.railway.app` |
    | `LOG_LEVEL` | `info` |
 

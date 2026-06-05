@@ -6,10 +6,12 @@ import {
   getBootState,
   getBootHeadersMismatch,
   getBootNotConfiguredMessage,
+  isDbReady,
 } from '../boot.js'
 import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
+import { upsertClient } from '../db/clients.js'
 import { baseLogger } from '../log.js'
 
 const MAX_IDEMPOTENCY_KEY_LEN = 128
@@ -205,7 +207,27 @@ router.post('/', async (c) => {
     )
   }
 
-  // 6. Success — cache result and respond.
+  // 6. Mirror the client into Postgres (best-effort; Sheets is still source of truth).
+  // Failures here never block the booking — DB is purely additive for now.
+  let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
+  if (isDbReady()) {
+    try {
+      const result = await upsertClient(booking.phone, booking.name)
+      clientOutcome = result.outcome
+    } catch (err) {
+      clientOutcome = 'error'
+      baseLogger.warn(
+        {
+          event: 'booking.client_upsert_failed',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+        },
+        'Client upsert failed — booking succeeded, DB skipped',
+      )
+    }
+  }
+
+  // 7. Success — cache result and respond.
   const successResult = {
     ok: true as const,
     idempotent: false,
@@ -223,6 +245,7 @@ router.post('/', async (c) => {
       validation_failed: false,
       sheets_latency_ms: appendResult.latencyMs,
       sheets_status_code: appendResult.statusCode,
+      client_outcome: clientOutcome,
       status: 201,
     },
     'Booking created',

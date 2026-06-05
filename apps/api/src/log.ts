@@ -17,6 +17,8 @@ export const baseLogger = pino({
       '*.private_key',
       'GOOGLE_SERVICE_ACCOUNT_JSON_B64',
       '*.GOOGLE_SERVICE_ACCOUNT_JSON_B64',
+      'DATABASE_URL',
+      '*.DATABASE_URL',
     ],
     censor: '[REDACTED]',
   },

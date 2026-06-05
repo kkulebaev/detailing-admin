@@ -5,6 +5,7 @@ const BASE = {
   SPREADSHEET_ID: 'sheet123',
   SHEET_NAME: 'Запись 2026',
   GOOGLE_SERVICE_ACCOUNT_JSON_B64: 'dGVzdA==',
+  DATABASE_URL: 'postgres://test:test@localhost:5432/test',
   WEB_ORIGIN: 'http://localhost:5173',
   LOG_LEVEL: 'info',
   PORT: '3000',
@@ -23,6 +24,7 @@ describe('parseEnv', () => {
     const result = parseEnv({
       SPREADSHEET_ID: 'sheet123',
       GOOGLE_SERVICE_ACCOUNT_JSON_B64: 'dGVzdA==',
+      DATABASE_URL: 'postgres://test:test@localhost:5432/test',
     })
     expect(result.PORT).toBe(3000)
     expect(result.SHEET_NAME).toBe('Запись 2026')
@@ -38,6 +40,21 @@ describe('parseEnv', () => {
 
   it('throws when GOOGLE_SERVICE_ACCOUNT_JSON_B64 is missing', () => {
     expect(() => parseEnv({ SPREADSHEET_ID: 'sheet123' })).toThrow()
+  })
+
+  it('throws when DATABASE_URL is missing', () => {
+    const { DATABASE_URL: _omit, ...rest } = BASE
+    expect(() => parseEnv(rest)).toThrow('Environment validation failed')
+  })
+
+  it('redacts DATABASE_URL in error messages', () => {
+    let errorMessage = ''
+    try {
+      parseEnv({ ...BASE, DATABASE_URL: '' })
+    } catch (err) {
+      errorMessage = String(err)
+    }
+    expect(errorMessage).toContain('DATABASE_URL: [REDACTED]')
   })
 
   it('redacts GOOGLE_SERVICE_ACCOUNT_JSON_B64 in error messages', () => {

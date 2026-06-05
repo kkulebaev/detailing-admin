@@ -23,13 +23,21 @@ vi.mock('../src/log.js', () => ({
 vi.mock('../src/boot.js', () => ({
   getBootState: vi.fn().mockReturnValue('ok'),
   getBootHeadersMismatch: vi.fn().mockReturnValue(null),
+  getBootNotConfiguredMessage: vi.fn().mockReturnValue(null),
+  // Keep DB off in observability tests so each POST emits exactly one log line.
+  isDbReady: vi.fn().mockReturnValue(false),
   init: vi.fn(),
+  initDb: vi.fn(),
 }))
 
 vi.mock('../src/sheets.js', () => ({
   appendBooking: vi.fn(),
   verifyHeaders: vi.fn(),
   _setClientForTest: vi.fn(),
+}))
+
+vi.mock('../src/db/clients.js', () => ({
+  upsertClient: vi.fn(),
 }))
 
 import { createApp } from '../src/server.js'

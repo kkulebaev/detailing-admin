@@ -24,13 +24,19 @@ vi.mock('../src/boot.js', () => ({
   getBootState: vi.fn().mockReturnValue('ok'),
   getBootHeadersMismatch: vi.fn().mockReturnValue(null),
   getBootNotConfiguredMessage: vi.fn().mockReturnValue(null),
+  isDbReady: vi.fn().mockReturnValue(true),
   init: vi.fn(),
+  initDb: vi.fn(),
 }))
 
 vi.mock('../src/sheets.js', () => ({
   appendBooking: vi.fn(),
   verifyHeaders: vi.fn(),
   _setClientForTest: vi.fn(),
+}))
+
+vi.mock('../src/db/clients.js', () => ({
+  upsertClient: vi.fn(),
 }))
 
 import { createApp } from '../src/server.js'
@@ -40,7 +46,9 @@ import {
   getBootState,
   getBootHeadersMismatch,
   getBootNotConfiguredMessage,
+  isDbReady,
 } from '../src/boot.js'
+import { upsertClient } from '../src/db/clients.js'
 import { baseLogger } from '../src/log.js'
 
 const VALID_PAYLOAD = { dateFrom: '04.06.2026', time: '10:00' }
@@ -74,6 +82,8 @@ describe('POST /api/bookings', () => {
     vi.mocked(getBootState).mockReturnValue('ok')
     vi.mocked(getBootHeadersMismatch).mockReturnValue(null)
     vi.mocked(appendBooking).mockResolvedValue(APPEND_SUCCESS)
+    vi.mocked(isDbReady).mockReturnValue(true)
+    vi.mocked(upsertClient).mockResolvedValue({ outcome: 'inserted', client: null })
   })
 
   afterEach(() => {
@@ -261,6 +271,43 @@ describe('POST /api/bookings', () => {
     const body = await res.json()
     expect(body.ok).toBe(false)
     expect(body.error).toBe('sheets')
+  })
+
+  it('upserts client with normalized phone and name after successful Sheets append', async () => {
+    await post(
+      app,
+      { ...VALID_PAYLOAD, phone: '8 (900) 123-45-67', name: 'Иван' },
+      { 'Idempotency-Key': 'k-client' },
+    )
+    expect(vi.mocked(upsertClient)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(upsertClient)).toHaveBeenCalledWith('+79001234567', 'Иван')
+  })
+
+  it('does not call upsertClient when DB is not ready (best-effort)', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await post(
+      app,
+      { ...VALID_PAYLOAD, phone: '+79001234567', name: 'Иван' },
+      { 'Idempotency-Key': 'k-no-db' },
+    )
+    expect(res.status).toBe(201)
+    expect(vi.mocked(upsertClient)).not.toHaveBeenCalled()
+  })
+
+  it('booking still succeeds when upsertClient throws (best-effort)', async () => {
+    vi.mocked(upsertClient).mockRejectedValueOnce(new Error('db connection refused'))
+    const res = await post(
+      app,
+      { ...VALID_PAYLOAD, phone: '+79001234567', name: 'Иван' },
+      { 'Idempotency-Key': 'k-db-fail' },
+    )
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'booking.client_upsert_failed' }),
+      expect.any(String),
+    )
   })
 })
 
