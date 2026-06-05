@@ -531,6 +531,7 @@ function resetFormState() {
   dateFromCal.value = fresh
   dateToCal.value = fresh
   isRangeMode.value = false
+  sendNotification.value = false
   submitAttempted.value = false
 }
 
