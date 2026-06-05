@@ -1,0 +1,234 @@
+import { Hono } from 'hono'
+import { v4 as uuidv4 } from 'uuid'
+import { bookingSchema } from '@detailing-admin/shared/booking'
+import { bookingToRow } from '@detailing-admin/shared/sheet-row'
+import {
+  getBootState,
+  getBootHeadersMismatch,
+  getBootNotConfiguredMessage,
+} from '../boot.js'
+import { appendBooking } from '../sheets.js'
+// Only successful (ok: true) results are cached. See plan §5.
+import * as idempotency from '../idempotency.js'
+import { baseLogger } from '../log.js'
+
+const MAX_IDEMPOTENCY_KEY_LEN = 128
+
+const router = new Hono()
+
+router.post('/', async (c) => {
+  const requestId = uuidv4()
+  c.header('X-Request-Id', requestId)
+
+  // 1. Boot-state guard — short-circuit before any validation or Sheets call.
+  const state = getBootState()
+  if (state !== 'ok') {
+    // Per plan §7: no per-request log on boot-blocked short-circuit.
+    if (state === 'headers_mismatch') {
+      const mismatch = getBootHeadersMismatch()
+      return c.json(
+        {
+          ok: false as const,
+          error: 'unavailable' as const,
+          reason: 'headers_mismatch' as const,
+          column_index: mismatch?.column_index ?? 0,
+          expected: mismatch?.expected ?? '',
+          observed: mismatch?.observed ?? '',
+        },
+        503,
+      )
+    }
+    return c.json(
+      {
+        ok: false as const,
+        error: 'unavailable' as const,
+        reason: 'not_configured' as const,
+        message: getBootNotConfiguredMessage() ?? 'Boot initialization failed',
+      },
+      503,
+    )
+  }
+
+  // 2. Idempotency-Key is required.
+  const idempotencyKey = c.req.header('Idempotency-Key')
+  if (!idempotencyKey) {
+    baseLogger.info(
+      {
+        event: 'booking.request',
+        request_id: requestId,
+        idempotency_key: null,
+        idempotent: false,
+        validation_failed: true,
+        sheets_latency_ms: null,
+        sheets_status_code: null,
+        status: 400,
+      },
+      'Missing Idempotency-Key header',
+    )
+    return c.json(
+      {
+        ok: false as const,
+        error: 'validation' as const,
+        issues: [{ path: ['Idempotency-Key'], message: 'Required header missing' }],
+      },
+      400,
+    )
+  }
+
+  if (idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LEN) {
+    baseLogger.info(
+      {
+        event: 'booking.request',
+        request_id: requestId,
+        idempotency_key: null,
+        idempotent: false,
+        validation_failed: true,
+        sheets_latency_ms: null,
+        sheets_status_code: null,
+        status: 400,
+      },
+      'Idempotency-Key too long',
+    )
+    return c.json(
+      {
+        ok: false as const,
+        error: 'validation' as const,
+        issues: [{ path: ['Idempotency-Key'], message: 'Required; max 128 chars' }],
+      },
+      400,
+    )
+  }
+
+  // 3. Idempotency cache hit — return cached result without touching Sheets.
+  const cached = idempotency.get(idempotencyKey)
+  if (cached) {
+    // Sanity: cache is supposed to hold only successes. If a non-ok entry
+    // somehow leaked in, evict it and fall through to a fresh request.
+    if (!cached.ok) {
+      idempotency.delete_(idempotencyKey)
+    } else {
+      baseLogger.info(
+        {
+          event: 'booking.request',
+          request_id: requestId,
+          idempotency_key: idempotencyKey,
+          idempotent: true,
+          validation_failed: false,
+          sheets_latency_ms: null,
+          sheets_status_code: null,
+          status: 201,
+        },
+        'Idempotent response served from cache',
+      )
+      return c.json({ ...cached, idempotent: true }, 201)
+    }
+  }
+
+  // 4. Parse + validate body.
+  let rawBody: unknown
+  try {
+    rawBody = await c.req.json()
+  } catch {
+    baseLogger.info(
+      {
+        event: 'booking.request',
+        request_id: requestId,
+        idempotency_key: idempotencyKey,
+        idempotent: false,
+        validation_failed: true,
+        sheets_latency_ms: null,
+        sheets_status_code: null,
+        status: 400,
+      },
+      'Invalid JSON body',
+    )
+    return c.json(
+      {
+        ok: false as const,
+        error: 'validation' as const,
+        issues: [{ path: [] as (string | number)[], message: 'Invalid JSON' }],
+      },
+      400,
+    )
+  }
+
+  const parseResult = bookingSchema.safeParse(rawBody)
+  if (!parseResult.success) {
+    const issues = parseResult.error.issues.map((i) => ({ path: i.path, message: i.message }))
+    baseLogger.info(
+      {
+        event: 'booking.request',
+        request_id: requestId,
+        idempotency_key: idempotencyKey,
+        idempotent: false,
+        validation_failed: true,
+        sheets_latency_ms: null,
+        sheets_status_code: null,
+        status: 400,
+      },
+      'Validation failed',
+    )
+    return c.json(
+      { ok: false as const, error: 'validation' as const, issues },
+      400,
+    )
+  }
+
+  // 5. Append to Sheets.
+  const booking = parseResult.data
+  const row = bookingToRow(booking)
+  const appendResult = await appendBooking(row)
+
+  if (!appendResult.ok) {
+    baseLogger.error(
+      {
+        event: 'booking.request',
+        request_id: requestId,
+        idempotency_key: idempotencyKey,
+        idempotent: false,
+        validation_failed: false,
+        sheets_latency_ms: appendResult.latencyMs,
+        sheets_status_code: appendResult.statusCode,
+        sheets_error_code: appendResult.errorCode,
+        status: 502,
+      },
+      'Sheets append failed',
+    )
+    return c.json(
+      {
+        ok: false as const,
+        error: 'sheets' as const,
+        code: appendResult.statusCode,
+        message: appendResult.message,
+      },
+      502,
+    )
+  }
+
+  // 6. Success — cache result and respond.
+  const successResult = {
+    ok: true as const,
+    idempotent: false,
+    updatedRange: appendResult.updatedRange,
+    updatedRow: appendResult.updatedRow,
+  }
+  idempotency.set(idempotencyKey, successResult)
+
+  baseLogger.info(
+    {
+      event: 'booking.request',
+      request_id: requestId,
+      idempotency_key: idempotencyKey,
+      idempotent: false,
+      validation_failed: false,
+      sheets_latency_ms: appendResult.latencyMs,
+      sheets_status_code: appendResult.statusCode,
+      status: 201,
+    },
+    'Booking created',
+  )
+
+  return c.json(successResult, 201)
+})
+
+export default router
