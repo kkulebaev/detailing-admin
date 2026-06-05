@@ -5,6 +5,7 @@ import { env } from './env.js'
 import healthzRouter from './routes/healthz.js'
 import bookingsRouter from './routes/bookings.js'
 import clientsRouter from './routes/clients.js'
+import pricelistRouter from './routes/pricelist.js'
 
 export function createApp(): Hono {
   const app = new Hono()
@@ -27,6 +28,7 @@ export function createApp(): Hono {
   app.route('/healthz', healthzRouter)
   app.route('/api/bookings', bookingsRouter)
   app.route('/api/clients', clientsRouter)
+  app.route('/api/pricelist', pricelistRouter)
 
   app.notFound((c) => c.json({ ok: false, error: 'not_found' }, 404))
 
