@@ -9,6 +9,7 @@ import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
   READINESS,
+  MASTERS,
   RESPONSIBLES,
 } from '@detailing-admin/shared'
 import type { BookingApiResult } from '@detailing-admin/shared'
@@ -491,13 +492,26 @@ async function onSubmit() {
         </FormItem>
       </FormField>
 
-      <!-- Master (free text for MVP) -->
+      <!-- Master -->
       <FormField v-slot="{ componentField }" name="master">
         <FormItem class="mb-4">
           <FormLabel>Мастер</FormLabel>
-          <FormControl>
-            <Input type="text" class="h-11" v-bind="componentField" />
-          </FormControl>
+          <Select v-bind="componentField">
+            <FormControl>
+              <SelectTrigger class="h-11">
+                <SelectValue placeholder="Не выбрано" />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              <SelectItem
+                v-for="m in MASTERS"
+                :key="m"
+                :value="m"
+              >
+                {{ m }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <FormMessage />
         </FormItem>
       </FormField>
