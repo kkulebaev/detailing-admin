@@ -258,7 +258,7 @@ const {
     service: '',
     note: '',
     amount: '' as '' | number,
-    master: '',
+    master: undefined,
     responsible: undefined,
   },
 })
@@ -595,7 +595,7 @@ function resetFormState() {
       service: '',
       note: '',
       amount: '',
-      master: '',
+      master: undefined,
       responsible: undefined,
     },
   })
