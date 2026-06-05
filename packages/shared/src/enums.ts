@@ -15,7 +15,6 @@ export type Readiness = (typeof READINESS)[number]
 export const MASTERS = [
   'Вячеслав Толстов',
   'Иван Содель',
-  '-',
   'Сергей Теплов',
   'Дмитрий Глотов',
   'Андрей и ко.',
@@ -25,7 +24,6 @@ export type Master = (typeof MASTERS)[number]
 export const RESPONSIBLES = [
   'Вячеслав Толстов',
   'Иван Содель',
-  '-',
   'Сергей Теплов',
   'Дмитрий Глотов',
   'Андрей и ко.',
