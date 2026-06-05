@@ -94,6 +94,31 @@ function maskTimeText(raw: string): string {
   return `${d.slice(0, 2)}:${d.slice(2)}`
 }
 
+// Russian plate: 1 letter + 3 digits + 2 letters + 2–3 digits (region).
+// Only letters shared with Latin glyphs are legal; Latin look-alikes are
+// transliterated so a keyboard layout slip doesn't block typing.
+const PLATE_LETTERS = new Set(['А', 'В', 'Е', 'К', 'М', 'Н', 'О', 'Р', 'С', 'Т', 'У', 'Х'])
+const LATIN_TO_CYRILLIC: Record<string, string> = {
+  A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н',
+  O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
+}
+
+function maskLicensePlate(raw: string): string {
+  let out = ''
+  for (const ch of raw.toUpperCase()) {
+    if (out.length >= 9) break
+    const c = LATIN_TO_CYRILLIC[ch] ?? ch
+    const pos = out.length
+    const expectsLetter = pos === 0 || pos === 4 || pos === 5
+    if (expectsLetter) {
+      if (PLATE_LETTERS.has(c)) out += c
+    } else if (/\d/.test(c)) {
+      out += c
+    }
+  }
+  return out
+}
+
 function parseDateText(text: string): DateValue | null {
   const m = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
   if (!m) return null
@@ -129,6 +154,8 @@ const unavailableBanner = ref<UnavailableBanner | null>(null)
 // significant digit, not a country code re-entry.
 const PHONE_PREFIX = '+7 ('
 const phoneRaw = ref(PHONE_PREFIX)
+// ── License plate (UI-only, concatenated into `car` on submit) ───────────────
+const licensePlate = ref('')
 // ── Amount display value (formatted with thousand separators) ────────────────
 const amountRaw = ref('')
 
@@ -153,10 +180,11 @@ const SERVICE_PRESETS = [
 
 const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
 
-// Working hours of the detailing shop: 10:00–20:00 hourly.
+// Working hours of the detailing shop: 10:00–18:30 in 30-minute slots.
 const TIME_PRESETS = [
-  '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
-  '16:00', '17:00', '18:00', '19:00', '20:00',
+  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30',
+  '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
 ] as const
 
 function formatPhone(input: string): string {
@@ -399,6 +427,16 @@ function onTimeToTextInput(e: Event) {
   setFieldValue('timeTo', masked)
 }
 
+function onLicensePlateInput(e: Event) {
+  const target = e.target as HTMLInputElement
+  const masked = maskLicensePlate(target.value)
+  if (target.value !== masked) {
+    licensePlate.value = masked
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+}
+
 // ── Amount input handler ──────────────────────────────────────────────────────
 function onAmountInput(e: Event) {
   const target = e.target as HTMLInputElement
@@ -452,9 +490,12 @@ function onDateToSelect(date: DateValue | undefined) {
 // ── Submit ────────────────────────────────────────────────────────────────────
 const handleValidatedSubmit = handleSubmit(async (values) => {
   unavailableBanner.value = null
+  const plate = licensePlate.value.trim()
+  const car = [values.car?.trim(), plate].filter(Boolean).join(', ')
+  const payload = { ...values, car }
   let result: BookingApiResult
   try {
-    result = await submitBooking(values, idempotencyKey.value)
+    result = await submitBooking(payload, idempotencyKey.value)
   } catch {
     const retry = () => { void onSubmit() }
     toast.error('Ошибка при сохранении', {
@@ -523,6 +564,7 @@ function resetFormState() {
     },
   })
   phoneRaw.value = PHONE_PREFIX
+  licensePlate.value = ''
   amountRaw.value = ''
   timeValue.value = ''
   timeToValue.value = ''
@@ -543,8 +585,8 @@ function clearForm() {
 }
 
 // ── Draft persistence (localStorage) ─────────────────────────────────────────
-// v3: chip-based range mode (isRangeMode replaces multi-day switch).
-const DRAFT_KEY = 'detailing-admin:booking-draft:v3'
+// v4: license plate field added.
+const DRAFT_KEY = 'detailing-admin:booking-draft:v4'
 
 interface Draft {
   dateFromText: string
@@ -555,6 +597,7 @@ interface Draft {
   name: string
   phoneRaw: string
   car: string
+  licensePlate: string
   service: string
   note: string
   amountRaw: string
@@ -578,6 +621,7 @@ function saveDraft() {
       name: values.name ?? '',
       phoneRaw: phoneRaw.value,
       car: values.car ?? '',
+      licensePlate: licensePlate.value,
       service: values.service ?? '',
       note: values.note ?? '',
       amountRaw: amountRaw.value,
@@ -586,8 +630,8 @@ function saveDraft() {
       responsible: values.responsible,
     }
     const meaningful =
-      draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.service ||
-      draft.note || draft.amountRaw || draft.readiness || draft.master ||
+      draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.licensePlate ||
+      draft.service || draft.note || draft.amountRaw || draft.readiness || draft.master ||
       draft.responsible || (draft.phoneRaw && draft.phoneRaw !== PHONE_PREFIX)
     if (!meaningful) { clearDraft(); return }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
@@ -625,6 +669,7 @@ function loadDraft() {
     if (d.name) setFieldValue('name', d.name)
     if (d.phoneRaw) phoneRaw.value = d.phoneRaw
     if (d.car) setFieldValue('car', d.car)
+    if (d.licensePlate) licensePlate.value = d.licensePlate
     if (d.service) setFieldValue('service', d.service)
     if (d.note) setFieldValue('note', d.note)
     if (d.amountRaw) {
@@ -653,7 +698,7 @@ function scheduleSave() {
 watch(
   [
     dateFromText, dateToText, timeValue, timeToValue, isRangeMode,
-    phoneRaw, amountRaw,
+    phoneRaw, licensePlate, amountRaw,
     () => values.name, () => values.car, () => values.service,
     () => values.note, () => values.readiness, () => values.master,
     () => values.responsible,
@@ -699,9 +744,9 @@ watch(
       </div>
 
       <div class="space-y-3">
-        <!-- Когда: дата и время -->
+        <!-- Дата и время записи -->
         <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Когда</h2>
+          <h2 class="text-base font-semibold mb-4">Дата и время записи</h2>
 
           <!-- Quick date chips -->
           <div class="flex flex-wrap gap-2 mb-2">
@@ -762,6 +807,7 @@ watch(
                 </PopoverTrigger>
                 <PopoverContent class="w-auto p-0" align="start">
                   <Calendar
+                    locale="ru-RU"
                     :model-value="dateFromCal"
                     @update:model-value="onDateFromSelect"
                   />
@@ -837,6 +883,7 @@ watch(
                         </PopoverTrigger>
                         <PopoverContent class="w-auto p-0" align="start">
                           <Calendar
+                            locale="ru-RU"
                             :model-value="dateToCal"
                             @update:model-value="onDateToSelect"
                           />
@@ -876,9 +923,9 @@ watch(
           </Transition>
         </section>
 
-        <!-- Клиент -->
+        <!-- Информация о клиенте -->
         <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Клиент</h2>
+          <h2 class="text-base font-semibold mb-4">Информация о клиенте</h2>
           <div class="space-y-4">
             <FormField v-slot="{ componentField }" name="name">
               <FormItem>
@@ -921,16 +968,10 @@ watch(
                 {{ errors.phone }}
               </p>
             </div>
-          </div>
-        </section>
 
-        <!-- Заказ -->
-        <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Заказ</h2>
-          <div class="space-y-4">
             <FormField v-slot="{ componentField }" name="car">
               <FormItem>
-                <FormLabel>Машина</FormLabel>
+                <FormLabel>Марка и модель</FormLabel>
                 <Popover :open="carPopoverOpen && filteredCars.length > 0">
                   <PopoverAnchor as-child>
                     <FormControl>
@@ -973,6 +1014,29 @@ watch(
               </FormItem>
             </FormField>
 
+            <div>
+              <Label class="mb-2 block">
+                Гос.номер
+                <span class="text-muted-foreground font-normal">(необязательно)</span>
+              </Label>
+              <Input
+                type="text"
+                class="h-11"
+                placeholder="А123АА777"
+                maxlength="9"
+                autocomplete="off"
+                autocapitalize="characters"
+                v-model="licensePlate"
+                @input="onLicensePlateInput"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Объем работ -->
+        <section class="rounded-xl border border-border bg-card p-4">
+          <h2 class="text-base font-semibold mb-4">Объем работ</h2>
+          <div class="space-y-4">
             <FormField v-slot="{ componentField }" name="service">
               <FormItem>
                 <FormLabel>Услуга</FormLabel>
