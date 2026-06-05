@@ -353,23 +353,21 @@ async function onSubmit() {
         </FormItem>
       </FormField>
 
-      <!-- Phone (bound to raw masked string) -->
-      <FormItem class="mb-4">
-        <FormLabel>Номер телефона</FormLabel>
-        <FormControl>
-          <Input
-            type="tel"
-            inputmode="tel"
-            class="h-11"
-            placeholder="+7 (___) ___-__-__"
-            :value="phoneRaw"
-            @input="onPhoneInput"
-          />
-        </FormControl>
+      <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
+      <div class="mb-4">
+        <Label class="mb-2 block">Номер телефона</Label>
+        <Input
+          type="tel"
+          inputmode="tel"
+          class="h-11"
+          placeholder="+7 (___) ___-__-__"
+          :value="phoneRaw"
+          @input="onPhoneInput"
+        />
         <p v-if="errors.phone" class="text-sm font-medium text-destructive mt-1">
           {{ errors.phone }}
         </p>
-      </FormItem>
+      </div>
 
       <!-- Car -->
       <FormField v-slot="{ componentField }" name="car">
@@ -418,23 +416,21 @@ async function onSubmit() {
         </FormItem>
       </FormField>
 
-      <!-- Amount -->
-      <FormItem class="mb-4">
-        <FormLabel>Сумма, ₽</FormLabel>
-        <FormControl>
-          <Input
-            type="text"
-            inputmode="numeric"
-            class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            placeholder="0"
-            :value="amountRaw"
-            @input="onAmountInput"
-          />
-        </FormControl>
+      <!-- Amount (custom raw binding, outside FormField) -->
+      <div class="mb-4">
+        <Label class="mb-2 block">Сумма, ₽</Label>
+        <Input
+          type="text"
+          inputmode="numeric"
+          class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          placeholder="0"
+          :value="amountRaw"
+          @input="onAmountInput"
+        />
         <p v-if="errors.amount" class="text-sm font-medium text-destructive mt-1">
           {{ errors.amount }}
         </p>
-      </FormItem>
+      </div>
 
       <!-- Readiness -->
       <FormField v-slot="{ componentField }" name="readiness">
