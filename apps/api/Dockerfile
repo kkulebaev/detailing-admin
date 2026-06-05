@@ -1,5 +1,5 @@
 # ── Stage 1: install all dependencies ────────────────────────────────────────
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 
 RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
 
@@ -29,7 +29,7 @@ FROM builder AS pruner
 RUN pnpm prune --prod
 
 # ── Stage 4: minimal runtime image ────────────────────────────────────────────
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 
 WORKDIR /app
 
