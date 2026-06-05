@@ -309,9 +309,12 @@ function onDateToSelect(date: DateValue | undefined) {
   dateToOpen.value = false
 }
 
-function toggleMultiDay(val: boolean) {
-  isMultiDay.value = val
-  if (val) {
+function toggleMultiDay(val: boolean | string) {
+  // Reka's emit signature is `boolean | string` (matches checkbox tri-state);
+  // we only care about the boolean case.
+  const next = val === true
+  isMultiDay.value = next
+  if (next) {
     setFieldValue('dateTo', dateToText.value)
     setFieldValue('timeTo', timeToValue.value)
   } else {
@@ -400,6 +403,39 @@ async function onSubmit() {
   submitAttempted.value = true
   setFieldValue('phone', effectivePhone())
   await handleValidatedSubmit()
+}
+
+function clearForm() {
+  resetForm({
+    values: {
+      dateFrom: calToString(today(localTz)),
+      dateTo: undefined,
+      time: '',
+      timeTo: undefined,
+      name: '',
+      phone: '',
+      car: '',
+      service: '',
+      note: '',
+      amount: '',
+      readiness: undefined,
+      master: '',
+      responsible: undefined,
+    },
+  })
+  phoneRaw.value = PHONE_PREFIX
+  amountRaw.value = ''
+  timeValue.value = ''
+  timeToValue.value = ''
+  dateFromText.value = calToString(today(localTz))
+  dateToText.value = calToString(today(localTz))
+  dateFromCal.value = today(localTz)
+  dateToCal.value = today(localTz)
+  isMultiDay.value = false
+  submitAttempted.value = false
+  idempotencyKey.value = uuid()
+  unavailableBanner.value = null
+  clearDraft()
 }
 
 // ── Draft persistence (localStorage) ─────────────────────────────────────────
@@ -495,9 +531,6 @@ function loadDraft() {
     if (d.readiness) setFieldValue('readiness', d.readiness as never)
     if (d.master) setFieldValue('master', d.master as never)
     if (d.responsible) setFieldValue('responsible', d.responsible as never)
-    toast('Восстановлен черновик', {
-      description: 'Если не хочешь — поправь любое поле или очисти страницу.',
-    })
   } catch { /* corrupted draft: ignore */ }
 }
 
@@ -599,8 +632,8 @@ watch(
       <!-- Multi-day toggle -->
       <div class="flex items-center gap-3 mb-4">
         <Switch
-          :checked="isMultiDay"
-          @update:checked="toggleMultiDay"
+          :model-value="isMultiDay"
+          @update:model-value="toggleMultiDay"
         />
         <Label class="cursor-pointer">Несколько дней</Label>
       </div>
@@ -843,23 +876,35 @@ watch(
       </FormField>
     </form>
 
-    <!-- Sticky submit button (safe-area aware) -->
+    <!-- Sticky submit + clear bar (safe-area aware) -->
     <div class="fixed bottom-0 left-0 right-0 px-4 py-4 bg-background border-t border-border pb-safe">
-      <Button
-        type="button"
-        class="w-full h-12 text-base font-medium"
-        :disabled="isSubmitting"
-        @click="onSubmit"
-      >
-        <span v-if="isSubmitting" class="flex items-center gap-2">
-          <svg class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          Сохраняем...
-        </span>
-        <span v-else>Сохранить запись</span>
-      </Button>
+      <div class="max-w-lg mx-auto flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          class="h-12 px-4"
+          :disabled="isSubmitting"
+          @click="clearForm"
+          aria-label="Очистить форму"
+        >
+          Очистить
+        </Button>
+        <Button
+          type="button"
+          class="flex-1 h-12 text-base font-medium"
+          :disabled="isSubmitting"
+          @click="onSubmit"
+        >
+          <span v-if="isSubmitting" class="flex items-center gap-2">
+            <svg class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Сохраняем...
+          </span>
+          <span v-else>Сохранить запись</span>
+        </Button>
+      </div>
     </div>
   </div>
 </template>
