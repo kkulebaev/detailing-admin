@@ -51,7 +51,17 @@ import {
 import { upsertClient } from '../src/db/clients.js'
 import { baseLogger } from '../src/log.js'
 
-const VALID_PAYLOAD = { dateFrom: '04.06.2026', time: '10:00' }
+const VALID_PAYLOAD = {
+  dateFrom: '04.06.2026',
+  time: '10:00',
+  name: 'Иван',
+  phone: '+79991234567',
+  car: 'Toyota Camry',
+  service: 'Полировка',
+  amount: 5000,
+  master: 'Иван Содель',
+  responsible: 'Иван Содель',
+}
 
 const APPEND_SUCCESS = {
   ok: true as const,

@@ -5,27 +5,24 @@ import { normalizePhone } from './phone.js'
 
 const ddmmyyyy = z.string().max(10).regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Укажите дату в формате ДД.ММ.ГГГГ')
 const hhmm = z.string().max(5).regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Укажите время в формате ЧЧ:ММ')
-// Empty string passes through; non-empty must match HH:MM.
-const optionalHhmm = z
-  .string()
-  .max(5)
-  .refine((v) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), 'Укажите время в формате ЧЧ:ММ')
 
 export const bookingSchema = z
   .object({
     dateFrom: ddmmyyyy,
     dateTo: ddmmyyyy.optional(),
-    time: optionalHhmm.default(''),
+    time: hhmm,
     timeTo: hhmm.optional(),
-    name: z.string().max(120).default(''),
-    phone: z.string().max(40).default(''),
-    car: z.string().max(200).default(''),
-    service: z.string().max(2000).default(''),
+    name: z.string().min(1, 'Укажите имя').max(120),
+    phone: z.string().min(1, 'Укажите номер телефона').max(40),
+    car: z.string().min(1, 'Укажите марку и модель').max(200),
+    service: z.string().min(1, 'Укажите услугу').max(2000),
     note: z.string().max(2000).default(''),
-    amount: z.union([z.literal(''), z.number().int().nonnegative()]).default(''),
+    amount: z
+      .union([z.literal(''), z.number().int().nonnegative()])
+      .refine((v) => typeof v === 'number', { message: 'Укажите сумму' }),
     readiness: z.enum(READINESS).or(z.literal('')).default(''),
-    master: z.enum(MASTERS).or(z.literal('')).default(''),
-    responsible: z.enum(MASTERS).or(z.literal('')).default(''),
+    master: z.enum(MASTERS, { errorMap: () => ({ message: 'Выберите мастера' }) }),
+    responsible: z.enum(MASTERS, { errorMap: () => ({ message: 'Выберите ответственного' }) }),
   })
   .superRefine((v, ctx) => {
     if (v.dateTo) {

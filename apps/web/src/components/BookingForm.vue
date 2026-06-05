@@ -958,7 +958,7 @@ watch(
                   Вставить
                 </button>
               </div>
-              <p v-if="errors.phone" class="text-sm font-medium text-destructive mt-1">
+              <p v-if="submitAttempted && errors.phone" class="text-sm font-medium text-destructive mt-1">
                 {{ errors.phone }}
               </p>
             </div>
@@ -1059,7 +1059,10 @@ watch(
 
             <FormField v-slot="{ componentField }" name="note">
               <FormItem>
-                <FormLabel>Примечание</FormLabel>
+                <FormLabel>
+                  Примечание
+                  <span class="text-muted-foreground font-normal">(необязательно)</span>
+                </FormLabel>
                 <FormControl>
                   <Textarea
                     rows="3"
@@ -1096,7 +1099,7 @@ watch(
               +{{ formatAmount(String(delta)) }}
             </button>
           </div>
-          <p v-if="errors.amount" class="text-sm font-medium text-destructive mt-1">
+          <p v-if="submitAttempted && errors.amount" class="text-sm font-medium text-destructive mt-1">
             {{ errors.amount }}
           </p>
         </section>

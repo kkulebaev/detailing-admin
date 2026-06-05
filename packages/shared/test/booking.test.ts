@@ -4,6 +4,13 @@ import { bookingSchema } from '../src/booking.js'
 const validBase = {
   dateFrom: '04.06.2026',
   time: '10:00',
+  name: 'Иван',
+  phone: '+79991234567',
+  car: 'Toyota Camry',
+  service: 'Полировка',
+  amount: 5000,
+  master: 'Иван Содель',
+  responsible: 'Иван Содель',
 }
 
 describe('bookingSchema', () => {
@@ -73,9 +80,9 @@ describe('bookingSchema', () => {
     if (result.success) expect(result.data.dateTo).toBeUndefined()
   })
 
-  it('accepts amount as empty string', () => {
+  it('rejects amount as empty string', () => {
     const result = bookingSchema.safeParse({ ...validBase, amount: '' })
-    expect(result.success).toBe(true)
+    expect(result.success).toBe(false)
   })
 
   it('accepts amount 200000', () => {
@@ -112,16 +119,15 @@ describe('bookingSchema', () => {
     if (result.success) expect(result.data.readiness).toBe('')
   })
 
-  it('responsible: accepts explicit empty string', () => {
+  it('responsible: rejects explicit empty string', () => {
     const result = bookingSchema.safeParse({ ...validBase, responsible: '' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.responsible).toBe('')
+    expect(result.success).toBe(false)
   })
 
-  it('responsible: defaults to empty string when omitted', () => {
-    const result = bookingSchema.safeParse(validBase)
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.responsible).toBe('')
+  it('responsible: rejects when omitted', () => {
+    const { responsible: _omit, ...withoutResponsible } = validBase
+    const result = bookingSchema.safeParse(withoutResponsible)
+    expect(result.success).toBe(false)
   })
 
   it('rejects time field longer than 5 chars even when regex would otherwise match', () => {

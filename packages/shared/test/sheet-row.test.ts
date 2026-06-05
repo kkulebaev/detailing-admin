@@ -12,6 +12,13 @@ function parseBooking(input: Record<string, unknown>): Booking {
 const baseInput = {
   dateFrom: '04.06.2026',
   time: '10:00',
+  name: 'Иван',
+  phone: '+79991234567',
+  car: 'Toyota Camry',
+  service: 'Полировка',
+  amount: 5000,
+  master: 'Иван Содель',
+  responsible: 'Иван Содель',
 }
 
 describe('EXPECTED_HEADERS', () => {
@@ -54,14 +61,9 @@ describe('bookingToRow', () => {
     expect(row[8]).toBe('')
   })
 
-  it('undefined responsible → empty string in cell K', () => {
+  it('responsible from base input is written to cell K', () => {
     const row = bookingToRow(parseBooking(baseInput))
-    expect(row[10]).toBe('')
-  })
-
-  it('amount empty string → empty cell H', () => {
-    const row = bookingToRow(parseBooking({ ...baseInput, amount: '' }))
-    expect(row[7]).toBe('')
+    expect(row[10]).toBe('Иван Содель')
   })
 
   it('amount 200000 → numeric 200000 in cell H', () => {

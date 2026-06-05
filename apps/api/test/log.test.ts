@@ -45,6 +45,18 @@ import { _clearForTest } from '../src/idempotency.js'
 import { appendBooking } from '../src/sheets.js'
 import { baseLogger } from '../src/log.js'
 
+const VALID_PAYLOAD = {
+  dateFrom: '04.06.2026',
+  time: '10:00',
+  name: 'Иван',
+  phone: '+79991234567',
+  car: 'Toyota Camry',
+  service: 'Полировка',
+  amount: 5000,
+  master: 'Иван Содель',
+  responsible: 'Иван Содель',
+}
+
 const REQUIRED_LOG_FIELDS = [
   'event',
   'request_id',
@@ -75,7 +87,7 @@ describe('observability — POST /api/bookings log output', () => {
     await app.request('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-test-key' },
-      body: JSON.stringify({ dateFrom: '04.06.2026', time: '10:00' }),
+      body: JSON.stringify(VALID_PAYLOAD),
     })
     expect(vi.mocked(baseLogger.info)).toHaveBeenCalledTimes(1)
   })
@@ -84,7 +96,7 @@ describe('observability — POST /api/bookings log output', () => {
     await app.request('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-fields-key' },
-      body: JSON.stringify({ dateFrom: '04.06.2026', time: '10:00' }),
+      body: JSON.stringify(VALID_PAYLOAD),
     })
 
     const [logObj] = vi.mocked(baseLogger.info).mock.calls[0] as [Record<string, unknown>]
@@ -105,7 +117,7 @@ describe('observability — POST /api/bookings log output', () => {
     const res = await app.request('/api/bookings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'reqid-test' },
-      body: JSON.stringify({ dateFrom: '04.06.2026', time: '10:00' }),
+      body: JSON.stringify(VALID_PAYLOAD),
     })
     const responseRequestId = res.headers.get('X-Request-Id')
     const [logObj] = vi.mocked(baseLogger.info).mock.calls[0] as [Record<string, unknown>]
