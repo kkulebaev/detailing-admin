@@ -29,9 +29,6 @@ export function bookingToRow(b: Booking): (string | number)[] {
     cellA = `'${startPart}-${endPart}`
   }
 
-  // Cell H: amount — '' → '' (empty), number → number literal
-  const cellH: string | number = b.amount === '' ? '' : b.amount
-
   return [
     cellA,              // A — Дата
     b.time,             // B — Время (start)
@@ -40,7 +37,7 @@ export function bookingToRow(b: Booking): (string | number)[] {
     b.car,              // E — Машина
     b.service,          // F — Услуга
     b.note,             // G — Примечание
-    cellH,              // H — Сумма, ₽
+    b.amount,           // H — Сумма, ₽
     b.readiness,        // I — Готовность (always string post-parse; '' when blank)
     b.master,           // J — Мастер
     b.responsible,      // K — Ответсвенный (always string post-parse; '' when blank)
