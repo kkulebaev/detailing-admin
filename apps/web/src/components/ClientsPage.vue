@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useClipboard } from '@vueuse/core'
+import { toast } from 'vue-sonner'
 import { fetchClients, type Client } from '@/lib/clients-api'
 
 const rawClients = ref<Client[]>([])
@@ -39,6 +41,21 @@ async function load() {
 }
 
 onMounted(load)
+
+const { copy, isSupported: clipboardSupported } = useClipboard({ legacy: true })
+
+async function copyPhone(phone: string) {
+  if (!clipboardSupported.value) {
+    toast.error('Копирование недоступно в этом браузере')
+    return
+  }
+  try {
+    await copy(phone)
+    toast.success('Телефон скопирован', { description: phone })
+  } catch {
+    toast.error('Не удалось скопировать телефон')
+  }
+}
 </script>
 
 <template>
@@ -86,7 +103,16 @@ onMounted(load)
             >
               <td class="px-4 py-2 text-muted-foreground tabular-nums">{{ idx + 1 }}</td>
               <td class="px-4 py-2">{{ client.name || '—' }}</td>
-              <td class="px-4 py-2 tabular-nums">{{ client.phone }}</td>
+              <td class="px-4 py-2 tabular-nums">
+                <button
+                  type="button"
+                  class="rounded px-1 py-0.5 text-left hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  :title="`Скопировать ${client.phone}`"
+                  @click="copyPhone(client.phone)"
+                >
+                  {{ client.phone }}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
