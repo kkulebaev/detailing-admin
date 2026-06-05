@@ -5,12 +5,17 @@ import { normalizePhone } from './phone.js'
 
 const ddmmyyyy = z.string().max(10).regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Укажите дату в формате ДД.ММ.ГГГГ')
 const hhmm = z.string().max(5).regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Укажите время в формате ЧЧ:ММ')
+// Empty string passes through; non-empty must match HH:MM.
+const optionalHhmm = z
+  .string()
+  .max(5)
+  .refine((v) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), 'Укажите время в формате ЧЧ:ММ')
 
 export const bookingSchema = z
   .object({
     dateFrom: ddmmyyyy,
     dateTo: ddmmyyyy.optional(),
-    time: hhmm,
+    time: optionalHhmm.default(''),
     timeTo: hhmm.optional(),
     name: z.string().max(120).default(''),
     phone: z.string().max(40).default(''),
