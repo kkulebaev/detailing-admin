@@ -152,10 +152,10 @@ async function copyPhone(phone: string) {
             >
               <td class="px-4 py-2 text-muted-foreground tabular-nums">{{ idx + 1 }}</td>
               <td class="px-4 py-2">{{ client.name || '—' }}</td>
-              <td class="px-4 py-2 tabular-nums">
+              <td class="px-4 py-2 tabular-nums whitespace-nowrap">
                 <button
                   type="button"
-                  class="rounded px-1 py-0.5 text-left hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  class="rounded px-1 py-0.5 text-left whitespace-nowrap hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   :title="`Скопировать ${formatPhone(client.phone)}`"
                   @click="copyPhone(client.phone)"
                 >
