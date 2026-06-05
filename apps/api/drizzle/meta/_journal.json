@@ -8,6 +8,13 @@
       "when": 1780684636293,
       "tag": "0000_typical_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780700128763,
+      "tag": "0001_smart_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }
