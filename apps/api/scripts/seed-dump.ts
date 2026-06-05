@@ -9,6 +9,20 @@ interface SeedEntry {
   name: string
 }
 
+interface InvalidPhone {
+  tab: string
+  row: number
+  raw_phone: string
+  name: string
+  error: string
+}
+
+interface InvalidReport {
+  generated_at: string
+  spreadsheet_id: string
+  invalid_phones: InvalidPhone[]
+}
+
 interface DumpResult {
   generated_at: string
   spreadsheet_id: string
@@ -24,6 +38,7 @@ interface DumpResult {
 }
 
 const OUT_PATH = resolve(import.meta.dirname, '../.seed/clients.json')
+const INVALID_PATH = resolve(import.meta.dirname, '../.seed/invalid-phones.json')
 
 function buildSheetsClient(): ReturnType<typeof google.sheets> {
   const raw = Buffer.from(env.GOOGLE_SERVICE_ACCOUNT_JSON_B64, 'base64').toString('utf-8')
@@ -59,6 +74,7 @@ async function main(): Promise<void> {
     .sort((a, b) => yearOf(b) - yearOf(a))
 
   const phoneToEntry = new Map<string, SeedEntry>()
+  const invalidPhones: InvalidPhone[] = []
   const result: DumpResult = {
     generated_at: new Date().toISOString(),
     spreadsheet_id: env.SPREADSHEET_ID,
@@ -113,8 +129,15 @@ async function main(): Promise<void> {
       let phone: string
       try {
         phone = normalizePhone(rawPhone)
-      } catch {
+      } catch (err) {
         result.totals.invalid_phones++
+        invalidPhones.push({
+          tab: title,
+          row: i + 2, // +1 for header, +1 to make 1-indexed
+          raw_phone: rawPhone,
+          name: rawName,
+          error: err instanceof Error ? err.message : String(err),
+        })
         continue
       }
       if (phone.length === 0) {
@@ -132,6 +155,13 @@ async function main(): Promise<void> {
   await mkdir(dirname(OUT_PATH), { recursive: true })
   await writeFile(OUT_PATH, JSON.stringify(result, null, 2) + '\n', 'utf-8')
 
+  const invalidReport: InvalidReport = {
+    generated_at: result.generated_at,
+    spreadsheet_id: result.spreadsheet_id,
+    invalid_phones: invalidPhones,
+  }
+  await writeFile(INVALID_PATH, JSON.stringify(invalidReport, null, 2) + '\n', 'utf-8')
+
   console.log(`✓ Wrote ${result.entries.length} unique clients → ${OUT_PATH}`)
   console.log(`  scanned tabs: ${result.tabs_scanned.map((t) => t.title).join(', ') || '∅'}`)
   if (result.tabs_skipped.length > 0) {
@@ -141,6 +171,13 @@ async function main(): Promise<void> {
   console.log(
     `  rows seen: ${result.totals.rows_total} (empty phones: ${result.totals.empty_phones}, invalid: ${result.totals.invalid_phones})`,
   )
+  console.log(`✓ Wrote ${invalidPhones.length} invalid phones → ${INVALID_PATH}`)
+  if (invalidPhones.length > 0) {
+    console.log('\n--- Invalid phones ---')
+    for (const p of invalidPhones) {
+      console.log(`  [${p.tab} row ${p.row}] "${p.raw_phone}"  name="${p.name}"  (${p.error})`)
+    }
+  }
 }
 
 await main()
