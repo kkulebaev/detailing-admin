@@ -46,7 +46,7 @@ const idempotencyKey = ref(uuid())
 
 // TODO: уведомления пока не реализованы — этот тоггл только для UI,
 // серверной отправки нет.
-const sendNotification = ref(false)
+const sendNotification = ref(true)
 
 // ── Calendar state ────────────────────────────────────────────────────────────
 const localTz = getLocalTimeZone()
@@ -570,7 +570,7 @@ function resetFormState() {
   dateFromCal.value = fresh
   dateToCal.value = fresh
   isRangeMode.value = false
-  sendNotification.value = false
+  sendNotification.value = true
   submitAttempted.value = false
 }
 
