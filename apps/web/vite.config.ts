@@ -14,6 +14,13 @@ export default defineConfig({
       },
     },
   },
+  // Vite ≥5's preview blocks unknown Host headers by default (DNS rebinding
+  // guard) — Railway's internal healthcheck hits us by container hostname,
+  // which is not localhost, and gets 403. Allow Railway public + private
+  // domains explicitly; anything else still 403s.
+  preview: {
+    allowedHosts: ['.up.railway.app', '.railway.internal'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
