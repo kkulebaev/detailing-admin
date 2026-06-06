@@ -1,0 +1,21 @@
+# Pre-commit gate: lint (staged files only) + typecheck + tests run in parallel.
+# Lint only touches changed files via `{staged_files}`; typecheck and tests read
+# the whole workspace because TS project references and vitest config don't
+# slice cleanly by file. Net cost: ~20-40s per commit on a warm cache.
+#
+# To skip in an emergency: `git commit --no-verify`.
+pre-commit:
+  parallel: true
+  skip:
+    - merge
+    - rebase
+  commands:
+    lint:
+      glob: "*.{ts,vue}"
+      run: pnpm exec eslint {staged_files}
+    typecheck:
+      glob: "*.{ts,vue}"
+      run: pnpm typecheck
+    test:
+      glob: "*.{ts,vue}"
+      run: pnpm test
