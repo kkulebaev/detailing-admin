@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { watch } from 'vue'
-import { BadgeRussianRuble, CalendarPlus, Users } from '@lucide/vue'
+import { BadgeRussianRuble, CalendarPlus, Users, X } from '@lucide/vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { Button } from '@/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
@@ -29,8 +30,18 @@ watch(() => route.fullPath, () => {
 
 <template>
   <Sidebar>
-    <SidebarHeader class="h-14 flex-row items-center border-b border-border px-4">
+    <SidebarHeader class="h-14 flex-row items-center justify-between border-b border-border px-4">
       <span class="text-base font-semibold">Detailing Admin</span>
+      <Button
+        v-if="isMobile"
+        variant="ghost"
+        size="icon"
+        class="-mr-2 h-8 w-8"
+        aria-label="Закрыть меню"
+        @click="setOpenMobile(false)"
+      >
+        <X />
+      </Button>
     </SidebarHeader>
     <SidebarContent>
       <SidebarGroup>
