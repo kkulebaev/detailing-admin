@@ -15,7 +15,7 @@ export function createApp(): Hono {
     '/api/*',
     cors({
       origin: env.WEB_ORIGIN.split(',').map((o) => o.trim()),
-      allowMethods: ['POST', 'GET', 'OPTIONS'],
+      allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key'],
       exposeHeaders: ['X-Request-Id'],
     }),
