@@ -29,10 +29,7 @@ const idempotencyHeaderSchema = z.object({
   // arrive normalized; `bookingsValidationHook` rewrites the issue path back to
   // `'Idempotency-Key'` so the wire format stays byte-identical.
   'idempotency-key': z
-    .string({
-      required_error: 'Required header missing',
-      invalid_type_error: 'Required header missing',
-    })
+    .string({ error: () => 'Required header missing' })
     .min(1, 'Required header missing')
     .max(128, 'Required; max 128 chars'),
 })

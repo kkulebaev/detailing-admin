@@ -19,10 +19,10 @@ export const bookingSchema = z
     note: z.string().max(2000).default(''),
     amount: z
       .union([z.literal(''), z.number().int().nonnegative()])
-      .refine((v) => typeof v === 'number', { message: 'Укажите сумму' }),
+      .refine((v) => typeof v === 'number', { error: 'Укажите сумму' }),
     readiness: z.enum(READINESS).or(z.literal('')).default(''),
-    master: z.enum(MASTERS, { errorMap: () => ({ message: 'Выберите мастера' }) }),
-    responsible: z.enum(MASTERS, { errorMap: () => ({ message: 'Выберите ответственного' }) }),
+    master: z.enum(MASTERS, { error: () => 'Выберите мастера' }),
+    responsible: z.enum(MASTERS, { error: () => 'Выберите ответственного' }),
   })
   .superRefine((v, ctx) => {
     if (v.dateTo) {
