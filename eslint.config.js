@@ -28,6 +28,7 @@ export default tseslint.config(
       '**/drizzle/**',
       '**/.tmp/**',
       'apps/web/src/components/ui/**',
+      'apps/web/src/lib/generated/**',
       'apps/api/scripts/**',
       '**/test/**',
       '**/*.test.ts',

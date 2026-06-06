@@ -3,6 +3,24 @@ import { toast } from 'vue-sonner'
 
 export const PHONE_PREFIX = '+7 ('
 
+// Minimal surface of HTMLInputElement that the input handler touches. The
+// duck-typed predicate accepts both real DOM inputs and the test mocks.
+interface InputLike {
+  value: string
+  selectionStart: number | null
+  setSelectionRange(start: number, end: number): void
+}
+function isInputLike(target: unknown): target is InputLike {
+  return (
+    target !== null &&
+    typeof target === 'object' &&
+    'value' in target &&
+    typeof target.value === 'string' &&
+    'setSelectionRange' in target &&
+    typeof target.setSelectionRange === 'function'
+  )
+}
+
 function formatPhone(input: string, isDeleting = false): string {
   const digits = input.replace(/\D/g, '')
   // strip leading 7 or 8 — they're absorbed into the +7 prefix
@@ -77,8 +95,11 @@ export function usePhoneInput() {
   }
 
   function onPhoneInput(e: Event) {
+    // Duck-type the target instead of `instanceof HTMLInputElement` so the
+    // jsdom-free vitest mocks (plain object with `value` + `setSelectionRange`)
+    // still flow through; real DOM input elements satisfy the same predicate.
     const target = e.target
-    if (!(target instanceof HTMLInputElement)) return
+    if (!isInputLike(target)) return
     const isDeleting = target.value.length < phoneRaw.value.length
     const caretBefore = target.selectionStart ?? target.value.length
     const sigDigits = countSignificantDigits(target.value, caretBefore)

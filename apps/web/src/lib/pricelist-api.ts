@@ -8,7 +8,16 @@ import {
   type PricelistSectionRow,
   type PricelistService,
 } from '@detailing-admin/shared'
-import { apiClient, parseResponse } from './api-client'
+import { parseResponse } from './api-client'
+import {
+  deleteApiPricelistSectionsId,
+  deleteApiPricelistServicesId,
+  getApiPricelist,
+  patchApiPricelistSectionsId,
+  patchApiPricelistServicesId,
+  postApiPricelistSections,
+  postApiPricelistServices,
+} from './generated/pricelist/pricelist'
 
 export type { PricelistSection, PricelistSectionRow, PricelistService }
 
@@ -32,12 +41,12 @@ export interface ServiceInputPayload {
 }
 
 export function fetchPricelist(): Promise<PricelistApiResult> {
-  return parseResponse(() => apiClient.api.pricelist.$get(), pricelistListResponseSchema)
+  return parseResponse(() => getApiPricelist(), pricelistListResponseSchema)
 }
 
 export function createSection(payload: SectionInputPayload): Promise<SectionMutationResult> {
   return parseResponse(
-    () => apiClient.api.pricelist.sections.$post({ json: payload }),
+    () => postApiPricelistSections(payload),
     pricelistSectionMutationResponseSchema,
   )
 }
@@ -47,25 +56,21 @@ export function updateSection(
   payload: SectionInputPayload,
 ): Promise<SectionMutationResult> {
   return parseResponse(
-    () =>
-      apiClient.api.pricelist.sections[':id'].$patch({
-        param: { id: String(id) },
-        json: payload,
-      }),
+    () => patchApiPricelistSectionsId(String(id), payload),
     pricelistSectionMutationResponseSchema,
   )
 }
 
 export function deleteSection(id: number): Promise<PricelistDeleteResult> {
   return parseResponse(
-    () => apiClient.api.pricelist.sections[':id'].$delete({ param: { id: String(id) } }),
+    () => deleteApiPricelistSectionsId(String(id)),
     pricelistDeleteResponseSchema,
   )
 }
 
 export function createService(payload: ServiceInputPayload): Promise<ServiceMutationResult> {
   return parseResponse(
-    () => apiClient.api.pricelist.services.$post({ json: payload }),
+    () => postApiPricelistServices(payload),
     pricelistServiceMutationResponseSchema,
   )
 }
@@ -75,18 +80,14 @@ export function updateService(
   payload: ServiceInputPayload,
 ): Promise<ServiceMutationResult> {
   return parseResponse(
-    () =>
-      apiClient.api.pricelist.services[':id'].$patch({
-        param: { id: String(id) },
-        json: payload,
-      }),
+    () => patchApiPricelistServicesId(String(id), payload),
     pricelistServiceMutationResponseSchema,
   )
 }
 
 export function deleteService(id: number): Promise<PricelistDeleteResult> {
   return parseResponse(
-    () => apiClient.api.pricelist.services[':id'].$delete({ param: { id: String(id) } }),
+    () => deleteApiPricelistServicesId(String(id)),
     pricelistDeleteResponseSchema,
   )
 }

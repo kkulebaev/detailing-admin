@@ -5,7 +5,13 @@ import {
   clientsListResponseSchema,
   type Client,
 } from '@detailing-admin/shared'
-import { apiClient, parseResponse } from './api-client'
+import { parseResponse } from './api-client'
+import {
+  deleteApiClientsId,
+  getApiClients,
+  patchApiClientsId,
+  postApiClients,
+} from './generated/clients/clients'
 
 export type { Client }
 
@@ -19,29 +25,20 @@ export interface ClientInputPayload {
 }
 
 export function fetchClients(): Promise<ClientsApiResult> {
-  return parseResponse(() => apiClient.api.clients.$get(), clientsListResponseSchema)
+  return parseResponse(() => getApiClients(), clientsListResponseSchema)
 }
 
 export function createClient(payload: ClientInputPayload): Promise<ClientMutationResult> {
-  return parseResponse(
-    () => apiClient.api.clients.$post({ json: payload }),
-    clientMutationResponseSchema,
-  )
+  return parseResponse(() => postApiClients(payload), clientMutationResponseSchema)
 }
 
 export function updateClient(
   id: string,
   payload: ClientInputPayload,
 ): Promise<ClientMutationResult> {
-  return parseResponse(
-    () => apiClient.api.clients[':id'].$patch({ param: { id }, json: payload }),
-    clientMutationResponseSchema,
-  )
+  return parseResponse(() => patchApiClientsId(id, payload), clientMutationResponseSchema)
 }
 
 export function deleteClient(id: string): Promise<ClientDeleteResult> {
-  return parseResponse(
-    () => apiClient.api.clients[':id'].$delete({ param: { id } }),
-    clientDeleteResponseSchema,
-  )
+  return parseResponse(() => deleteApiClientsId(id), clientDeleteResponseSchema)
 }
