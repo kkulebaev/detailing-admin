@@ -14,6 +14,7 @@ import {
 import type { BookingApiResult } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
+import { usePhoneInput } from '@/composables/use-phone-input'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,11 +166,17 @@ type UnavailableBanner =
   | { kind: 'not_configured'; message: string }
 const unavailableBanner = ref<UnavailableBanner | null>(null)
 
-// ── Phone raw display value (NOT the zod-transformed output) ─────────────────
-// Always starts with the +7 prefix so the first user keystroke is the first
-// significant digit, not a country code re-entry.
-const PHONE_PREFIX = '+7 ('
-const phoneRaw = ref(PHONE_PREFIX)
+// ── Phone input (raw display value + handlers) ──────────────────────────────
+// Starts empty so the placeholder is visible; typing '+', '7' or '8' as the
+// first character auto-expands to the +7 prefix.
+const {
+  phoneRaw,
+  effectivePhone,
+  onPhoneInput,
+  onPhonePaste,
+  onClickPastePhone,
+  resetPhone,
+} = usePhoneInput()
 // ── License plate (UI-only, concatenated into `car` on submit) ───────────────
 const licensePlate = ref('')
 // ── Amount display value (formatted with thousand separators) ────────────────
@@ -202,41 +209,6 @@ const TIME_PRESETS = [
   '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
   '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
 ] as const
-
-function formatPhone(input: string): string {
-  const digits = input.replace(/\D/g, '')
-  // strip leading 7 or 8 — they're absorbed into the +7 prefix
-  let base = digits
-  if (base.startsWith('7') || base.startsWith('8')) base = base.slice(1)
-  const d = base.slice(0, 10)
-  if (d.length === 0) return PHONE_PREFIX
-  if (d.length <= 3) return `+7 (${d}`
-  if (d.length <= 6) return `+7 (${d.slice(0, 3)}) ${d.slice(3)}`
-  if (d.length <= 8) return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
-  return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8)}`
-}
-
-// Pasted strings may carry a country code, separators, or no prefix at all.
-// Reduce to the 10 significant digits before reusing formatPhone — typing
-// goes through a different path that can't safely strip a "leading 7/8" twice.
-function formatPastedPhone(input: string): string {
-  const digits = input.replace(/\D/g, '')
-  let ten = digits
-  if (ten.length === 11 && (ten.startsWith('7') || ten.startsWith('8'))) {
-    ten = ten.slice(1)
-  } else if (ten.length > 10) {
-    ten = ten.slice(-10)
-  }
-  return formatPhone(ten)
-}
-
-// Returns the phone value to send on submit:
-//   '' when the user hasn't typed any real digits past the prefix,
-//   the raw masked string otherwise (server transform normalises to E.164).
-function effectivePhone(): string {
-  const digits = phoneRaw.value.replace(/\D/g, '')
-  return digits.length <= 1 ? '' : phoneRaw.value
-}
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 const {
@@ -360,37 +332,6 @@ function onCarKeydown(e: KeyboardEvent) {
     if (!carPopoverOpen.value) return
     e.preventDefault()
     carPopoverOpen.value = false
-  }
-}
-
-// ── Phone input handler ───────────────────────────────────────────────────────
-function onPhoneInput(e: Event) {
-  const target = e.target as HTMLInputElement
-  const formatted = formatPhone(target.value)
-  if (target.value !== formatted) {
-    phoneRaw.value = formatted
-    target.value = formatted
-    target.setSelectionRange(formatted.length, formatted.length)
-  }
-}
-
-function onPhonePaste(e: ClipboardEvent) {
-  const text = e.clipboardData?.getData('text') ?? ''
-  if (!text) return
-  e.preventDefault()
-  phoneRaw.value = formatPastedPhone(text)
-}
-
-async function onClickPastePhone() {
-  try {
-    const text = await navigator.clipboard.readText()
-    if (!text.trim()) {
-      toast.error('Буфер обмена пуст')
-      return
-    }
-    phoneRaw.value = formatPastedPhone(text)
-  } catch {
-    toast.error('Не удалось прочитать буфер обмена')
   }
 }
 
@@ -602,7 +543,7 @@ function resetFormState() {
       responsible: undefined,
     },
   })
-  phoneRaw.value = PHONE_PREFIX
+  resetPhone()
   licensePlate.value = ''
   amountRaw.value = ''
   timeValue.value = ''
@@ -669,7 +610,7 @@ function saveDraft() {
     const meaningful =
       draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.licensePlate ||
       draft.service || draft.note || draft.amountRaw || draft.master ||
-      draft.responsible || (draft.phoneRaw && draft.phoneRaw !== PHONE_PREFIX)
+      draft.responsible || (draft.phoneRaw && draft.phoneRaw.replace(/\D/g, '').length > 1)
     if (!meaningful) { clearDraft(); return }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
   } catch { /* ignore */ }
@@ -998,7 +939,7 @@ watch(
                   inputmode="tel"
                   class="h-11 pr-24"
                   placeholder="+7 (___) ___-__-__"
-                  v-model="phoneRaw"
+                  :model-value="phoneRaw"
                   :aria-invalid="submitAttempted && !!errors.phone"
                   @input="onPhoneInput"
                   @paste="onPhonePaste"
