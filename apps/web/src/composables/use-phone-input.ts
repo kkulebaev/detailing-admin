@@ -77,7 +77,8 @@ export function usePhoneInput() {
   }
 
   function onPhoneInput(e: Event) {
-    const target = e.target as HTMLInputElement
+    const target = e.target
+    if (!(target instanceof HTMLInputElement)) return
     const isDeleting = target.value.length < phoneRaw.value.length
     const caretBefore = target.selectionStart ?? target.value.length
     const sigDigits = countSignificantDigits(target.value, caretBefore)

@@ -59,14 +59,10 @@ const onValidateId = (
   c: Context,
 ) => {
   if (!result.success) {
-    return c.json(
-      {
-        ok: false as const,
-        error: 'validation' as const,
-        issues: [{ path: ['id'] as (string | number)[], message: 'Invalid id' }],
-      },
-      400,
-    )
+    const issues: { path: (string | number)[]; message: string }[] = [
+      { path: ['id'], message: 'Invalid id' },
+    ]
+    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
   }
 }
 

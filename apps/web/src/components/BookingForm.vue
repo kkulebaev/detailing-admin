@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, onMounted, provide } from 'vue'
+import { z } from 'zod'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { v4 as uuid } from 'uuid'
@@ -11,7 +12,7 @@ import {
   bookingSchema,
   MASTERS,
 } from '@detailing-admin/shared'
-import type { BookingApiResult } from '@detailing-admin/shared'
+import type { BookingApiResult, Master } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { usePhoneInput } from '@/composables/use-phone-input'
@@ -45,6 +46,43 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { FORM_SHOW_ERRORS_KEY } from '@/components/ui/form/injectionKeys'
+
+// Form field set used to narrow Zod issue paths into a literal union without a
+// type assertion. `Record<BookingField, true>` lets us use `in` for narrowing.
+type BookingField =
+  | 'dateFrom'
+  | 'dateTo'
+  | 'time'
+  | 'timeTo'
+  | 'name'
+  | 'phone'
+  | 'car'
+  | 'service'
+  | 'note'
+  | 'amount'
+  | 'master'
+  | 'responsible'
+const BOOKING_FIELDS: Record<BookingField, true> = {
+  dateFrom: true,
+  dateTo: true,
+  time: true,
+  timeTo: true,
+  name: true,
+  phone: true,
+  car: true,
+  service: true,
+  note: true,
+  amount: true,
+  master: true,
+  responsible: true,
+}
+function isBookingField(s: string): s is BookingField {
+  return s in BOOKING_FIELDS
+}
+
+function isMaster(s: string): s is Master {
+  return MASTERS.some((m) => m === s)
+}
 
 // ── Idempotency key: same across retries, regenerated on success ──────────────
 const idempotencyKey = ref(uuid())
@@ -212,6 +250,39 @@ const TIME_PRESETS = [
 ] as const
 
 // ── Form ──────────────────────────────────────────────────────────────────────
+// Optional string-or-undefined fields need the type widened from the literal
+// `undefined` so vee-validate accepts later `setFieldValue('dateTo', '04.06.2026')`
+// calls. Same for `amount`, which transitions from `''` to a parsed number.
+interface BookingFormInitial {
+  dateFrom: string
+  dateTo: string | undefined
+  time: string
+  timeTo: string | undefined
+  name: string
+  phone: string
+  car: string
+  service: string
+  note: string
+  amount: '' | number
+  master: Master | undefined
+  responsible: Master | undefined
+}
+
+const initialFormValues: BookingFormInitial = {
+  dateFrom: calToString(todayVal),
+  dateTo: undefined,
+  time: '',
+  timeTo: undefined,
+  name: '',
+  phone: '',
+  car: '',
+  service: '',
+  note: '',
+  amount: '',
+  master: undefined,
+  responsible: undefined,
+}
+
 const {
   handleSubmit,
   setFieldValue,
@@ -223,20 +294,7 @@ const {
   isSubmitting,
 } = useForm({
   validationSchema: toTypedSchema(bookingSchema),
-  initialValues: {
-    dateFrom: calToString(todayVal),
-    dateTo: undefined as string | undefined,
-    time: '',
-    timeTo: undefined as string | undefined,
-    name: '',
-    phone: '',
-    car: '',
-    service: '',
-    note: '',
-    amount: '' as '' | number,
-    master: undefined,
-    responsible: undefined,
-  },
+  initialValues: initialFormValues,
 })
 
 // ── Quick date chips ─────────────────────────────────────────────────────────
@@ -338,7 +396,8 @@ function onCarKeydown(e: KeyboardEvent) {
 
 // ── Date / time text input handlers ──────────────────────────────────────────
 function onDateFromTextInput(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const masked = maskDateText(target.value)
   if (target.value !== masked) {
     dateFromText.value = masked
@@ -351,7 +410,8 @@ function onDateFromTextInput(e: Event) {
 }
 
 function onDateToTextInput(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const masked = maskDateText(target.value)
   if (target.value !== masked) {
     dateToText.value = masked
@@ -364,7 +424,8 @@ function onDateToTextInput(e: Event) {
 }
 
 function onTimeTextInput(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const masked = maskTimeText(target.value)
   if (target.value !== masked) {
     timeValue.value = masked
@@ -375,7 +436,8 @@ function onTimeTextInput(e: Event) {
 }
 
 function onTimeToTextInput(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const masked = maskTimeText(target.value)
   if (target.value !== masked) {
     timeToValue.value = masked
@@ -386,7 +448,8 @@ function onTimeToTextInput(e: Event) {
 }
 
 function onNameInput(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const masked = maskName(target.value)
   if (target.value !== masked) {
     target.value = masked
@@ -397,7 +460,8 @@ function onNameInput(e: Event) {
 
 function onCarInput(e: Event) {
   carPopoverOpen.value = true
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const masked = maskCar(target.value)
   if (target.value !== masked) {
     target.value = masked
@@ -407,7 +471,8 @@ function onCarInput(e: Event) {
 }
 
 function onLicensePlateInput(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const masked = maskLicensePlate(target.value)
   if (target.value !== masked) {
     licensePlate.value = masked
@@ -418,7 +483,8 @@ function onLicensePlateInput(e: Event) {
 
 // ── Amount input handler ──────────────────────────────────────────────────────
 function onAmountInput(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
   const digits = amountDigits(target.value)
   const formatted = formatAmount(digits)
   if (target.value !== formatted) {
@@ -501,11 +567,10 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
       message: result.message ?? '',
     }
   } else if (result.error === 'validation') {
-    type BookingField = 'dateFrom' | 'dateTo' | 'time' | 'name' | 'phone' | 'car' | 'service' | 'note' | 'amount' | 'readiness' | 'master' | 'responsible'
     for (const issue of result.issues) {
       const field = issue.path[0]
-      if (typeof field === 'string') {
-        setFieldError(field as BookingField, issue.message)
+      if (typeof field === 'string' && isBookingField(field)) {
+        setFieldError(field, issue.message)
       }
     }
   } else {
@@ -569,22 +634,26 @@ function clearForm() {
 // v4: license plate field added.
 const DRAFT_KEY = 'detailing-admin:booking-draft:v4'
 
-interface Draft {
-  dateFromText: string
-  dateToText: string
-  timeValue: string
-  timeToValue: string
-  isRangeMode: boolean
-  name: string
-  phoneRaw: string
-  car: string
-  licensePlate: string
-  service: string
-  note: string
-  amountRaw: string
-  master?: string
-  responsible?: string
-}
+// Draft schema is permissive on purpose — every field is optional so a
+// half-filled or older-version localStorage entry parses without bouncing back.
+const draftSchema = z.object({
+  dateFromText: z.string().optional(),
+  dateToText: z.string().optional(),
+  timeValue: z.string().optional(),
+  timeToValue: z.string().optional(),
+  isRangeMode: z.boolean().optional(),
+  name: z.string().optional(),
+  phoneRaw: z.string().optional(),
+  car: z.string().optional(),
+  licensePlate: z.string().optional(),
+  service: z.string().optional(),
+  note: z.string().optional(),
+  amountRaw: z.string().optional(),
+  master: z.string().optional(),
+  responsible: z.string().optional(),
+})
+
+type Draft = z.infer<typeof draftSchema>
 
 function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY) } catch { /* storage may be disabled */ }
@@ -621,7 +690,9 @@ function loadDraft() {
   try {
     const raw = localStorage.getItem(DRAFT_KEY)
     if (!raw) return
-    const d = JSON.parse(raw) as Partial<Draft>
+    const parsed = draftSchema.safeParse(JSON.parse(raw))
+    if (!parsed.success) return
+    const d = parsed.data
     if (d.dateFromText) {
       dateFromText.value = d.dateFromText
       const parsed = parseDateText(d.dateFromText)
@@ -656,8 +727,8 @@ function loadDraft() {
       const digits = amountDigits(d.amountRaw)
       if (digits) setFieldValue('amount', parseInt(digits, 10))
     }
-    if (d.master) setFieldValue('master', d.master as never)
-    if (d.responsible) setFieldValue('responsible', d.responsible as never)
+    if (d.master && isMaster(d.master)) setFieldValue('master', d.master)
+    if (d.responsible && isMaster(d.responsible)) setFieldValue('responsible', d.responsible)
   } catch { /* corrupted draft: ignore */ }
 }
 

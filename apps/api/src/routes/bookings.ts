@@ -83,16 +83,10 @@ const idempotencyGuard = async (c: Context<{ Variables: Vars }>, next: Next) => 
       },
       'Missing Idempotency-Key header',
     )
-    return c.json(
-      {
-        ok: false as const,
-        error: 'validation' as const,
-        issues: [
-          { path: ['Idempotency-Key'] as (string | number)[], message: 'Required header missing' },
-        ],
-      },
-      400,
-    )
+    const issues: { path: (string | number)[]; message: string }[] = [
+      { path: ['Idempotency-Key'], message: 'Required header missing' },
+    ]
+    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
   }
 
   if (key.length > MAX_IDEMPOTENCY_KEY_LEN) {
@@ -109,16 +103,10 @@ const idempotencyGuard = async (c: Context<{ Variables: Vars }>, next: Next) => 
       },
       'Idempotency-Key too long',
     )
-    return c.json(
-      {
-        ok: false as const,
-        error: 'validation' as const,
-        issues: [
-          { path: ['Idempotency-Key'] as (string | number)[], message: 'Required; max 128 chars' },
-        ],
-      },
-      400,
-    )
+    const issues: { path: (string | number)[]; message: string }[] = [
+      { path: ['Idempotency-Key'], message: 'Required; max 128 chars' },
+    ]
+    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
   }
 
   c.set('idempotencyKey', key)

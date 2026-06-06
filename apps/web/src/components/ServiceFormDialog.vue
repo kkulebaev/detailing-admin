@@ -80,13 +80,19 @@ watch(
   },
 )
 
-function parsePrice(raw: string): { ok: true; value: number | null } | { ok: false } {
+type ParsedPrice = { ok: true; value: number | null } | { ok: false }
+
+function parsePrice(raw: string): ParsedPrice {
   const trimmed = raw.trim()
   if (trimmed.length === 0) return { ok: true, value: null }
   if (!/^\d+$/.test(trimmed)) return { ok: false }
   const n = Number(trimmed)
   if (!Number.isInteger(n) || n < 0 || n > 100_000_000) return { ok: false }
   return { ok: true, value: n }
+}
+
+function isPriceOk(p: ParsedPrice): p is Extract<ParsedPrice, { ok: true }> {
+  return p.ok
 }
 
 function close() {
@@ -118,14 +124,22 @@ async function submit() {
     return
   }
 
+  // After the errs short-circuit, every entry is `ok: true`. `every` with a
+  // type predicate narrows the array element type so the payload reads
+  // `.value` without an assertion.
+  if (!parsed.every(isPriceOk)) {
+    fieldErrors.value = errs
+    return
+  }
+
   const payload = {
     sectionId: sectionIdNum,
     name: trimmedName,
     description: description.value.trim() === '' ? null : description.value.trim(),
-    priceClass1: (parsed[0] as { ok: true; value: number | null }).value,
-    priceClass2: (parsed[1] as { ok: true; value: number | null }).value,
-    priceClass3: (parsed[2] as { ok: true; value: number | null }).value,
-    priceClass4: (parsed[3] as { ok: true; value: number | null }).value,
+    priceClass1: parsed[0].value,
+    priceClass2: parsed[1].value,
+    priceClass3: parsed[2].value,
+    priceClass4: parsed[3].value,
   }
 
   submitting.value = true

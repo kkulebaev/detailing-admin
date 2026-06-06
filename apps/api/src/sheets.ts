@@ -19,7 +19,9 @@ let _client: ReturnType<typeof google.sheets> | null = null
 function getClient(): ReturnType<typeof google.sheets> {
   if (!_client) {
     const raw = Buffer.from(env.GOOGLE_SERVICE_ACCOUNT_JSON_B64, 'base64').toString('utf-8')
-    const credentials = JSON.parse(raw) as Record<string, unknown>
+    // GoogleAuth.credentials accepts a plain JSON object; we don't reshape it
+    // before handing off, so `JSON.parse`'s default `any` is what we want here.
+    const credentials: Record<string, unknown> = JSON.parse(raw)
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -48,7 +50,7 @@ export async function verifyHeaders(): Promise<
 
   const row: unknown[] = res.data.values?.[0] ?? []
   for (let i = 0; i < EXPECTED_HEADERS.length; i++) {
-    const expected = EXPECTED_HEADERS[i] as string
+    const expected = EXPECTED_HEADERS[i]
     const observed = String(row[i] ?? '')
     if (observed !== expected) {
       return { ok: false, column_index: i, expected, observed }
@@ -78,13 +80,27 @@ export async function appendBooking(row: (string | number)[]): Promise<AppendRes
       statusCode: res.status,
     }
   } catch (err: unknown) {
-    const e = err as { code?: number; errors?: Array<{ reason?: string }>; message?: string }
-    return {
-      ok: false,
-      latencyMs: Date.now() - start,
-      statusCode: e.code ?? 500,
-      errorCode: e.errors?.[0]?.reason,
-      message: e.message ?? 'Unknown Sheets error',
+    // googleapis throws GaxiosError-like values typed as `unknown` by the
+    // catch. Narrow each field with `in` + typeof instead of asserting a
+    // bespoke error shape.
+    let statusCode = 500
+    let errorCode: string | undefined
+    let message = 'Unknown Sheets error'
+    if (err !== null && typeof err === 'object') {
+      if ('code' in err && typeof err.code === 'number') statusCode = err.code
+      if ('errors' in err && Array.isArray(err.errors)) {
+        const first: unknown = err.errors[0]
+        if (
+          first !== null &&
+          typeof first === 'object' &&
+          'reason' in first &&
+          typeof first.reason === 'string'
+        ) {
+          errorCode = first.reason
+        }
+      }
+      if ('message' in err && typeof err.message === 'string') message = err.message
     }
+    return { ok: false, latencyMs: Date.now() - start, statusCode, errorCode, message }
   }
 }
