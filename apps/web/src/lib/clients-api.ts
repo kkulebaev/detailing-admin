@@ -1,6 +1,5 @@
-const PROD_API_FALLBACK = 'https://detailing-admin-api.up.railway.app'
-const envBase = import.meta.env.VITE_API_BASE_URL as string | undefined
-const apiBase = envBase || (import.meta.env.DEV ? '' : PROD_API_FALLBACK)
+import type { ClientResponse } from 'hono/client'
+import { apiClient } from './api-client'
 
 export interface Client {
   id: string
@@ -28,42 +27,30 @@ export type MutationResult<T> =
   | { ok: false; error: 'unavailable'; message: string }
   | { ok: false; error: 'internal' }
 
-export async function fetchClients(): Promise<ClientsApiResult> {
-  const res = await fetch(`${apiBase}/api/clients`, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  })
-
-  const ct = res.headers.get('content-type') ?? ''
-  if (!ct.includes('application/json')) {
-    return { ok: false, error: 'internal' }
-  }
-
-  return res.json() as Promise<ClientsApiResult>
-}
-
 async function jsonOrNull(res: Response): Promise<unknown> {
   const ct = res.headers.get('content-type') ?? ''
   if (!ct.includes('application/json')) return null
   return res.json()
 }
 
+export async function fetchClients(): Promise<ClientsApiResult> {
+  const res = await apiClient.api.clients.$get()
+  const ct = res.headers.get('content-type') ?? ''
+  if (!ct.includes('application/json')) {
+    return { ok: false, error: 'internal' }
+  }
+  return res.json() as Promise<ClientsApiResult>
+}
+
+// Wraps an hc call and folds the discriminated response shape into our
+// MutationResult. Errors thrown by fetch (offline, CORS) collapse to `internal`.
 async function mutate<T>(
-  url: string,
-  method: 'POST' | 'PATCH' | 'DELETE',
-  body: unknown,
+  call: () => Promise<ClientResponse<unknown>>,
   extract: (raw: any) => T,
 ): Promise<MutationResult<T>> {
-  let res: Response
+  let res: ClientResponse<unknown>
   try {
-    res = await fetch(`${apiBase}${url}`, {
-      method,
-      headers:
-        body !== undefined
-          ? { 'Content-Type': 'application/json', Accept: 'application/json' }
-          : { Accept: 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    })
+    res = await call()
   } catch {
     return { ok: false, error: 'internal' }
   }
@@ -90,13 +77,22 @@ async function mutate<T>(
 }
 
 export function createClient(payload: ClientInputPayload) {
-  return mutate('/api/clients', 'POST', payload, (r) => r.client as Client)
+  return mutate(
+    () => apiClient.api.clients.$post({ json: payload }),
+    (r) => r.client as Client,
+  )
 }
 
 export function updateClient(id: string, payload: ClientInputPayload) {
-  return mutate(`/api/clients/${id}`, 'PATCH', payload, (r) => r.client as Client)
+  return mutate(
+    () => apiClient.api.clients[':id'].$patch({ param: { id }, json: payload }),
+    (r) => r.client as Client,
+  )
 }
 
 export function deleteClient(id: string) {
-  return mutate(`/api/clients/${id}`, 'DELETE', undefined, () => undefined as void)
+  return mutate(
+    () => apiClient.api.clients[':id'].$delete({ param: { id } }),
+    () => undefined as void,
+  )
 }

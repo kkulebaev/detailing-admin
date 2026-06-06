@@ -1,6 +1,5 @@
-const PROD_API_FALLBACK = 'https://detailing-admin-api.up.railway.app'
-const envBase = import.meta.env.VITE_API_BASE_URL as string | undefined
-const apiBase = envBase || (import.meta.env.DEV ? '' : PROD_API_FALLBACK)
+import type { ClientResponse } from 'hono/client'
+import { apiClient } from './api-client'
 
 export interface PricelistService {
   id: number
@@ -55,41 +54,28 @@ export interface PricelistSectionRow {
 
 async function jsonOrInternal(res: Response): Promise<unknown> {
   const ct = res.headers.get('content-type') ?? ''
-  if (!ct.includes('application/json')) {
-    return null
-  }
+  if (!ct.includes('application/json')) return null
   return res.json()
 }
 
 export async function fetchPricelist(): Promise<PricelistApiResult> {
-  const res = await fetch(`${apiBase}/api/pricelist`, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  })
-
+  const res = await apiClient.api.pricelist.$get()
   const ct = res.headers.get('content-type') ?? ''
   if (!ct.includes('application/json')) {
     return { ok: false, error: 'internal' }
   }
-
   return res.json() as Promise<PricelistApiResult>
 }
 
+// Same shape as the clients-api wrapper. Folds the discriminated server response
+// into a MutationResult; thrown fetch errors collapse to `internal`.
 async function mutate<T>(
-  url: string,
-  method: 'POST' | 'PATCH' | 'DELETE',
-  body: unknown,
+  call: () => Promise<ClientResponse<unknown>>,
   extract: (raw: any) => T,
 ): Promise<MutationResult<T>> {
-  let res: Response
+  let res: ClientResponse<unknown>
   try {
-    res = await fetch(`${apiBase}${url}`, {
-      method,
-      headers: body !== undefined
-        ? { 'Content-Type': 'application/json', Accept: 'application/json' }
-        : { Accept: 'application/json' },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    })
+    res = await call()
   } catch {
     return { ok: false, error: 'internal' }
   }
@@ -116,25 +102,51 @@ async function mutate<T>(
 }
 
 export function createSection(payload: SectionInputPayload) {
-  return mutate('/api/pricelist/sections', 'POST', payload, (r) => r.section as PricelistSectionRow)
+  return mutate(
+    () => apiClient.api.pricelist.sections.$post({ json: payload }),
+    (r) => r.section as PricelistSectionRow,
+  )
 }
 
 export function updateSection(id: number, payload: SectionInputPayload) {
-  return mutate(`/api/pricelist/sections/${id}`, 'PATCH', payload, (r) => r.section as PricelistSectionRow)
+  return mutate(
+    () =>
+      apiClient.api.pricelist.sections[':id'].$patch({
+        param: { id: String(id) },
+        json: payload,
+      }),
+    (r) => r.section as PricelistSectionRow,
+  )
 }
 
 export function deleteSection(id: number) {
-  return mutate(`/api/pricelist/sections/${id}`, 'DELETE', undefined, () => undefined as void)
+  return mutate(
+    () => apiClient.api.pricelist.sections[':id'].$delete({ param: { id: String(id) } }),
+    () => undefined as void,
+  )
 }
 
 export function createService(payload: ServiceInputPayload) {
-  return mutate('/api/pricelist/services', 'POST', payload, (r) => r.service as PricelistService)
+  return mutate(
+    () => apiClient.api.pricelist.services.$post({ json: payload }),
+    (r) => r.service as PricelistService,
+  )
 }
 
 export function updateService(id: number, payload: ServiceInputPayload) {
-  return mutate(`/api/pricelist/services/${id}`, 'PATCH', payload, (r) => r.service as PricelistService)
+  return mutate(
+    () =>
+      apiClient.api.pricelist.services[':id'].$patch({
+        param: { id: String(id) },
+        json: payload,
+      }),
+    (r) => r.service as PricelistService,
+  )
 }
 
 export function deleteService(id: number) {
-  return mutate(`/api/pricelist/services/${id}`, 'DELETE', undefined, () => undefined as void)
+  return mutate(
+    () => apiClient.api.pricelist.services[':id'].$delete({ param: { id: String(id) } }),
+    () => undefined as void,
+  )
 }

@@ -10,13 +10,15 @@
     "paths": {
       "@/*": ["./src/*"],
       "@detailing-admin/shared": ["../../packages/shared/src/index.ts"],
-      "@detailing-admin/shared/*": ["../../packages/shared/src/*.ts"]
+      "@detailing-admin/shared/*": ["../../packages/shared/src/*.ts"],
+      "@detailing-admin/api/*": ["../../apps/api/src/*.ts"]
     }
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "../../packages/shared/src/**/*.ts"
+    "../../packages/shared/src/**/*.ts",
+    "../../apps/api/src/**/*.ts"
   ]
 }
