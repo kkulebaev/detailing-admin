@@ -7,30 +7,30 @@ import bookingsRouter from './routes/bookings.js'
 import clientsRouter from './routes/clients.js'
 import pricelistRouter from './routes/pricelist.js'
 
-export function createApp(): Hono {
+// Return type is intentionally inferred — `hc<AppType>` on the web side needs
+// the full chained route table, which is lost the moment you annotate this as
+// `Hono`. Don't add an explicit return type.
+export function createApp() {
   const app = new Hono()
-
-  // CORS for all API routes — allow only configured origin(s).
-  app.use(
-    '/api/*',
-    cors({
-      origin: env.WEB_ORIGIN.split(',').map((o) => o.trim()),
-      allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Idempotency-Key'],
-      exposeHeaders: ['X-Request-Id'],
-    }),
-  )
-
-  // Defence-in-depth: cap any /api/* body at 64 KB (largest legitimate
-  // booking is ~4 KB; on overflow Hono returns the default 413).
-  app.use('/api/*', bodyLimit({ maxSize: 64 * 1024 }))
-
-  app.route('/healthz', healthzRouter)
-  app.route('/api/bookings', bookingsRouter)
-  app.route('/api/clients', clientsRouter)
-  app.route('/api/pricelist', pricelistRouter)
-
-  app.notFound((c) => c.json({ ok: false, error: 'not_found' }, 404))
+    .use(
+      '/api/*',
+      cors({
+        origin: env.WEB_ORIGIN.split(',').map((o) => o.trim()),
+        allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Idempotency-Key'],
+        exposeHeaders: ['X-Request-Id'],
+      }),
+    )
+    // Defence-in-depth: cap any /api/* body at 64 KB (largest legitimate
+    // booking is ~4 KB; on overflow Hono returns the default 413).
+    .use('/api/*', bodyLimit({ maxSize: 64 * 1024 }))
+    .route('/healthz', healthzRouter)
+    .route('/api/bookings', bookingsRouter)
+    .route('/api/clients', clientsRouter)
+    .route('/api/pricelist', pricelistRouter)
+    .notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
 
   return app
 }
+
+export type AppType = ReturnType<typeof createApp>
