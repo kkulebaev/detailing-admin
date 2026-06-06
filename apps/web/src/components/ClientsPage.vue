@@ -1,40 +1,74 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useClipboard, useSorted } from '@vueuse/core'
+import { useClipboard } from '@vueuse/core'
 import { ChevronDown, ChevronsUpDown, ChevronUp } from '@lucide/vue'
 import { toast } from 'vue-sonner'
+import {
+  type ColumnDef,
+  FlexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useVueTable,
+} from '@tanstack/vue-table'
 import { fetchClients, type Client } from '@/lib/clients-api'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
-const rawClients = ref<Client[]>([])
+const data = ref<Client[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+const sorting = ref<SortingState>([{ id: 'name', desc: false }])
 
 const collator = new Intl.Collator('ru', { sensitivity: 'base' })
 
-type SortKey = 'name' | 'phone'
-type SortDir = 'asc' | 'desc'
+const columns: ColumnDef<Client>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Имя',
+    sortingFn: (a, b) => {
+      const an = a.original.name
+      const bn = b.original.name
+      const aEmpty = an.length === 0
+      const bEmpty = bn.length === 0
+      if (aEmpty !== bEmpty) return aEmpty ? 1 : -1
+      return collator.compare(an, bn)
+    },
+  },
+  {
+    accessorKey: 'phone',
+    header: 'Телефон',
+    sortingFn: (a, b) => a.original.phone.localeCompare(b.original.phone),
+  },
+]
 
-const sortKey = ref<SortKey>('name')
-const sortDir = ref<SortDir>('asc')
-
-function toggleSort(key: SortKey) {
-  if (sortKey.value === key) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortKey.value = key
-    sortDir.value = 'asc'
-  }
-}
-
-const clients = useSorted(rawClients, (a, b) => {
-  const dir = sortDir.value === 'asc' ? 1 : -1
-  if (sortKey.value === 'name') {
-    const aEmpty = a.name.length === 0
-    const bEmpty = b.name.length === 0
-    if (aEmpty !== bEmpty) return aEmpty ? 1 : -1
-    return collator.compare(a.name, b.name) * dir
-  }
-  return a.phone.localeCompare(b.phone) * dir
+const table = useVueTable({
+  get data() {
+    return data.value
+  },
+  columns,
+  state: {
+    get sorting() {
+      return sorting.value
+    },
+  },
+  enableSortingRemoval: false,
+  getRowId: (row) => row.id,
+  getCoreRowModel: getCoreRowModel(),
+  getSortedRowModel: getSortedRowModel(),
+  onSortingChange: (updater) => {
+    sorting.value = typeof updater === 'function' ? updater(sorting.value) : updater
+  },
 })
 
 async function load() {
@@ -43,7 +77,7 @@ async function load() {
   try {
     const result = await fetchClients()
     if (result.ok) {
-      rawClients.value = result.clients
+      data.value = result.clients
     } else if (result.error === 'unavailable') {
       error.value = result.message || 'База данных недоступна'
     } else {
@@ -80,6 +114,12 @@ async function copyPhone(phone: string) {
     toast.error('Не удалось скопировать телефон')
   }
 }
+
+function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+  if (state === 'asc') return 'ascending'
+  if (state === 'desc') return 'descending'
+  return 'none'
+}
 </script>
 
 <template>
@@ -89,77 +129,88 @@ async function copyPhone(phone: string) {
         <h1 class="text-2xl font-semibold">Клиенты</h1>
       </header>
 
-      <div v-if="loading" class="text-muted-foreground">Загрузка…</div>
+      <Alert v-if="error" variant="destructive">
+        <AlertTitle>Не удалось загрузить клиентов</AlertTitle>
+        <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
 
-      <div
-        v-else-if="error"
-        class="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
-      >
-        {{ error }}
-      </div>
-
-      <div v-else-if="clients.length === 0" class="text-muted-foreground">
-        Список клиентов пуст.
-      </div>
-
-      <div v-else class="overflow-x-auto rounded-md border border-border">
-        <table class="w-full text-sm">
-          <thead class="bg-muted/50 text-left text-muted-foreground">
-            <tr>
-              <th scope="col" class="px-4 py-2 font-medium">#</th>
-              <th
-                v-for="col in [
-                  { key: 'name', label: 'Имя' },
-                  { key: 'phone', label: 'Телефон' },
-                ] as { key: SortKey; label: string }[]"
-                :key="col.key"
-                scope="col"
-                class="px-4 py-2 font-medium"
-                :aria-sort="
-                  sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
-                "
+      <div v-else class="overflow-hidden rounded-md border border-border">
+        <Table>
+          <TableHeader class="bg-muted/50">
+            <TableRow
+              v-for="headerGroup in table.getHeaderGroups()"
+              :key="headerGroup.id"
+            >
+              <TableHead class="px-4">#</TableHead>
+              <TableHead
+                v-for="header in headerGroup.headers"
+                :key="header.id"
+                class="px-4"
+                :aria-sort="ariaSortFor(header.column.getIsSorted())"
               >
                 <button
                   type="button"
                   class="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  :class="{ 'text-foreground': sortKey === col.key }"
-                  @click="toggleSort(col.key)"
+                  :class="{ 'text-foreground': header.column.getIsSorted() }"
+                  @click="header.column.toggleSorting()"
                 >
-                  <span>{{ col.label }}</span>
-                  <ChevronUp v-if="sortKey === col.key && sortDir === 'asc'" class="size-3.5" />
+                  <FlexRender
+                    :render="header.column.columnDef.header"
+                    :props="header.getContext()"
+                  />
+                  <ChevronUp
+                    v-if="header.column.getIsSorted() === 'asc'"
+                    class="size-3.5"
+                  />
                   <ChevronDown
-                    v-else-if="sortKey === col.key && sortDir === 'desc'"
+                    v-else-if="header.column.getIsSorted() === 'desc'"
                     class="size-3.5"
                   />
                   <ChevronsUpDown v-else class="size-3.5 opacity-50" />
                 </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(client, idx) in clients"
-              :key="client.id"
-              class="border-t border-border"
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <template v-if="loading">
+              <TableRow v-for="i in 5" :key="i">
+                <TableCell class="px-4"><Skeleton class="h-4 w-6" /></TableCell>
+                <TableCell class="px-4"><Skeleton class="h-4 w-40" /></TableCell>
+                <TableCell class="px-4"><Skeleton class="h-4 w-32" /></TableCell>
+              </TableRow>
+            </template>
+            <TableEmpty v-else-if="data.length === 0" :colspan="3">
+              Список клиентов пуст.
+            </TableEmpty>
+            <TableRow
+              v-else
+              v-for="(row, idx) in table.getRowModel().rows"
+              :key="row.id"
             >
-              <td class="px-4 py-2 text-muted-foreground tabular-nums">{{ idx + 1 }}</td>
-              <td class="px-4 py-2">{{ client.name || '—' }}</td>
-              <td class="px-4 py-2 tabular-nums whitespace-nowrap">
+              <TableCell class="px-4 text-muted-foreground tabular-nums">
+                {{ idx + 1 }}
+              </TableCell>
+              <TableCell class="px-4">{{ row.original.name || '—' }}</TableCell>
+              <TableCell class="px-4 tabular-nums">
                 <button
                   type="button"
                   class="rounded px-1 py-0.5 text-left whitespace-nowrap hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  :title="`Скопировать ${formatPhone(client.phone)}`"
-                  @click="copyPhone(client.phone)"
+                  :title="`Скопировать ${formatPhone(row.original.phone)}`"
+                  @click="copyPhone(row.original.phone)"
                 >
-                  {{ formatPhone(client.phone) }}
+                  {{ formatPhone(row.original.phone) }}
                 </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-          Всего: {{ clients.length }}
-        </div>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+          <TableFooter v-if="!loading && data.length > 0" class="bg-muted/30">
+            <TableRow>
+              <TableCell colspan="3" class="px-4 text-xs text-muted-foreground">
+                Всего: {{ data.length }}
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
       </div>
     </div>
   </div>

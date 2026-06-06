@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { fetchPricelist, type PricelistSection } from '@/lib/pricelist-api'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 const sections = ref<PricelistSection[]>([])
 const loading = ref(true)
@@ -49,21 +60,13 @@ onMounted(load)
         </p>
       </header>
 
-      <div v-if="loading" class="text-muted-foreground">Загрузка…</div>
+      <Alert v-if="error" variant="destructive">
+        <AlertTitle>Не удалось загрузить прайс-лист</AlertTitle>
+        <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
 
-      <div
-        v-else-if="error"
-        class="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
-      >
-        {{ error }}
-      </div>
-
-      <div v-else-if="sections.length === 0" class="text-muted-foreground">
-        Прайс-лист пуст.
-      </div>
-
-      <div v-else class="overflow-x-auto rounded-md border border-border">
-        <table class="w-full text-sm">
+      <div v-else class="overflow-hidden rounded-md border border-border">
+        <Table>
           <colgroup>
             <col class="w-72" />
             <col class="w-24" />
@@ -72,52 +75,65 @@ onMounted(load)
             <col class="w-24" />
             <col />
           </colgroup>
-          <thead class="bg-muted/50 text-left text-muted-foreground">
-            <tr>
-              <th scope="col" class="px-4 py-2 font-medium">Услуга</th>
-              <th scope="col" class="px-4 py-2 text-right font-medium">I кл.</th>
-              <th scope="col" class="px-4 py-2 text-right font-medium">II кл.</th>
-              <th scope="col" class="px-4 py-2 text-right font-medium">III кл.</th>
-              <th scope="col" class="px-4 py-2 text-right font-medium">IV кл.</th>
-              <th scope="col" class="px-4 py-2 font-medium">Примечание</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="section in sections" :key="section.id">
-              <tr class="border-t border-border bg-muted/30">
-                <th
+          <TableHeader class="bg-muted/50">
+            <TableRow>
+              <TableHead class="px-4">Услуга</TableHead>
+              <TableHead class="px-4 text-right">I кл.</TableHead>
+              <TableHead class="px-4 text-right">II кл.</TableHead>
+              <TableHead class="px-4 text-right">III кл.</TableHead>
+              <TableHead class="px-4 text-right">IV кл.</TableHead>
+              <TableHead class="px-4">Примечание</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <template v-if="loading">
+              <TableRow v-for="i in 6" :key="i">
+                <TableCell class="px-4"><Skeleton class="h-4 w-48" /></TableCell>
+                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
+                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
+                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
+                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
+                <TableCell class="px-4"><Skeleton class="h-4 w-40" /></TableCell>
+              </TableRow>
+            </template>
+            <TableEmpty v-else-if="sections.length === 0" :colspan="6">
+              Прайс-лист пуст.
+            </TableEmpty>
+            <template v-else v-for="section in sections" :key="section.id">
+              <TableRow class="bg-muted/30 hover:bg-muted/30">
+                <TableHead
                   scope="colgroup"
                   colspan="6"
-                  class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  class="px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   {{ section.name }}
-                </th>
-              </tr>
-              <tr
+                </TableHead>
+              </TableRow>
+              <TableRow
                 v-for="svc in section.services"
                 :key="svc.id"
-                class="border-t border-border align-top"
+                class="align-top"
               >
-                <td class="px-4 py-2 font-medium">{{ svc.name }}</td>
-                <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">
+                <TableCell class="px-4 font-medium whitespace-normal">{{ svc.name }}</TableCell>
+                <TableCell class="px-4 text-right tabular-nums">
                   {{ formatPrice(svc.priceClass1) }}
-                </td>
-                <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">
+                </TableCell>
+                <TableCell class="px-4 text-right tabular-nums">
                   {{ formatPrice(svc.priceClass2) }}
-                </td>
-                <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">
+                </TableCell>
+                <TableCell class="px-4 text-right tabular-nums">
                   {{ formatPrice(svc.priceClass3) }}
-                </td>
-                <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">
+                </TableCell>
+                <TableCell class="px-4 text-right tabular-nums">
                   {{ formatPrice(svc.priceClass4) }}
-                </td>
-                <td class="px-4 py-2 text-xs text-muted-foreground whitespace-pre-line">
+                </TableCell>
+                <TableCell class="px-4 text-xs text-muted-foreground whitespace-pre-line">
                   {{ svc.description || '' }}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             </template>
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   </div>
