@@ -22,6 +22,35 @@ function formatPhone(input: string, isDeleting = false): string {
   return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8)}`
 }
 
+// Count significant digits (everything after the absorbed leading 7/8 prefix)
+// that sit to the left of `pos` in the raw input. Drives caret restoration so
+// editing in the middle doesn't jump to end-of-string after reformatting.
+function countSignificantDigits(input: string, pos: number): number {
+  const slice = input.slice(0, Math.max(0, Math.min(pos, input.length)))
+  const before = slice.replace(/\D/g, '')
+  if (before.length === 0) return 0
+  const all = input.replace(/\D/g, '')
+  if ((all.startsWith('7') || all.startsWith('8')) && before[0] === all[0]) {
+    return before.length - 1
+  }
+  return before.length
+}
+
+// Map "caret after N significant digits" to the absolute position in the
+// formatted string. Mask layout:
+//   '+7 (DDD) DDD-DD-DD'  positions 4-6, 9-11, 13-14, 16-17.
+function caretPosForDigits(formatted: string, n: number): number {
+  if (!formatted) return 0
+  if (!formatted.startsWith(PHONE_PREFIX)) return formatted.length
+  if (n === 0) return PHONE_PREFIX.length
+  const pos
+    = n <= 3 ? 4 + n
+      : n <= 6 ? 6 + n
+        : n <= 8 ? 7 + n
+          : 8 + n
+  return Math.min(pos, formatted.length)
+}
+
 // Pasted strings may carry a country code, separators, or no prefix at all.
 // Reduce to the 10 significant digits before reusing formatPhone — typing
 // goes through a different path that can't safely strip a "leading 7/8" twice.
@@ -50,13 +79,28 @@ export function usePhoneInput() {
   function onPhoneInput(e: Event) {
     const target = e.target as HTMLInputElement
     const isDeleting = target.value.length < phoneRaw.value.length
+    const caretBefore = target.selectionStart ?? target.value.length
+    const sigDigits = countSignificantDigits(target.value, caretBefore)
     const formatted = formatPhone(target.value, isDeleting)
     if (target.value !== formatted) {
       phoneRaw.value = formatted
       target.value = formatted
-      target.setSelectionRange(formatted.length, formatted.length)
+      const caret = caretPosForDigits(formatted, sigDigits)
+      target.setSelectionRange(caret, caret)
     } else if (phoneRaw.value !== formatted) {
       phoneRaw.value = formatted
+    }
+  }
+
+  // Pressing Backspace or Delete on a phone field that only holds the
+  // auto-injected prefix should wipe it instantly, no matter where the
+  // caret is — otherwise a Delete at end-of-string would do nothing
+  // (no character to the right) and leave the user stuck with '+7 ('.
+  function onPhoneKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Backspace' && e.key !== 'Delete') return
+    if (phoneRaw.value === PHONE_PREFIX || phoneRaw.value === '+') {
+      e.preventDefault()
+      phoneRaw.value = ''
     }
   }
 
@@ -88,6 +132,7 @@ export function usePhoneInput() {
     phoneRaw,
     effectivePhone,
     onPhoneInput,
+    onPhoneKeydown,
     onPhonePaste,
     onClickPastePhone,
     resetPhone,

@@ -173,6 +173,7 @@ const {
   phoneRaw,
   effectivePhone,
   onPhoneInput,
+  onPhoneKeydown,
   onPhonePaste,
   onClickPastePhone,
   resetPhone,
@@ -942,6 +943,7 @@ watch(
                   :model-value="phoneRaw"
                   :aria-invalid="submitAttempted && !!errors.phone"
                   @input="onPhoneInput"
+                  @keydown="onPhoneKeydown"
                   @paste="onPhonePaste"
                 />
                 <button

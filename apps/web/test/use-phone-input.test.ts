@@ -7,9 +7,10 @@ vi.mock('vue-sonner', () => ({
 import { usePhoneInput, PHONE_PREFIX } from '@/composables/use-phone-input'
 import { toast } from 'vue-sonner'
 
-function makeInputEvent(value: string): Event {
+function makeInputEvent(value: string, selectionStart?: number): Event {
   const target = {
     value,
+    selectionStart,
     setSelectionRange: vi.fn(),
   }
   return { target } as unknown as Event
@@ -125,6 +126,138 @@ describe('usePhoneInput', () => {
       expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
       onPhoneInput(makeInputEvent(''))
       expect(phoneRaw.value).toBe('')
+    })
+  })
+
+  describe('позиция каретки после переформатирования', () => {
+    function getCaret(event: Event): number | null {
+      const target = (event as unknown as { target: { setSelectionRange: ReturnType<typeof vi.fn> } }).target
+      const call = target.setSelectionRange.mock.calls.at(-1)
+      return call ? (call[0] as number) : null
+    }
+
+    it('Delete в середине оставляет каретку на той же значимой цифре', () => {
+      const { phoneRaw, onPhoneInput } = usePhoneInput()
+      onPhoneInput(makeInputEvent('9123456789'))
+      expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
+      // Каретка после "1" в "+7 (91|2) 345-67-89" — это позиция 6.
+      // Delete удаляет "2" → "+7 (91) 345-67-89", каретка остаётся на 6.
+      const evt = makeInputEvent('+7 (91) 345-67-89', 6)
+      onPhoneInput(evt)
+      expect(getCaret(evt)).toBe(6)
+    })
+
+    it('Backspace в середине ставит каретку перед позицией удалённой цифры', () => {
+      const { phoneRaw, onPhoneInput } = usePhoneInput()
+      onPhoneInput(makeInputEvent('9123456789'))
+      expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
+      // Каретка между "1" и "2" — позиция 6. Backspace удаляет "1" → каретка 5.
+      const evt = makeInputEvent('+7 (92) 345-67-89', 5)
+      onPhoneInput(evt)
+      expect(getCaret(evt)).toBe(5)
+    })
+
+    it('Delete между группами сохраняет каретку перед следующей группой', () => {
+      const { phoneRaw, onPhoneInput } = usePhoneInput()
+      onPhoneInput(makeInputEvent('9123456789'))
+      expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
+      // Каретка после "3" в "+7 (912) 3|45-67-89" — позиция 10.
+      // Delete удаляет "4" → "+7 (912) 35-67-89", каретка остаётся 10.
+      const evt = makeInputEvent('+7 (912) 35-67-89', 10)
+      onPhoneInput(evt)
+      expect(getCaret(evt)).toBe(10)
+    })
+
+    it('Backspace перед "(" перепрыгивает через закрытие группы', () => {
+      const { phoneRaw, onPhoneInput } = usePhoneInput()
+      onPhoneInput(makeInputEvent('9123456789'))
+      expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
+      // Каретка после "3" группы 2 ("+7 (912) 3|45-67-89") — позиция 10.
+      // Backspace удаляет "3" → каретка 9, после ") "
+      const evt = makeInputEvent('+7 (912) 45-67-89', 9)
+      onPhoneInput(evt)
+      // После переформата "+7 (912) 456-78-9", n=3 → каретка 7
+      expect(getCaret(evt)).toBe(7)
+    })
+
+    it('ввод символа в конце оставляет каретку в конце', () => {
+      const { onPhoneInput } = usePhoneInput()
+      const evt = makeInputEvent('9')
+      onPhoneInput(evt)
+      // formatted = "+7 (9", caretBefore = undefined → значит конец target.value (1),
+      // sigDigits = 1, caretPos = 5 (длина formatted), setSelectionRange(5, 5)
+      expect(getCaret(evt)).toBe(5)
+    })
+  })
+
+  describe('onPhoneKeydown', () => {
+    function makeKeyEvent(key: string): KeyboardEvent {
+      return {
+        key,
+        preventDefault: vi.fn(),
+      } as unknown as KeyboardEvent
+    }
+
+    it('Backspace на префиксе очищает поле и вызывает preventDefault', () => {
+      const { phoneRaw, onPhoneKeydown } = usePhoneInput()
+      phoneRaw.value = PHONE_PREFIX
+      const evt = makeKeyEvent('Backspace')
+      onPhoneKeydown(evt)
+      expect(phoneRaw.value).toBe('')
+      expect(evt.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Delete на префиксе очищает поле независимо от позиции каретки', () => {
+      const { phoneRaw, onPhoneKeydown } = usePhoneInput()
+      phoneRaw.value = PHONE_PREFIX
+      const evt = makeKeyEvent('Delete')
+      onPhoneKeydown(evt)
+      expect(phoneRaw.value).toBe('')
+      expect(evt.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Delete на одиночном + очищает', () => {
+      const { phoneRaw, onPhoneKeydown } = usePhoneInput()
+      phoneRaw.value = '+'
+      const evt = makeKeyEvent('Delete')
+      onPhoneKeydown(evt)
+      expect(phoneRaw.value).toBe('')
+      expect(evt.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Backspace на одиночном + очищает', () => {
+      const { phoneRaw, onPhoneKeydown } = usePhoneInput()
+      phoneRaw.value = '+'
+      const evt = makeKeyEvent('Backspace')
+      onPhoneKeydown(evt)
+      expect(phoneRaw.value).toBe('')
+      expect(evt.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Delete на полном номере не трогает phoneRaw и не вызывает preventDefault', () => {
+      const { phoneRaw, onPhoneKeydown } = usePhoneInput()
+      phoneRaw.value = '+7 (912) 345-67-89'
+      const evt = makeKeyEvent('Delete')
+      onPhoneKeydown(evt)
+      expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
+      expect(evt.preventDefault).not.toHaveBeenCalled()
+    })
+
+    it('Backspace на пустом поле ничего не делает', () => {
+      const { phoneRaw, onPhoneKeydown } = usePhoneInput()
+      const evt = makeKeyEvent('Backspace')
+      onPhoneKeydown(evt)
+      expect(phoneRaw.value).toBe('')
+      expect(evt.preventDefault).not.toHaveBeenCalled()
+    })
+
+    it('другие клавиши игнорируются даже на префиксе', () => {
+      const { phoneRaw, onPhoneKeydown } = usePhoneInput()
+      phoneRaw.value = PHONE_PREFIX
+      const evt = makeKeyEvent('a')
+      onPhoneKeydown(evt)
+      expect(phoneRaw.value).toBe(PHONE_PREFIX)
+      expect(evt.preventDefault).not.toHaveBeenCalled()
     })
   })
 
