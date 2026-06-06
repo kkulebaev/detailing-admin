@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
 import {
+  StatusCodes,
   dbUnavailableErrorSchema,
   internalErrorSchema,
   notFoundErrorSchema,
@@ -54,7 +55,7 @@ function unavailable(c: Context) {
       reason: 'not_configured' as const,
       message: 'Database not configured or migrations failed',
     },
-    503,
+    StatusCodes.SERVICE_UNAVAILABLE,
   )
 }
 
@@ -84,15 +85,15 @@ function normalizeServicePayload(input: ServicePayload): ServicePayload {
 function pricelistErrorResponse(c: Context, err: unknown) {
   if (err instanceof PricelistError) {
     if (err.code === 'not_found') {
-      return c.json({ ok: false as const, error: 'not_found' as const }, 404)
+      return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
     }
-    return c.json({ ok: false as const, error: 'conflict' as const, reason: err.code }, 409)
+    return c.json({ ok: false as const, error: 'conflict' as const, reason: err.code }, StatusCodes.CONFLICT)
   }
   baseLogger.error(
     { message: err instanceof Error ? err.message : String(err) },
     'Pricelist mutation failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, 500)
+  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
 }
 
 const respValidation = {
@@ -246,7 +247,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Pricelist listed',
       )
-      return c.json({ ok: true as const, sections: sectionsWithServices }, 200)
+      return c.json({ ok: true as const, sections: sectionsWithServices }, StatusCodes.OK)
     } catch (err) {
       baseLogger.error(
         {
@@ -257,7 +258,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Pricelist query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, 500)
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
     }
   })
   .openapi(createSectionRoute, async (c) => {
@@ -273,7 +274,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'pricelist.section.create', request_id: requestId, section_id: section.id, status: 201 },
         'Section created',
       )
-      return c.json({ ok: true as const, section }, 201)
+      return c.json({ ok: true as const, section }, StatusCodes.CREATED)
     } catch (err) {
       return pricelistErrorResponse(c, err)
     }
@@ -293,7 +294,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'pricelist.section.update', request_id: requestId, section_id: id, status: 200 },
         'Section updated',
       )
-      return c.json({ ok: true as const, section }, 200)
+      return c.json({ ok: true as const, section }, StatusCodes.OK)
     } catch (err) {
       return pricelistErrorResponse(c, err)
     }
@@ -312,7 +313,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'pricelist.section.delete', request_id: requestId, section_id: id, status: 200 },
         'Section deleted',
       )
-      return c.json({ ok: true as const }, 200)
+      return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       return pricelistErrorResponse(c, err)
     }
@@ -336,7 +337,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Service created',
       )
-      return c.json({ ok: true as const, service }, 201)
+      return c.json({ ok: true as const, service }, StatusCodes.CREATED)
     } catch (err) {
       return pricelistErrorResponse(c, err)
     }
@@ -362,7 +363,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Service updated',
       )
-      return c.json({ ok: true as const, service }, 200)
+      return c.json({ ok: true as const, service }, StatusCodes.OK)
     } catch (err) {
       return pricelistErrorResponse(c, err)
     }
@@ -381,7 +382,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'pricelist.service.delete', request_id: requestId, service_id: id, status: 200 },
         'Service deleted',
       )
-      return c.json({ ok: true as const }, 200)
+      return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       return pricelistErrorResponse(c, err)
     }

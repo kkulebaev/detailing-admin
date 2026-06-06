@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import type { z } from '@hono/zod-openapi'
+import { StatusCodes } from '@detailing-admin/shared'
 
 // Single source of truth for the validation error wire shape that
 // OpenAPIHono's `defaultHook` emits when `createRoute` validation fails.
@@ -13,6 +14,6 @@ export function defaultValidationHook(
       path: i.path.map((p) => (typeof p === 'symbol' ? String(p) : p)),
       message: i.message,
     }))
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
+    return c.json({ ok: false as const, error: 'validation' as const, issues }, StatusCodes.BAD_REQUEST)
   }
 }

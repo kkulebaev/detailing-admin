@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { unavailableErrorSchema } from '@detailing-admin/shared'
+import { StatusCodes, unavailableErrorSchema } from '@detailing-admin/shared'
 import {
   getBootState,
   getBootHeadersMismatch,
@@ -38,7 +38,7 @@ const router = new OpenAPIHono().openapi(healthzRoute, (c) => {
           expected: mismatch?.expected ?? '',
           observed: mismatch?.observed ?? '',
         },
-        503,
+        StatusCodes.SERVICE_UNAVAILABLE,
       )
     }
     return c.json(
@@ -48,10 +48,10 @@ const router = new OpenAPIHono().openapi(healthzRoute, (c) => {
         reason: 'not_configured' as const,
         message: getBootNotConfiguredMessage() ?? 'Boot initialization failed',
       },
-      503,
+      StatusCodes.SERVICE_UNAVAILABLE,
     )
   }
-  return c.json({ ok: true as const, time: new Date().toISOString() }, 200)
+  return c.json({ ok: true as const, time: new Date().toISOString() }, StatusCodes.OK)
 })
 
 export default router

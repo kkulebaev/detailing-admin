@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
 import {
+  StatusCodes,
   clientInputSchema,
   clientSchema,
   dbUnavailableErrorSchema,
@@ -44,22 +45,22 @@ function unavailable(c: Context) {
       reason: 'not_configured' as const,
       message: 'Database not configured or migrations failed',
     },
-    503,
+    StatusCodes.SERVICE_UNAVAILABLE,
   )
 }
 
 function clientErrorResponse(c: Context, err: unknown) {
   if (err instanceof ClientError) {
     if (err.code === 'not_found') {
-      return c.json({ ok: false as const, error: 'not_found' as const }, 404)
+      return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
     }
-    return c.json({ ok: false as const, error: 'conflict' as const, reason: err.code }, 409)
+    return c.json({ ok: false as const, error: 'conflict' as const, reason: err.code }, StatusCodes.CONFLICT)
   }
   baseLogger.error(
     { message: err instanceof Error ? err.message : String(err) },
     'Client mutation failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, 500)
+  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
 }
 
 // Boilerplate shrunk via these response-shape constants.
@@ -169,7 +170,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'clients.list', request_id: requestId, count: rows.length, status: 200 },
         'Clients listed',
       )
-      return c.json({ ok: true as const, clients: rows }, 200)
+      return c.json({ ok: true as const, clients: rows }, StatusCodes.OK)
     } catch (err) {
       baseLogger.error(
         {
@@ -180,7 +181,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Clients query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, 500)
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
     }
   })
   .openapi(createClientRoute, async (c) => {
@@ -196,7 +197,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'clients.create', request_id: requestId, client_id: client.id, status: 201 },
         'Client created',
       )
-      return c.json({ ok: true as const, client }, 201)
+      return c.json({ ok: true as const, client }, StatusCodes.CREATED)
     } catch (err) {
       return clientErrorResponse(c, err)
     }
@@ -216,7 +217,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'clients.update', request_id: requestId, client_id: id, status: 200 },
         'Client updated',
       )
-      return c.json({ ok: true as const, client }, 200)
+      return c.json({ ok: true as const, client }, StatusCodes.OK)
     } catch (err) {
       return clientErrorResponse(c, err)
     }
@@ -235,7 +236,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'clients.delete', request_id: requestId, client_id: id, status: 200 },
         'Client deleted',
       )
-      return c.json({ ok: true as const }, 200)
+      return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       return clientErrorResponse(c, err)
     }

@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { bookingSchema } from '@detailing-admin/shared/booking'
 import { bookingToRow } from '@detailing-admin/shared/sheet-row'
 import {
+  StatusCodes,
   internalErrorSchema,
   sheetsErrorSchema,
   unavailableErrorSchema,
@@ -104,7 +105,7 @@ function bookingsValidationHook(
       },
       'Validation failed',
     )
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
+    return c.json({ ok: false as const, error: 'validation' as const, issues }, StatusCodes.BAD_REQUEST)
   }
 }
 
@@ -136,7 +137,7 @@ router.use('/', async (c, next) => {
           expected: m?.expected ?? '',
           observed: m?.observed ?? '',
         },
-        503,
+        StatusCodes.SERVICE_UNAVAILABLE,
       )
     }
 
@@ -147,7 +148,7 @@ router.use('/', async (c, next) => {
         reason: 'not_configured' as const,
         message: getBootNotConfiguredMessage() ?? 'Boot initialization failed',
       },
-      503,
+      StatusCodes.SERVICE_UNAVAILABLE,
     )
   })
 
@@ -183,7 +184,7 @@ router.openapi(postBookingRoute, async (c) => {
             updatedRange: cached.updatedRange,
             updatedRow: cached.updatedRow,
           },
-          201,
+          StatusCodes.CREATED,
         )
       }
     }
@@ -214,7 +215,7 @@ router.openapi(postBookingRoute, async (c) => {
           code: appendResult.statusCode,
           message: appendResult.message,
         },
-        502,
+        StatusCodes.BAD_GATEWAY,
       )
     }
 
@@ -261,7 +262,7 @@ router.openapi(postBookingRoute, async (c) => {
       'Booking created',
     )
 
-    return c.json(successResult, 201)
+    return c.json(successResult, StatusCodes.CREATED)
   })
 
 export default router

@@ -1,5 +1,6 @@
 export type { Readiness, Master } from './enums.js'
 export { READINESS, MASTERS } from './enums.js'
+export { StatusCodes } from './http-status-codes.js'
 export { parseDdmmyyyy, formatDdmmyyyy } from './date.js'
 export { normalizePhone } from './phone.js'
 export { bookingSchema } from './booking.js'

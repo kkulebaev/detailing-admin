@@ -1,3 +1,5 @@
+import { StatusCodes } from '@detailing-admin/shared'
+
 // Custom `fetch` shim that orval calls in place of the inline `fetch()` in
 // every generated endpoint. Two jobs:
 //   1. Prepend the env-driven API base URL when the request URL is relative.
@@ -27,7 +29,12 @@ export async function orvalFetch<T extends OrvalEnvelope<unknown>>(
 ): Promise<T> {
   const fullUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `${apiBase}${url}`
   const res = await fetch(fullUrl, init)
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+  const bodylessStatuses: number[] = [
+    StatusCodes.NO_CONTENT,
+    StatusCodes.RESET_CONTENT,
+    StatusCodes.NOT_MODIFIED,
+  ]
+  const body = bodylessStatuses.includes(res.status) ? null : await res.text()
   const data: unknown = body ? JSON.parse(body) : {}
   const envelope: OrvalEnvelope<unknown> = { data, status: res.status, headers: res.headers }
   // The boundary `parseResponse` in api-client.ts re-validates `data` against a

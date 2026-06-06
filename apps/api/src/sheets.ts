@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import { env } from './env.js'
 import { EXPECTED_HEADERS } from '@detailing-admin/shared/sheet-row'
+import { StatusCodes } from '@detailing-admin/shared'
 
 export type AppendResult =
   | { ok: true; updatedRange: string; updatedRow: number; latencyMs: number; statusCode: number }
@@ -83,7 +84,7 @@ export async function appendBooking(row: (string | number)[]): Promise<AppendRes
     // googleapis throws GaxiosError-like values typed as `unknown` by the
     // catch. Narrow each field with `in` + typeof instead of asserting a
     // bespoke error shape.
-    let statusCode = 500
+    let statusCode: number = StatusCodes.INTERNAL_SERVER_ERROR
     let errorCode: string | undefined
     let message = 'Unknown Sheets error'
     if (err !== null && typeof err === 'object') {
