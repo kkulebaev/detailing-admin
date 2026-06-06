@@ -52,7 +52,7 @@ onMounted(load)
 
 <template>
   <div class="min-h-svh bg-background text-foreground p-4 sm:p-8">
-    <div class="mx-auto max-w-7xl">
+    <div>
       <header class="mb-6">
         <h1 class="text-2xl font-semibold">Прайс-лист</h1>
         <p v-if="!loading && !error" class="mt-1 text-sm text-muted-foreground">

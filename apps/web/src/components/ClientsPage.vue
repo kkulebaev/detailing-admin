@@ -124,7 +124,7 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
 
 <template>
   <div class="min-h-svh bg-background text-foreground p-4 sm:p-8">
-    <div class="mx-auto max-w-4xl">
+    <div>
       <header class="mb-6">
         <h1 class="text-2xl font-semibold">Клиенты</h1>
       </header>
