@@ -1384,20 +1384,16 @@
                                   "nullable": true
                                 },
                                 "priceClass1": {
-                                  "type": "number",
-                                  "nullable": true
+                                  "type": "number"
                                 },
                                 "priceClass2": {
-                                  "type": "number",
-                                  "nullable": true
+                                  "type": "number"
                                 },
                                 "priceClass3": {
-                                  "type": "number",
-                                  "nullable": true
+                                  "type": "number"
                                 },
                                 "priceClass4": {
-                                  "type": "number",
-                                  "nullable": true
+                                  "type": "number"
                                 }
                               },
                               "required": [
@@ -2295,36 +2291,32 @@
                   },
                   "priceClass1": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   },
                   "priceClass2": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   },
                   "priceClass3": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   },
                   "priceClass4": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   }
                 },
                 "required": [
                   "sectionId",
-                  "name"
+                  "name",
+                  "priceClass1",
+                  "priceClass2",
+                  "priceClass3",
+                  "priceClass4"
                 ]
               }
             }
@@ -2361,20 +2353,16 @@
                           "nullable": true
                         },
                         "priceClass1": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         },
                         "priceClass2": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         },
                         "priceClass3": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         },
                         "priceClass4": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -2636,36 +2624,32 @@
                   },
                   "priceClass1": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   },
                   "priceClass2": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   },
                   "priceClass3": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   },
                   "priceClass4": {
                     "type": "integer",
-                    "nullable": true,
                     "minimum": 0,
-                    "maximum": 100000000,
-                    "default": null
+                    "maximum": 100000000
                   }
                 },
                 "required": [
                   "sectionId",
-                  "name"
+                  "name",
+                  "priceClass1",
+                  "priceClass2",
+                  "priceClass3",
+                  "priceClass4"
                 ]
               }
             }
@@ -2702,20 +2686,16 @@
                           "nullable": true
                         },
                         "priceClass1": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         },
                         "priceClass2": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         },
                         "priceClass3": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         },
                         "priceClass4": {
-                          "type": "number",
-                          "nullable": true
+                          "type": "number"
                         }
                       },
                       "required": [

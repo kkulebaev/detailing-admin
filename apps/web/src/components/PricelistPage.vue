@@ -60,8 +60,7 @@ const totalServices = computed(() =>
 
 const priceFormatter = new Intl.NumberFormat('ru-RU')
 
-function formatPrice(value: number | null): string {
-  if (value === null) return '—'
+function formatPrice(value: number): string {
   return `${priceFormatter.format(value)} ₽`
 }
 

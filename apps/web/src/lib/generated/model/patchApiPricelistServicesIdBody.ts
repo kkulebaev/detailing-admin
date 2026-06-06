@@ -22,25 +22,21 @@ export type PatchApiPricelistServicesIdBody = {
   /**
      * @minimum 0
      * @maximum 100000000
-     * @nullable
      */
-  priceClass1?: number | null;
+  priceClass1: number;
   /**
      * @minimum 0
      * @maximum 100000000
-     * @nullable
      */
-  priceClass2?: number | null;
+  priceClass2: number;
   /**
      * @minimum 0
      * @maximum 100000000
-     * @nullable
      */
-  priceClass3?: number | null;
+  priceClass3: number;
   /**
      * @minimum 0
      * @maximum 100000000
-     * @nullable
      */
-  priceClass4?: number | null;
+  priceClass4: number;
 };

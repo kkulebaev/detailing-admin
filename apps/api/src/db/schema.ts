@@ -24,10 +24,10 @@ export const services = pgTable('services', {
     .references(() => sections.id),
   name: varchar('name', { length: 200 }).notNull(),
   description: text('description'),
-  priceClass1: integer('price_class_1'),
-  priceClass2: integer('price_class_2'),
-  priceClass3: integer('price_class_3'),
-  priceClass4: integer('price_class_4'),
+  priceClass1: integer('price_class_1').notNull(),
+  priceClass2: integer('price_class_2').notNull(),
+  priceClass3: integer('price_class_3').notNull(),
+  priceClass4: integer('price_class_4').notNull(),
 })
 
 export type Service = typeof services.$inferSelect

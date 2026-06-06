@@ -34,10 +34,10 @@ export interface ServiceInputPayload {
   sectionId: number
   name: string
   description: string | null
-  priceClass1: number | null
-  priceClass2: number | null
-  priceClass3: number | null
-  priceClass4: number | null
+  priceClass1: number
+  priceClass2: number
+  priceClass3: number
+  priceClass4: number
 }
 
 export function fetchPricelist(): Promise<PricelistApiResult> {

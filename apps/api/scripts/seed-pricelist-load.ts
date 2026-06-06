@@ -6,10 +6,10 @@ import { sections, services } from '../src/db/schema.js'
 interface SeedService {
   name: string
   description: string | null
-  priceClass1: number | null
-  priceClass2: number | null
-  priceClass3: number | null
-  priceClass4: number | null
+  priceClass1: number
+  priceClass2: number
+  priceClass3: number
+  priceClass4: number
 }
 
 interface SeedSection {

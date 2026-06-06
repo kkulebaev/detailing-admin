@@ -13,10 +13,10 @@ export const pricelistServiceSchema = z.object({
   sectionId: z.number().int(),
   name: z.string(),
   description: z.string().nullable(),
-  priceClass1: z.number().nullable(),
-  priceClass2: z.number().nullable(),
-  priceClass3: z.number().nullable(),
-  priceClass4: z.number().nullable(),
+  priceClass1: z.number(),
+  priceClass2: z.number(),
+  priceClass3: z.number(),
+  priceClass4: z.number(),
 })
 
 export const pricelistSectionRowSchema = z.object({
@@ -74,7 +74,7 @@ export const pricelistDeleteResponseSchema = z.union([
 
 // Wire-level schemas — kept transform-free so orval generates clean TS types.
 // Trim/empty-string handling moves to the route handler.
-const optionalPrice = z.number().int().nonnegative().max(100_000_000).nullable()
+const requiredPrice = z.number().int().nonnegative().max(100_000_000)
 
 export const sectionInputSchema = z.object({
   name: z.string().trim().min(1, 'Укажите название раздела').max(120),
@@ -86,10 +86,10 @@ export const serviceInputSchema = z.object({
   sectionId: z.number().int().positive('Выберите раздел'),
   name: z.string().trim().min(1, 'Укажите название услуги').max(200),
   description: z.string().max(2000).nullable().default(null),
-  priceClass1: optionalPrice.default(null),
-  priceClass2: optionalPrice.default(null),
-  priceClass3: optionalPrice.default(null),
-  priceClass4: optionalPrice.default(null),
+  priceClass1: requiredPrice,
+  priceClass2: requiredPrice,
+  priceClass3: requiredPrice,
+  priceClass4: requiredPrice,
 })
 
 export type ServiceInput = z.infer<typeof serviceInputSchema>

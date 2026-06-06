@@ -80,14 +80,16 @@ watch(
   },
 )
 
-type ParsedPrice = { ok: true; value: number | null } | { ok: false }
+type ParsedPrice =
+  | { ok: true; value: number }
+  | { ok: false; reason: 'empty' | 'invalid' }
 
 function parsePrice(raw: string): ParsedPrice {
   const trimmed = raw.trim()
-  if (trimmed.length === 0) return { ok: true, value: null }
-  if (!/^\d+$/.test(trimmed)) return { ok: false }
+  if (trimmed.length === 0) return { ok: false, reason: 'empty' }
+  if (!/^\d+$/.test(trimmed)) return { ok: false, reason: 'invalid' }
   const n = Number(trimmed)
-  if (!Number.isInteger(n) || n < 0 || n > 100_000_000) return { ok: false }
+  if (!Number.isInteger(n) || n < 0 || n > 100_000_000) return { ok: false, reason: 'invalid' }
   return { ok: true, value: n }
 }
 
@@ -116,7 +118,9 @@ async function submit() {
 
   const parsed = prices.value.map(parsePrice)
   parsed.forEach((p, i) => {
-    if (!p.ok) errs[`price${i + 1}`] = 'Целое число ≥ 0'
+    if (!p.ok) {
+      errs[`price${i + 1}`] = p.reason === 'empty' ? 'Укажите цену' : 'Целое число ≥ 0'
+    }
   })
 
   if (Object.keys(errs).length > 0) {
@@ -185,7 +189,7 @@ async function submit() {
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать услугу' : 'Новая услуга' }}</DialogTitle>
         <DialogDescription>
-          Цена указывается за каждый класс автомобиля. Пустое поле — услуга недоступна
+          Цена указывается за каждый класс автомобиля
         </DialogDescription>
       </DialogHeader>
 
