@@ -1,13 +1,30 @@
-import { Hono } from 'hono'
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { unavailableErrorSchema } from '@detailing-admin/shared'
 import {
   getBootState,
   getBootHeadersMismatch,
   getBootNotConfiguredMessage,
 } from '../boot.js'
 
-const router = new Hono()
+const healthzOkSchema = z.object({ ok: z.literal(true), time: z.string() })
 
-router.get('/', (c) => {
+const healthzRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['health'],
+  responses: {
+    200: {
+      description: 'Service healthy',
+      content: { 'application/json': { schema: healthzOkSchema } },
+    },
+    503: {
+      description: 'Boot blocked',
+      content: { 'application/json': { schema: unavailableErrorSchema } },
+    },
+  },
+})
+
+const router = new OpenAPIHono().openapi(healthzRoute, (c) => {
   const state = getBootState()
   if (state !== 'ok') {
     if (state === 'headers_mismatch') {

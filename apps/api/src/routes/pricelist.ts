@@ -1,8 +1,17 @@
-import { Hono, type Context } from 'hono'
-import { zValidator } from '@hono/zod-validator'
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import type { Context } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
-import { z } from 'zod'
-import { sectionInputSchema, serviceInputSchema } from '@detailing-admin/shared/pricelist'
+import {
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+  notFoundErrorSchema,
+  pricelistSectionRowSchema,
+  pricelistSectionSchema,
+  pricelistServiceSchema,
+  sectionInputSchema,
+  serviceInputSchema,
+  validationErrorSchema,
+} from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
 import {
   PricelistError,
@@ -15,6 +24,27 @@ import {
   updateService,
 } from '../db/pricelist.js'
 import { baseLogger } from '../log.js'
+import { defaultValidationHook } from '../openapi.js'
+
+// Numeric path param. `z.coerce.number()` would silently accept "12abc" → NaN;
+// pin the format with a regex first, then convert.
+const idParamSchema = z.object({
+  id: z
+    .string()
+    .regex(/^[1-9]\d*$/)
+    .transform((v) => Number(v)),
+})
+
+const pricelistConflictSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('conflict'),
+  reason: z.union([z.literal('duplicate_name'), z.literal('has_services')]),
+})
+
+const listOk = z.object({ ok: z.literal(true), sections: z.array(pricelistSectionSchema) })
+const sectionMutationOk = z.object({ ok: z.literal(true), section: pricelistSectionRowSchema })
+const serviceMutationOk = z.object({ ok: z.literal(true), service: pricelistServiceSchema })
+const deleteOk = z.object({ ok: z.literal(true) })
 
 function unavailable(c: Context) {
   return c.json(
@@ -26,6 +56,29 @@ function unavailable(c: Context) {
     },
     503,
   )
+}
+
+// Description trim + empty-to-null normalization that used to live in the
+// schema's `.transform()`. Pulled out into the handler so orval can generate a
+// clean `string | null` TS type from the wire schema.
+type ServicePayload = {
+  sectionId: number
+  name: string
+  description: string | null
+  priceClass1: number | null
+  priceClass2: number | null
+  priceClass3: number | null
+  priceClass4: number | null
+}
+function normalizeServicePayload(input: ServicePayload): ServicePayload {
+  const desc = input.description
+  let description: string | null
+  if (desc === null) description = null
+  else {
+    const trimmed = desc.trim()
+    description = trimmed.length === 0 ? null : trimmed
+  }
+  return { ...input, description }
 }
 
 function pricelistErrorResponse(c: Context, err: unknown) {
@@ -42,36 +95,139 @@ function pricelistErrorResponse(c: Context, err: unknown) {
   return c.json({ ok: false as const, error: 'internal' as const }, 500)
 }
 
-// Numeric path param. `z.coerce.number()` would silently accept "12abc" → NaN;
-// pin the format with a regex first, then convert.
-const idParamSchema = z
-  .object({ id: z.string().regex(/^[1-9]\d*$/) })
-  .transform((v) => ({ id: Number(v.id) }))
-
-const onValidateJson = (
-  result: { success: true } | { success: false; error: z.ZodError },
-  c: Context,
-) => {
-  if (!result.success) {
-    const issues = result.error.issues.map((i) => ({ path: i.path, message: i.message }))
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
-  }
+const respValidation = {
+  description: 'Validation error',
+  content: { 'application/json': { schema: validationErrorSchema } },
+}
+const respDbUnavailable = {
+  description: 'Database unavailable',
+  content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+}
+const respInternal = {
+  description: 'Internal server error',
+  content: { 'application/json': { schema: internalErrorSchema } },
+}
+const respNotFound = {
+  description: 'Not found',
+  content: { 'application/json': { schema: notFoundErrorSchema } },
+}
+const respConflict = {
+  description: 'Conflict (duplicate name or has services)',
+  content: { 'application/json': { schema: pricelistConflictSchema } },
 }
 
-const onValidateId = (
-  result: { success: true } | { success: false; error: z.ZodError },
-  c: Context,
-) => {
-  if (!result.success) {
-    const issues: { path: (string | number)[]; message: string }[] = [
-      { path: ['id'], message: 'Invalid id' },
-    ]
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
-  }
-}
+const listPricelistRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['pricelist'],
+  responses: {
+    200: { description: 'Pricelist', content: { 'application/json': { schema: listOk } } },
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
 
-const router = new Hono()
-  .get('/', async (c) => {
+const createSectionRoute = createRoute({
+  method: 'post',
+  path: '/sections',
+  tags: ['pricelist'],
+  request: { body: { content: { 'application/json': { schema: sectionInputSchema } } } },
+  responses: {
+    201: { description: 'Section created', content: { 'application/json': { schema: sectionMutationOk } } },
+    400: respValidation,
+    404: respNotFound,
+    409: respConflict,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const updateSectionRoute = createRoute({
+  method: 'patch',
+  path: '/sections/{id}',
+  tags: ['pricelist'],
+  request: {
+    params: idParamSchema,
+    body: { content: { 'application/json': { schema: sectionInputSchema } } },
+  },
+  responses: {
+    200: { description: 'Section updated', content: { 'application/json': { schema: sectionMutationOk } } },
+    400: respValidation,
+    404: respNotFound,
+    409: respConflict,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const deleteSectionRoute = createRoute({
+  method: 'delete',
+  path: '/sections/{id}',
+  tags: ['pricelist'],
+  request: { params: idParamSchema },
+  responses: {
+    200: { description: 'Section deleted', content: { 'application/json': { schema: deleteOk } } },
+    400: respValidation,
+    404: respNotFound,
+    409: respConflict,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const createServiceRoute = createRoute({
+  method: 'post',
+  path: '/services',
+  tags: ['pricelist'],
+  request: { body: { content: { 'application/json': { schema: serviceInputSchema } } } },
+  responses: {
+    201: { description: 'Service created', content: { 'application/json': { schema: serviceMutationOk } } },
+    400: respValidation,
+    404: respNotFound,
+    409: respConflict,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const updateServiceRoute = createRoute({
+  method: 'patch',
+  path: '/services/{id}',
+  tags: ['pricelist'],
+  request: {
+    params: idParamSchema,
+    body: { content: { 'application/json': { schema: serviceInputSchema } } },
+  },
+  responses: {
+    200: { description: 'Service updated', content: { 'application/json': { schema: serviceMutationOk } } },
+    400: respValidation,
+    404: respNotFound,
+    409: respConflict,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const deleteServiceRoute = createRoute({
+  method: 'delete',
+  path: '/services/{id}',
+  tags: ['pricelist'],
+  request: { params: idParamSchema },
+  responses: {
+    200: { description: 'Service deleted', content: { 'application/json': { schema: deleteOk } } },
+    400: respValidation,
+    404: respNotFound,
+    // The shared `pricelistErrorResponse` mapper can technically return 409 for
+    // any `PricelistError` even though deleteService never throws conflict in
+    // practice. Declared so the route signature accepts the handler's union.
+    409: respConflict,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
+  .openapi(listPricelistRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -104,7 +260,7 @@ const router = new Hono()
       return c.json({ ok: false as const, error: 'internal' as const }, 500)
     }
   })
-  .post('/sections', zValidator('json', sectionInputSchema, onValidateJson), async (c) => {
+  .openapi(createSectionRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -114,12 +270,7 @@ const router = new Hono()
     try {
       const section = await createSection(name)
       baseLogger.info(
-        {
-          event: 'pricelist.section.create',
-          request_id: requestId,
-          section_id: section.id,
-          status: 201,
-        },
+        { event: 'pricelist.section.create', request_id: requestId, section_id: section.id, status: 201 },
         'Section created',
       )
       return c.json({ ok: true as const, section }, 201)
@@ -127,37 +278,27 @@ const router = new Hono()
       return pricelistErrorResponse(c, err)
     }
   })
-  .patch(
-    '/sections/:id',
-    zValidator('param', idParamSchema, onValidateId),
-    zValidator('json', sectionInputSchema, onValidateJson),
-    async (c) => {
-      const requestId = uuidv4()
-      c.header('X-Request-Id', requestId)
+  .openapi(updateSectionRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
 
-      if (!isDbReady()) return unavailable(c)
+    if (!isDbReady()) return unavailable(c)
 
-      const { id } = c.req.valid('param')
-      const { name } = c.req.valid('json')
+    const { id } = c.req.valid('param')
+    const { name } = c.req.valid('json')
 
-      try {
-        const section = await updateSection(id, name)
-        baseLogger.info(
-          {
-            event: 'pricelist.section.update',
-            request_id: requestId,
-            section_id: id,
-            status: 200,
-          },
-          'Section updated',
-        )
-        return c.json({ ok: true as const, section }, 200)
-      } catch (err) {
-        return pricelistErrorResponse(c, err)
-      }
-    },
-  )
-  .delete('/sections/:id', zValidator('param', idParamSchema, onValidateId), async (c) => {
+    try {
+      const section = await updateSection(id, name)
+      baseLogger.info(
+        { event: 'pricelist.section.update', request_id: requestId, section_id: id, status: 200 },
+        'Section updated',
+      )
+      return c.json({ ok: true as const, section }, 200)
+    } catch (err) {
+      return pricelistErrorResponse(c, err)
+    }
+  })
+  .openapi(deleteSectionRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -176,13 +317,13 @@ const router = new Hono()
       return pricelistErrorResponse(c, err)
     }
   })
-  .post('/services', zValidator('json', serviceInputSchema, onValidateJson), async (c) => {
+  .openapi(createServiceRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
 
-    const payload = c.req.valid('json')
+    const payload = normalizeServicePayload(c.req.valid('json'))
     try {
       const service = await createService(payload)
       baseLogger.info(
@@ -200,38 +341,33 @@ const router = new Hono()
       return pricelistErrorResponse(c, err)
     }
   })
-  .patch(
-    '/services/:id',
-    zValidator('param', idParamSchema, onValidateId),
-    zValidator('json', serviceInputSchema, onValidateJson),
-    async (c) => {
-      const requestId = uuidv4()
-      c.header('X-Request-Id', requestId)
+  .openapi(updateServiceRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
 
-      if (!isDbReady()) return unavailable(c)
+    if (!isDbReady()) return unavailable(c)
 
-      const { id } = c.req.valid('param')
-      const payload = c.req.valid('json')
+    const { id } = c.req.valid('param')
+    const payload = normalizeServicePayload(c.req.valid('json'))
 
-      try {
-        const service = await updateService(id, payload)
-        baseLogger.info(
-          {
-            event: 'pricelist.service.update',
-            request_id: requestId,
-            service_id: id,
-            section_id: service.sectionId,
-            status: 200,
-          },
-          'Service updated',
-        )
-        return c.json({ ok: true as const, service }, 200)
-      } catch (err) {
-        return pricelistErrorResponse(c, err)
-      }
-    },
-  )
-  .delete('/services/:id', zValidator('param', idParamSchema, onValidateId), async (c) => {
+    try {
+      const service = await updateService(id, payload)
+      baseLogger.info(
+        {
+          event: 'pricelist.service.update',
+          request_id: requestId,
+          service_id: id,
+          section_id: service.sectionId,
+          status: 200,
+        },
+        'Service updated',
+      )
+      return c.json({ ok: true as const, service }, 200)
+    } catch (err) {
+      return pricelistErrorResponse(c, err)
+    }
+  })
+  .openapi(deleteServiceRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -251,5 +387,4 @@ const router = new Hono()
     }
   })
 
-export type PricelistRoute = typeof router
 export default router

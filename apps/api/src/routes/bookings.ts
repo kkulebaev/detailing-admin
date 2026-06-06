@@ -1,9 +1,14 @@
-import { Hono, type Context, type Next } from 'hono'
-import { zValidator } from '@hono/zod-validator'
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import type { Context } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
-import { z } from 'zod'
 import { bookingSchema } from '@detailing-admin/shared/booking'
 import { bookingToRow } from '@detailing-admin/shared/sheet-row'
+import {
+  internalErrorSchema,
+  sheetsErrorSchema,
+  unavailableErrorSchema,
+  validationErrorSchema,
+} from '@detailing-admin/shared'
 import {
   getBootState,
   getBootHeadersMismatch,
@@ -16,142 +21,79 @@ import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
 import { baseLogger } from '../log.js'
 
-const MAX_IDEMPOTENCY_KEY_LEN = 128
+type Vars = { requestId: string }
 
-// Per-router Variables — typed once so c.set/c.get are checked across middleware.
-type Vars = { requestId: string; idempotencyKey: string }
+const idempotencyHeaderSchema = z.object({
+  // Custom messages preserved verbatim from the legacy zValidator wording.
+  // The schema key is lowercase because HTTP headers are case-insensitive and
+  // arrive normalized; `bookingsValidationHook` rewrites the issue path back to
+  // `'Idempotency-Key'` so the wire format stays byte-identical.
+  'idempotency-key': z
+    .string({
+      required_error: 'Required header missing',
+      invalid_type_error: 'Required header missing',
+    })
+    .min(1, 'Required header missing')
+    .max(128, 'Required; max 128 chars'),
+})
 
-// Boot-state guard. Stamps the request_id header (which a few tests rely on),
-// short-circuits with 503 if init() failed, and crucially emits NO log on the
-// boot-blocked path — that contract is asserted by the route test (plan §7).
-const bootGuard = async (c: Context<{ Variables: Vars }>, next: Next) => {
-  const requestId = uuidv4()
-  c.header('X-Request-Id', requestId)
-  c.set('requestId', requestId)
+const bookingSuccessSchema = z.object({
+  ok: z.literal(true),
+  idempotent: z.boolean(),
+  updatedRange: z.string(),
+  updatedRow: z.number(),
+})
 
-  const state = getBootState()
-  if (state === 'ok') {
-    await next()
-    return
-  }
-
-  if (state === 'headers_mismatch') {
-    const m = getBootHeadersMismatch()
-    return c.json(
-      {
-        ok: false as const,
-        error: 'unavailable' as const,
-        reason: 'headers_mismatch' as const,
-        column_index: m?.column_index ?? 0,
-        expected: m?.expected ?? '',
-        observed: m?.observed ?? '',
-      },
-      503,
-    )
-  }
-
-  return c.json(
-    {
-      ok: false as const,
-      error: 'unavailable' as const,
-      reason: 'not_configured' as const,
-      message: getBootNotConfiguredMessage() ?? 'Boot initialization failed',
+const postBookingRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: ['bookings'],
+  request: {
+    headers: idempotencyHeaderSchema,
+    body: { content: { 'application/json': { schema: bookingSchema } } },
+  },
+  responses: {
+    201: {
+      description: 'Booking created (or replayed from idempotency cache)',
+      content: { 'application/json': { schema: bookingSuccessSchema } },
     },
-    503,
-  )
-}
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    502: {
+      description: 'Sheets append failed',
+      content: { 'application/json': { schema: sheetsErrorSchema } },
+    },
+    503: {
+      description: 'Boot init blocked (headers mismatch or not configured)',
+      content: { 'application/json': { schema: unavailableErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+  },
+})
 
-// Idempotency-Key required (≤128 chars). Also handles cache hit: an `ok:true`
-// entry returns a cached 201 without touching Sheets; a leaked non-ok entry is
-// evicted and the request falls through to a fresh write (defensive — the cache
-// is supposed to only hold successes).
-const idempotencyGuard = async (c: Context<{ Variables: Vars }>, next: Next) => {
-  const requestId = c.get('requestId')
-  const key = c.req.header('Idempotency-Key')
-
-  if (!key) {
-    baseLogger.info(
-      {
-        event: 'booking.request',
-        request_id: requestId,
-        idempotency_key: null,
-        idempotent: false,
-        validation_failed: true,
-        sheets_latency_ms: null,
-        sheets_status_code: null,
-        status: 400,
-      },
-      'Missing Idempotency-Key header',
-    )
-    const issues: { path: (string | number)[]; message: string }[] = [
-      { path: ['Idempotency-Key'], message: 'Required header missing' },
-    ]
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
-  }
-
-  if (key.length > MAX_IDEMPOTENCY_KEY_LEN) {
-    baseLogger.info(
-      {
-        event: 'booking.request',
-        request_id: requestId,
-        idempotency_key: null,
-        idempotent: false,
-        validation_failed: true,
-        sheets_latency_ms: null,
-        sheets_status_code: null,
-        status: 400,
-      },
-      'Idempotency-Key too long',
-    )
-    const issues: { path: (string | number)[]; message: string }[] = [
-      { path: ['Idempotency-Key'], message: 'Required; max 128 chars' },
-    ]
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
-  }
-
-  c.set('idempotencyKey', key)
-
-  const cached = idempotency.get(key)
-  if (cached) {
-    if (!cached.ok) {
-      idempotency.delete_(key)
-    } else {
-      baseLogger.info(
-        {
-          event: 'booking.request',
-          request_id: requestId,
-          idempotency_key: key,
-          idempotent: true,
-          validation_failed: false,
-          sheets_latency_ms: null,
-          sheets_status_code: null,
-          status: 201,
-        },
-        'Idempotent response served from cache',
-      )
-      return c.json(
-        {
-          ok: true as const,
-          idempotent: true as const,
-          updatedRange: cached.updatedRange,
-          updatedRow: cached.updatedRow,
-        },
-        201,
-      )
-    }
-  }
-
-  await next()
-}
-
-const onValidateBody = (
+// Validation hook owns the booking-specific logging plus path rewrites so the
+// wire format and the per-request log line both stay byte-compatible with the
+// pre-OpenAPI implementation.
+function bookingsValidationHook(
   result: { success: true } | { success: false; error: z.ZodError },
   c: Context<{ Variables: Vars }>,
-) => {
+) {
   if (!result.success) {
-    const requestId = c.get('requestId')
-    const idempotencyKey = c.get('idempotencyKey')
-    const issues = result.error.issues.map((i) => ({ path: i.path, message: i.message }))
+    const requestId = c.get('requestId') ?? uuidv4()
+    const idempotencyKey = c.req.header('Idempotency-Key') ?? null
+    const issues = result.error.issues.map((i) => ({
+      path: i.path.map((p) => {
+        if (p === 'idempotency-key') return 'Idempotency-Key'
+        if (typeof p === 'symbol') return String(p)
+        return p
+      }),
+      message: i.message,
+    }))
     baseLogger.info(
       {
         event: 'booking.request',
@@ -169,17 +111,87 @@ const onValidateBody = (
   }
 }
 
-const router = new Hono<{ Variables: Vars }>().post(
-  '/',
-  bootGuard,
-  idempotencyGuard,
-  zValidator('json', bookingSchema, onValidateBody),
-  async (c) => {
-    const requestId = c.get('requestId')
-    const idempotencyKey = c.get('idempotencyKey')
-    const booking = c.req.valid('json')
+const router = new OpenAPIHono<{ Variables: Vars }>({ defaultHook: bookingsValidationHook })
 
-    // Append to Sheets.
+// Boot guard middleware. Stamps request_id, returns 503 with NO log when
+// init() failed (plan §7), otherwise proceeds to openapi validation + handler.
+// Assigned imperatively because OpenAPIHono's `.use()` returns a plain `Hono`,
+// which would lose the `.openapi()` method on a chained call.
+router.use('/', async (c, next) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    c.set('requestId', requestId)
+
+    const state = getBootState()
+    if (state === 'ok') {
+      await next()
+      return
+    }
+
+    if (state === 'headers_mismatch') {
+      const m = getBootHeadersMismatch()
+      return c.json(
+        {
+          ok: false as const,
+          error: 'unavailable' as const,
+          reason: 'headers_mismatch' as const,
+          column_index: m?.column_index ?? 0,
+          expected: m?.expected ?? '',
+          observed: m?.observed ?? '',
+        },
+        503,
+      )
+    }
+
+    return c.json(
+      {
+        ok: false as const,
+        error: 'unavailable' as const,
+        reason: 'not_configured' as const,
+        message: getBootNotConfiguredMessage() ?? 'Boot initialization failed',
+      },
+      503,
+    )
+  })
+
+router.openapi(postBookingRoute, async (c) => {
+    const requestId = c.get('requestId')
+    const { 'idempotency-key': idempotencyKey } = c.req.valid('header')
+
+    // Idempotency cache hit — return cached result without touching Sheets.
+    const cached = idempotency.get(idempotencyKey)
+    if (cached) {
+      if (!cached.ok) {
+        // Sanity: cache is supposed to hold only successes. Evict and fall
+        // through to a fresh request.
+        idempotency.delete_(idempotencyKey)
+      } else {
+        baseLogger.info(
+          {
+            event: 'booking.request',
+            request_id: requestId,
+            idempotency_key: idempotencyKey,
+            idempotent: true,
+            validation_failed: false,
+            sheets_latency_ms: null,
+            sheets_status_code: null,
+            status: 201,
+          },
+          'Idempotent response served from cache',
+        )
+        return c.json(
+          {
+            ok: true as const,
+            idempotent: true,
+            updatedRange: cached.updatedRange,
+            updatedRow: cached.updatedRow,
+          },
+          201,
+        )
+      }
+    }
+
+    const booking = c.req.valid('json')
     const row = bookingToRow(booking)
     const appendResult = await appendBooking(row)
 
@@ -209,8 +221,8 @@ const router = new Hono<{ Variables: Vars }>().post(
       )
     }
 
-    // Mirror the client into Postgres (best-effort; Sheets is still source of truth).
-    // Failures here never block the booking — DB is purely additive for now.
+    // Mirror the client into Postgres (best-effort; Sheets is still source of
+    // truth). Failures here never block the booking — DB is purely additive.
     let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
     if (isDbReady()) {
       try {
@@ -229,10 +241,9 @@ const router = new Hono<{ Variables: Vars }>().post(
       }
     }
 
-    // Cache success and respond.
     const successResult = {
       ok: true as const,
-      idempotent: false as const,
+      idempotent: false,
       updatedRange: appendResult.updatedRange,
       updatedRow: appendResult.updatedRow,
     }
@@ -254,8 +265,6 @@ const router = new Hono<{ Variables: Vars }>().post(
     )
 
     return c.json(successResult, 201)
-  },
-)
+  })
 
-export type BookingsRoute = typeof router
 export default router

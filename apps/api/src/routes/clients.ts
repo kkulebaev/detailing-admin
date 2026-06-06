@@ -1,8 +1,14 @@
-import { Hono, type Context } from 'hono'
-import { zValidator } from '@hono/zod-validator'
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import type { Context } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
-import { z } from 'zod'
-import { clientInputSchema } from '@detailing-admin/shared/client'
+import {
+  clientInputSchema,
+  clientSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+  notFoundErrorSchema,
+  validationErrorSchema,
+} from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
 import {
   ClientError,
@@ -12,6 +18,23 @@ import {
   updateClient,
 } from '../db/clients.js'
 import { baseLogger } from '../log.js'
+import { defaultValidationHook } from '../openapi.js'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const idParamSchema = z.object({
+  id: z.string().regex(UUID_RE),
+})
+
+const conflictDuplicatePhoneSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('conflict'),
+  reason: z.literal('duplicate_phone'),
+})
+
+const listOkResponse = z.object({ ok: z.literal(true), clients: z.array(clientSchema) })
+const mutationOkResponse = z.object({ ok: z.literal(true), client: clientSchema })
+const deleteOkResponse = z.object({ ok: z.literal(true) })
 
 function unavailable(c: Context) {
   return c.json(
@@ -39,35 +62,102 @@ function clientErrorResponse(c: Context, err: unknown) {
   return c.json({ ok: false as const, error: 'internal' as const }, 500)
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const idParamSchema = z.object({ id: z.string().regex(UUID_RE) })
-
-// zValidator hook — maps Zod failures to our shared `{ ok:false, error:'validation' }`
-// shape so the wire contract stays byte-identical to the pre-RPC version.
-const onValidate = (
-  result: { success: true } | { success: false; error: z.ZodError },
-  c: Context,
-) => {
-  if (!result.success) {
-    const issues = result.error.issues.map((i) => ({ path: i.path, message: i.message }))
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
-  }
+// Boilerplate shrunk via these response-shape constants.
+const respValidation = {
+  description: 'Validation error',
+  content: { 'application/json': { schema: validationErrorSchema } },
+}
+const respDbUnavailable = {
+  description: 'Database unavailable',
+  content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+}
+const respInternal = {
+  description: 'Internal server error',
+  content: { 'application/json': { schema: internalErrorSchema } },
+}
+const respNotFound = {
+  description: 'Not found',
+  content: { 'application/json': { schema: notFoundErrorSchema } },
+}
+const respConflictDuplicatePhone = {
+  description: 'Duplicate phone',
+  content: { 'application/json': { schema: conflictDuplicatePhoneSchema } },
 }
 
-const onValidateId = (
-  result: { success: true } | { success: false; error: z.ZodError },
-  c: Context,
-) => {
-  if (!result.success) {
-    const issues: { path: (string | number)[]; message: string }[] = [
-      { path: ['id'], message: 'Invalid id' },
-    ]
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, 400)
-  }
-}
+const listClientsRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['clients'],
+  responses: {
+    200: { description: 'Clients list', content: { 'application/json': { schema: listOkResponse } } },
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
 
-const router = new Hono()
-  .get('/', async (c) => {
+const createClientRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: ['clients'],
+  request: {
+    body: { content: { 'application/json': { schema: clientInputSchema } } },
+  },
+  responses: {
+    201: {
+      description: 'Client created',
+      content: { 'application/json': { schema: mutationOkResponse } },
+    },
+    400: respValidation,
+    // `clientErrorResponse` can technically surface 404 for any `ClientError`;
+    // create paths never throw not_found in practice but TS can't prove that.
+    404: respNotFound,
+    409: respConflictDuplicatePhone,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const updateClientRoute = createRoute({
+  method: 'patch',
+  path: '/{id}',
+  tags: ['clients'],
+  request: {
+    params: idParamSchema,
+    body: { content: { 'application/json': { schema: clientInputSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Client updated',
+      content: { 'application/json': { schema: mutationOkResponse } },
+    },
+    400: respValidation,
+    404: respNotFound,
+    409: respConflictDuplicatePhone,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const deleteClientRoute = createRoute({
+  method: 'delete',
+  path: '/{id}',
+  tags: ['clients'],
+  request: { params: idParamSchema },
+  responses: {
+    200: { description: 'Client deleted', content: { 'application/json': { schema: deleteOkResponse } } },
+    400: respValidation,
+    404: respNotFound,
+    // The shared `clientErrorResponse` mapper can technically surface 409 for
+    // any `ClientError` even though deleteClient never throws conflict in
+    // practice. Declared so the route signature accepts the handler's union.
+    409: respConflictDuplicatePhone,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
+  .openapi(listClientsRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -93,7 +183,7 @@ const router = new Hono()
       return c.json({ ok: false as const, error: 'internal' as const }, 500)
     }
   })
-  .post('/', zValidator('json', clientInputSchema, onValidate), async (c) => {
+  .openapi(createClientRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -111,32 +201,27 @@ const router = new Hono()
       return clientErrorResponse(c, err)
     }
   })
-  .patch(
-    '/:id',
-    zValidator('param', idParamSchema, onValidateId),
-    zValidator('json', clientInputSchema, onValidate),
-    async (c) => {
-      const requestId = uuidv4()
-      c.header('X-Request-Id', requestId)
+  .openapi(updateClientRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
 
-      if (!isDbReady()) return unavailable(c)
+    if (!isDbReady()) return unavailable(c)
 
-      const { id } = c.req.valid('param')
-      const { phone, name } = c.req.valid('json')
+    const { id } = c.req.valid('param')
+    const { phone, name } = c.req.valid('json')
 
-      try {
-        const client = await updateClient(id, phone, name)
-        baseLogger.info(
-          { event: 'clients.update', request_id: requestId, client_id: id, status: 200 },
-          'Client updated',
-        )
-        return c.json({ ok: true as const, client }, 200)
-      } catch (err) {
-        return clientErrorResponse(c, err)
-      }
-    },
-  )
-  .delete('/:id', zValidator('param', idParamSchema, onValidateId), async (c) => {
+    try {
+      const client = await updateClient(id, phone, name)
+      baseLogger.info(
+        { event: 'clients.update', request_id: requestId, client_id: id, status: 200 },
+        'Client updated',
+      )
+      return c.json({ ok: true as const, client }, 200)
+    } catch (err) {
+      return clientErrorResponse(c, err)
+    }
+  })
+  .openapi(deleteClientRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -156,5 +241,4 @@ const router = new Hono()
     }
   })
 
-export type ClientsRoute = typeof router
 export default router

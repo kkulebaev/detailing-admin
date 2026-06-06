@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { bodyLimit } from 'hono/body-limit'
 import { env } from './env.js'
@@ -7,28 +7,43 @@ import bookingsRouter from './routes/bookings.js'
 import clientsRouter from './routes/clients.js'
 import pricelistRouter from './routes/pricelist.js'
 
-// Return type is intentionally inferred — `hc<AppType>` on the web side needs
-// the full chained route table, which is lost the moment you annotate this as
-// `Hono`. Don't add an explicit return type.
 export function createApp() {
-  const app = new Hono()
-    .use(
-      '/api/*',
-      cors({
-        origin: env.WEB_ORIGIN.split(',').map((o) => o.trim()),
-        allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowHeaders: ['Content-Type', 'Idempotency-Key'],
-        exposeHeaders: ['X-Request-Id'],
-      }),
-    )
-    // Defence-in-depth: cap any /api/* body at 64 KB (largest legitimate
-    // booking is ~4 KB; on overflow Hono returns the default 413).
-    .use('/api/*', bodyLimit({ maxSize: 64 * 1024 }))
-    .route('/healthz', healthzRouter)
-    .route('/api/bookings', bookingsRouter)
-    .route('/api/clients', clientsRouter)
-    .route('/api/pricelist', pricelistRouter)
-    .notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
+  // Built imperatively rather than chained so the OpenAPIHono type survives
+  // through `.notFound()` (the chained form widens to plain Hono, which then
+  // loses `.doc()`). The web client is orval-generated off the OpenAPI doc
+  // rather than `hc<AppType>`, so chained AppType inference doesn't matter here.
+  const app = new OpenAPIHono()
+
+  app.use(
+    '/api/*',
+    cors({
+      origin: env.WEB_ORIGIN.split(',').map((o) => o.trim()),
+      allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Idempotency-Key'],
+      exposeHeaders: ['X-Request-Id'],
+    }),
+  )
+  // Defence-in-depth: cap any /api/* body at 64 KB (largest legitimate
+  // booking is ~4 KB; on overflow Hono returns the default 413).
+  app.use('/api/*', bodyLimit({ maxSize: 64 * 1024 }))
+
+  app.route('/healthz', healthzRouter)
+  app.route('/api/bookings', bookingsRouter)
+  app.route('/api/clients', clientsRouter)
+  app.route('/api/pricelist', pricelistRouter)
+
+  app.notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
+
+  // OpenAPI document served at `/openapi.json`. Drives the orval-generated
+  // web client; also handy for manual inspection in dev.
+  app.doc('/openapi.json', {
+    openapi: '3.0.0',
+    info: {
+      version: '0.0.1',
+      title: 'Detailing Admin API',
+      description: 'Internal API for the detailing booking form and admin panel.',
+    },
+  })
 
   return app
 }
