@@ -85,16 +85,8 @@ async function copyPhone(phone: string) {
 <template>
   <div class="min-h-svh bg-background text-foreground p-4 sm:p-8">
     <div class="mx-auto max-w-4xl">
-      <header class="mb-6 flex items-center justify-between gap-4">
+      <header class="mb-6">
         <h1 class="text-2xl font-semibold">Клиенты</h1>
-        <button
-          type="button"
-          class="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
-          :disabled="loading"
-          @click="load"
-        >
-          {{ loading ? 'Загрузка…' : 'Обновить' }}
-        </button>
       </header>
 
       <div v-if="loading" class="text-muted-foreground">Загрузка…</div>
