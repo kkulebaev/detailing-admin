@@ -73,7 +73,7 @@ onMounted(load)
             <col class="w-24" />
             <col class="w-24" />
             <col class="w-24" />
-            <col />
+            <col class="hidden md:table-column" />
           </colgroup>
           <TableHeader class="bg-muted/50">
             <TableRow>
@@ -82,7 +82,7 @@ onMounted(load)
               <TableHead class="px-4 text-right">II кл.</TableHead>
               <TableHead class="px-4 text-right">III кл.</TableHead>
               <TableHead class="px-4 text-right">IV кл.</TableHead>
-              <TableHead class="px-4">Примечание</TableHead>
+              <TableHead class="hidden px-4 md:table-cell">Примечание</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -93,7 +93,7 @@ onMounted(load)
                 <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
                 <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
                 <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
-                <TableCell class="px-4"><Skeleton class="h-4 w-40" /></TableCell>
+                <TableCell class="hidden px-4 md:table-cell"><Skeleton class="h-4 w-40" /></TableCell>
               </TableRow>
             </template>
             <TableEmpty v-else-if="sections.length === 0" :colspan="6">
@@ -127,7 +127,7 @@ onMounted(load)
                 <TableCell class="px-4 text-right tabular-nums">
                   {{ formatPrice(svc.priceClass4) }}
                 </TableCell>
-                <TableCell class="px-4 text-xs text-muted-foreground whitespace-pre-line">
+                <TableCell class="hidden px-4 text-xs text-muted-foreground whitespace-pre-line md:table-cell">
                   {{ svc.description || '' }}
                 </TableCell>
               </TableRow>
