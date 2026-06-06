@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { watch } from 'vue'
-import { BadgeRussianRuble, CalendarPlus, Users, X } from '@lucide/vue'
+import { CalendarPlus, ReceiptText, Users, X } from '@lucide/vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,7 +18,7 @@ import {
 const navItems = [
   { to: { name: 'booking' }, label: 'Запись', icon: CalendarPlus },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users },
-  { to: { name: 'pricelist' }, label: 'Прайс', icon: BadgeRussianRuble },
+  { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText },
 ] as const
 
 const route = useRoute()
