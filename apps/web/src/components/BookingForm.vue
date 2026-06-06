@@ -1064,7 +1064,7 @@ watch(
 
             <div>
               <Label class="mb-2 block">
-                Гос.номер
+                Гос. номер
                 <span class="text-muted-foreground font-normal">(необязательно)</span>
               </Label>
               <Input
