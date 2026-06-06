@@ -86,6 +86,10 @@ Client (`BookingForm.vue`) generates a UUID v4 at form mount and reuses it acros
 
 `apps/web/src/lib/api.ts` prefers `VITE_API_BASE_URL`, but falls back to a hardcoded Railway URL in prod (`PROD_API_FALLBACK`). This guards against a past incident where Railway built the bundle before the env var was set. In dev the base is empty and Vite's proxy handles `/api`.
 
+### UI primitives (shadcn-vue)
+
+Base components live in `apps/web/src/components/ui/<name>/` — the full shadcn-vue registry is vendored in (accordion, alert, alert-dialog, button, calendar, card, command, dialog, drawer, dropdown-menu, form, input, popover, select, sheet, sidebar, table, tabs, toast/sonner, tooltip, … see the directory for the complete list). Each folder exports a barrel `index.ts`; import as `@/components/ui/<name>` (the `@` alias points at `apps/web/src/`). Config: `apps/web/components.json` — style `new-york`, base color `neutral`, CSS variables, icon library `lucide`, aliases `@/components`, `@/composables`, `@/lib/utils`, `@/components/ui`, `@/lib`.
+
 ## Conventions
 
 - **TypeScript:** `tsconfig.base.json` sets `verbatimModuleSyntax: true` and `moduleResolution: Bundler`. Use `import type` for type-only imports. Cross-package imports use `.js` suffix (ESM resolution) — keep this for consistency.
