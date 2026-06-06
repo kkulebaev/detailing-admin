@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useClipboard } from '@vueuse/core'
-import { ChevronDown, ChevronsUpDown, ChevronUp } from '@lucide/vue'
+import { ChevronDown, ChevronsUpDown, ChevronUp, Pencil, Plus, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   type ColumnDef,
@@ -11,8 +11,24 @@ import {
   type SortingState,
   useVueTable,
 } from '@tanstack/vue-table'
-import { fetchClients, type Client } from '@/lib/clients-api'
+import {
+  deleteClient as apiDeleteClient,
+  fetchClients,
+  type Client,
+} from '@/lib/clients-api'
+import ClientFormDialog from './ClientFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -29,6 +45,13 @@ const data = ref<Client[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const sorting = ref<SortingState>([{ id: 'name', desc: false }])
+
+const dialogOpen = ref(false)
+const editing = ref<Client | null>(null)
+
+const deleteDialogOpen = ref(false)
+const deleteTarget = ref<Client | null>(null)
+const deleting = ref(false)
 
 const collator = new Intl.Collator('ru', { sensitivity: 'base' })
 
@@ -120,13 +143,65 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
   if (state === 'desc') return 'descending'
   return 'none'
 }
+
+function openCreate() {
+  editing.value = null
+  dialogOpen.value = true
+}
+
+function openEdit(client: Client) {
+  editing.value = client
+  dialogOpen.value = true
+}
+
+function askDelete(client: Client) {
+  deleteTarget.value = client
+  deleteDialogOpen.value = true
+}
+
+function onDeleteDialogOpenChange(v: boolean) {
+  deleteDialogOpen.value = v
+}
+
+async function confirmDelete() {
+  const target = deleteTarget.value
+  if (!target) return
+  deleting.value = true
+  try {
+    const result = await apiDeleteClient(target.id)
+    if (result.ok) {
+      toast.success('Клиент удалён')
+      deleteTarget.value = null
+      deleteDialogOpen.value = false
+      await load()
+      return
+    }
+    if (result.error === 'not_found') {
+      toast.error('Клиент уже удалён')
+      deleteTarget.value = null
+      deleteDialogOpen.value = false
+      await load()
+      return
+    }
+    if (result.error === 'unavailable') {
+      toast.error(result.message)
+    } else {
+      toast.error('Не удалось удалить клиента')
+    }
+  } finally {
+    deleting.value = false
+  }
+}
 </script>
 
 <template>
   <div class="min-h-svh bg-background text-foreground p-4 sm:p-8">
     <div>
-      <header class="mb-6">
+      <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Клиенты</h1>
+        <Button variant="outline" size="sm" @click="openCreate">
+          <Plus class="size-4" /> Клиент
+        </Button>
       </header>
 
       <Alert v-if="error" variant="destructive">
@@ -169,6 +244,7 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
                   <ChevronsUpDown v-else class="size-3.5 opacity-50" />
                 </button>
               </TableHead>
+              <TableHead class="px-4 text-right">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -177,9 +253,10 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
                 <TableCell class="px-4"><Skeleton class="h-4 w-6" /></TableCell>
                 <TableCell class="px-4"><Skeleton class="h-4 w-40" /></TableCell>
                 <TableCell class="px-4"><Skeleton class="h-4 w-32" /></TableCell>
+                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
               </TableRow>
             </template>
-            <TableEmpty v-else-if="data.length === 0" :colspan="3">
+            <TableEmpty v-else-if="data.length === 0" :colspan="4">
               Список клиентов пуст.
             </TableEmpty>
             <TableRow
@@ -201,11 +278,31 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
                   {{ formatPhone(row.original.phone) }}
                 </button>
               </TableCell>
+              <TableCell class="px-4 text-right">
+                <div class="inline-flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Редактировать клиента ${row.original.name || row.original.phone}`"
+                    @click="openEdit(row.original)"
+                  >
+                    <Pencil class="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Удалить клиента ${row.original.name || row.original.phone}`"
+                    @click="askDelete(row.original)"
+                  >
+                    <Trash2 class="size-3.5" />
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
           </TableBody>
           <TableFooter v-if="!loading && data.length > 0" class="bg-muted/30">
             <TableRow>
-              <TableCell colspan="3" class="px-4 text-xs text-muted-foreground">
+              <TableCell colspan="4" class="px-4 text-xs text-muted-foreground">
                 Всего: {{ data.length }}
               </TableCell>
             </TableRow>
@@ -213,5 +310,34 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
         </Table>
       </div>
     </div>
+
+    <ClientFormDialog
+      v-model:open="dialogOpen"
+      :client="editing"
+      @saved="load"
+    />
+
+    <AlertDialog
+      :open="deleteDialogOpen"
+      @update:open="onDeleteDialogOpenChange"
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удалить клиента?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <template v-if="deleteTarget">
+              Клиент «{{ deleteTarget.name || formatPhone(deleteTarget.phone) }}»
+              будет удалён. Действие нельзя отменить
+            </template>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
+          <AlertDialogAction :disabled="deleting" @click="confirmDelete">
+            {{ deleting ? 'Удаление…' : 'Удалить' }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

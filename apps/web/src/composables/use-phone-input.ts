@@ -54,7 +54,7 @@ function caretPosForDigits(formatted: string, n: number): number {
 // Pasted strings may carry a country code, separators, or no prefix at all.
 // Reduce to the 10 significant digits before reusing formatPhone — typing
 // goes through a different path that can't safely strip a "leading 7/8" twice.
-function formatPastedPhone(input: string): string {
+export function formatPastedPhone(input: string): string {
   const digits = input.replace(/\D/g, '')
   let ten = digits
   if (ten.length === 11 && (ten.startsWith('7') || ten.startsWith('8'))) {
