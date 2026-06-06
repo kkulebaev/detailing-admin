@@ -15,6 +15,7 @@ import { submitBooking } from '@/lib/api'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -778,9 +779,11 @@ watch(
 
       <div class="space-y-3">
         <!-- Дата и время записи -->
-        <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Дата и время записи</h2>
-
+        <Card class="gap-4 py-4 shadow-none">
+          <CardHeader class="px-4">
+            <CardTitle class="text-base">Дата и время записи</CardTitle>
+          </CardHeader>
+          <CardContent class="px-4">
           <!-- Quick date chips -->
           <div class="flex flex-wrap gap-2 mb-2">
             <button
@@ -958,11 +961,15 @@ watch(
               </div>
             </div>
           </Transition>
-        </section>
+          </CardContent>
+        </Card>
 
         <!-- Информация о клиенте -->
-        <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Информация о клиенте</h2>
+        <Card class="gap-4 py-4 shadow-none">
+          <CardHeader class="px-4">
+            <CardTitle class="text-base">Информация о клиенте</CardTitle>
+          </CardHeader>
+          <CardContent class="px-4">
           <div class="space-y-4">
             <FormField v-slot="{ componentField }" name="name">
               <FormItem>
@@ -1070,11 +1077,15 @@ watch(
               />
             </div>
           </div>
-        </section>
+          </CardContent>
+        </Card>
 
         <!-- Объем работ -->
-        <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Объем работ</h2>
+        <Card class="gap-4 py-4 shadow-none">
+          <CardHeader class="px-4">
+            <CardTitle class="text-base">Объем работ</CardTitle>
+          </CardHeader>
+          <CardContent class="px-4">
           <div class="space-y-4">
             <FormField v-slot="{ componentField }" name="service">
               <FormItem>
@@ -1119,11 +1130,15 @@ watch(
               </FormItem>
             </FormField>
           </div>
-        </section>
+          </CardContent>
+        </Card>
 
         <!-- Оплата -->
-        <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Оплата</h2>
+        <Card class="gap-4 py-4 shadow-none">
+          <CardHeader class="px-4">
+            <CardTitle class="text-base">Оплата</CardTitle>
+          </CardHeader>
+          <CardContent class="px-4">
           <Label class="mb-2 block">Сумма, ₽</Label>
           <Input
             type="text"
@@ -1148,11 +1163,15 @@ watch(
           <p v-if="submitAttempted && errors.amount" class="text-sm font-medium text-destructive mt-1">
             {{ errors.amount }}
           </p>
-        </section>
+          </CardContent>
+        </Card>
 
         <!-- Статус -->
-        <section class="rounded-xl border border-border bg-card p-4">
-          <h2 class="text-base font-semibold mb-4">Статус</h2>
+        <Card class="gap-4 py-4 shadow-none">
+          <CardHeader class="px-4">
+            <CardTitle class="text-base">Статус</CardTitle>
+          </CardHeader>
+          <CardContent class="px-4">
           <div class="space-y-4">
             <FormField v-slot="{ componentField }" name="master">
               <FormItem>
@@ -1206,7 +1225,8 @@ watch(
               <Label class="cursor-pointer">Отправить уведомление</Label>
             </div>
           </div>
-        </section>
+          </CardContent>
+        </Card>
       </div>
     </form>
 
