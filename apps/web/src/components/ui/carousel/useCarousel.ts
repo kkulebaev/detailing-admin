@@ -1,7 +1,8 @@
+import type { EmblaCarouselType } from "embla-carousel"
 import type { UnwrapRefCarouselApi as CarouselApi, CarouselEmits, CarouselProps } from "./interface"
 import { createInjectionState } from "@vueuse/core"
 import emblaCarouselVue from "embla-carousel-vue"
-import { onMounted, ref } from "vue"
+import { onMounted, ref, type Ref } from "vue"
 
 const [useProvideCarousel, useInjectCarousel] = createInjectionState(
   ({
@@ -9,7 +10,7 @@ const [useProvideCarousel, useInjectCarousel] = createInjectionState(
     orientation,
     plugins,
   }: CarouselProps, emits: CarouselEmits) => {
-    const [emblaNode, emblaApi] = emblaCarouselVue({
+    const [emblaNode, emblaApi]: [Ref<HTMLElement | undefined>, Ref<EmblaCarouselType | undefined>] = emblaCarouselVue({
       ...opts,
       axis: orientation === "horizontal" ? "x" : "y",
     }, plugins)
