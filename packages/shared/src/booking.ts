@@ -40,7 +40,7 @@ export const bookingSchema = z
       const to = parseDdmmyyyy(v.dateTo)
       if (to.getTime() < from.getTime()) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['dateTo'],
           message: 'Конец диапазона раньше начала',
         })
@@ -58,7 +58,7 @@ export const bookingSchema = z
       return { ...b, phone, dateTo, timeTo }
     } catch (e) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['phone'],
         message: e instanceof Error ? e.message : 'Неверный номер',
       })

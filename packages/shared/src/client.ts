@@ -53,7 +53,7 @@ export const clientInputSchema = z
       const phone = normalizePhone(v.phone)
       if (phone.length === 0) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['phone'],
           message: 'Укажите номер телефона',
         })
@@ -62,7 +62,7 @@ export const clientInputSchema = z
       return { name: v.name.trim(), phone }
     } catch (e) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['phone'],
         message: e instanceof Error ? e.message : 'Неверный номер',
       })
