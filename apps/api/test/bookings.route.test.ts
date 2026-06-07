@@ -61,6 +61,7 @@ const VALID_PAYLOAD = {
   amount: 5000,
   master: 'Иван Содель',
   responsible: 'Иван Содель',
+  carClass: 3,
 }
 
 const APPEND_SUCCESS = {

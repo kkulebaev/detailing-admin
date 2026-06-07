@@ -11,6 +11,7 @@ const validBase = {
   amount: 5000,
   master: 'Иван Содель',
   responsible: 'Иван Содель',
+  carClass: 3,
 }
 
 describe('bookingSchema', () => {

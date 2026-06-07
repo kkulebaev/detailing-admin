@@ -3,8 +3,8 @@ export { READINESS, MASTERS } from './enums.js'
 export { StatusCodes } from './http-status-codes.js'
 export { parseDdmmyyyy, formatDdmmyyyy } from './date.js'
 export { normalizePhone } from './phone.js'
-export { bookingSchema } from './booking.js'
-export type { Booking } from './booking.js'
+export { bookingSchema, carClassSchema, DEFAULT_CAR_CLASS } from './booking.js'
+export type { Booking, CarClass } from './booking.js'
 export { EXPECTED_HEADERS, bookingToRow } from './sheet-row.js'
 export {
   bookingApiResultSchema,
