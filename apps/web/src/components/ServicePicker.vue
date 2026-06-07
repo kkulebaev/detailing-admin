@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Check, ChevronsUpDown, X } from '@lucide/vue'
 import {
-  fetchPricelist,
   type PricelistSection,
   type PricelistService,
 } from '@/lib/pricelist-api'
+import { usePricelistQuery } from '@/lib/queries'
 import type { CarClass } from '@detailing-admin/shared'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,9 +39,27 @@ const emit = defineEmits<{
 const CLASS_OPTIONS: readonly CarClass[] = [1, 2, 3, 4] as const
 const ROMAN: Record<CarClass, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
 
-const sections = ref<PricelistSection[]>([])
-const loading = ref(true)
-const loadError = ref<string | null>(null)
+// Pricelist is shared cache: this query and PricelistPage's both read from the
+// same key, so opening /pricelist after the form (or vice versa) is instant.
+const { data: queryData, error: queryError, asyncStatus } = usePricelistQuery()
+
+const sections = computed<PricelistSection[]>(() => {
+  const r = queryData.value
+  return r?.ok ? r.sections : []
+})
+
+const loading = computed(
+  () => asyncStatus.value === 'loading' && queryData.value === undefined,
+)
+
+const loadError = computed<string | null>(() => {
+  if (queryError.value) return 'Сетевая ошибка при загрузке прайс-листа'
+  const r = queryData.value
+  if (!r || r.ok) return null
+  if (r.error === 'unavailable') return r.message || 'Прайс-лист недоступен'
+  return 'Не удалось загрузить прайс-лист'
+})
+
 const open = ref(false)
 
 const serviceById = computed(() => {
@@ -99,7 +117,8 @@ function syncSelectionFromString() {
   const same =
     next.length === selectedIds.value.length &&
     next.every((id, i) => selectedIds.value[i] === id)
-  if (!same) selectedIds.value = next
+  if (same) return
+  selectedIds.value = next
   emitModelValue()
 }
 
@@ -162,24 +181,25 @@ function pluralize(n: number, forms: [string, string, string]): string {
   return forms[2]
 }
 
-onMounted(async () => {
-  try {
-    const res = await fetchPricelist()
-    if (res.ok) {
-      sections.value = res.sections
-      syncSelectionFromString()
-    } else if (res.error === 'unavailable') {
-      loadError.value = res.message || 'Прайс-лист недоступен'
-    } else {
-      loadError.value = 'Не удалось загрузить прайс-лист'
-    }
-  } catch {
-    loadError.value = 'Сетевая ошибка при загрузке прайс-листа'
-  } finally {
-    loading.value = false
-  }
-})
-
+// Drive selection-sync off `sections` instead of `onMounted`: when the
+// pricelist is already in cache it's available synchronously and we can
+// project the parent's CSV → ids on the first render. Cache miss → fires
+// once data arrives.
+//
+// Why a one-shot guard: Colada refetches on focus by default, and each
+// refetch produces a fresh `sections` reference. Without the guard, every
+// refocus would re-project the parent's (potentially stale) CSV back into
+// `selectedIds`, racing with any local edits the user just made.
+let synced = false
+watch(
+  sections,
+  () => {
+    if (synced || sections.value.length === 0) return
+    synced = true
+    syncSelectionFromString()
+  },
+  { immediate: true },
+)
 watch(() => props.modelValue, syncSelectionFromString)
 </script>
 

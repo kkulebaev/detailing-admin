@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useClipboard } from '@vueuse/core'
 import { ChevronDown, ChevronsUpDown, ChevronUp, Pencil, Plus, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
@@ -13,9 +13,9 @@ import {
 } from '@tanstack/vue-table'
 import {
   deleteClient as apiDeleteClient,
-  fetchClients,
   type Client,
 } from '@/lib/clients-api'
+import { useClientsQuery, useInvalidateClients } from '@/lib/queries'
 import ClientFormDialog from './ClientFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -41,9 +41,28 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const data = ref<Client[]>([])
-const loading = ref(true)
-const error = ref<string | null>(null)
+const { data: queryData, error: queryError, asyncStatus } = useClientsQuery()
+const invalidateClients = useInvalidateClients()
+
+const data = computed<Client[]>(() => {
+  const r = queryData.value
+  return r?.ok ? r.clients : []
+})
+
+// Show skeleton only on the initial load — background refetches keep the
+// existing rows visible.
+const loading = computed(
+  () => asyncStatus.value === 'loading' && queryData.value === undefined,
+)
+
+const error = computed<string | null>(() => {
+  if (queryError.value) return 'Сетевая ошибка при загрузке клиентов'
+  const r = queryData.value
+  if (!r || r.ok) return null
+  if (r.error === 'unavailable') return r.message || 'База данных недоступна'
+  return 'Не удалось загрузить список клиентов'
+})
+
 const sorting = ref<SortingState>([{ id: 'name', desc: false }])
 
 const dialogOpen = ref(false)
@@ -93,27 +112,6 @@ const table = useVueTable({
     sorting.value = typeof updater === 'function' ? updater(sorting.value) : updater
   },
 })
-
-async function load() {
-  loading.value = true
-  error.value = null
-  try {
-    const result = await fetchClients()
-    if (result.ok) {
-      data.value = result.clients
-    } else if (result.error === 'unavailable') {
-      error.value = result.message || 'База данных недоступна'
-    } else {
-      error.value = 'Не удалось загрузить список клиентов'
-    }
-  } catch {
-    error.value = 'Сетевая ошибка при загрузке клиентов'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(load)
 
 const { copy, isSupported: clipboardSupported } = useClipboard({ legacy: true })
 
@@ -173,14 +171,14 @@ async function confirmDelete() {
       toast.success('Клиент удалён')
       deleteTarget.value = null
       deleteDialogOpen.value = false
-      await load()
+      await invalidateClients()
       return
     }
     if (result.error === 'not_found') {
       toast.error('Клиент уже удалён')
       deleteTarget.value = null
       deleteDialogOpen.value = false
-      await load()
+      await invalidateClients()
       return
     }
     if (result.error === 'unavailable') {
@@ -314,7 +312,7 @@ async function confirmDelete() {
     <ClientFormDialog
       v-model:open="dialogOpen"
       :client="editing"
-      @saved="load"
+      @saved="invalidateClients"
     />
 
     <AlertDialog

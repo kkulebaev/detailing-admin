@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Pencil, Plus, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   deleteSection as apiDeleteSection,
   deleteService as apiDeleteService,
-  fetchPricelist,
   type PricelistSection,
   type PricelistSectionRow,
   type PricelistService,
 } from '@/lib/pricelist-api'
+import { useInvalidatePricelist, usePricelistQuery } from '@/lib/queries'
 import SectionFormDialog from './SectionFormDialog.vue'
 import ServiceFormDialog from './ServiceFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -35,9 +35,25 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const sections = ref<PricelistSection[]>([])
-const loading = ref(true)
-const error = ref<string | null>(null)
+const { data: queryData, error: queryError, asyncStatus } = usePricelistQuery()
+const invalidatePricelist = useInvalidatePricelist()
+
+const sections = computed<PricelistSection[]>(() => {
+  const r = queryData.value
+  return r?.ok ? r.sections : []
+})
+
+const loading = computed(
+  () => asyncStatus.value === 'loading' && queryData.value === undefined,
+)
+
+const error = computed<string | null>(() => {
+  if (queryError.value) return 'Сетевая ошибка при загрузке прайс-листа'
+  const r = queryData.value
+  if (!r || r.ok) return null
+  if (r.error === 'unavailable') return r.message || 'База данных недоступна'
+  return 'Не удалось загрузить прайс-лист'
+})
 
 const sectionDialogOpen = ref(false)
 const sectionEditing = ref<PricelistSectionRow | null>(null)
@@ -62,25 +78,6 @@ const priceFormatter = new Intl.NumberFormat('ru-RU')
 
 function formatPrice(value: number): string {
   return `${priceFormatter.format(value)} ₽`
-}
-
-async function load() {
-  loading.value = true
-  error.value = null
-  try {
-    const result = await fetchPricelist()
-    if (result.ok) {
-      sections.value = result.sections
-    } else if (result.error === 'unavailable') {
-      error.value = result.message || 'База данных недоступна'
-    } else {
-      error.value = 'Не удалось загрузить прайс-лист'
-    }
-  } catch {
-    error.value = 'Сетевая ошибка при загрузке прайс-листа'
-  } finally {
-    loading.value = false
-  }
 }
 
 function openCreateSection() {
@@ -138,7 +135,7 @@ async function confirmDelete() {
       toast.success(target.kind === 'section' ? 'Раздел удалён' : 'Услуга удалена')
       deleteTarget.value = null
       deleteDialogOpen.value = false
-      await load()
+      await invalidatePricelist()
       return
     }
 
@@ -148,7 +145,7 @@ async function confirmDelete() {
       toast.error('Запись уже удалена')
       deleteTarget.value = null
       deleteDialogOpen.value = false
-      await load()
+      await invalidatePricelist()
       return
     } else if (result.error === 'unavailable') {
       toast.error(result.message)
@@ -159,8 +156,6 @@ async function confirmDelete() {
     deleting.value = false
   }
 }
-
-onMounted(load)
 </script>
 
 <template>
@@ -319,7 +314,7 @@ onMounted(load)
     <SectionFormDialog
       v-model:open="sectionDialogOpen"
       :section="sectionEditing"
-      @saved="load"
+      @saved="invalidatePricelist"
     />
 
     <ServiceFormDialog
@@ -327,7 +322,7 @@ onMounted(load)
       :service="serviceEditing"
       :default-section-id="serviceDefaultSectionId"
       :sections="sections"
-      @saved="load"
+      @saved="invalidatePricelist"
     />
 
     <AlertDialog
