@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiClients503Reason = typeof PostApiClients503Reason[keyof typeof PostApiClients503Reason];
-
-
-export const PostApiClients503Reason = {
-  not_configured: 'not_configured',
-} as const;
+export type PostApiClients503Reason = 'not_configured';

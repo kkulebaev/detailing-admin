@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiPricelistServicesId500Error = typeof DeleteApiPricelistServicesId500Error[keyof typeof DeleteApiPricelistServicesId500Error];
-
-
-export const DeleteApiPricelistServicesId500Error = {
-  internal: 'internal',
-} as const;
+export type DeleteApiPricelistServicesId500Error = 'internal';

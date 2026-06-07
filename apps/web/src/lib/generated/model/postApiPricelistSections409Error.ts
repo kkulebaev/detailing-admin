@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiPricelistSections409Error = typeof PostApiPricelistSections409Error[keyof typeof PostApiPricelistSections409Error];
-
-
-export const PostApiPricelistSections409Error = {
-  conflict: 'conflict',
-} as const;
+export type PostApiPricelistSections409Error = 'conflict';

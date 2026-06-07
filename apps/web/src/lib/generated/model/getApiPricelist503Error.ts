@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiPricelist503Error = typeof GetApiPricelist503Error[keyof typeof GetApiPricelist503Error];
-
-
-export const GetApiPricelist503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type GetApiPricelist503Error = 'unavailable';

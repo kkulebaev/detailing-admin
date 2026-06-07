@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiClients404Error = typeof PostApiClients404Error[keyof typeof PostApiClients404Error];
-
-
-export const PostApiClients404Error = {
-  not_found: 'not_found',
-} as const;
+export type PostApiClients404Error = 'not_found';

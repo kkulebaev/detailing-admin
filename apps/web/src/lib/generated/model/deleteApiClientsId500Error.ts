@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiClientsId500Error = typeof DeleteApiClientsId500Error[keyof typeof DeleteApiClientsId500Error];
-
-
-export const DeleteApiClientsId500Error = {
-  internal: 'internal',
-} as const;
+export type DeleteApiClientsId500Error = 'internal';

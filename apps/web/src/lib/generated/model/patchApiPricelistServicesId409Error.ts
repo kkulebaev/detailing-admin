@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiPricelistServicesId409Error = typeof PatchApiPricelistServicesId409Error[keyof typeof PatchApiPricelistServicesId409Error];
-
-
-export const PatchApiPricelistServicesId409Error = {
-  conflict: 'conflict',
-} as const;
+export type PatchApiPricelistServicesId409Error = 'conflict';

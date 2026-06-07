@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiPricelistServicesId503Error = typeof DeleteApiPricelistServicesId503Error[keyof typeof DeleteApiPricelistServicesId503Error];
-
-
-export const DeleteApiPricelistServicesId503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type DeleteApiPricelistServicesId503Error = 'unavailable';

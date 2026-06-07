@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiClientsId503Error = typeof PatchApiClientsId503Error[keyof typeof PatchApiClientsId503Error];
-
-
-export const PatchApiClientsId503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type PatchApiClientsId503Error = 'unavailable';

@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiClientsId409Reason = typeof PatchApiClientsId409Reason[keyof typeof PatchApiClientsId409Reason];
-
-
-export const PatchApiClientsId409Reason = {
-  duplicate_phone: 'duplicate_phone',
-} as const;
+export type PatchApiClientsId409Reason = 'duplicate_phone';

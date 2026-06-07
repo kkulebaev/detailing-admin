@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiBookings400Error = typeof PostApiBookings400Error[keyof typeof PostApiBookings400Error];
-
-
-export const PostApiBookings400Error = {
-  validation: 'validation',
-} as const;
+export type PostApiBookings400Error = 'validation';

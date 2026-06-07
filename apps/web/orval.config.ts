@@ -20,6 +20,10 @@ export default defineConfig({
       clean: true,
       baseUrl: '',
       override: {
+        // Emit `type X = 'A' | 'B'` / `type X = 1 | 2 | 3 | 4` instead of the
+        // default `const X = { ... } as const` + `typeof X[keyof typeof X]`
+        // trick — we never reference the runtime const map directly.
+        enumGenerationType: 'union',
         mutator: {
           path: './src/lib/orval-mutator.ts',
           name: 'orvalFetch',

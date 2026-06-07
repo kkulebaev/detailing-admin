@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiBookings502Error = typeof PostApiBookings502Error[keyof typeof PostApiBookings502Error];
-
-
-export const PostApiBookings502Error = {
-  sheets: 'sheets',
-} as const;
+export type PostApiBookings502Error = 'sheets';

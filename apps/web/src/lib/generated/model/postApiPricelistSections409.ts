@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { PostApiPricelistSections409Error } from './postApiPricelistSections409Error';
-import type { PostApiPricelistSections409Reason } from './postApiPricelistSections409Reason';
 
 export type PostApiPricelistSections409 = {
   ok: false;
   error: PostApiPricelistSections409Error;
-  reason: typeof PostApiPricelistSections409Reason[keyof typeof PostApiPricelistSections409Reason];
+  reason: 'duplicate_name' | 'has_services';
 };

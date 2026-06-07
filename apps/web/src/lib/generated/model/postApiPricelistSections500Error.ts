@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiPricelistSections500Error = typeof PostApiPricelistSections500Error[keyof typeof PostApiPricelistSections500Error];
-
-
-export const PostApiPricelistSections500Error = {
-  internal: 'internal',
-} as const;
+export type PostApiPricelistSections500Error = 'internal';

@@ -6,12 +6,11 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { PostApiBookings503Error } from './postApiBookings503Error';
-import type { PostApiBookings503Reason } from './postApiBookings503Reason';
 
 export type PostApiBookings503 = {
   ok: false;
   error: PostApiBookings503Error;
-  reason: typeof PostApiBookings503Reason[keyof typeof PostApiBookings503Reason];
+  reason: 'headers_mismatch' | 'not_configured';
   column_index?: number;
   expected?: string;
   observed?: string;

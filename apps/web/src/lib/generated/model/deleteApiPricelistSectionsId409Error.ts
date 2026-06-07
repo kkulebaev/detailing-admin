@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiPricelistSectionsId409Error = typeof DeleteApiPricelistSectionsId409Error[keyof typeof DeleteApiPricelistSectionsId409Error];
-
-
-export const DeleteApiPricelistSectionsId409Error = {
-  conflict: 'conflict',
-} as const;
+export type DeleteApiPricelistSectionsId409Error = 'conflict';

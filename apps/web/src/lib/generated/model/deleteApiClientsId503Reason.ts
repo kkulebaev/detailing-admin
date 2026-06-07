@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiClientsId503Reason = typeof DeleteApiClientsId503Reason[keyof typeof DeleteApiClientsId503Reason];
-
-
-export const DeleteApiClientsId503Reason = {
-  not_configured: 'not_configured',
-} as const;
+export type DeleteApiClientsId503Reason = 'not_configured';

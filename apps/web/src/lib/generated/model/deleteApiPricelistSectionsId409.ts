@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { DeleteApiPricelistSectionsId409Error } from './deleteApiPricelistSectionsId409Error';
-import type { DeleteApiPricelistSectionsId409Reason } from './deleteApiPricelistSectionsId409Reason';
 
 export type DeleteApiPricelistSectionsId409 = {
   ok: false;
   error: DeleteApiPricelistSectionsId409Error;
-  reason: typeof DeleteApiPricelistSectionsId409Reason[keyof typeof DeleteApiPricelistSectionsId409Reason];
+  reason: 'duplicate_name' | 'has_services';
 };

@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiClientsId409Error = typeof DeleteApiClientsId409Error[keyof typeof DeleteApiClientsId409Error];
-
-
-export const DeleteApiClientsId409Error = {
-  conflict: 'conflict',
-} as const;
+export type DeleteApiClientsId409Error = 'conflict';

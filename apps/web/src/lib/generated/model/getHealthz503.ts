@@ -6,12 +6,11 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { GetHealthz503Error } from './getHealthz503Error';
-import type { GetHealthz503Reason } from './getHealthz503Reason';
 
 export type GetHealthz503 = {
   ok: false;
   error: GetHealthz503Error;
-  reason: typeof GetHealthz503Reason[keyof typeof GetHealthz503Reason];
+  reason: 'headers_mismatch' | 'not_configured';
   column_index?: number;
   expected?: string;
   observed?: string;

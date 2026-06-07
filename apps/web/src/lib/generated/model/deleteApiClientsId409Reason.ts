@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiClientsId409Reason = typeof DeleteApiClientsId409Reason[keyof typeof DeleteApiClientsId409Reason];
-
-
-export const DeleteApiClientsId409Reason = {
-  duplicate_phone: 'duplicate_phone',
-} as const;
+export type DeleteApiClientsId409Reason = 'duplicate_phone';

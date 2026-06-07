@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiClientsId503Reason = typeof PatchApiClientsId503Reason[keyof typeof PatchApiClientsId503Reason];
-
-
-export const PatchApiClientsId503Reason = {
-  not_configured: 'not_configured',
-} as const;
+export type PatchApiClientsId503Reason = 'not_configured';

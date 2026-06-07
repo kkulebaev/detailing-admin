@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiClients409Reason = typeof PostApiClients409Reason[keyof typeof PostApiClients409Reason];
-
-
-export const PostApiClients409Reason = {
-  duplicate_phone: 'duplicate_phone',
-} as const;
+export type PostApiClients409Reason = 'duplicate_phone';

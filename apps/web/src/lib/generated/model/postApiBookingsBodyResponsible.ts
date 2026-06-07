@@ -6,13 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiBookingsBodyResponsible = typeof PostApiBookingsBodyResponsible[keyof typeof PostApiBookingsBodyResponsible];
-
-
-export const PostApiBookingsBodyResponsible = {
-  Вячеслав_Толстов: 'Вячеслав Толстов',
-  Иван_Содель: 'Иван Содель',
-  Сергей_Теплов: 'Сергей Теплов',
-  Дмитрий_Глотов: 'Дмитрий Глотов',
-  Андрей_и_ко: 'Андрей и ко.',
-} as const;
+export type PostApiBookingsBodyResponsible = 'Вячеслав Толстов' | 'Иван Содель' | 'Сергей Теплов' | 'Дмитрий Глотов' | 'Андрей и ко.';

@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiPricelistServicesId503Reason = typeof DeleteApiPricelistServicesId503Reason[keyof typeof DeleteApiPricelistServicesId503Reason];
-
-
-export const DeleteApiPricelistServicesId503Reason = {
-  not_configured: 'not_configured',
-} as const;
+export type DeleteApiPricelistServicesId503Reason = 'not_configured';

@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiPricelistSections404Error = typeof PostApiPricelistSections404Error[keyof typeof PostApiPricelistSections404Error];
-
-
-export const PostApiPricelistSections404Error = {
-  not_found: 'not_found',
-} as const;
+export type PostApiPricelistSections404Error = 'not_found';

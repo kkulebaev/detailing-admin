@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiPricelistSectionsId404Error = typeof DeleteApiPricelistSectionsId404Error[keyof typeof DeleteApiPricelistSectionsId404Error];
-
-
-export const DeleteApiPricelistSectionsId404Error = {
-  not_found: 'not_found',
-} as const;
+export type DeleteApiPricelistSectionsId404Error = 'not_found';

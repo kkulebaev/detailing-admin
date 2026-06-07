@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiPricelistSections503Error = typeof PostApiPricelistSections503Error[keyof typeof PostApiPricelistSections503Error];
-
-
-export const PostApiPricelistSections503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type PostApiPricelistSections503Error = 'unavailable';

@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { PostApiBookingsBodyMaster } from './postApiBookingsBodyMaster';
-import type { PostApiBookingsBodyReadiness } from './postApiBookingsBodyReadiness';
 import type { PostApiBookingsBodyResponsible } from './postApiBookingsBodyResponsible';
 
 export type PostApiBookingsBody = {
@@ -53,7 +52,8 @@ export type PostApiBookingsBody = {
   /** @maxLength 2000 */
   note?: string;
   amount: '' | number;
-  readiness?: typeof PostApiBookingsBodyReadiness[keyof typeof PostApiBookingsBodyReadiness];
+  readiness?: 'Подтвердил' | 'Не ответил' | 'В работе' | 'Готова к выдаче' | 'Выдана' | 'Перенос' | 'Отмена' | 'Не приехал' | 'Оплачено' | 'Не оплачено' | '';
   master: PostApiBookingsBodyMaster;
   responsible: PostApiBookingsBodyResponsible;
+  carClass: 1 | 2 | 3 | 4;
 };

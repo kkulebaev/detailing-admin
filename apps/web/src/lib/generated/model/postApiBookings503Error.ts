@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiBookings503Error = typeof PostApiBookings503Error[keyof typeof PostApiBookings503Error];
-
-
-export const PostApiBookings503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type PostApiBookings503Error = 'unavailable';

@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiClients503Error = typeof GetApiClients503Error[keyof typeof GetApiClients503Error];
-
-
-export const GetApiClients503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type GetApiClients503Error = 'unavailable';

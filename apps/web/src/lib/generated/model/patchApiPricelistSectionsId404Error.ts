@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiPricelistSectionsId404Error = typeof PatchApiPricelistSectionsId404Error[keyof typeof PatchApiPricelistSectionsId404Error];
-
-
-export const PatchApiPricelistSectionsId404Error = {
-  not_found: 'not_found',
-} as const;
+export type PatchApiPricelistSectionsId404Error = 'not_found';

@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiPricelistServicesId500Error = typeof PatchApiPricelistServicesId500Error[keyof typeof PatchApiPricelistServicesId500Error];
-
-
-export const PatchApiPricelistServicesId500Error = {
-  internal: 'internal',
-} as const;
+export type PatchApiPricelistServicesId500Error = 'internal';

@@ -228,6 +228,34 @@
                       "Дмитрий Глотов",
                       "Андрей и ко."
                     ]
+                  },
+                  "carClass": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "enum": [
+                          1
+                        ]
+                      },
+                      {
+                        "type": "number",
+                        "enum": [
+                          2
+                        ]
+                      },
+                      {
+                        "type": "number",
+                        "enum": [
+                          3
+                        ]
+                      },
+                      {
+                        "type": "number",
+                        "enum": [
+                          4
+                        ]
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -239,7 +267,8 @@
                   "service",
                   "amount",
                   "master",
-                  "responsible"
+                  "responsible",
+                  "carClass"
                 ]
               }
             }

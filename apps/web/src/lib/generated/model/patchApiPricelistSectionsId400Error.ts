@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiPricelistSectionsId400Error = typeof PatchApiPricelistSectionsId400Error[keyof typeof PatchApiPricelistSectionsId400Error];
-
-
-export const PatchApiPricelistSectionsId400Error = {
-  validation: 'validation',
-} as const;
+export type PatchApiPricelistSectionsId400Error = 'validation';

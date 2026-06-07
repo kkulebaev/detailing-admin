@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiClients500Error = typeof GetApiClients500Error[keyof typeof GetApiClients500Error];
-
-
-export const GetApiClients500Error = {
-  internal: 'internal',
-} as const;
+export type GetApiClients500Error = 'internal';

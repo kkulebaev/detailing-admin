@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { PatchApiPricelistServicesId409Error } from './patchApiPricelistServicesId409Error';
-import type { PatchApiPricelistServicesId409Reason } from './patchApiPricelistServicesId409Reason';
 
 export type PatchApiPricelistServicesId409 = {
   ok: false;
   error: PatchApiPricelistServicesId409Error;
-  reason: typeof PatchApiPricelistServicesId409Reason[keyof typeof PatchApiPricelistServicesId409Reason];
+  reason: 'duplicate_name' | 'has_services';
 };

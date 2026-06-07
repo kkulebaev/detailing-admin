@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiClients500Error = typeof PostApiClients500Error[keyof typeof PostApiClients500Error];
-
-
-export const PostApiClients500Error = {
-  internal: 'internal',
-} as const;
+export type PostApiClients500Error = 'internal';

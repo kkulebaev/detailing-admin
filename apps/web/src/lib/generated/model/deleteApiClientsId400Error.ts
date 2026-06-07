@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiClientsId400Error = typeof DeleteApiClientsId400Error[keyof typeof DeleteApiClientsId400Error];
-
-
-export const DeleteApiClientsId400Error = {
-  validation: 'validation',
-} as const;
+export type DeleteApiClientsId400Error = 'validation';

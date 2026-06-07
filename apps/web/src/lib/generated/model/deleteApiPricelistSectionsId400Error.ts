@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiPricelistSectionsId400Error = typeof DeleteApiPricelistSectionsId400Error[keyof typeof DeleteApiPricelistSectionsId400Error];
-
-
-export const DeleteApiPricelistSectionsId400Error = {
-  validation: 'validation',
-} as const;
+export type DeleteApiPricelistSectionsId400Error = 'validation';

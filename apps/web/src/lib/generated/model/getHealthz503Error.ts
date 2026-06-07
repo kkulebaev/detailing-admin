@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetHealthz503Error = typeof GetHealthz503Error[keyof typeof GetHealthz503Error];
-
-
-export const GetHealthz503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type GetHealthz503Error = 'unavailable';

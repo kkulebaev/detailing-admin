@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiPricelist500Error = typeof GetApiPricelist500Error[keyof typeof GetApiPricelist500Error];
-
-
-export const GetApiPricelist500Error = {
-  internal: 'internal',
-} as const;
+export type GetApiPricelist500Error = 'internal';

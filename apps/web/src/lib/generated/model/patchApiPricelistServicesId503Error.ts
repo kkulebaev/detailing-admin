@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiPricelistServicesId503Error = typeof PatchApiPricelistServicesId503Error[keyof typeof PatchApiPricelistServicesId503Error];
-
-
-export const PatchApiPricelistServicesId503Error = {
-  unavailable: 'unavailable',
-} as const;
+export type PatchApiPricelistServicesId503Error = 'unavailable';

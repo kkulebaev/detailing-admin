@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiPricelist503Reason = typeof GetApiPricelist503Reason[keyof typeof GetApiPricelist503Reason];
-
-
-export const GetApiPricelist503Reason = {
-  not_configured: 'not_configured',
-} as const;
+export type GetApiPricelist503Reason = 'not_configured';
