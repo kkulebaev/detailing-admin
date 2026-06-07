@@ -5,7 +5,7 @@ import {
   clientsListResponseSchema,
   type Client,
 } from '@detailing-admin/shared'
-import { parseResponse } from './api-client'
+import { unwrap } from './api-client'
 import {
   deleteApiClientsId,
   getApiClients,
@@ -25,20 +25,20 @@ export interface ClientInputPayload {
 }
 
 export function fetchClients(): Promise<ClientsApiResult> {
-  return parseResponse(() => getApiClients(), clientsListResponseSchema)
+  return unwrap<ClientsApiResult>(() => getApiClients())
 }
 
 export function createClient(payload: ClientInputPayload): Promise<ClientMutationResult> {
-  return parseResponse(() => postApiClients(payload), clientMutationResponseSchema)
+  return unwrap<ClientMutationResult>(() => postApiClients(payload))
 }
 
 export function updateClient(
   id: string,
   payload: ClientInputPayload,
 ): Promise<ClientMutationResult> {
-  return parseResponse(() => patchApiClientsId(id, payload), clientMutationResponseSchema)
+  return unwrap<ClientMutationResult>(() => patchApiClientsId(id, payload))
 }
 
 export function deleteClient(id: string): Promise<ClientDeleteResult> {
-  return parseResponse(() => deleteApiClientsId(id), clientDeleteResponseSchema)
+  return unwrap<ClientDeleteResult>(() => deleteApiClientsId(id))
 }

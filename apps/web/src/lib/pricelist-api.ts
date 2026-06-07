@@ -8,7 +8,7 @@ import {
   type PricelistSectionRow,
   type PricelistService,
 } from '@detailing-admin/shared'
-import { parseResponse } from './api-client'
+import { unwrap } from './api-client'
 import {
   deleteApiPricelistSectionsId,
   deleteApiPricelistServicesId,
@@ -41,53 +41,35 @@ export interface ServiceInputPayload {
 }
 
 export function fetchPricelist(): Promise<PricelistApiResult> {
-  return parseResponse(() => getApiPricelist(), pricelistListResponseSchema)
+  return unwrap<PricelistApiResult>(() => getApiPricelist())
 }
 
 export function createSection(payload: SectionInputPayload): Promise<SectionMutationResult> {
-  return parseResponse(
-    () => postApiPricelistSections(payload),
-    pricelistSectionMutationResponseSchema,
-  )
+  return unwrap<SectionMutationResult>(() => postApiPricelistSections(payload))
 }
 
 export function updateSection(
   id: number,
   payload: SectionInputPayload,
 ): Promise<SectionMutationResult> {
-  return parseResponse(
-    () => patchApiPricelistSectionsId(String(id), payload),
-    pricelistSectionMutationResponseSchema,
-  )
+  return unwrap<SectionMutationResult>(() => patchApiPricelistSectionsId(String(id), payload))
 }
 
 export function deleteSection(id: number): Promise<PricelistDeleteResult> {
-  return parseResponse(
-    () => deleteApiPricelistSectionsId(String(id)),
-    pricelistDeleteResponseSchema,
-  )
+  return unwrap<PricelistDeleteResult>(() => deleteApiPricelistSectionsId(String(id)))
 }
 
 export function createService(payload: ServiceInputPayload): Promise<ServiceMutationResult> {
-  return parseResponse(
-    () => postApiPricelistServices(payload),
-    pricelistServiceMutationResponseSchema,
-  )
+  return unwrap<ServiceMutationResult>(() => postApiPricelistServices(payload))
 }
 
 export function updateService(
   id: number,
   payload: ServiceInputPayload,
 ): Promise<ServiceMutationResult> {
-  return parseResponse(
-    () => patchApiPricelistServicesId(String(id), payload),
-    pricelistServiceMutationResponseSchema,
-  )
+  return unwrap<ServiceMutationResult>(() => patchApiPricelistServicesId(String(id), payload))
 }
 
 export function deleteService(id: number): Promise<PricelistDeleteResult> {
-  return parseResponse(
-    () => deleteApiPricelistServicesId(String(id)),
-    pricelistDeleteResponseSchema,
-  )
+  return unwrap<PricelistDeleteResult>(() => deleteApiPricelistServicesId(String(id)))
 }
