@@ -10,9 +10,10 @@ import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
+  DEFAULT_CAR_CLASS,
   MASTERS,
 } from '@detailing-admin/shared'
-import type { BookingApiResult, Master } from '@detailing-admin/shared'
+import type { BookingApiResult, CarClass, Master } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { usePhoneInput } from '@/composables/use-phone-input'
@@ -25,6 +26,7 @@ import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Calendar } from '@/components/ui/calendar'
+import ServicePicker from './ServicePicker.vue'
 import {
   Popover,
   PopoverAnchor,
@@ -62,6 +64,7 @@ type BookingField =
   | 'amount'
   | 'master'
   | 'responsible'
+  | 'carClass'
 const BOOKING_FIELDS: Record<BookingField, true> = {
   dateFrom: true,
   dateTo: true,
@@ -75,6 +78,7 @@ const BOOKING_FIELDS: Record<BookingField, true> = {
   amount: true,
   master: true,
   responsible: true,
+  carClass: true,
 }
 function isBookingField(s: string): s is BookingField {
   return s in BOOKING_FIELDS
@@ -231,15 +235,6 @@ function amountDigits(formatted: string): string {
 }
 
 // ── Quick-pick presets ───────────────────────────────────────────────────────
-const SERVICE_PRESETS = [
-  'Полная мойка',
-  'Химчистка',
-  'Полировка',
-  'Тонировка',
-  'Оклейка фар',
-  'Антихром',
-] as const
-
 const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
 
 // Working hours of the detailing shop: 10:00–18:30 in 30-minute slots.
@@ -266,6 +261,7 @@ interface BookingFormInitial {
   amount: '' | number
   master: Master | undefined
   responsible: Master | undefined
+  carClass: CarClass
 }
 
 const initialFormValues: BookingFormInitial = {
@@ -281,6 +277,7 @@ const initialFormValues: BookingFormInitial = {
   amount: '',
   master: undefined,
   responsible: undefined,
+  carClass: DEFAULT_CAR_CLASS,
 }
 
 const {
@@ -503,16 +500,6 @@ function addAmount(delta: number) {
   setFieldValue('amount', next)
 }
 
-function addServicePreset(text: string) {
-  const current = (values.service ?? '').trim()
-  if (!current) {
-    setFieldValue('service', text)
-    return
-  }
-  if (current.endsWith(text)) return
-  setFieldValue('service', `${current}, ${text}`)
-}
-
 // ── Calendar selection handlers ───────────────────────────────────────────────
 function onDateFromSelect(date: DateValue | undefined) {
   if (!date) return
@@ -607,6 +594,7 @@ function resetFormState() {
       amount: '',
       master: undefined,
       responsible: undefined,
+      carClass: DEFAULT_CAR_CLASS,
     },
   })
   resetPhone()
@@ -631,8 +619,9 @@ function clearForm() {
 }
 
 // ── Draft persistence (localStorage) ─────────────────────────────────────────
-// v4: license plate field added.
-const DRAFT_KEY = 'detailing-admin:booking-draft:v4'
+// v5: service field moved from free text to picker (selection restored from CSV
+// of service names against the loaded pricelist); carClass added.
+const DRAFT_KEY = 'detailing-admin:booking-draft:v5'
 
 // Draft schema is permissive on purpose — every field is optional so a
 // half-filled or older-version localStorage entry parses without bouncing back.
@@ -651,6 +640,7 @@ const draftSchema = z.object({
   amountRaw: z.string().optional(),
   master: z.string().optional(),
   responsible: z.string().optional(),
+  carClass: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
 })
 
 type Draft = z.infer<typeof draftSchema>
@@ -676,6 +666,7 @@ function saveDraft() {
       amountRaw: amountRaw.value,
       master: values.master,
       responsible: values.responsible,
+      carClass: values.carClass,
     }
     const meaningful =
       draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.licensePlate ||
@@ -729,6 +720,7 @@ function loadDraft() {
     }
     if (d.master && isMaster(d.master)) setFieldValue('master', d.master)
     if (d.responsible && isMaster(d.responsible)) setFieldValue('responsible', d.responsible)
+    if (d.carClass) setFieldValue('carClass', d.carClass)
   } catch { /* corrupted draft: ignore */ }
 }
 
@@ -750,7 +742,7 @@ watch(
     phoneRaw, licensePlate, amountRaw,
     () => values.name, () => values.car, () => values.service,
     () => values.note, () => values.master,
-    () => values.responsible,
+    () => values.responsible, () => values.carClass,
   ],
   scheduleSave,
 )
@@ -1106,23 +1098,12 @@ watch(
             <FormField v-slot="{ componentField }" name="service">
               <FormItem>
                 <FormLabel>Услуга</FormLabel>
-                <div class="flex flex-wrap gap-2 mb-2">
-                  <button
-                    v-for="preset in SERVICE_PRESETS"
-                    :key="preset"
-                    type="button"
-                    class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
-                    @click="addServicePreset(preset)"
-                  >
-                    + {{ preset }}
-                  </button>
-                </div>
                 <FormControl>
-                  <Textarea
-                    rows="3"
-                    placeholder="Полировка, химчистка..."
-                    class="[field-sizing:content]"
+                  <ServicePicker
+                    :car-class="values.carClass ?? DEFAULT_CAR_CLASS"
+                    :invalid="submitAttempted && !!errors.service"
                     v-bind="componentField"
+                    @update:car-class="(c: CarClass) => setFieldValue('carClass', c)"
                   />
                 </FormControl>
                 <FormMessage />
