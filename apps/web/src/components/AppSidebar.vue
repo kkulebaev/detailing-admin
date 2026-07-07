@@ -2,6 +2,7 @@
 import { watch } from 'vue'
 import { CalendarPlus, ReceiptText, Users, X } from '@lucide/vue'
 import { RouterLink, useRoute } from 'vue-router'
+import AppLogo from '@/components/AppLogo.vue'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -31,7 +32,7 @@ watch(() => route.fullPath, () => {
 <template>
   <Sidebar>
     <SidebarHeader class="h-14 flex-row items-center justify-between border-b border-border px-4">
-      <span class="text-base font-semibold">Detailing Admin</span>
+      <AppLogo class="text-base" />
       <Button
         v-if="isMobile"
         variant="ghost"
