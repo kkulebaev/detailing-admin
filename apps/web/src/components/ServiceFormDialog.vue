@@ -212,7 +212,7 @@ async function submit() {
 
 <template>
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="max-w-lg">
+    <DialogContent class="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать услугу' : 'Новая услуга' }}</DialogTitle>
         <DialogDescription>
