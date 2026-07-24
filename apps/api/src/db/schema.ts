@@ -24,10 +24,16 @@ export const services = pgTable('services', {
     .references(() => sections.id),
   name: varchar('name', { length: 200 }).notNull(),
   description: text('description'),
-  priceClass1: integer('price_class_1').notNull(),
-  priceClass2: integer('price_class_2').notNull(),
-  priceClass3: integer('price_class_3').notNull(),
-  priceClass4: integer('price_class_4').notNull(),
+  // One price per car body class (I–IV); *Max NULL → fixed price (*Min),
+  // non-null → «Min–Max» range
+  priceClass1Min: integer('price_class_1_min').notNull(),
+  priceClass1Max: integer('price_class_1_max'),
+  priceClass2Min: integer('price_class_2_min').notNull(),
+  priceClass2Max: integer('price_class_2_max'),
+  priceClass3Min: integer('price_class_3_min').notNull(),
+  priceClass3Max: integer('price_class_3_max'),
+  priceClass4Min: integer('price_class_4_min').notNull(),
+  priceClass4Max: integer('price_class_4_max'),
 })
 
 export type Service = typeof services.$inferSelect

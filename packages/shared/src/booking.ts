@@ -7,7 +7,8 @@ const ddmmyyyy = z.string().max(10).regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Укажит
 const hhmm = z.string().max(5).regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Укажите время в формате ЧЧ:ММ')
 
 // Car body class (I–IV). Sent as part of `bookingSchema`; the backend currently
-// ignores it but the field is reserved for future tariff workflows.
+// ignores it, but the pricelist stores a price range per class and the form's
+// picker uses it to show the right column.
 export const carClassSchema = z.union(
   [z.literal(1), z.literal(2), z.literal(3), z.literal(4)],
   { error: () => 'Выберите класс кузова' },

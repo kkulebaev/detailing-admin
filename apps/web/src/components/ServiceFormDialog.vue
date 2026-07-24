@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import { servicePriceForClass } from '@detailing-admin/shared'
 import {
   createService,
   updateService,
@@ -41,10 +42,20 @@ const emit = defineEmits<{
 
 const isEdit = computed(() => props.service !== null)
 
+const ROMAN = ['I', 'II', 'III', 'IV'] as const
+
+interface ClassPriceRaw {
+  min: string
+  max: string
+}
+function emptyClassPrices(): ClassPriceRaw[] {
+  return ROMAN.map(() => ({ min: '', max: '' }))
+}
+
 const sectionId = ref<string>('')
 const name = ref('')
 const description = ref('')
-const prices = ref<[string, string, string, string]>(['', '', '', ''])
+const classPrices = ref<ClassPriceRaw[]>(emptyClassPrices())
 
 const submitting = ref(false)
 const error = ref<string | null>(null)
@@ -55,15 +66,14 @@ watch(
   (v) => {
     if (!v) return
     if (props.service) {
-      sectionId.value = String(props.service.sectionId)
-      name.value = props.service.name
-      description.value = props.service.description ?? ''
-      prices.value = [
-        props.service.priceClass1 === null ? '' : String(props.service.priceClass1),
-        props.service.priceClass2 === null ? '' : String(props.service.priceClass2),
-        props.service.priceClass3 === null ? '' : String(props.service.priceClass3),
-        props.service.priceClass4 === null ? '' : String(props.service.priceClass4),
-      ]
+      const s = props.service
+      sectionId.value = String(s.sectionId)
+      name.value = s.name
+      description.value = s.description ?? ''
+      classPrices.value = ([1, 2, 3, 4] as const).map((cls) => {
+        const { min, max } = servicePriceForClass(s, cls)
+        return { min: String(min), max: max === null ? '' : String(max) }
+      })
     } else {
       sectionId.value =
         props.defaultSectionId !== null
@@ -73,7 +83,7 @@ watch(
             : ''
       name.value = ''
       description.value = ''
-      prices.value = ['', '', '', '']
+      classPrices.value = emptyClassPrices()
     }
     error.value = null
     fieldErrors.value = {}
@@ -91,10 +101,6 @@ function parsePrice(raw: string): ParsedPrice {
   const n = Number(trimmed)
   if (!Number.isInteger(n) || n < 0 || n > 100_000_000) return { ok: false, reason: 'invalid' }
   return { ok: true, value: n }
-}
-
-function isPriceOk(p: ParsedPrice): p is Extract<ParsedPrice, { ok: true }> {
-  return p.ok
 }
 
 function close() {
@@ -116,22 +122,34 @@ async function submit() {
   if (trimmedName.length === 0) errs.name = 'Укажите название услуги'
   if (trimmedName.length > 200) errs.name = 'Максимум 200 символов'
 
-  const parsed = prices.value.map(parsePrice)
-  parsed.forEach((p, i) => {
-    if (!p.ok) {
-      errs[`price${i + 1}`] = p.reason === 'empty' ? 'Укажите цену' : 'Целое число ≥ 0'
+  // Empty max means a fixed price; a max equal to min collapses to fixed too.
+  const parsedPrices: { min: number; max: number | null }[] = []
+  classPrices.value.forEach((cp, i) => {
+    const n = i + 1
+    const parsedMin = parsePrice(cp.min)
+    if (!parsedMin.ok) {
+      errs[`priceClass${n}Min`] = parsedMin.reason === 'empty' ? 'Укажите цену' : 'Целое число ≥ 0'
+      return
     }
+    let max: number | null = null
+    const maxTrimmed = cp.max.trim()
+    if (maxTrimmed.length > 0) {
+      const parsedMax = parsePrice(maxTrimmed)
+      if (!parsedMax.ok) {
+        errs[`priceClass${n}Max`] = 'Целое число ≥ 0'
+        return
+      }
+      if (parsedMax.value < parsedMin.value) {
+        errs[`priceClass${n}Max`] = 'Не меньше цены «от»'
+        return
+      }
+      max = parsedMax.value === parsedMin.value ? null : parsedMax.value
+    }
+    parsedPrices.push({ min: parsedMin.value, max })
   })
 
-  if (Object.keys(errs).length > 0) {
-    fieldErrors.value = errs
-    return
-  }
-
-  // After the errs short-circuit, every entry is `ok: true`. `every` with a
-  // type predicate narrows the array element type so the payload reads
-  // `.value` without an assertion.
-  if (!parsed.every(isPriceOk)) {
+  const [c1, c2, c3, c4] = parsedPrices
+  if (Object.keys(errs).length > 0 || !c1 || !c2 || !c3 || !c4) {
     fieldErrors.value = errs
     return
   }
@@ -140,10 +158,14 @@ async function submit() {
     sectionId: sectionIdNum,
     name: trimmedName,
     description: description.value.trim() === '' ? null : description.value.trim(),
-    priceClass1: parsed[0].value,
-    priceClass2: parsed[1].value,
-    priceClass3: parsed[2].value,
-    priceClass4: parsed[3].value,
+    priceClass1Min: c1.min,
+    priceClass1Max: c1.max,
+    priceClass2Min: c2.min,
+    priceClass2Max: c2.max,
+    priceClass3Min: c3.min,
+    priceClass3Max: c3.max,
+    priceClass4Min: c4.min,
+    priceClass4Max: c4.max,
   }
 
   submitting.value = true
@@ -189,7 +211,7 @@ async function submit() {
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать услугу' : 'Новая услуга' }}</DialogTitle>
         <DialogDescription>
-          Цена указывается за каждый класс автомобиля
+          Укажите фиксированную цену или диапазон «от – до»
         </DialogDescription>
       </DialogHeader>
 
@@ -245,24 +267,44 @@ async function submit() {
           </p>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div v-for="i in 4" :key="i" class="grid gap-2">
-            <Label :for="`service-price-${i}`">{{ ['I', 'II', 'III', 'IV'][i - 1] }} кл., ₽</Label>
-            <Input
-              :id="`service-price-${i}`"
-              v-model="prices[i - 1]"
-              type="text"
-              inputmode="numeric"
-              autocomplete="off"
-              placeholder="—"
-              :disabled="submitting"
-            />
-            <p
-              v-if="fieldErrors[`price${i}`] || fieldErrors[`priceClass${i}`]"
-              class="text-sm text-destructive"
-            >
-              {{ fieldErrors[`price${i}`] || fieldErrors[`priceClass${i}`] }}
-            </p>
+        <div class="grid gap-2">
+          <div class="flex items-center gap-2 text-xs text-muted-foreground">
+            <span class="w-12 shrink-0"></span>
+            <span class="flex-1">Цена, ₽</span>
+            <span class="flex-1">до, ₽ (необязательно)</span>
+          </div>
+          <div v-for="(cp, i) in classPrices" :key="i" class="flex items-start gap-2">
+            <Label :for="`service-price-${i + 1}-min`" class="w-12 shrink-0 pt-2.5">
+              {{ ROMAN[i] }} кл.
+            </Label>
+            <div class="flex-1 grid gap-1">
+              <Input
+                :id="`service-price-${i + 1}-min`"
+                v-model="cp.min"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="5 000"
+                :disabled="submitting"
+              />
+              <p v-if="fieldErrors[`priceClass${i + 1}Min`]" class="text-sm text-destructive">
+                {{ fieldErrors[`priceClass${i + 1}Min`] }}
+              </p>
+            </div>
+            <div class="flex-1 grid gap-1">
+              <Input
+                :id="`service-price-${i + 1}-max`"
+                v-model="cp.max"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="—"
+                :disabled="submitting"
+              />
+              <p v-if="fieldErrors[`priceClass${i + 1}Max`]" class="text-sm text-destructive">
+                {{ fieldErrors[`priceClass${i + 1}Max`] }}
+              </p>
+            </div>
           </div>
         </div>
 

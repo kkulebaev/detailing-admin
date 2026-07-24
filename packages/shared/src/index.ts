@@ -20,6 +20,8 @@ export type { ApiResult, BookingApiResult, ValidationIssue } from './api.js'
 export {
   sectionInputSchema,
   serviceInputSchema,
+  servicePriceForClass,
+  PRICE_CLASS_FIELDS,
   pricelistServiceSchema,
   pricelistSectionRowSchema,
   pricelistSectionSchema,
@@ -31,6 +33,7 @@ export {
 export type {
   SectionInput,
   ServiceInput,
+  PriceRange,
   PricelistService,
   PricelistSectionRow,
   PricelistSection,

@@ -1412,17 +1412,33 @@
                                   "type": "string",
                                   "nullable": true
                                 },
-                                "priceClass1": {
+                                "priceClass1Min": {
                                   "type": "number"
                                 },
-                                "priceClass2": {
+                                "priceClass1Max": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "priceClass2Min": {
                                   "type": "number"
                                 },
-                                "priceClass3": {
+                                "priceClass2Max": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "priceClass3Min": {
                                   "type": "number"
                                 },
-                                "priceClass4": {
+                                "priceClass3Max": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "priceClass4Min": {
                                   "type": "number"
+                                },
+                                "priceClass4Max": {
+                                  "type": "number",
+                                  "nullable": true
                                 }
                               },
                               "required": [
@@ -1430,10 +1446,14 @@
                                 "sectionId",
                                 "name",
                                 "description",
-                                "priceClass1",
-                                "priceClass2",
-                                "priceClass3",
-                                "priceClass4"
+                                "priceClass1Min",
+                                "priceClass1Max",
+                                "priceClass2Min",
+                                "priceClass2Max",
+                                "priceClass3Min",
+                                "priceClass3Max",
+                                "priceClass4Min",
+                                "priceClass4Max"
                               ]
                             }
                           }
@@ -2318,34 +2338,62 @@
                     "maxLength": 2000,
                     "default": null
                   },
-                  "priceClass1": {
+                  "priceClass1Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
                   },
-                  "priceClass2": {
+                  "priceClass1Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
+                  },
+                  "priceClass2Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
                   },
-                  "priceClass3": {
+                  "priceClass2Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
+                  },
+                  "priceClass3Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
                   },
-                  "priceClass4": {
+                  "priceClass3Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
+                  },
+                  "priceClass4Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
+                  },
+                  "priceClass4Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
                   }
                 },
                 "required": [
                   "sectionId",
                   "name",
-                  "priceClass1",
-                  "priceClass2",
-                  "priceClass3",
-                  "priceClass4"
+                  "priceClass1Min",
+                  "priceClass2Min",
+                  "priceClass3Min",
+                  "priceClass4Min"
                 ]
               }
             }
@@ -2381,17 +2429,33 @@
                           "type": "string",
                           "nullable": true
                         },
-                        "priceClass1": {
+                        "priceClass1Min": {
                           "type": "number"
                         },
-                        "priceClass2": {
+                        "priceClass1Max": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "priceClass2Min": {
                           "type": "number"
                         },
-                        "priceClass3": {
+                        "priceClass2Max": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "priceClass3Min": {
                           "type": "number"
                         },
-                        "priceClass4": {
+                        "priceClass3Max": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "priceClass4Min": {
                           "type": "number"
+                        },
+                        "priceClass4Max": {
+                          "type": "number",
+                          "nullable": true
                         }
                       },
                       "required": [
@@ -2399,10 +2463,14 @@
                         "sectionId",
                         "name",
                         "description",
-                        "priceClass1",
-                        "priceClass2",
-                        "priceClass3",
-                        "priceClass4"
+                        "priceClass1Min",
+                        "priceClass1Max",
+                        "priceClass2Min",
+                        "priceClass2Max",
+                        "priceClass3Min",
+                        "priceClass3Max",
+                        "priceClass4Min",
+                        "priceClass4Max"
                       ]
                     }
                   },
@@ -2651,34 +2719,62 @@
                     "maxLength": 2000,
                     "default": null
                   },
-                  "priceClass1": {
+                  "priceClass1Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
                   },
-                  "priceClass2": {
+                  "priceClass1Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
+                  },
+                  "priceClass2Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
                   },
-                  "priceClass3": {
+                  "priceClass2Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
+                  },
+                  "priceClass3Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
                   },
-                  "priceClass4": {
+                  "priceClass3Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
+                  },
+                  "priceClass4Min": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000
+                  },
+                  "priceClass4Max": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "default": null
                   }
                 },
                 "required": [
                   "sectionId",
                   "name",
-                  "priceClass1",
-                  "priceClass2",
-                  "priceClass3",
-                  "priceClass4"
+                  "priceClass1Min",
+                  "priceClass2Min",
+                  "priceClass3Min",
+                  "priceClass4Min"
                 ]
               }
             }
@@ -2714,17 +2810,33 @@
                           "type": "string",
                           "nullable": true
                         },
-                        "priceClass1": {
+                        "priceClass1Min": {
                           "type": "number"
                         },
-                        "priceClass2": {
+                        "priceClass1Max": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "priceClass2Min": {
                           "type": "number"
                         },
-                        "priceClass3": {
+                        "priceClass2Max": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "priceClass3Min": {
                           "type": "number"
                         },
-                        "priceClass4": {
+                        "priceClass3Max": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "priceClass4Min": {
                           "type": "number"
+                        },
+                        "priceClass4Max": {
+                          "type": "number",
+                          "nullable": true
                         }
                       },
                       "required": [
@@ -2732,10 +2844,14 @@
                         "sectionId",
                         "name",
                         "description",
-                        "priceClass1",
-                        "priceClass2",
-                        "priceClass3",
-                        "priceClass4"
+                        "priceClass1Min",
+                        "priceClass1Max",
+                        "priceClass2Min",
+                        "priceClass2Max",
+                        "priceClass3Min",
+                        "priceClass3Max",
+                        "priceClass4Min",
+                        "priceClass4Max"
                       ]
                     }
                   },

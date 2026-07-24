@@ -66,10 +66,14 @@ type ServicePayload = {
   sectionId: number
   name: string
   description: string | null
-  priceClass1: number
-  priceClass2: number
-  priceClass3: number
-  priceClass4: number
+  priceClass1Min: number
+  priceClass1Max: number | null
+  priceClass2Min: number
+  priceClass2Max: number | null
+  priceClass3Min: number
+  priceClass3Max: number | null
+  priceClass4Min: number
+  priceClass4Max: number | null
 }
 function normalizeServicePayload(input: ServicePayload): ServicePayload {
   const desc = input.description
@@ -79,7 +83,17 @@ function normalizeServicePayload(input: ServicePayload): ServicePayload {
     const trimmed = desc.trim()
     description = trimmed.length === 0 ? null : trimmed
   }
-  return { ...input, description }
+  // A degenerate range (max == min) is stored as a fixed price so the UI never
+  // renders «5000–5000 ₽».
+  const collapse = (min: number, max: number | null) => (max === min ? null : max)
+  return {
+    ...input,
+    description,
+    priceClass1Max: collapse(input.priceClass1Min, input.priceClass1Max),
+    priceClass2Max: collapse(input.priceClass2Min, input.priceClass2Max),
+    priceClass3Max: collapse(input.priceClass3Min, input.priceClass3Max),
+    priceClass4Max: collapse(input.priceClass4Min, input.priceClass4Max),
+  }
 }
 
 function pricelistErrorResponse(c: Context, err: unknown) {

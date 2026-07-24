@@ -12,8 +12,16 @@ export type PostApiPricelistServices201Service = {
   name: string;
   /** @nullable */
   description: string | null;
-  priceClass1: number;
-  priceClass2: number;
-  priceClass3: number;
-  priceClass4: number;
+  priceClass1Min: number;
+  /** @nullable */
+  priceClass1Max: number | null;
+  priceClass2Min: number;
+  /** @nullable */
+  priceClass2Max: number | null;
+  priceClass3Min: number;
+  /** @nullable */
+  priceClass3Max: number | null;
+  priceClass4Min: number;
+  /** @nullable */
+  priceClass4Max: number | null;
 };

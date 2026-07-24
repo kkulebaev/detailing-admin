@@ -9,6 +9,8 @@ import {
   type PricelistSectionRow,
   type PricelistService,
 } from '@/lib/pricelist-api'
+import { servicePriceForClass } from '@detailing-admin/shared'
+import type { CarClass } from '@detailing-admin/shared'
 import { useInvalidatePricelist, usePricelistQuery } from '@/lib/queries'
 import SectionFormDialog from './SectionFormDialog.vue'
 import ServiceFormDialog from './ServiceFormDialog.vue'
@@ -74,10 +76,15 @@ const totalServices = computed(() =>
   sections.value.reduce((acc, s) => acc + s.services.length, 0),
 )
 
+const CLASS_COLUMNS: readonly CarClass[] = [1, 2, 3, 4]
+const CLASS_LABELS: Record<CarClass, string> = { 1: 'I кл.', 2: 'II кл.', 3: 'III кл.', 4: 'IV кл.' }
+
 const priceFormatter = new Intl.NumberFormat('ru-RU')
 
-function formatPrice(value: number): string {
-  return `${priceFormatter.format(value)} ₽`
+function formatClassPrice(svc: PricelistService, cls: CarClass): string {
+  const { min, max } = servicePriceForClass(svc, cls)
+  if (max === null) return `${priceFormatter.format(min)} ₽`
+  return `${priceFormatter.format(min)} – ${priceFormatter.format(max)} ₽`
 }
 
 function openCreateSection() {
@@ -192,20 +199,16 @@ async function confirmDelete() {
         <Table>
           <colgroup>
             <col class="w-72" />
-            <col class="w-24" />
-            <col class="w-24" />
-            <col class="w-24" />
-            <col class="w-24" />
+            <col v-for="c in CLASS_COLUMNS" :key="c" class="w-36" />
             <col class="hidden md:table-column" />
             <col class="w-24" />
           </colgroup>
           <TableHeader class="bg-muted/50">
             <TableRow>
               <TableHead class="px-4">Услуга</TableHead>
-              <TableHead class="px-4 text-right">I кл.</TableHead>
-              <TableHead class="px-4 text-right">II кл.</TableHead>
-              <TableHead class="px-4 text-right">III кл.</TableHead>
-              <TableHead class="px-4 text-right">IV кл.</TableHead>
+              <TableHead v-for="c in CLASS_COLUMNS" :key="c" class="px-4 text-right">
+                {{ CLASS_LABELS[c] }}
+              </TableHead>
               <TableHead class="hidden px-4 md:table-cell">Примечание</TableHead>
               <TableHead class="px-4 text-right">Действия</TableHead>
             </TableRow>
@@ -214,10 +217,9 @@ async function confirmDelete() {
             <template v-if="loading">
               <TableRow v-for="i in 6" :key="i">
                 <TableCell class="px-4"><Skeleton class="h-4 w-48" /></TableCell>
-                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
-                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
-                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
-                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
+                <TableCell v-for="c in CLASS_COLUMNS" :key="c" class="px-4 text-right">
+                  <Skeleton class="h-4 w-24 ml-auto" />
+                </TableCell>
                 <TableCell class="hidden px-4 md:table-cell"><Skeleton class="h-4 w-40" /></TableCell>
                 <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
               </TableRow>
@@ -269,17 +271,12 @@ async function confirmDelete() {
                 class="align-top"
               >
                 <TableCell class="px-4 font-medium whitespace-normal">{{ svc.name }}</TableCell>
-                <TableCell class="px-4 text-right tabular-nums">
-                  {{ formatPrice(svc.priceClass1) }}
-                </TableCell>
-                <TableCell class="px-4 text-right tabular-nums">
-                  {{ formatPrice(svc.priceClass2) }}
-                </TableCell>
-                <TableCell class="px-4 text-right tabular-nums">
-                  {{ formatPrice(svc.priceClass3) }}
-                </TableCell>
-                <TableCell class="px-4 text-right tabular-nums">
-                  {{ formatPrice(svc.priceClass4) }}
+                <TableCell
+                  v-for="c in CLASS_COLUMNS"
+                  :key="c"
+                  class="px-4 text-right tabular-nums whitespace-nowrap"
+                >
+                  {{ formatClassPrice(svc, c) }}
                 </TableCell>
                 <TableCell class="hidden px-4 text-xs text-muted-foreground whitespace-pre-line md:table-cell">
                   {{ svc.description || '' }}

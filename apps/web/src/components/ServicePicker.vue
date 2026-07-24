@@ -6,6 +6,7 @@ import {
   type PricelistService,
 } from '@/lib/pricelist-api'
 import { usePricelistQuery } from '@/lib/queries'
+import { servicePriceForClass } from '@detailing-admin/shared'
 import type { CarClass } from '@detailing-admin/shared'
 import { Button } from '@/components/ui/button'
 import {
@@ -62,25 +63,14 @@ const loadError = computed<string | null>(() => {
 
 const open = ref(false)
 
-const serviceById = computed(() => {
-  const m = new Map<number, PricelistService>()
-  for (const sec of sections.value) for (const svc of sec.services) m.set(svc.id, svc)
-  return m
-})
-
 // Selected service ids — ListboxRoot in multiple mode binds an array.
 const selectedIds = ref<number[]>([])
 
-function priceOf(svc: PricelistService, cls: CarClass): number {
-  if (cls === 1) return svc.priceClass1
-  if (cls === 2) return svc.priceClass2
-  if (cls === 3) return svc.priceClass3
-  return svc.priceClass4
-}
-
 const priceFormatter = new Intl.NumberFormat('ru-RU')
-function formatPrice(n: number): string {
-  return `${priceFormatter.format(n)} ₽`
+function formatServicePrice(svc: PricelistService): string {
+  const { min, max } = servicePriceForClass(svc, props.carClass)
+  if (max === null) return `${priceFormatter.format(min)} ₽`
+  return `${priceFormatter.format(min)} – ${priceFormatter.format(max)} ₽`
 }
 
 // Canonical CSV of selected names, ordered by section order in the pricelist.
@@ -139,19 +129,9 @@ function removeId(id: number) {
   emitModelValue()
 }
 
-const totalEstimate = computed(() => {
-  let sum = 0
-  for (const id of selectedIds.value) {
-    const svc = serviceById.value.get(id)
-    if (svc) sum += priceOf(svc, props.carClass)
-  }
-  return sum
-})
-
 interface SelectedRow {
   id: number
   name: string
-  price: number
 }
 const selectedList = computed<SelectedRow[]>(() => {
   const idSet = new Set(selectedIds.value)
@@ -159,7 +139,7 @@ const selectedList = computed<SelectedRow[]>(() => {
   for (const sec of sections.value) {
     for (const svc of sec.services) {
       if (idSet.has(svc.id)) {
-        list.push({ id: svc.id, name: svc.name, price: priceOf(svc, props.carClass) })
+        list.push({ id: svc.id, name: svc.name })
       }
     }
   }
@@ -271,8 +251,8 @@ watch(() => props.modelValue, syncSelectionFromString)
                   :class="selectedIds.includes(svc.id) ? 'opacity-100' : 'opacity-0'"
                 />
                 <span class="flex-1">{{ svc.name }}</span>
-                <span class="tabular-nums text-muted-foreground">
-                  {{ formatPrice(priceOf(svc, props.carClass)) }}
+                <span class="tabular-nums text-muted-foreground whitespace-nowrap">
+                  {{ formatServicePrice(svc) }}
                 </span>
               </CommandItem>
             </CommandGroup>
@@ -297,13 +277,8 @@ watch(() => props.modelValue, syncSelectionFromString)
         @click="removeId(s.id)"
       >
         <span>{{ s.name }}</span>
-        <span class="opacity-80 tabular-nums">{{ formatPrice(s.price) }}</span>
         <X class="size-3" />
       </button>
     </div>
-
-    <p v-if="selectedList.length" class="text-xs text-muted-foreground mt-2">
-      Ориентировочно ≈ {{ formatPrice(totalEstimate) }}
-    </p>
   </div>
 </template>
