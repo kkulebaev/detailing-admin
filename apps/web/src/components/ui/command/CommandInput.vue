@@ -28,11 +28,13 @@ const { filterState } = useCommand()
     class="flex h-9 items-center gap-2 border-b px-3"
   >
     <Search class="size-4 shrink-0 opacity-50" />
+    <!-- No auto-focus: on mobile it pops the keyboard the instant the popover
+         opens. The list is scroll/tap-first; focusing the field (and raising the
+         keyboard) is left to an explicit tap. Pass :auto-focus to opt back in. -->
     <ListboxFilter
       v-bind="{ ...forwardedProps, ...$attrs }"
       v-model="filterState.search"
       data-slot="command-input"
-      auto-focus
       :class="cn('placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50', props.class)"
     />
   </div>
