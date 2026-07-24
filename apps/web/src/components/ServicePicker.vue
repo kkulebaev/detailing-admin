@@ -6,9 +6,11 @@ import {
   type PricelistService,
 } from '@/lib/pricelist-api'
 import { usePricelistQuery } from '@/lib/queries'
+import { maskThousands } from '@/lib/number-mask'
 import { servicePriceForClass } from '@detailing-admin/shared'
 import type { CarClass } from '@detailing-admin/shared'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Popover,
   PopoverContent,
@@ -35,6 +37,10 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:carClass': [value: CarClass]
+  // Sum of the per-service editable prices; null when nothing is selected.
+  // Emitted only from user actions (select/remove/price edit/class switch) —
+  // NOT from draft-restore sync, so a drafted manual amount survives reload.
+  'update:total': [value: number | null]
 }>()
 
 const CLASS_OPTIONS: readonly CarClass[] = [1, 2, 3, 4] as const
@@ -66,12 +72,84 @@ const open = ref(false)
 // Selected service ids — ListboxRoot in multiple mode binds an array.
 const selectedIds = ref<number[]>([])
 
+const serviceById = computed(() => {
+  const m = new Map<number, PricelistService>()
+  for (const sec of sections.value) for (const svc of sec.services) m.set(svc.id, svc)
+  return m
+})
+
 const priceFormatter = new Intl.NumberFormat('ru-RU')
 function formatServicePrice(svc: PricelistService): string {
   const { min, max } = servicePriceForClass(svc, props.carClass)
   if (max === null) return `${priceFormatter.format(min)} ₽`
   return `${priceFormatter.format(min)} – ${priceFormatter.format(max)} ₽`
 }
+
+// ── Editable per-service prices ──────────────────────────────────────────────
+// Keyed by service id; values are the masked input strings («12 000»).
+// Default is the class price (lower bound for ranges).
+const rawPrices = ref<Record<number, string>>({})
+
+function formatDigits(digits: string): string {
+  if (!digits) return ''
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}
+
+function priceDigits(formatted: string): string {
+  return formatted.replace(/\D/g, '')
+}
+
+function defaultPriceFor(id: number): string {
+  const svc = serviceById.value.get(id)
+  if (!svc) return ''
+  return formatDigits(String(servicePriceForClass(svc, props.carClass).min))
+}
+
+// Align price state with the current selection: newly picked services get the
+// class default, deselected ones are dropped. `resetAll` re-derives every
+// price (used when the car class changes — manual edits belong to the old
+// class's tariff and would be misleading to keep).
+function syncPricesToSelection(resetAll = false) {
+  const next: Record<number, string> = {}
+  for (const id of selectedIds.value) {
+    const kept = rawPrices.value[id]
+    next[id] = !resetAll && kept !== undefined ? kept : defaultPriceFor(id)
+  }
+  rawPrices.value = next
+}
+
+const total = computed(() =>
+  selectedIds.value.reduce(
+    (acc, id) => acc + (parseInt(priceDigits(rawPrices.value[id] ?? ''), 10) || 0),
+    0,
+  ),
+)
+
+function emitTotal() {
+  emit('update:total', selectedIds.value.length === 0 ? null : total.value)
+}
+
+function onPriceInput(id: number, e: Event) {
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
+  const caretPos = target.selectionStart ?? target.value.length
+  const { value, caret } = maskThousands(target.value, caretPos, 8)
+  if (target.value !== value) {
+    target.value = value
+    target.setSelectionRange(caret, caret)
+  }
+  rawPrices.value = { ...rawPrices.value, [id]: value }
+  emitTotal()
+}
+
+watch(
+  () => props.carClass,
+  () => {
+    if (selectedIds.value.length === 0) return
+    syncPricesToSelection(true)
+    emitTotal()
+  },
+)
 
 // Canonical CSV of selected names, ordered by section order in the pricelist.
 function selectionToCsv(): string {
@@ -96,6 +174,13 @@ function emitModelValue() {
 function syncSelectionFromString() {
   if (sections.value.length === 0) return
   const csv = (props.modelValue ?? '').trim()
+  // The parent echoes our own name-only CSV back through `modelValue`. That CSV
+  // can't tell apart two services sharing a name (e.g. «Крыша» exists in both
+  // «Полировка» and «Шумоизоляция»), so re-resolving an echo would silently swap
+  // the picked copy for another section's — and skip the total re-emit, leaving
+  // «Сумма» stale. If the CSV already matches the current selection, keep the
+  // ids (and prices) we have.
+  if (csv === selectionToCsv()) return
   const names = csv ? csv.split(',').map((s) => s.trim()).filter(Boolean) : []
   const nameToId = new Map<string, number>()
   for (const sec of sections.value) for (const svc of sec.services) nameToId.set(svc.name, svc.id)
@@ -109,6 +194,7 @@ function syncSelectionFromString() {
     next.every((id, i) => selectedIds.value[i] === id)
   if (same) return
   selectedIds.value = next
+  syncPricesToSelection()
   emitModelValue()
 }
 
@@ -119,31 +205,42 @@ function onSelectionChange(next: unknown) {
   selectedIds.value = Array.isArray(next)
     ? next.filter((x): x is number => typeof x === 'number')
     : []
+  syncPricesToSelection()
   emitModelValue()
+  emitTotal()
 }
 
 function removeId(id: number) {
   const next = selectedIds.value.filter((x) => x !== id)
   if (next.length === selectedIds.value.length) return
   selectedIds.value = next
+  syncPricesToSelection()
   emitModelValue()
+  emitTotal()
 }
 
 interface SelectedRow {
   id: number
   name: string
 }
-const selectedList = computed<SelectedRow[]>(() => {
+interface SelectedGroup {
+  sectionId: number
+  section: string
+  rows: SelectedRow[]
+}
+// Selected services grouped under their section heading — some service names
+// (e.g. «Крыша», «Капот») exist in more than one section, so the category is
+// what disambiguates them in the picked list.
+const selectedGroups = computed<SelectedGroup[]>(() => {
   const idSet = new Set(selectedIds.value)
-  const list: SelectedRow[] = []
+  const groups: SelectedGroup[] = []
   for (const sec of sections.value) {
-    for (const svc of sec.services) {
-      if (idSet.has(svc.id)) {
-        list.push({ id: svc.id, name: svc.name })
-      }
-    }
+    const rows = sec.services
+      .filter((svc) => idSet.has(svc.id))
+      .map((svc) => ({ id: svc.id, name: svc.name }))
+    if (rows.length) groups.push({ sectionId: sec.id, section: sec.name, rows })
   }
-  return list
+  return groups
 })
 
 const triggerLabel = computed(() => {
@@ -266,19 +363,51 @@ watch(() => props.modelValue, syncSelectionFromString)
       <router-link to="/pricelist" class="underline">открыть прайс-лист</router-link>
     </p>
 
-    <!-- Selected chips -->
-    <div v-if="selectedList.length" class="flex flex-wrap gap-1.5 mt-3">
-      <button
-        v-for="s in selectedList"
-        :key="s.id"
-        type="button"
-        class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-primary text-primary-foreground text-xs hover:bg-primary/90 transition-colors"
-        :aria-label="`Удалить услугу ${s.name}`"
-        @click="removeId(s.id)"
+    <!-- Selected services with editable prices.
+         @input.stop / @change.stop: if a parent ever binds vee-validate's
+         componentField on this component, its fallthrough `onInput`/`onChange`
+         DOM listeners on the root div would catch the events bubbling from the
+         price fields (input while typing, change on blur) and overwrite the
+         `service` form value with the typed price. -->
+    <div v-if="selectedIds.length" class="mt-3 space-y-3" @input.stop @change.stop>
+      <fieldset
+        v-for="group in selectedGroups"
+        :key="group.sectionId"
+        class="min-w-0 rounded-lg border border-border px-0 pb-1"
       >
-        <span>{{ s.name }}</span>
-        <X class="size-3" />
-      </button>
+        <legend class="ml-2 px-1.5 text-xs font-medium text-muted-foreground">
+          {{ group.section }}
+        </legend>
+        <div>
+          <div
+            v-for="s in group.rows"
+            :key="s.id"
+            class="flex items-center gap-2 px-3 py-2"
+          >
+            <span class="flex-1 min-w-0 text-sm leading-tight">{{ s.name }}</span>
+            <div class="relative shrink-0">
+              <Input
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                class="h-9 w-28 pr-6 text-right tabular-nums"
+                :aria-label="`Цена услуги ${s.name}`"
+                :model-value="rawPrices[s.id] ?? ''"
+                @input="(e: Event) => onPriceInput(s.id, e)"
+              />
+              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₽</span>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              :aria-label="`Удалить услугу ${s.name}`"
+              @click="removeId(s.id)"
+            >
+              <X class="size-3.5" />
+            </button>
+          </div>
+        </div>
+      </fieldset>
     </div>
   </div>
 </template>

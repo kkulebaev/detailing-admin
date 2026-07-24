@@ -16,6 +16,7 @@ import {
 import type { BookingApiResult, CarClass, Master } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
+import { maskThousands } from '@/lib/number-mask'
 import { usePhoneInput } from '@/composables/use-phone-input'
 
 import { Button } from '@/components/ui/button'
@@ -482,13 +483,14 @@ function onLicensePlateInput(e: Event) {
 function onAmountInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
-  const digits = amountDigits(target.value)
-  const formatted = formatAmount(digits)
-  if (target.value !== formatted) {
-    amountRaw.value = formatted
-    target.value = formatted
-    target.setSelectionRange(formatted.length, formatted.length)
+  const caretPos = target.selectionStart ?? target.value.length
+  const { value, caret } = maskThousands(target.value, caretPos)
+  if (target.value !== value) {
+    amountRaw.value = value
+    target.value = value
+    target.setSelectionRange(caret, caret)
   }
+  const digits = amountDigits(value)
   const parsed: '' | number = digits === '' ? '' : parseInt(digits, 10)
   setFieldValue('amount', parsed)
 }
@@ -498,6 +500,19 @@ function addAmount(delta: number) {
   const next = current + delta
   amountRaw.value = formatAmount(String(next))
   setFieldValue('amount', next)
+}
+
+// Auto-fill «Сумма» from the picker's per-service prices. The field stays
+// editable — a manual value simply holds until the next selection/price
+// change recomputes the total.
+function onServicesTotal(total: number | null) {
+  if (total === null) {
+    amountRaw.value = ''
+    setFieldValue('amount', '')
+    return
+  }
+  amountRaw.value = formatAmount(String(total))
+  setFieldValue('amount', total)
 }
 
 // ── Calendar selection handlers ───────────────────────────────────────────────
@@ -1095,15 +1110,21 @@ watch(
           </CardHeader>
           <CardContent class="px-4">
           <div class="space-y-4">
-            <FormField v-slot="{ componentField }" name="service">
+            <!-- Bound via explicit props instead of `v-bind="componentField"`:
+                 componentField's fallthrough onInput/onChange DOM listeners
+                 land on the picker's root div and would overwrite `service`
+                 with text from any bubbling event (e.g. the price inputs). -->
+            <FormField v-slot="{ value, handleChange }" name="service">
               <FormItem>
                 <FormLabel>Услуга</FormLabel>
                 <FormControl>
                   <ServicePicker
+                    :model-value="typeof value === 'string' ? value : ''"
                     :car-class="values.carClass ?? DEFAULT_CAR_CLASS"
                     :invalid="submitAttempted && !!errors.service"
-                    v-bind="componentField"
+                    @update:model-value="handleChange"
                     @update:car-class="(c: CarClass) => setFieldValue('carClass', c)"
+                    @update:total="onServicesTotal"
                   />
                 </FormControl>
                 <FormMessage />
