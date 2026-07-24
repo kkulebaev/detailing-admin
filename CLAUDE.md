@@ -64,7 +64,7 @@ This is deliberate: Railway treats a crash-loop as zero healthy revisions, hidin
 
 ### `EXPECTED_HEADERS` is a byte-exact contract
 
-`packages/shared/src/sheet-row.ts` pins the 11 header strings in column order, **including the typo `Ответсвенный` in K** (preserved verbatim — fixing it in the sheet breaks the boot check until `EXPECTED_HEADERS` is updated in the same PR). Never rename a header on one side without the other.
+`packages/shared/src/sheet-row.ts` pins the 11 header strings in column order (column K is `Ответственный`). The strings must match the target sheet's `A1:K1` byte-for-byte or the boot check fails — renaming a header on one side without the other, or pointing `SPREADSHEET_ID` at a sheet whose headers differ, trips `headers_mismatch`.
 
 ### Column-A serialization quirk
 
@@ -105,7 +105,7 @@ Base components live in `apps/web/src/components/ui/<name>/` — the full shadcn
 - **Don't write to row 1** — the sheet header lives there. `spreadsheets.values.append` with range `'Запись 2026'!A1` appends below the detected table; never use `values.update` on row 1.
 - **Don't add per-request logging on boot-state short-circuit** — the startup line is the only signal by design.
 - **Don't cache non-ok results in the idempotency map** — the route relies on `ok: true` being the only thing in the map and evicts anything else on hit.
-- **Don't fix the `Ответсвенный` typo** without updating both the sheet and `EXPECTED_HEADERS` in the same change.
+- **Don't rename a header** (e.g. column K `Ответственный`) without updating both the sheet and `EXPECTED_HEADERS` in the same change.
 - **Don't switch to `RAW`** for the Sheets append — `USER_ENTERED` is what makes column H a number, column A a date, and columns I/J/K satisfy data validation.
 - **Don't make the booking route depend on Postgres.** Client upsert is best-effort; if the DB is down, the booking still goes to Sheets. Only `/api/clients` and `/api/pricelist` should consult `isDbReady()`.
 - **Don't commit anything from `apps/api/.seed/`.** The directory is gitignored on purpose (PII in `clients.json`; pricelist intentionally regenerated locally). If a fresh checkout needs the pricelist, regenerate `pricelist.json` from the source Sheets — there is no dump script for it.

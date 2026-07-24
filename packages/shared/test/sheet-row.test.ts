@@ -27,8 +27,8 @@ describe('EXPECTED_HEADERS', () => {
     expect(EXPECTED_HEADERS.length).toBe(11)
   })
 
-  it('column K (index 10) preserves the intentional typo Ответсвенный', () => {
-    expect(EXPECTED_HEADERS[10]).toBe('Ответсвенный')
+  it('column K (index 10) is Ответственный', () => {
+    expect(EXPECTED_HEADERS[10]).toBe('Ответственный')
   })
 })
 

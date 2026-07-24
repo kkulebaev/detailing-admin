@@ -11,7 +11,7 @@ export const EXPECTED_HEADERS = Object.freeze([
   'Сумма, ₽',    // H
   'Готовность',  // I
   'Мастер',      // J
-  'Ответсвенный',// K — typo preserved verbatim
+  'Ответственный',// K
 ] as const)
 
 export function bookingToRow(b: Booking): (string | number)[] {
@@ -48,6 +48,6 @@ export function bookingToRow(b: Booking): (string | number)[] {
     b.amount,           // H — Сумма, ₽
     b.readiness,        // I — Готовность (always string post-parse; '' when blank)
     b.master,           // J — Мастер
-    b.responsible,      // K — Ответсвенный (always string post-parse; '' when blank)
+    b.responsible,      // K — Ответственный (always string post-parse; '' when blank)
   ]
 }
