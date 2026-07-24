@@ -66,6 +66,7 @@ type ServicePayload = {
   sectionId: number
   name: string
   description: string | null
+  countable: boolean
   priceClass1Min: number
   priceClass1Max: number | null
   priceClass2Min: number

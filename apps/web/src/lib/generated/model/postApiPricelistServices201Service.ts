@@ -12,6 +12,7 @@ export type PostApiPricelistServices201Service = {
   name: string;
   /** @nullable */
   description: string | null;
+  countable: boolean;
   priceClass1Min: number;
   /** @nullable */
   priceClass1Max: number | null;

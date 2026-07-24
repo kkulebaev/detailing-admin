@@ -1,0 +1,1 @@
+ALTER TABLE "services" ADD COLUMN "countable" boolean DEFAULT false NOT NULL;

@@ -17,6 +17,8 @@ export const pricelistServiceSchema = z.object({
   sectionId: z.number().int(),
   name: z.string(),
   description: z.string().nullable(),
+  // Штучная услуга — в форме записи получает счётчик количества.
+  countable: z.boolean(),
   priceClass1Min: z.number(),
   priceClass1Max: z.number().nullable(),
   priceClass2Min: z.number(),
@@ -134,6 +136,7 @@ export const serviceInputSchema = z
     sectionId: z.number().int().positive('Выберите раздел'),
     name: z.string().trim().min(1, 'Укажите название услуги').max(200),
     description: z.string().max(2000).nullable().default(null),
+    countable: z.boolean().default(false),
     priceClass1Min: requiredPrice,
     priceClass1Max: requiredPrice.nullable().default(null),
     priceClass2Min: requiredPrice,

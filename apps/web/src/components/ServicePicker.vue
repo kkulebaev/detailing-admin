@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Check, ChevronsUpDown, X } from '@lucide/vue'
+import { Check, ChevronsUpDown, Minus, Plus, X } from '@lucide/vue'
 import {
   type PricelistSection,
   type PricelistService,
@@ -95,6 +95,35 @@ function formatServicePrice(svc: PricelistService): string {
 // Default is the class price (lower bound for ranges).
 const rawPrices = ref<Record<number, string>>({})
 
+// Per-service quantity, keyed by service id. Only «штучные» (countable)
+// services expose a stepper; every entry defaults to 1 and the line total is
+// unit price × quantity.
+const quantities = ref<Record<number, number>>({})
+const MAX_QTY = 99
+
+function qtyFor(id: number): number {
+  return quantities.value[id] ?? 1
+}
+
+function setQty(id: number, qty: number) {
+  const clamped = Math.min(MAX_QTY, Math.max(1, qty))
+  quantities.value = { ...quantities.value, [id]: clamped }
+  emitTotal()
+}
+function incQty(id: number) {
+  setQty(id, qtyFor(id) + 1)
+}
+function decQty(id: number) {
+  setQty(id, qtyFor(id) - 1)
+}
+
+// Line total (unit price × quantity) for a selected service — drives both the
+// «N × цена = сумма» hint and the emitted total.
+function lineTotal(id: number): number {
+  const unit = parseInt(priceDigits(rawPrices.value[id] ?? ''), 10) || 0
+  return unit * qtyFor(id)
+}
+
 function formatDigits(digits: string): string {
   if (!digits) return ''
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -116,18 +145,20 @@ function defaultPriceFor(id: number): string {
 // class's tariff and would be misleading to keep).
 function syncPricesToSelection(resetAll = false) {
   const next: Record<number, string> = {}
+  const nextQty: Record<number, number> = {}
   for (const id of selectedIds.value) {
     const kept = rawPrices.value[id]
     next[id] = !resetAll && kept !== undefined ? kept : defaultPriceFor(id)
+    // Quantity is independent of the car class tariff — keep it across a class
+    // switch (resetAll) and only drop entries for deselected services.
+    nextQty[id] = quantities.value[id] ?? 1
   }
   rawPrices.value = next
+  quantities.value = nextQty
 }
 
 const total = computed(() =>
-  selectedIds.value.reduce(
-    (acc, id) => acc + (parseInt(priceDigits(rawPrices.value[id] ?? ''), 10) || 0),
-    0,
-  ),
+  selectedIds.value.reduce((acc, id) => acc + lineTotal(id), 0),
 )
 
 function emitTotal() {
@@ -227,6 +258,7 @@ function removeId(id: number) {
 interface SelectedRow {
   id: number
   name: string
+  countable: boolean
 }
 interface SelectedGroup {
   sectionId: number
@@ -242,7 +274,7 @@ const selectedGroups = computed<SelectedGroup[]>(() => {
   for (const sec of sections.value) {
     const rows = sec.services
       .filter((svc) => idSet.has(svc.id))
-      .map((svc) => ({ id: svc.id, name: svc.name }))
+      .map((svc) => ({ id: svc.id, name: svc.name, countable: svc.countable }))
     if (rows.length) groups.push({ sectionId: sec.id, section: sec.name, rows })
   }
   return groups
@@ -262,6 +294,7 @@ const selectedBreakdown = computed<ServiceBreakdownRow[]>(() => {
         section: sec.name,
         name: svc.name,
         price: digits === '' ? 0 : parseInt(digits, 10),
+        quantity: qtyFor(svc.id),
       })
     }
   }
@@ -405,32 +438,62 @@ watch(() => props.modelValue, syncSelectionFromString)
           {{ group.section }}
         </legend>
         <div>
-          <div
-            v-for="s in group.rows"
-            :key="s.id"
-            class="flex items-center gap-2 px-3 py-2"
-          >
-            <span class="flex-1 min-w-0 text-sm leading-tight">{{ s.name }}</span>
-            <div class="relative shrink-0">
-              <Input
-                type="text"
-                inputmode="numeric"
-                autocomplete="off"
-                class="h-9 w-28 pr-6 text-right tabular-nums"
-                :aria-label="`Цена услуги ${s.name}`"
-                :model-value="rawPrices[s.id] ?? ''"
-                @input="(e: Event) => onPriceInput(s.id, e)"
-              />
-              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₽</span>
+          <div v-for="s in group.rows" :key="s.id" class="px-3 py-2">
+            <div class="flex items-center gap-2">
+              <span class="flex-1 min-w-0 text-sm leading-tight">{{ s.name }}</span>
+              <!-- Штучная услуга: счётчик количества. Цена в поле ниже — за единицу. -->
+              <div
+                v-if="s.countable"
+                class="inline-flex h-9 shrink-0 items-center rounded-md border border-input"
+              >
+                <button
+                  type="button"
+                  class="inline-flex size-8 items-center justify-center rounded-l-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                  :aria-label="`Уменьшить количество ${s.name}`"
+                  :disabled="qtyFor(s.id) <= 1"
+                  @click="decQty(s.id)"
+                >
+                  <Minus class="size-3.5" />
+                </button>
+                <span class="w-7 text-center text-sm tabular-nums">{{ qtyFor(s.id) }}</span>
+                <button
+                  type="button"
+                  class="inline-flex size-8 items-center justify-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                  :aria-label="`Увеличить количество ${s.name}`"
+                  :disabled="qtyFor(s.id) >= MAX_QTY"
+                  @click="incQty(s.id)"
+                >
+                  <Plus class="size-3.5" />
+                </button>
+              </div>
+              <div class="relative shrink-0">
+                <Input
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  class="h-9 w-28 pr-6 text-right tabular-nums"
+                  :aria-label="`Цена услуги ${s.name}`"
+                  :model-value="rawPrices[s.id] ?? ''"
+                  @input="(e: Event) => onPriceInput(s.id, e)"
+                />
+                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₽</span>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                :aria-label="`Удалить услугу ${s.name}`"
+                @click="removeId(s.id)"
+              >
+                <X class="size-3.5" />
+              </button>
             </div>
-            <button
-              type="button"
-              class="shrink-0 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              :aria-label="`Удалить услугу ${s.name}`"
-              @click="removeId(s.id)"
+            <p
+              v-if="s.countable && qtyFor(s.id) > 1"
+              class="mt-1 pr-9 text-right text-xs text-muted-foreground tabular-nums"
             >
-              <X class="size-3.5" />
-            </button>
+              {{ qtyFor(s.id) }} × {{ rawPrices[s.id] || '0' }} ₽ =
+              {{ formatDigits(String(lineTotal(s.id))) }} ₽
+            </p>
           </div>
         </div>
       </fieldset>

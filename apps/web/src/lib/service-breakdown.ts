@@ -6,7 +6,10 @@ export interface ServiceBreakdownRow {
   sectionId: number
   section: string
   name: string
+  // Цена за единицу услуги (для штучных умножается на `quantity`).
   price: number
+  // Количество единиц. Для обычных услуг всегда 1; штучные могут быть > 1.
+  quantity: number
 }
 
 const priceFormatter = new Intl.NumberFormat('ru-RU')
@@ -16,6 +19,8 @@ const priceFormatter = new Intl.NumberFormat('ru-RU')
 // picker's category-card layout, e.g.:
 //   Химчистка: Потолок — 2 000 ₽, Багажник — 2 000 ₽
 //   Тонировка: Задняя полусфера — 7 500 ₽
+// Штучные услуги с количеством > 1 показываются как «Название ×N — сумма ₽»,
+// где сумма = цена за единицу × количество.
 export function formatServiceCell(rows: ServiceBreakdownRow[]): string {
   const bySection = new Map<number, { section: string; items: string[] }>()
   for (const row of rows) {
@@ -24,7 +29,13 @@ export function formatServiceCell(rows: ServiceBreakdownRow[]): string {
       group = { section: row.section, items: [] }
       bySection.set(row.sectionId, group)
     }
-    group.items.push(`${row.name} — ${priceFormatter.format(row.price)} ₽`)
+    const qty = row.quantity > 0 ? row.quantity : 1
+    const lineTotal = row.price * qty
+    group.items.push(
+      qty > 1
+        ? `${row.name} ×${qty} — ${priceFormatter.format(lineTotal)} ₽`
+        : `${row.name} — ${priceFormatter.format(row.price)} ₽`,
+    )
   }
   return [...bySection.values()]
     .map((group) => `${group.section}: ${group.items.join(', ')}`)

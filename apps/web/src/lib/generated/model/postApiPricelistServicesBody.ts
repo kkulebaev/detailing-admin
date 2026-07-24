@@ -19,6 +19,7 @@ export type PostApiPricelistServicesBody = {
      * @nullable
      */
   description?: string | null;
+  countable?: boolean;
   /**
      * @minimum 0
      * @maximum 100000000

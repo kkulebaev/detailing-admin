@@ -12,6 +12,7 @@ export type PatchApiPricelistServicesId200Service = {
   name: string;
   /** @nullable */
   description: string | null;
+  countable: boolean;
   priceClass1Min: number;
   /** @nullable */
   priceClass1Max: number | null;

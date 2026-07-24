@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, uuid, varchar } from 'drizzle-orm/pg-core'
+import { boolean, integer, pgTable, serial, text, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const clients = pgTable('clients', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -24,6 +24,9 @@ export const services = pgTable('services', {
     .references(() => sections.id),
   name: varchar('name', { length: 200 }).notNull(),
   description: text('description'),
+  // Штучная услуга: в форме записи у неё появляется счётчик количества,
+  // а сумма считается как цена за единицу × количество.
+  countable: boolean('countable').notNull().default(false),
   // One price per car body class (I–IV); *Max NULL → fixed price (*Min),
   // non-null → «Min–Max» range
   priceClass1Min: integer('price_class_1_min').notNull(),

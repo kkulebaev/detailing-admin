@@ -9,6 +9,7 @@ import {
   type PricelistService,
 } from '@/lib/pricelist-api'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,7 @@ function emptyClassPrices(): ClassPriceRaw[] {
 const sectionId = ref<string>('')
 const name = ref('')
 const description = ref('')
+const countable = ref(false)
 const classPrices = ref<ClassPriceRaw[]>(emptyClassPrices())
 
 const submitting = ref(false)
@@ -70,6 +72,7 @@ watch(
       sectionId.value = String(s.sectionId)
       name.value = s.name
       description.value = s.description ?? ''
+      countable.value = s.countable
       classPrices.value = ([1, 2, 3, 4] as const).map((cls) => {
         const { min, max } = servicePriceForClass(s, cls)
         return { min: String(min), max: max === null ? '' : String(max) }
@@ -83,6 +86,7 @@ watch(
             : ''
       name.value = ''
       description.value = ''
+      countable.value = false
       classPrices.value = emptyClassPrices()
     }
     error.value = null
@@ -158,6 +162,7 @@ async function submit() {
     sectionId: sectionIdNum,
     name: trimmedName,
     description: description.value.trim() === '' ? null : description.value.trim(),
+    countable: countable.value,
     priceClass1Min: c1.min,
     priceClass1Max: c1.max,
     priceClass2Min: c2.min,
@@ -265,6 +270,22 @@ async function submit() {
           <p v-if="fieldErrors.description" class="text-sm text-destructive">
             {{ fieldErrors.description }}
           </p>
+        </div>
+
+        <div class="flex items-start gap-2">
+          <Checkbox
+            id="service-countable"
+            :model-value="countable"
+            :disabled="submitting"
+            class="mt-0.5"
+            @update:model-value="(v) => (countable = v === true)"
+          />
+          <div class="grid gap-0.5">
+            <Label for="service-countable" class="cursor-pointer">Штучная услуга</Label>
+            <p class="text-xs text-muted-foreground">
+              В форме записи можно указать количество; сумма считается как цена × количество
+            </p>
+          </div>
         </div>
 
         <div class="grid gap-2">

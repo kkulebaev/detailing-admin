@@ -9,6 +9,7 @@ import { sections, services } from '../src/db/schema.js'
 interface SeedService {
   name: string
   description: string | null
+  countable?: boolean
   priceClass1?: number
   priceClass2?: number
   priceClass3?: number
@@ -99,6 +100,7 @@ async function main(): Promise<void> {
       sectionId: insertedSection.id,
       name: s.name,
       description: s.description,
+      countable: s.countable ?? false,
       ...toPrices(s),
     }))
     await db.insert(services).values(rows)

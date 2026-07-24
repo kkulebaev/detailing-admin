@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -270,7 +271,17 @@ async function confirmDelete() {
                 :key="svc.id"
                 class="align-top"
               >
-                <TableCell class="px-4 font-medium whitespace-normal">{{ svc.name }}</TableCell>
+                <TableCell class="px-4 font-medium whitespace-normal">
+                  {{ svc.name }}
+                  <Badge
+                    v-if="svc.countable"
+                    variant="secondary"
+                    class="ml-1.5 align-middle font-normal tabular-nums"
+                    title="Можно указать количество в записи"
+                  >
+                    ×N
+                  </Badge>
+                </TableCell>
                 <TableCell
                   v-for="c in CLASS_COLUMNS"
                   :key="c"

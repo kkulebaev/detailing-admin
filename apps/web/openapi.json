@@ -1412,6 +1412,9 @@
                                   "type": "string",
                                   "nullable": true
                                 },
+                                "countable": {
+                                  "type": "boolean"
+                                },
                                 "priceClass1Min": {
                                   "type": "number"
                                 },
@@ -1446,6 +1449,7 @@
                                 "sectionId",
                                 "name",
                                 "description",
+                                "countable",
                                 "priceClass1Min",
                                 "priceClass1Max",
                                 "priceClass2Min",
@@ -2338,6 +2342,10 @@
                     "maxLength": 2000,
                     "default": null
                   },
+                  "countable": {
+                    "type": "boolean",
+                    "default": false
+                  },
                   "priceClass1Min": {
                     "type": "integer",
                     "minimum": 0,
@@ -2429,6 +2437,9 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "countable": {
+                          "type": "boolean"
+                        },
                         "priceClass1Min": {
                           "type": "number"
                         },
@@ -2463,6 +2474,7 @@
                         "sectionId",
                         "name",
                         "description",
+                        "countable",
                         "priceClass1Min",
                         "priceClass1Max",
                         "priceClass2Min",
@@ -2719,6 +2731,10 @@
                     "maxLength": 2000,
                     "default": null
                   },
+                  "countable": {
+                    "type": "boolean",
+                    "default": false
+                  },
                   "priceClass1Min": {
                     "type": "integer",
                     "minimum": 0,
@@ -2810,6 +2826,9 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "countable": {
+                          "type": "boolean"
+                        },
                         "priceClass1Min": {
                           "type": "number"
                         },
@@ -2844,6 +2863,7 @@
                         "sectionId",
                         "name",
                         "description",
+                        "countable",
                         "priceClass1Min",
                         "priceClass1Max",
                         "priceClass2Min",

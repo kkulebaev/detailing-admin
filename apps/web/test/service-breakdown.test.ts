@@ -11,8 +11,9 @@ function row(
   section: string,
   name: string,
   price: number,
+  quantity = 1,
 ): ServiceBreakdownRow {
-  return { sectionId, section, name, price }
+  return { sectionId, section, name, price, quantity }
 }
 
 describe('formatServiceCell', () => {
@@ -51,5 +52,26 @@ describe('formatServiceCell', () => {
         row(7, 'Шумоизоляция', 'Крыша', 10000),
       ]),
     ).toBe(`Полировка: Крыша — 2${NB}000 ₽\nШумоизоляция: Крыша — 10${NB}000 ₽`)
+  })
+
+  it('renders a countable service as «×N — line total»', () => {
+    expect(
+      formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 3)]),
+    ).toBe(`Химчистка: Сиденье перед. ×3 — 4${NB}500 ₽`)
+  })
+
+  it('omits the ×N annotation when quantity is 1', () => {
+    expect(
+      formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 1)]),
+    ).toBe(`Химчистка: Сиденье перед. — 1${NB}500 ₽`)
+  })
+
+  it('mixes countable and plain services on one section line', () => {
+    expect(
+      formatServiceCell([
+        row(1, 'Химчистка', 'Потолок', 2000),
+        row(1, 'Химчистка', 'Сиденье перед.', 1500, 2),
+      ]),
+    ).toBe(`Химчистка: Потолок — 2${NB}000 ₽, Сиденье перед. ×2 — 3${NB}000 ₽`)
   })
 })
