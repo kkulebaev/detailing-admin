@@ -57,6 +57,11 @@ describe('bookingToRow', () => {
     expect(String(row[0])).toBe("'04.06.2026 10:00-05.06.2026 18:30")
   })
 
+  it('cell D: phone is apostrophe-forced TEXT in the domestic 8XXXXXXXXXX form', () => {
+    const row = bookingToRow(parseBooking(baseInput))
+    expect(row[3]).toBe("'89991234567")
+  })
+
   it('undefined readiness → empty string in cell I', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[8]).toBe('')

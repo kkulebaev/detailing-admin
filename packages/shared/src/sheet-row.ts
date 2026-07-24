@@ -29,11 +29,19 @@ export function bookingToRow(b: Booking): (string | number)[] {
     cellA = `'${startPart}-${endPart}`
   }
 
+  // Cell D: «Номер» carries a strict validation rule
+  //   =REGEXMATCH(TO_TEXT(D); "^8\d{10}$")
+  // so the phone must be the domestic 8XXXXXXXXXX form (11 digits, leading 8),
+  // not the canonical +7XXXXXXXXXX. Convert it and force TEXT with a leading
+  // apostrophe (a marker — consumed, not shown) so it lands as a string the
+  // rule accepts, e.g. «89991234567».
+  const phoneCell = b.phone ? `'${b.phone.replace(/^\+7/, '8')}` : ''
+
   return [
     cellA,              // A — Дата
     b.time,             // B — Время (start)
     b.name,             // C — Имя
-    b.phone,            // D — Номер
+    phoneCell,          // D — Номер
     b.car,              // E — Машина
     b.service,          // F — Услуга
     b.note,             // G — Примечание
