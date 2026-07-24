@@ -7,6 +7,7 @@ import {
 } from '@/lib/pricelist-api'
 import { usePricelistQuery } from '@/lib/queries'
 import { maskThousands } from '@/lib/number-mask'
+import type { ServiceBreakdownRow } from '@/lib/service-breakdown'
 import { servicePriceForClass } from '@detailing-admin/shared'
 import type { CarClass } from '@detailing-admin/shared'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,10 @@ const emit = defineEmits<{
   // Emitted only from user actions (select/remove/price edit/class switch) —
   // NOT from draft-restore sync, so a drafted manual amount survives reload.
   'update:total': [value: number | null]
+  // Per-service breakdown (section + name + current price) for the sheet's
+  // «Услуга» cell. Unlike total, this fires on every change including restore —
+  // it doesn't feed back into any field, so there's no draft conflict.
+  'update:breakdown': [value: ServiceBreakdownRow[]]
 }>()
 
 const CLASS_OPTIONS: readonly CarClass[] = [1, 2, 3, 4] as const
@@ -242,6 +247,27 @@ const selectedGroups = computed<SelectedGroup[]>(() => {
   }
   return groups
 })
+
+// Flat, ordered breakdown for the sheet cell — carries the current (edited)
+// price of each selected service. Re-emitted whenever it changes.
+const selectedBreakdown = computed<ServiceBreakdownRow[]>(() => {
+  const idSet = new Set(selectedIds.value)
+  const rows: ServiceBreakdownRow[] = []
+  for (const sec of sections.value) {
+    for (const svc of sec.services) {
+      if (!idSet.has(svc.id)) continue
+      const digits = (rawPrices.value[svc.id] ?? '').replace(/\D/g, '')
+      rows.push({
+        sectionId: sec.id,
+        section: sec.name,
+        name: svc.name,
+        price: digits === '' ? 0 : parseInt(digits, 10),
+      })
+    }
+  }
+  return rows
+})
+watch(selectedBreakdown, (rows) => emit('update:breakdown', rows))
 
 const triggerLabel = computed(() => {
   const n = selectedIds.value.length

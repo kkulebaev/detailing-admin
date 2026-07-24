@@ -17,6 +17,7 @@ import type { BookingApiResult, CarClass, Master } from '@detailing-admin/shared
 import { submitBooking } from '@/lib/api'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { maskThousands } from '@/lib/number-mask'
+import { formatServiceCell, type ServiceBreakdownRow } from '@/lib/service-breakdown'
 import { usePhoneInput } from '@/composables/use-phone-input'
 
 import { Button } from '@/components/ui/button'
@@ -229,6 +230,10 @@ const amountRaw = ref('')
 // Latest sum of the picker's per-service prices (null when nothing selected).
 // Kept so «Сумма» can flag when it was hand-edited away from this total.
 const servicesTotal = ref<number | null>(null)
+
+// Latest per-service breakdown from the picker — projected into the sheet's
+// «Услуга» cell at submit time (the form field itself stays a plain name CSV).
+const serviceBreakdown = ref<ServiceBreakdownRow[]>([])
 
 function formatAmount(digits: string): string {
   if (!digits) return ''
@@ -616,6 +621,10 @@ function onServicesTotal(total: number | null) {
   setFieldValue('amount', total)
 }
 
+function onServiceBreakdown(rows: ServiceBreakdownRow[]) {
+  serviceBreakdown.value = rows
+}
+
 // ── Calendar selection handlers ───────────────────────────────────────────────
 function onDateFromSelect(date: DateValue | undefined) {
   if (!date) return
@@ -641,6 +650,11 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   const plate = licensePlate.value.trim()
   const car = [values.car?.trim(), plate].filter(Boolean).join(', ')
   const payload = { ...values, car }
+  // The «Услуга» cell gets the categorised, priced breakdown; the form field
+  // stays a plain name CSV for draft restore.
+  if (serviceBreakdown.value.length > 0) {
+    payload.service = formatServiceCell(serviceBreakdown.value)
+  }
   // Discount is applied at submit time: the sheet stores the discounted total
   // and the discount is preserved as a note line (no dedicated column).
   if (hasDiscount.value) {
@@ -723,6 +737,7 @@ function resetFormState() {
   licensePlate.value = ''
   amountRaw.value = ''
   servicesTotal.value = null
+  serviceBreakdown.value = []
   discountRaw.value = ''
   discountUnit.value = 'rub'
   timeValue.value = ''
@@ -1241,6 +1256,7 @@ watch(
                     @update:model-value="handleChange"
                     @update:car-class="(c: CarClass) => setFieldValue('carClass', c)"
                     @update:total="onServicesTotal"
+                    @update:breakdown="onServiceBreakdown"
                   />
                 </FormControl>
                 <FormMessage />
