@@ -5,7 +5,7 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { v4 as uuid } from 'uuid'
 import { toast } from 'vue-sonner'
-import { Calendar as CalendarIcon } from '@lucide/vue'
+import { Calendar as CalendarIcon, Pencil } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
 import {
@@ -226,6 +226,10 @@ const licensePlate = ref('')
 // ── Amount display value (formatted with thousand separators) ────────────────
 const amountRaw = ref('')
 
+// Latest sum of the picker's per-service prices (null when nothing selected).
+// Kept so «Сумма» can flag when it was hand-edited away from this total.
+const servicesTotal = ref<number | null>(null)
+
 function formatAmount(digits: string): string {
   if (!digits) return ''
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -233,6 +237,32 @@ function formatAmount(digits: string): string {
 
 function amountDigits(formatted: string): string {
   return formatted.replace(/\D/g, '')
+}
+
+// Signed difference between «Сумма» and the services total (current − total).
+// null when there's no total to compare against. Empty amount counts as 0.
+const amountDelta = computed<number | null>(() => {
+  if (servicesTotal.value === null) return null
+  const digits = amountDigits(amountRaw.value)
+  const current = digits === '' ? 0 : parseInt(digits, 10)
+  return current - servicesTotal.value
+})
+
+// True when services are selected and «Сумма» no longer equals their total —
+// i.e. the operator typed an override (or used a +preset).
+const amountOverridden = computed(() => amountDelta.value !== null && amountDelta.value !== 0)
+
+// «+2 500 ₽» / «−2 000 ₽» — how far the manual amount sits from the services total.
+const amountDeltaLabel = computed(() => {
+  const d = amountDelta.value ?? 0
+  const sign = d > 0 ? '+' : '−'
+  return `${sign}${formatAmount(String(Math.abs(d)))} ₽`
+})
+
+function resetAmountToServices() {
+  if (servicesTotal.value === null) return
+  amountRaw.value = formatAmount(String(servicesTotal.value))
+  setFieldValue('amount', servicesTotal.value)
 }
 
 // ── Quick-pick presets ───────────────────────────────────────────────────────
@@ -506,6 +536,7 @@ function addAmount(delta: number) {
 // editable — a manual value simply holds until the next selection/price
 // change recomputes the total.
 function onServicesTotal(total: number | null) {
+  servicesTotal.value = total
   if (total === null) {
     amountRaw.value = ''
     setFieldValue('amount', '')
@@ -615,6 +646,7 @@ function resetFormState() {
   resetPhone()
   licensePlate.value = ''
   amountRaw.value = ''
+  servicesTotal.value = null
   timeValue.value = ''
   timeToValue.value = ''
   dateFromText.value = calToString(fresh)
@@ -1178,6 +1210,20 @@ watch(
               +{{ formatAmount(String(delta)) }}
             </button>
           </div>
+          <p
+            v-if="amountOverridden"
+            class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-600 dark:text-amber-500"
+          >
+            <Pencil class="size-3.5 shrink-0" />
+            <span>Изменено вручную · {{ amountDeltaLabel }}</span>
+            <button
+              type="button"
+              class="underline underline-offset-2 hover:no-underline"
+              @click="resetAmountToServices"
+            >
+              вернуть
+            </button>
+          </p>
           <p v-if="submitAttempted && errors.amount" class="text-sm font-medium text-destructive mt-1">
             {{ errors.amount }}
           </p>
