@@ -74,6 +74,14 @@ const loadError = computed<string | null>(() => {
 
 const open = ref(false)
 
+// Reka-UI's PopoverContent focus-traps on open and moves focus to the first
+// focusable child — the search field — which pops the mobile keyboard the
+// instant the dropdown opens. Prevent the auto-focus so the list opens
+// scroll/tap-first; the keyboard rises only when the user taps the search box.
+function onOpenAutoFocus(e: Event) {
+  e.preventDefault()
+}
+
 // Selected service ids — ListboxRoot in multiple mode binds an array.
 const selectedIds = ref<number[]>([])
 
@@ -380,6 +388,7 @@ watch(() => props.modelValue, syncSelectionFromString)
         class="w-(--reka-popover-trigger-width) p-0"
         align="start"
         :side-offset="4"
+        @open-auto-focus="onOpenAutoFocus"
       >
         <Command
           multiple
