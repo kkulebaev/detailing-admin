@@ -265,6 +265,76 @@ function resetAmountToServices() {
   setFieldValue('amount', servicesTotal.value)
 }
 
+// ── Discount (₽ or %) ─────────────────────────────────────────────────────────
+// UI-only helper applied to «Сумма» (the base) to produce «Итого к оплате». On
+// submit the discounted total is what's saved to the sheet's amount column, and
+// a «Скидка …» line is appended to the note — there's no discount column.
+const discountRaw = ref('')
+const discountUnit = ref<'rub' | 'pct'>('rub')
+
+const baseAmount = computed(() => {
+  const digits = amountDigits(amountRaw.value)
+  return digits === '' ? 0 : parseInt(digits, 10)
+})
+
+// Discount in rubles, clamped so it never exceeds the base (% capped at 100).
+// Percentage is rounded to the nearest ruble.
+const discountAmount = computed(() => {
+  const digits = discountRaw.value.replace(/\D/g, '')
+  if (digits === '') return 0
+  const n = parseInt(digits, 10)
+  if (discountUnit.value === 'pct') {
+    return Math.round((baseAmount.value * Math.min(n, 100)) / 100)
+  }
+  return Math.min(n, baseAmount.value)
+})
+
+const finalAmount = computed(() => Math.max(0, baseAmount.value - discountAmount.value))
+const hasDiscount = computed(() => discountAmount.value > 0)
+
+function onDiscountInput(e: Event) {
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
+  if (discountUnit.value === 'pct') {
+    let digits = target.value.replace(/\D/g, '').slice(0, 3)
+    if (digits !== '' && parseInt(digits, 10) > 100) digits = '100'
+    if (target.value !== digits) {
+      target.value = digits
+      target.setSelectionRange(digits.length, digits.length)
+    }
+    discountRaw.value = digits
+    return
+  }
+  const caretPos = target.selectionStart ?? target.value.length
+  const { value, caret } = maskThousands(target.value, caretPos, 8)
+  if (target.value !== value) {
+    target.value = value
+    target.setSelectionRange(caret, caret)
+  }
+  discountRaw.value = value
+}
+
+// Re-normalise the raw value when switching units: % strips grouping and caps
+// at 100; ₽ regroups with thousand separators.
+function setDiscountUnit(unit: 'rub' | 'pct') {
+  if (unit === discountUnit.value) return
+  discountUnit.value = unit
+  const digits = discountRaw.value.replace(/\D/g, '')
+  if (digits === '') return
+  discountRaw.value =
+    unit === 'pct' ? String(Math.min(parseInt(digits, 10), 100)) : formatAmount(digits)
+}
+
+// «Скидка 10% (−950 ₽)» / «Скидка 950 ₽» — appended to the note on save.
+function discountNoteLine(): string {
+  if (!hasDiscount.value) return ''
+  if (discountUnit.value === 'pct') {
+    const pct = Math.min(parseInt(discountRaw.value.replace(/\D/g, '') || '0', 10), 100)
+    return `Скидка ${pct}% (−${formatAmount(String(discountAmount.value))} ₽)`
+  }
+  return `Скидка ${formatAmount(String(discountAmount.value))} ₽`
+}
+
 // ── Quick-pick presets ───────────────────────────────────────────────────────
 const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
 
@@ -571,6 +641,12 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   const plate = licensePlate.value.trim()
   const car = [values.car?.trim(), plate].filter(Boolean).join(', ')
   const payload = { ...values, car }
+  // Discount is applied at submit time: the sheet stores the discounted total
+  // and the discount is preserved as a note line (no dedicated column).
+  if (hasDiscount.value) {
+    payload.amount = finalAmount.value
+    payload.note = [values.note?.trim(), discountNoteLine()].filter(Boolean).join('\n')
+  }
   let result: BookingApiResult
   try {
     result = await submitBooking(payload, idempotencyKey.value)
@@ -647,6 +723,8 @@ function resetFormState() {
   licensePlate.value = ''
   amountRaw.value = ''
   servicesTotal.value = null
+  discountRaw.value = ''
+  discountUnit.value = 'rub'
   timeValue.value = ''
   timeToValue.value = ''
   dateFromText.value = calToString(fresh)
@@ -685,6 +763,8 @@ const draftSchema = z.object({
   service: z.string().optional(),
   note: z.string().optional(),
   amountRaw: z.string().optional(),
+  discountRaw: z.string().optional(),
+  discountUnit: z.union([z.literal('rub'), z.literal('pct')]).optional(),
   master: z.string().optional(),
   responsible: z.string().optional(),
   carClass: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
@@ -711,13 +791,15 @@ function saveDraft() {
       service: values.service ?? '',
       note: values.note ?? '',
       amountRaw: amountRaw.value,
+      discountRaw: discountRaw.value,
+      discountUnit: discountUnit.value,
       master: values.master,
       responsible: values.responsible,
       carClass: values.carClass,
     }
     const meaningful =
       draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.licensePlate ||
-      draft.service || draft.note || draft.amountRaw || draft.master ||
+      draft.service || draft.note || draft.amountRaw || draft.discountRaw || draft.master ||
       draft.responsible || (draft.phoneRaw && draft.phoneRaw.replace(/\D/g, '').length > 1)
     if (!meaningful) { clearDraft(); return }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
@@ -765,6 +847,8 @@ function loadDraft() {
       const digits = amountDigits(d.amountRaw)
       if (digits) setFieldValue('amount', parseInt(digits, 10))
     }
+    if (d.discountUnit) discountUnit.value = d.discountUnit
+    if (d.discountRaw) discountRaw.value = d.discountRaw
     if (d.master && isMaster(d.master)) setFieldValue('master', d.master)
     if (d.responsible && isMaster(d.responsible)) setFieldValue('responsible', d.responsible)
     if (d.carClass) setFieldValue('carClass', d.carClass)
@@ -786,7 +870,7 @@ function scheduleSave() {
 watch(
   [
     dateFromText, dateToText, timeValue, timeToValue, isRangeMode,
-    phoneRaw, licensePlate, amountRaw,
+    phoneRaw, licensePlate, amountRaw, discountRaw, discountUnit,
     () => values.name, () => values.car, () => values.service,
     () => values.note, () => values.master,
     () => values.responsible, () => values.carClass,
@@ -1230,6 +1314,50 @@ watch(
           <p v-if="submitAttempted && errors.amount" class="text-sm font-medium text-destructive mt-1">
             {{ errors.amount }}
           </p>
+
+          <Label class="mt-4 mb-2 block">Скидка</Label>
+          <div class="flex gap-2">
+            <div class="inline-flex h-11 items-center rounded-md border border-input bg-background p-1 shrink-0">
+              <button
+                type="button"
+                :data-active="discountUnit === 'rub'"
+                class="h-full px-3 rounded-sm text-sm transition-colors hover:bg-accent data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+                @click="setDiscountUnit('rub')"
+              >
+                ₽
+              </button>
+              <button
+                type="button"
+                :data-active="discountUnit === 'pct'"
+                class="h-full px-3 rounded-sm text-sm transition-colors hover:bg-accent data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+                @click="setDiscountUnit('pct')"
+              >
+                %
+              </button>
+            </div>
+            <div class="relative flex-1">
+              <Input
+                type="text"
+                inputmode="numeric"
+                class="h-11 pr-8 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                placeholder="0"
+                :model-value="discountRaw"
+                @input="onDiscountInput"
+              />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                {{ discountUnit === 'pct' ? '%' : '₽' }}
+              </span>
+            </div>
+          </div>
+          <div class="mt-3 flex items-center justify-between border-t border-border pt-3">
+            <span class="text-sm text-muted-foreground">Итого к оплате</span>
+            <span class="tabular-nums font-semibold">
+              {{ formatAmount(String(finalAmount)) }} ₽
+              <span v-if="hasDiscount" class="ml-1 text-xs font-normal text-muted-foreground">
+                (−{{ formatAmount(String(discountAmount)) }} ₽)
+              </span>
+            </span>
+          </div>
           </CardContent>
         </Card>
 
