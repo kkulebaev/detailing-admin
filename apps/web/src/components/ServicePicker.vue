@@ -439,26 +439,36 @@ watch(() => props.modelValue, syncSelectionFromString)
         </legend>
         <div>
           <div v-for="s in group.rows" :key="s.id" class="px-3 py-2">
-            <div class="flex items-center gap-2">
-              <span class="flex-1 min-w-0 text-sm leading-tight">{{ s.name }}</span>
-              <!-- Штучная услуга: счётчик количества. Цена в поле ниже — за единицу. -->
+            <!-- Всё в один ряд: название (сжимается и переносится) + счётчик +
+                 цена + удаление. Контролы облегчены, чтобы уместиться на 375px. -->
+            <div class="flex items-center gap-1.5">
+              <!-- line-clamp-2 + break-words: длинные названия штучных услуг
+                   (напр. «Ремни безопасности 1 шт.») в узкой колонке рядом со
+                   счётчиком не влезают — обрезаем до 2 строк с многоточием,
+                   полное название доступно в title. -->
+              <span
+                class="flex-1 min-w-0 text-xs leading-tight line-clamp-2 break-words"
+                :title="s.name"
+                >{{ s.name }}</span
+              >
+              <!-- Штучная услуга: счётчик количества. Цена в поле справа — за единицу. -->
               <div
                 v-if="s.countable"
-                class="inline-flex h-9 shrink-0 items-center rounded-md border border-input"
+                class="inline-flex h-8 shrink-0 items-center rounded-md border border-input"
               >
                 <button
                   type="button"
-                  class="inline-flex size-8 items-center justify-center rounded-l-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                  class="inline-flex size-7 items-center justify-center rounded-l-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
                   :aria-label="`Уменьшить количество ${s.name}`"
                   :disabled="qtyFor(s.id) <= 1"
                   @click="decQty(s.id)"
                 >
                   <Minus class="size-3.5" />
                 </button>
-                <span class="w-7 text-center text-sm tabular-nums">{{ qtyFor(s.id) }}</span>
+                <span class="w-5 text-center text-sm tabular-nums">{{ qtyFor(s.id) }}</span>
                 <button
                   type="button"
-                  class="inline-flex size-8 items-center justify-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                  class="inline-flex size-7 items-center justify-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
                   :aria-label="`Увеличить количество ${s.name}`"
                   :disabled="qtyFor(s.id) >= MAX_QTY"
                   @click="incQty(s.id)"
@@ -471,16 +481,16 @@ watch(() => props.modelValue, syncSelectionFromString)
                   type="text"
                   inputmode="numeric"
                   autocomplete="off"
-                  class="h-9 w-28 pr-6 text-right tabular-nums"
+                  class="h-8 w-20 pr-4 text-right text-sm tabular-nums"
                   :aria-label="`Цена услуги ${s.name}`"
                   :model-value="rawPrices[s.id] ?? ''"
                   @input="(e: Event) => onPriceInput(s.id, e)"
                 />
-                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₽</span>
+                <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₽</span>
               </div>
               <button
                 type="button"
-                class="shrink-0 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                class="shrink-0 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 :aria-label="`Удалить услугу ${s.name}`"
                 @click="removeId(s.id)"
               >
@@ -489,7 +499,7 @@ watch(() => props.modelValue, syncSelectionFromString)
             </div>
             <p
               v-if="s.countable && qtyFor(s.id) > 1"
-              class="mt-1 pr-9 text-right text-xs text-muted-foreground tabular-nums"
+              class="mt-1 pr-8 text-right text-xs text-muted-foreground tabular-nums"
             >
               {{ qtyFor(s.id) }} × {{ rawPrices[s.id] || '0' }} ₽ =
               {{ formatDigits(String(lineTotal(s.id))) }} ₽
