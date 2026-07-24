@@ -1315,7 +1315,10 @@ watch(
             {{ errors.amount }}
           </p>
 
-          <Label class="mt-4 mb-2 block">Скидка</Label>
+          <Label class="mt-4 mb-2 block">
+            Скидка
+            <span class="text-muted-foreground font-normal">(необязательно)</span>
+          </Label>
           <div class="flex gap-2">
             <div class="inline-flex h-11 items-center rounded-md border border-input bg-background p-1 shrink-0">
               <button
