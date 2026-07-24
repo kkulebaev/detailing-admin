@@ -400,6 +400,15 @@ const {
   initialValues: initialFormValues,
 })
 
+// The phone input is bound to the raw string and lives outside a FormField (see
+// F7), so vee-validate never observes keystrokes and its «Укажите номер
+// телефона» error lingered after a failed submit. Mirror the effective value
+// into the form field on every change (setFieldValue validates by default) so
+// the error clears live once a number is entered.
+watch(phoneRaw, () => {
+  setFieldValue('phone', effectivePhone())
+})
+
 // ── Quick date chips ─────────────────────────────────────────────────────────
 function shiftedDate(days: number): DateValue {
   return todayVal.add({ days })
