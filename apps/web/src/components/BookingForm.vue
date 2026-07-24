@@ -1224,6 +1224,9 @@ watch(
               вернуть
             </button>
           </p>
+          <p v-if="amountOverridden" class="mt-1 text-xs text-muted-foreground">
+            При изменении услуг, их цен или класса кузова сумма пересчитается автоматически.
+          </p>
           <p v-if="submitAttempted && errors.amount" class="text-sm font-medium text-destructive mt-1">
             {{ errors.amount }}
           </p>
