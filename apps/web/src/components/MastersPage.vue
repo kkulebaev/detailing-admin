@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { ChevronDown, ChevronUp, Pencil, Plus, ShieldCheck, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   deleteMaster as apiDeleteMaster,
@@ -189,7 +189,15 @@ async function confirmDelete() {
             </span>
           </div>
 
-          <Badge v-if="master.canBeResponsible" variant="secondary">Ответственный</Badge>
+          <Badge
+            v-if="master.canBeResponsible"
+            variant="secondary"
+            class="gap-1"
+            title="Ответственный"
+          >
+            <ShieldCheck class="size-3.5" />
+            <span class="hidden sm:inline">Ответственный</span>
+          </Badge>
 
           <div class="ml-auto inline-flex items-center gap-1">
             <Button
