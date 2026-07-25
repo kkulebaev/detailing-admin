@@ -2,10 +2,6 @@ import { describe, it, expect } from 'vitest'
 
 import { formatServiceCell, type ServiceBreakdownRow } from '@/lib/service-breakdown'
 
-// Intl.NumberFormat('ru-RU') groups thousands with a non-breaking space (U+00A0),
-// so the expectations spell it out explicitly.
-const NB = ' '
-
 function row(
   sectionId: number,
   section: string,
@@ -21,9 +17,9 @@ describe('formatServiceCell', () => {
     expect(formatServiceCell([])).toBe('')
   })
 
-  it('formats a single service with its thousands-grouped price', () => {
+  it('formats a single service without its price', () => {
     expect(formatServiceCell([row(1, 'Химчистка', 'Потолок', 2000)])).toBe(
-      `Химчистка: Потолок — 2${NB}000 ₽`,
+      'Химчистка: Потолок',
     )
   })
 
@@ -33,7 +29,7 @@ describe('formatServiceCell', () => {
         row(1, 'Химчистка', 'Потолок', 2000),
         row(1, 'Химчистка', 'Багажник', 3000),
       ]),
-    ).toBe(`Химчистка: Потолок — 2${NB}000 ₽, Багажник — 3${NB}000 ₽`)
+    ).toBe('Химчистка: Потолок, Багажник')
   })
 
   it('puts each section on its own line', () => {
@@ -42,7 +38,7 @@ describe('formatServiceCell', () => {
         row(1, 'Химчистка', 'Потолок', 2000),
         row(4, 'Тонировка', 'Задняя полусфера', 7500),
       ]),
-    ).toBe(`Химчистка: Потолок — 2${NB}000 ₽\nТонировка: Задняя полусфера — 7${NB}500 ₽`)
+    ).toBe('Химчистка: Потолок\nТонировка: Задняя полусфера')
   })
 
   it('keeps same-named services under their own section', () => {
@@ -51,19 +47,19 @@ describe('formatServiceCell', () => {
         row(2, 'Полировка', 'Крыша', 2000),
         row(7, 'Шумоизоляция', 'Крыша', 10000),
       ]),
-    ).toBe(`Полировка: Крыша — 2${NB}000 ₽\nШумоизоляция: Крыша — 10${NB}000 ₽`)
+    ).toBe('Полировка: Крыша\nШумоизоляция: Крыша')
   })
 
-  it('renders a countable service as «×N — line total»', () => {
+  it('renders a countable service as «×N» without a price', () => {
     expect(
       formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 3)]),
-    ).toBe(`Химчистка: Сиденье перед. ×3 — 4${NB}500 ₽`)
+    ).toBe('Химчистка: Сиденье перед. ×3')
   })
 
   it('omits the ×N annotation when quantity is 1', () => {
     expect(
       formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 1)]),
-    ).toBe(`Химчистка: Сиденье перед. — 1${NB}500 ₽`)
+    ).toBe('Химчистка: Сиденье перед.')
   })
 
   it('mixes countable and plain services on one section line', () => {
@@ -72,6 +68,6 @@ describe('formatServiceCell', () => {
         row(1, 'Химчистка', 'Потолок', 2000),
         row(1, 'Химчистка', 'Сиденье перед.', 1500, 2),
       ]),
-    ).toBe(`Химчистка: Потолок — 2${NB}000 ₽, Сиденье перед. ×2 — 3${NB}000 ₽`)
+    ).toBe('Химчистка: Потолок, Сиденье перед. ×2')
   })
 })
