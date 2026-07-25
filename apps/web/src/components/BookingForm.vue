@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, onMounted, provide } from 'vue'
+import { onKeyStroke } from '@vueuse/core'
 import { z } from 'zod'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -15,10 +16,11 @@ import {
 } from '@detailing-admin/shared'
 import type { BookingApiResult, CarClass, Master } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
+import { usePricelistQuery } from '@/lib/queries'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { maskThousands } from '@/lib/number-mask'
 import { formatServiceCell, formatAmountFormula, type ServiceBreakdownRow } from '@/lib/service-breakdown'
-import { usePhoneInput } from '@/composables/use-phone-input'
+import { usePhoneInput, formatPastedPhone } from '@/composables/use-phone-input'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -883,6 +885,70 @@ function loadDraft() {
     if (d.responsible && isMaster(d.responsible)) setFieldValue('responsible', d.responsible)
     if (d.carClass) setFieldValue('carClass', d.carClass)
   } catch { /* corrupted draft: ignore */ }
+}
+
+// ── Тестовое заполнение (Ctrl+Shift+X) ───────────────────────────────────────
+// Быстро набивает форму правдоподобными случайными данными для ручного
+// тестирования. Услугу берём из уже загруженного прайс-листа — тогда «Сумма»
+// пересчитается сама через ServicePicker; иначе выставляем сумму вручную.
+const { data: pricelistData } = usePricelistQuery()
+
+const TEST_NAMES = ['Иван Петров', 'Мария Смирнова', 'Алексей Иванов', 'Ольга Кузнецова', 'Дмитрий Соколов']
+const TEST_NOTES = ['', 'Тестовая запись', 'Клиент просил перезвонить', 'Оплата картой']
+const PLATE_LETTER_LIST = [...PLATE_LETTERS]
+
+function pickRandom<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]!
+}
+
+function randomDigits(n: number): string {
+  let out = ''
+  for (let i = 0; i < n; i++) out += Math.floor(Math.random() * 10)
+  return out
+}
+
+function randomPlate(): string {
+  const l = () => pickRandom(PLATE_LETTER_LIST)
+  const region = Math.random() < 0.5 ? randomDigits(2) : randomDigits(3)
+  return `${l()}${randomDigits(3)}${l()}${l()}${region}`
+}
+
+function fillTestData() {
+  pickDay(pickRandom([0, 1, 2]))
+  pickTime(pickRandom(TIME_PRESETS))
+
+  setFieldValue('name', pickRandom(TEST_NAMES))
+  phoneRaw.value = formatPastedPhone(`9${randomDigits(9)}`)
+  setFieldValue('car', pickRandom(CAR_SUGGESTIONS))
+  licensePlate.value = randomPlate()
+  setFieldValue('note', pickRandom(TEST_NOTES))
+  setFieldValue('master', pickRandom(MASTERS))
+  setFieldValue('responsible', pickRandom(MASTERS))
+
+  const r = pricelistData.value
+  const allServices = r?.ok ? r.sections.flatMap((s) => s.services) : []
+  if (allServices.length > 0) {
+    const svc = pickRandom(allServices)
+    // ServicePicker слушает modelValue: подхватит выбор и сам эмитнёт «Сумму».
+    setFieldValue('service', svc.name)
+  } else {
+    const amount = (Math.floor(Math.random() * 40) + 5) * 500
+    amountRaw.value = formatAmount(String(amount))
+    setFieldValue('amount', amount)
+  }
+
+  toast.success('Форма заполнена тестовыми данными')
+}
+
+// Инструмент только для локальной отладки — в прод-сборку не попадает.
+if (import.meta.env.DEV) {
+  onKeyStroke(
+    (e) => e.ctrlKey && e.shiftKey && e.code === 'KeyX',
+    (e) => {
+      e.preventDefault()
+      fillTestData()
+    },
+  )
 }
 
 onMounted(loadDraft)
