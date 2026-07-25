@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MASTERS, type Master } from '@detailing-admin/shared'
+import type { Master } from '@detailing-admin/shared'
 import { resolveMasterOptions } from '@/lib/master-options'
 
 function master(overrides: Partial<Master>): Master {
@@ -16,12 +16,12 @@ function master(overrides: Partial<Master>): Master {
 const ALWAYS = () => true
 
 describe('resolveMasterOptions', () => {
-  it('falls back to MASTERS when data is undefined', () => {
-    expect(resolveMasterOptions(undefined, ALWAYS)).toEqual([...MASTERS])
+  it('returns an empty list when data is undefined', () => {
+    expect(resolveMasterOptions(undefined, ALWAYS)).toEqual([])
   })
 
-  it('falls back to MASTERS when the list is empty', () => {
-    expect(resolveMasterOptions([], ALWAYS)).toEqual([...MASTERS])
+  it('returns an empty list when the source list is empty', () => {
+    expect(resolveMasterOptions([], ALWAYS)).toEqual([])
   })
 
   it('returns every name when the filter always passes', () => {
@@ -41,11 +41,11 @@ describe('resolveMasterOptions', () => {
     expect(resolveMasterOptions(rows, (m) => m.canBeResponsible)).toEqual(['Ответственный'])
   })
 
-  it('falls back to MASTERS when the role filter excludes everyone', () => {
+  it('returns an empty list when the role filter excludes everyone', () => {
     const rows = [
       master({ id: 1, name: 'А', canBeResponsible: false }),
       master({ id: 2, name: 'Б', canBeResponsible: false }),
     ]
-    expect(resolveMasterOptions(rows, (m) => m.canBeResponsible)).toEqual([...MASTERS])
+    expect(resolveMasterOptions(rows, (m) => m.canBeResponsible)).toEqual([])
   })
 })

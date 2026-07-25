@@ -24,6 +24,7 @@ import { usePhoneInput, formatPastedPhone } from '@/composables/use-phone-input'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -91,12 +92,38 @@ function isBookingField(s: string): s is BookingField {
 // Master/responsible dropdowns are driven by the live `masters` table but must
 // never leave the booking flow dependent on Postgres — `resolveMasterOptions`
 // falls back to the hard-coded enum when the list is missing or empty.
-const { data: mastersData } = useMastersQuery()
+const { data: mastersData, asyncStatus: mastersStatus } = useMastersQuery()
 const mastersForMaster = computed(() =>
   resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
 )
 const mastersForResponsible = computed(() =>
   resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, (m) => m.canBeResponsible),
+)
+const mastersLoading = computed(() => mastersStatus.value === 'loading' && mastersData.value === undefined)
+// Without the enum fallback, an unloaded or empty list leaves the master select
+// empty — warn explicitly so the form doesn't look silently broken.
+const mastersWarning = computed(() => {
+  if (mastersLoading.value || mastersForMaster.value.length > 0) return null
+  return mastersData.value?.ok
+    ? 'Список мастеров пуст. Добавьте мастеров на странице «Мастера».'
+    : 'Список мастеров недоступен. Обновите страницу.'
+})
+
+// The «Отправить уведомление» toggle is only meaningful for a master who has a
+// Telegram ID on record. Names are unique in the masters table, so matching the
+// selected name against the live list is safe; when the list can't load there is
+// no telegramId to check, so notifications stay unavailable.
+const selectedMaster = computed(() => {
+  const list = mastersData.value?.ok ? mastersData.value.masters : undefined
+  if (!list || !values.master) return undefined
+  return list.find((m) => m.name === values.master)
+})
+const canNotifyMaster = computed(() => {
+  const tg = selectedMaster.value?.telegramId
+  return typeof tg === 'string' && tg.trim().length > 0
+})
+const notifyHint = computed(() =>
+  values.master ? 'У мастера не указан Telegram ID' : 'Выберите мастера',
 )
 
 // ── Idempotency key: same across retries, regenerated on success ──────────────
@@ -410,6 +437,13 @@ const {
   validationSchema: toTypedSchema(bookingSchema),
   initialValues: initialFormValues,
 })
+
+// Keep the notification toggle in sync with availability: off when the selected
+// master has no Telegram ID, on once a notifiable master is picked. Declared
+// after useForm so the immediate run can read `values` (avoids a TDZ error).
+watch(canNotifyMaster, (ok) => {
+  sendNotification.value = ok
+}, { immediate: true })
 
 // The phone input is bound to the raw string and lives outside a FormField (see
 // F7), so vee-validate never observes keystrokes and its «Укажите номер
@@ -771,7 +805,7 @@ function resetFormState() {
   dateFromCal.value = fresh
   dateToCal.value = fresh
   isRangeMode.value = false
-  sendNotification.value = true
+  sendNotification.value = false
   submitAttempted.value = false
 }
 
@@ -1475,6 +1509,9 @@ watch(
           </CardHeader>
           <CardContent class="px-4">
           <div class="space-y-4">
+            <Alert v-if="mastersWarning" variant="destructive">
+              <AlertDescription>{{ mastersWarning }}</AlertDescription>
+            </Alert>
             <FormField v-slot="{ componentField }" name="master">
               <FormItem>
                 <FormLabel>Мастер</FormLabel>
@@ -1521,10 +1558,18 @@ watch(
               </FormItem>
             </FormField>
 
-            <!-- Уведомление — заглушка, серверная отправка пока не подключена -->
-            <div class="flex items-center gap-3 pt-2 border-t border-border">
-              <Switch v-model="sendNotification" />
-              <Label class="cursor-pointer">Отправить уведомление</Label>
+            <!-- Уведомление — заглушка, серверная отправка пока не подключена.
+                 Доступно только если у выбранного мастера указан Telegram ID. -->
+            <div class="flex items-start gap-3 pt-2 border-t border-border">
+              <Switch v-model="sendNotification" :disabled="!canNotifyMaster" />
+              <div class="grid gap-1">
+                <Label class="cursor-pointer" :class="{ 'opacity-50': !canNotifyMaster }">
+                  Отправить уведомление
+                </Label>
+                <p v-if="!canNotifyMaster" class="text-xs text-muted-foreground">
+                  {{ notifyHint }}
+                </p>
+              </div>
             </div>
           </div>
           </CardContent>
