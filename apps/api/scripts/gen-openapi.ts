@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 
 process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64 ??= Buffer.from('{}').toString('base64')
 process.env.DATABASE_URL ??= 'postgres://placeholder@localhost:5432/placeholder'
+process.env.TELEGRAM_BOT_TOKEN ??= 'placeholder'
 process.env.SPREADSHEET_ID ??= 'placeholder'
 process.env.SHEET_NAME ??= 'Запись 2026'
 process.env.WEB_ORIGIN ??= 'http://localhost:5173'

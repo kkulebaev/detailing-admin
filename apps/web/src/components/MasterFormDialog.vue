@@ -151,6 +151,21 @@ async function submit() {
             autocomplete="off"
             maxlength="64"
           />
+          <p class="text-xs text-muted-foreground">
+            Свой Telegram ID можно узнать у
+            <a
+              href="https://t.me/userinfobot"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-medium text-primary underline underline-offset-2"
+            >@userinfobot</a>. Также, для уведомлений мастер должен нажать «/start» у
+            <a
+              href="https://t.me/dazzle_detailing_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-medium text-primary underline underline-offset-2"
+            >@dazzle_detailing_bot</a>.
+          </p>
         </div>
 
         <div class="flex items-center gap-2">

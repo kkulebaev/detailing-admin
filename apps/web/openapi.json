@@ -251,6 +251,10 @@
                         ]
                       }
                     ]
+                  },
+                  "notify": {
+                    "type": "boolean",
+                    "default": false
                   }
                 },
                 "required": [
@@ -291,6 +295,24 @@
                     },
                     "updatedRow": {
                       "type": "number"
+                    },
+                    "notification": {
+                      "type": "object",
+                      "properties": {
+                        "attempted": {
+                          "type": "boolean"
+                        },
+                        "delivered": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "attempted",
+                        "delivered"
+                      ]
                     }
                   },
                   "required": [

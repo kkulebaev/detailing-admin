@@ -6,6 +6,7 @@ const BASE = {
   SHEET_NAME: 'Запись 2026',
   GOOGLE_SERVICE_ACCOUNT_JSON_B64: 'dGVzdA==',
   DATABASE_URL: 'postgres://test:test@localhost:5432/test',
+  TELEGRAM_BOT_TOKEN: 'bot-token',
   WEB_ORIGIN: 'http://localhost:5173',
   LOG_LEVEL: 'info',
   PORT: '3000',
@@ -25,6 +26,7 @@ describe('parseEnv', () => {
       SPREADSHEET_ID: 'sheet123',
       GOOGLE_SERVICE_ACCOUNT_JSON_B64: 'dGVzdA==',
       DATABASE_URL: 'postgres://test:test@localhost:5432/test',
+      TELEGRAM_BOT_TOKEN: 'bot-token',
     })
     expect(result.PORT).toBe(3000)
     expect(result.SHEET_NAME).toBe('Запись 2026')
@@ -70,6 +72,21 @@ describe('parseEnv', () => {
     expect(errorMessage).toContain('[REDACTED]')
     // The raw (empty) value must not appear verbatim — and no other secret should leak
     expect(errorMessage).not.toMatch(/GOOGLE_SERVICE_ACCOUNT_JSON_B64: (?!.*\[REDACTED\])/)
+  })
+
+  it('throws when TELEGRAM_BOT_TOKEN is missing', () => {
+    const { TELEGRAM_BOT_TOKEN: _omit, ...rest } = BASE
+    expect(() => parseEnv(rest)).toThrow('Environment validation failed')
+  })
+
+  it('redacts TELEGRAM_BOT_TOKEN in error messages', () => {
+    let errorMessage = ''
+    try {
+      parseEnv({ ...BASE, TELEGRAM_BOT_TOKEN: '' })
+    } catch (err) {
+      errorMessage = String(err)
+    }
+    expect(errorMessage).toContain('TELEGRAM_BOT_TOKEN: [REDACTED]')
   })
 
   it('does not throw for valid LOG_LEVEL values', () => {

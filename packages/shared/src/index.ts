@@ -8,6 +8,7 @@ export type { Booking, CarClass } from './booking.js'
 export { EXPECTED_HEADERS, bookingToRow } from './sheet-row.js'
 export {
   bookingApiResultSchema,
+  notificationResultSchema,
   validationIssueSchema,
   validationErrorSchema,
   internalErrorSchema,
@@ -16,7 +17,7 @@ export {
   unavailableErrorSchema,
   dbUnavailableErrorSchema,
 } from './api.js'
-export type { ApiResult, BookingApiResult, ValidationIssue } from './api.js'
+export type { ApiResult, BookingApiResult, NotificationResult, ValidationIssue } from './api.js'
 export {
   sectionInputSchema,
   serviceInputSchema,

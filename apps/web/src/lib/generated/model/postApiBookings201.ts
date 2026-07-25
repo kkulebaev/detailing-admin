@@ -5,10 +5,12 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
+import type { PostApiBookings201Notification } from './postApiBookings201Notification';
 
 export type PostApiBookings201 = {
   ok: true;
   idempotent: boolean;
   updatedRange: string;
   updatedRow: number;
+  notification?: PostApiBookings201Notification;
 };

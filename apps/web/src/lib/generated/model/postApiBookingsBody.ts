@@ -67,4 +67,5 @@ export type PostApiBookingsBody = {
      */
   responsible: string;
   carClass: 1 | 2 | 3 | 4;
+  notify?: boolean;
 };

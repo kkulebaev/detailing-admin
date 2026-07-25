@@ -58,6 +58,10 @@ export const bookingSchema = z
       .max(120)
       .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
     carClass: carClassSchema,
+    // When true, the backend sends a Telegram notification to the assigned
+    // master after the booking lands in Sheets. Best-effort — never gates the
+    // write, and it's not serialized into the sheet row (see bookingToRow).
+    notify: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
     if (v.dateTo) {

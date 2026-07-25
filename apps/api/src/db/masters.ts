@@ -22,6 +22,15 @@ export async function listMasters(): Promise<Master[]> {
   return db.select().from(masters).orderBy(masters.position, masters.id)
 }
 
+// Names are unique (see the `name` unique constraint), so this resolves at most
+// one row. Used to look up a master's Telegram chat id from the free-form name
+// stored on a booking.
+export async function findMasterByName(name: string): Promise<Master | undefined> {
+  const db = getDb()
+  const [row] = await db.select().from(masters).where(eq(masters.name, name)).limit(1)
+  return row
+}
+
 // Next slot at the end of the ordered list. -1 + 1 = 0 when the table is empty.
 async function nextPosition(): Promise<number> {
   const db = getDb()

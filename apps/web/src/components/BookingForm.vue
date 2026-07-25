@@ -129,8 +129,9 @@ const notifyHint = computed(() =>
 // ── Idempotency key: same across retries, regenerated on success ──────────────
 const idempotencyKey = ref(uuid())
 
-// TODO: уведомления пока не реализованы — этот тоггл только для UI,
-// серверной отправки нет.
+// Kept in sync with `canNotifyMaster` below: on it defaults to enabled, off it
+// is force-disabled. The submit handler passes its value to the backend as
+// `notify`, which sends the master a Telegram message best-effort.
 const sendNotification = ref(true)
 
 // ── Calendar state ────────────────────────────────────────────────────────────
@@ -703,7 +704,9 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   unavailableBanner.value = null
   const plate = licensePlate.value.trim()
   const car = [values.car?.trim(), plate].filter(Boolean).join(', ')
-  const payload = { ...values, car }
+  // The toggle is force-disabled when the master has no Telegram ID, so its
+  // value is authoritative; the backend re-checks and never trusts it blindly.
+  const payload = { ...values, car, notify: sendNotification.value }
   // The «Услуга» cell gets the categorised breakdown (names only); the form
   // field stays a plain name CSV for draft restore.
   if (serviceBreakdown.value.length > 0) {
@@ -731,7 +734,11 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   }
 
   if (result.ok) {
-    toast.success('Запись сохранена')
+    if (result.notification?.attempted && !result.notification.delivered) {
+      toast.warning('Запись сохранена, но уведомление мастеру не отправлено')
+    } else {
+      toast.success('Запись сохранена')
+    }
     idempotencyKey.value = uuid()
     resetFormState()
     clearDraft()
@@ -1558,8 +1565,8 @@ watch(
               </FormItem>
             </FormField>
 
-            <!-- Уведомление — заглушка, серверная отправка пока не подключена.
-                 Доступно только если у выбранного мастера указан Telegram ID. -->
+            <!-- Уведомление доступно только если у выбранного мастера указан
+                 Telegram ID; иначе тоггл выключен и заблокирован. -->
             <div class="flex items-start gap-3 pt-2 border-t border-border">
               <Switch v-model="sendNotification" :disabled="!canNotifyMaster" />
               <div class="grid gap-1">

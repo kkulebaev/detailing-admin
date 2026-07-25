@@ -6,6 +6,7 @@ vi.mock('../src/env.js', () => ({
     SPREADSHEET_ID: 'test-sheet-id',
     SHEET_NAME: 'Запись 2026',
     GOOGLE_SERVICE_ACCOUNT_JSON_B64: Buffer.from('{}').toString('base64'),
+    TELEGRAM_BOT_TOKEN: 'test-bot-token',
     WEB_ORIGIN: 'http://localhost:5173',
     LOG_LEVEL: 'silent',
   },
@@ -39,6 +40,10 @@ vi.mock('../src/db/clients.js', () => ({
   upsertClient: vi.fn(),
 }))
 
+vi.mock('../src/notify.js', () => ({
+  notifyMaster: vi.fn(),
+}))
+
 import { createApp } from '../src/server.js'
 import { _clearForTest, set as setIdempotency } from '../src/idempotency.js'
 import { appendBooking } from '../src/sheets.js'
@@ -49,6 +54,7 @@ import {
   isDbReady,
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
+import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
 
 const VALID_PAYLOAD = {
@@ -95,6 +101,7 @@ describe('POST /api/bookings', () => {
     vi.mocked(appendBooking).mockResolvedValue(APPEND_SUCCESS)
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'inserted', client: null })
+    vi.mocked(notifyMaster).mockResolvedValue({ attempted: true, delivered: true })
   })
 
   afterEach(() => {
@@ -303,6 +310,55 @@ describe('POST /api/bookings', () => {
     )
     expect(res.status).toBe(201)
     expect(vi.mocked(upsertClient)).not.toHaveBeenCalled()
+  })
+
+  it('does not notify the master when notify is absent', async () => {
+    await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-no-notify' })
+    expect(vi.mocked(notifyMaster)).not.toHaveBeenCalled()
+  })
+
+  it('notifies the master and echoes a delivered result when notify is true', async () => {
+    const res = await post(
+      app,
+      { ...VALID_PAYLOAD, notify: true },
+      { 'Idempotency-Key': 'k-notify-ok' },
+    )
+    expect(res.status).toBe(201)
+    expect(vi.mocked(notifyMaster)).toHaveBeenCalledTimes(1)
+    const body = await res.json()
+    expect(body.notification).toEqual({ attempted: true, delivered: true })
+  })
+
+  it('booking still succeeds and reports a failed notification (best-effort)', async () => {
+    vi.mocked(notifyMaster).mockResolvedValue({
+      attempted: true,
+      delivered: false,
+      reason: 'no_telegram_id',
+    })
+    const res = await post(
+      app,
+      { ...VALID_PAYLOAD, notify: true },
+      { 'Idempotency-Key': 'k-notify-fail' },
+    )
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.notification).toEqual({
+      attempted: true,
+      delivered: false,
+      reason: 'no_telegram_id',
+    })
+  })
+
+  it('idempotent replay returns the cached notification without re-sending', async () => {
+    const key = 'k-notify-replay'
+    await post(app, { ...VALID_PAYLOAD, notify: true }, { 'Idempotency-Key': key })
+    const res = await post(app, { ...VALID_PAYLOAD, notify: true }, { 'Idempotency-Key': key })
+    const body = await res.json()
+    expect(body.idempotent).toBe(true)
+    expect(body.notification).toEqual({ attempted: true, delivered: true })
+    // Replay must not re-send — notifyMaster was called only on the first hit.
+    expect(vi.mocked(notifyMaster)).toHaveBeenCalledTimes(1)
   })
 
   it('booking still succeeds when upsertClient throws (best-effort)', async () => {

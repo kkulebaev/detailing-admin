@@ -20,6 +20,7 @@ import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
+import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
 
 type Vars = { requestId: string }
@@ -35,11 +36,21 @@ const idempotencyHeaderSchema = z.object({
     .max(128, 'Required; max 128 chars'),
 })
 
+// Mirrors `notificationResultSchema` in @detailing-admin/shared. Redefined here
+// against the OpenAPI `z` instance (the shared one is plain zod) so the emitted
+// spec stays accurate; keep the two in sync.
+const notificationResultSchema = z.object({
+  attempted: z.boolean(),
+  delivered: z.boolean(),
+  reason: z.string().optional(),
+})
+
 const bookingSuccessSchema = z.object({
   ok: z.literal(true),
   idempotent: z.boolean(),
   updatedRange: z.string(),
   updatedRow: z.number(),
+  notification: notificationResultSchema.optional(),
 })
 
 const postBookingRoute = createRoute({
@@ -183,6 +194,9 @@ router.openapi(postBookingRoute, async (c) => {
             idempotent: true,
             updatedRange: cached.updatedRange,
             updatedRow: cached.updatedRow,
+            // Replay the original notification outcome; a cache hit must not
+            // re-send to Telegram.
+            ...(cached.notification ? { notification: cached.notification } : {}),
           },
           StatusCodes.CREATED,
         )
@@ -239,11 +253,17 @@ router.openapi(postBookingRoute, async (c) => {
       }
     }
 
+    // Best-effort Telegram notification to the master. Runs after the write
+    // lands in Sheets and never blocks it — a failure only downgrades the
+    // response to a warning the form shows. Skipped entirely unless requested.
+    const notification = booking.notify ? await notifyMaster(booking) : undefined
+
     const successResult = {
       ok: true as const,
       idempotent: false,
       updatedRange: appendResult.updatedRange,
       updatedRow: appendResult.updatedRow,
+      ...(notification ? { notification } : {}),
     }
     idempotency.set(idempotencyKey, successResult)
 
@@ -257,6 +277,8 @@ router.openapi(postBookingRoute, async (c) => {
         sheets_latency_ms: appendResult.latencyMs,
         sheets_status_code: appendResult.statusCode,
         client_outcome: clientOutcome,
+        notification_attempted: notification?.attempted ?? false,
+        notification_delivered: notification?.delivered ?? null,
         status: 201,
       },
       'Booking created',

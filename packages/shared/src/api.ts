@@ -50,11 +50,22 @@ export const dbUnavailableErrorSchema = z.object({
   message: z.string(),
 })
 
+// Outcome of the best-effort Telegram notification to the assigned master.
+// Present only when the client asked for one (`booking.notify`). `attempted`
+// without `delivered` means the write to Sheets still succeeded but the master
+// was not reached — the web form surfaces that as a warning, not an error.
+export const notificationResultSchema = z.object({
+  attempted: z.boolean(),
+  delivered: z.boolean(),
+  reason: z.string().optional(),
+})
+
 const bookingSuccessSchema = z.object({
   ok: z.literal(true),
   idempotent: z.boolean(),
   updatedRange: z.string(),
   updatedRow: z.number(),
+  notification: notificationResultSchema.optional(),
 })
 
 export const bookingApiResultSchema = z.union([
@@ -66,6 +77,7 @@ export const bookingApiResultSchema = z.union([
 ])
 
 export type ValidationIssue = z.infer<typeof validationIssueSchema>
+export type NotificationResult = z.infer<typeof notificationResultSchema>
 export type BookingApiResult = z.infer<typeof bookingApiResultSchema>
 
 // Legacy generic alias — kept so older import sites still compile. Prefer the

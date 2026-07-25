@@ -159,6 +159,7 @@ export * from './patchApiPricelistServicesId503Error';
 export * from './patchApiPricelistServicesId503Reason';
 export * from './patchApiPricelistServicesIdBody';
 export * from './postApiBookings201';
+export * from './postApiBookings201Notification';
 export * from './postApiBookings400';
 export * from './postApiBookings400Error';
 export * from './postApiBookings400IssuesItem';
