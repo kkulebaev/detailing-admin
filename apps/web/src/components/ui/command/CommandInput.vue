@@ -20,6 +20,18 @@ const delegatedProps = reactiveOmit(props, "class")
 const forwardedProps = useForwardProps(delegatedProps)
 
 const { filterState } = useCommand()
+
+// reka-ui's ListboxFilter suppresses model updates while an IME composition is
+// active (`handleInput` early-returns on `isComposing`), syncing only on
+// `compositionend`. Android's Gboard keeps a word in composition until a
+// space/punctuation/suggestion commit, so typing a single word (e.g. «Демонтаж»)
+// never fired `compositionend` and the list stayed unfiltered. Mirror each
+// composition step straight into the filter so search is live mid-word; the
+// component's own compositionend handler then re-applies the same value.
+function onCompositionUpdate(event: Event) {
+  const target = event.target
+  if (target instanceof HTMLInputElement) filterState.search = target.value
+}
 </script>
 
 <template>
@@ -35,6 +47,7 @@ const { filterState } = useCommand()
       v-bind="{ ...forwardedProps, ...$attrs }"
       v-model="filterState.search"
       data-slot="command-input"
+      @compositionupdate="onCompositionUpdate"
       :class="cn('placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50', props.class)"
     />
   </div>
