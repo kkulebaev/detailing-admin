@@ -6,6 +6,7 @@ import healthzRouter from './routes/healthz.js'
 import bookingsRouter from './routes/bookings.js'
 import clientsRouter from './routes/clients.js'
 import pricelistRouter from './routes/pricelist.js'
+import mastersRouter from './routes/masters.js'
 
 export function createApp() {
   // Built imperatively rather than chained so the OpenAPIHono type survives
@@ -31,6 +32,7 @@ export function createApp() {
   app.route('/api/bookings', bookingsRouter)
   app.route('/api/clients', clientsRouter)
   app.route('/api/pricelist', pricelistRouter)
+  app.route('/api/masters', mastersRouter)
 
   app.notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
 

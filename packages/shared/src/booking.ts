@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { READINESS, MASTERS } from './enums.js'
+import { READINESS } from './enums.js'
 import { parseDdmmyyyy } from './date.js'
 import { normalizePhone } from './phone.js'
 
@@ -41,8 +41,22 @@ export const bookingSchema = z
       .regex(/^=[\d+\-*/().\s]+$/, 'Некорректная формула суммы')
       .optional(),
     readiness: z.enum(READINESS).or(z.literal('')).default(''),
-    master: z.enum(MASTERS, { error: () => 'Выберите мастера' }),
-    responsible: z.enum(MASTERS, { error: () => 'Выберите ответственного' }),
+    // Master/responsible are free-form strings sourced from the `masters` table
+    // at runtime, not a closed enum. The refine restores the anti-injection
+    // barrier the enum used to give: a leading =/+/-/@ would let a rejected
+    // dropdown value smuggle a live formula into columns J/K under USER_ENTERED.
+    master: z
+      .string()
+      .trim()
+      .min(1, 'Выберите мастера')
+      .max(120)
+      .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
+    responsible: z
+      .string()
+      .trim()
+      .min(1, 'Выберите ответственного')
+      .max(120)
+      .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
     carClass: carClassSchema,
   })
   .superRefine((v, ctx) => {

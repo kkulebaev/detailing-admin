@@ -5,8 +5,6 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
-import type { PostApiBookingsBodyMaster } from './postApiBookingsBodyMaster';
-import type { PostApiBookingsBodyResponsible } from './postApiBookingsBodyResponsible';
 
 export type PostApiBookingsBody = {
   /**
@@ -58,7 +56,15 @@ export type PostApiBookingsBody = {
      */
   amountFormula?: string;
   readiness?: 'Подтвердил' | 'Не ответил' | 'В работе' | 'Готова к выдаче' | 'Выдана' | 'Перенос' | 'Отмена' | 'Не приехал' | 'Оплачено' | 'Не оплачено' | '';
-  master: PostApiBookingsBodyMaster;
-  responsible: PostApiBookingsBodyResponsible;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  master: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  responsible: string;
   carClass: 1 | 2 | 3 | 4;
 };

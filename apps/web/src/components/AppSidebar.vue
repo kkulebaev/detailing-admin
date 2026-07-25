@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { watch } from 'vue'
-import { CalendarPlus, ReceiptText, Users, X } from '@lucide/vue'
+import { CalendarPlus, ReceiptText, Users, Wrench, X } from '@lucide/vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppLogo from '@/components/AppLogo.vue'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ const navItems = [
   { to: { name: 'booking' }, label: 'Запись', icon: CalendarPlus },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText },
+  { to: { name: 'masters' }, label: 'Мастера', icon: Wrench },
 ] as const
 
 const route = useRoute()

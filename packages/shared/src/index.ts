@@ -1,4 +1,4 @@
-export type { Readiness, Master } from './enums.js'
+export type { Readiness, MasterName } from './enums.js'
 export { READINESS, MASTERS } from './enums.js'
 export { StatusCodes } from './http-status-codes.js'
 export { parseDdmmyyyy, formatDdmmyyyy } from './date.js'
@@ -46,3 +46,14 @@ export {
   clientDeleteResponseSchema,
 } from './client.js'
 export type { ClientInput, Client } from './client.js'
+export {
+  masterSchema,
+  masterInputSchema,
+  reorderInputSchema,
+  mastersListResponseSchema,
+  masterMutationResponseSchema,
+  masterUpdateResponseSchema,
+  masterDeleteResponseSchema,
+  masterReorderResponseSchema,
+} from './masters.js'
+export type { Master, MasterInput, ReorderInput } from './masters.js'

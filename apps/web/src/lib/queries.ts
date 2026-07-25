@@ -1,11 +1,13 @@
 import { useQuery, useQueryCache } from '@pinia/colada'
 import { fetchClients } from './clients-api'
 import { fetchPricelist } from './pricelist-api'
+import { fetchMasters } from './masters-api'
 
 // Query keys live next to the composables so callers never have to know the
 // concrete string — they just call `useInvalidate*()` after a mutation.
 export const CLIENTS_KEY = ['clients'] as const
 export const PRICELIST_KEY = ['pricelist'] as const
+export const MASTERS_KEY = ['masters'] as const
 
 export function useClientsQuery() {
   return useQuery({
@@ -29,4 +31,16 @@ export function useInvalidateClients() {
 export function useInvalidatePricelist() {
   const cache = useQueryCache()
   return () => cache.invalidateQueries({ key: PRICELIST_KEY })
+}
+
+export function useMastersQuery() {
+  return useQuery({
+    key: MASTERS_KEY,
+    query: fetchMasters,
+  })
+}
+
+export function useInvalidateMasters() {
+  const cache = useQueryCache()
+  return () => cache.invalidateQueries({ key: MASTERS_KEY })
 }

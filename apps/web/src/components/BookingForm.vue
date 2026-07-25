@@ -12,11 +12,11 @@ import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
   DEFAULT_CAR_CLASS,
-  MASTERS,
 } from '@detailing-admin/shared'
-import type { BookingApiResult, CarClass, Master } from '@detailing-admin/shared'
+import type { BookingApiResult, CarClass } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
-import { usePricelistQuery } from '@/lib/queries'
+import { usePricelistQuery, useMastersQuery } from '@/lib/queries'
+import { resolveMasterOptions } from '@/lib/master-options'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { maskThousands } from '@/lib/number-mask'
 import { formatServiceCell, formatAmountFormula, type ServiceBreakdownRow } from '@/lib/service-breakdown'
@@ -88,9 +88,16 @@ function isBookingField(s: string): s is BookingField {
   return s in BOOKING_FIELDS
 }
 
-function isMaster(s: string): s is Master {
-  return MASTERS.some((m) => m === s)
-}
+// Master/responsible dropdowns are driven by the live `masters` table but must
+// never leave the booking flow dependent on Postgres — `resolveMasterOptions`
+// falls back to the hard-coded enum when the list is missing or empty.
+const { data: mastersData } = useMastersQuery()
+const mastersForMaster = computed(() =>
+  resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
+)
+const mastersForResponsible = computed(() =>
+  resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, (m) => m.canBeResponsible),
+)
 
 // ── Idempotency key: same across retries, regenerated on success ──────────────
 const idempotencyKey = ref(uuid())
@@ -369,8 +376,8 @@ interface BookingFormInitial {
   service: string
   note: string
   amount: '' | number
-  master: Master | undefined
-  responsible: Master | undefined
+  master: string | undefined
+  responsible: string | undefined
   carClass: CarClass
 }
 
@@ -881,8 +888,8 @@ function loadDraft() {
     }
     if (d.discountUnit) discountUnit.value = d.discountUnit
     if (d.discountRaw) discountRaw.value = d.discountRaw
-    if (d.master && isMaster(d.master)) setFieldValue('master', d.master)
-    if (d.responsible && isMaster(d.responsible)) setFieldValue('responsible', d.responsible)
+    if (d.master && d.master.trim()) setFieldValue('master', d.master)
+    if (d.responsible && d.responsible.trim()) setFieldValue('responsible', d.responsible)
     if (d.carClass) setFieldValue('carClass', d.carClass)
   } catch { /* corrupted draft: ignore */ }
 }
@@ -922,8 +929,8 @@ function fillTestData() {
   setFieldValue('car', pickRandom(CAR_SUGGESTIONS))
   licensePlate.value = randomPlate()
   setFieldValue('note', pickRandom(TEST_NOTES))
-  setFieldValue('master', pickRandom(MASTERS))
-  setFieldValue('responsible', pickRandom(MASTERS))
+  setFieldValue('master', pickRandom(mastersForMaster.value))
+  setFieldValue('responsible', pickRandom(mastersForResponsible.value))
 
   const r = pricelistData.value
   const allServices = r?.ok ? r.sections.flatMap((s) => s.services) : []
@@ -1479,7 +1486,7 @@ watch(
                   </FormControl>
                   <SelectContent>
                     <SelectItem
-                      v-for="m in MASTERS"
+                      v-for="m in mastersForMaster"
                       :key="m"
                       :value="m"
                     >
@@ -1502,7 +1509,7 @@ watch(
                   </FormControl>
                   <SelectContent>
                     <SelectItem
-                      v-for="r in MASTERS"
+                      v-for="r in mastersForResponsible"
                       :key="r"
                       :value="r"
                     >
