@@ -45,7 +45,10 @@ export function bookingToRow(b: Booking): (string | number)[] {
     b.car,              // E — Машина
     b.service,          // F — Услуга
     b.note,             // G — Примечание
-    b.amount,           // H — Сумма, ₽
+    // H — Сумма, ₽: an arithmetic formula (evaluated by Sheets under
+    // USER_ENTERED) when the client supplied one, else the bare number.
+    b.amountFormula ?? b.amount,
+
     b.readiness,        // I — Готовность (always string post-parse; '' when blank)
     b.master,           // J — Мастер
     b.responsible,      // K — Ответственный (always string post-parse; '' when blank)

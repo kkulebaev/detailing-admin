@@ -30,6 +30,16 @@ export const bookingSchema = z
     amount: z
       .union([z.literal(''), z.number().int().nonnegative()])
       .refine((v) => typeof v === 'number', { error: 'Укажите сумму' }),
+    // Optional arithmetic breakdown for the «Сумма» cell, e.g. "=2000+3000-950".
+    // When present it's written to column H verbatim (Sheets evaluates it under
+    // USER_ENTERED); `amount` stays the authoritative number. Constrained to
+    // digits and arithmetic operators so a client can't inject a live Sheets
+    // function (IMPORTRANGE, HYPERLINK, …) into the source-of-truth sheet.
+    amountFormula: z
+      .string()
+      .max(2000)
+      .regex(/^=[\d+\-*/().\s]+$/, 'Некорректная формула суммы')
+      .optional(),
     readiness: z.enum(READINESS).or(z.literal('')).default(''),
     master: z.enum(MASTERS, { error: () => 'Выберите мастера' }),
     responsible: z.enum(MASTERS, { error: () => 'Выберите ответственного' }),

@@ -52,6 +52,11 @@ export type PostApiBookingsBody = {
   /** @maxLength 2000 */
   note?: string;
   amount: '' | number;
+  /**
+     * @maxLength 2000
+     * @pattern ^=[\d+\-*\/().\s]+$
+     */
+  amountFormula?: string;
   readiness?: 'Подтвердил' | 'Не ответил' | 'В работе' | 'Готова к выдаче' | 'Выдана' | 'Перенос' | 'Отмена' | 'Не приехал' | 'Оплачено' | 'Не оплачено' | '';
   master: PostApiBookingsBodyMaster;
   responsible: PostApiBookingsBodyResponsible;
