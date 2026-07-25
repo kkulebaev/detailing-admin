@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { ShieldCheck } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   createMaster,
@@ -175,7 +176,10 @@ async function submit() {
             :disabled="submitting"
             @update:model-value="(v) => (canBeResponsible = v === true)"
           />
-          <Label for="master-can-be-responsible" class="cursor-pointer">Может быть ответственным</Label>
+          <Label for="master-can-be-responsible" class="flex cursor-pointer items-center gap-1.5">
+            <ShieldCheck class="size-4 text-muted-foreground" />
+            Может быть ответственным
+          </Label>
         </div>
 
         <p v-if="error && !fieldErrors.name" class="text-sm text-destructive">
