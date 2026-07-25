@@ -12,15 +12,12 @@ export interface ServiceBreakdownRow {
   quantity: number
 }
 
-const priceFormatter = new Intl.NumberFormat('ru-RU')
-
-// «Услуга» cell text: one line per pricelist section, its services (with the
-// current, possibly hand-edited, price) grouped on that line. Mirrors the
+// «Услуга» cell text: one line per pricelist section, its services grouped on
+// that line. Prices are intentionally omitted from the sheet cell. Mirrors the
 // picker's category-card layout, e.g.:
-//   Химчистка: Потолок — 2 000 ₽, Багажник — 2 000 ₽
-//   Тонировка: Задняя полусфера — 7 500 ₽
-// Штучные услуги с количеством > 1 показываются как «Название ×N — сумма ₽»,
-// где сумма = цена за единицу × количество.
+//   Химчистка: Потолок, Багажник
+//   Тонировка: Задняя полусфера
+// Штучные услуги с количеством > 1 показываются как «Название ×N».
 export function formatServiceCell(rows: ServiceBreakdownRow[]): string {
   const bySection = new Map<number, { section: string; items: string[] }>()
   for (const row of rows) {
@@ -30,12 +27,7 @@ export function formatServiceCell(rows: ServiceBreakdownRow[]): string {
       bySection.set(row.sectionId, group)
     }
     const qty = row.quantity > 0 ? row.quantity : 1
-    const lineTotal = row.price * qty
-    group.items.push(
-      qty > 1
-        ? `${row.name} ×${qty} — ${priceFormatter.format(lineTotal)} ₽`
-        : `${row.name} — ${priceFormatter.format(row.price)} ₽`,
-    )
+    group.items.push(qty > 1 ? `${row.name} ×${qty}` : row.name)
   }
   return [...bySection.values()]
     .map((group) => `${group.section}: ${group.items.join(', ')}`)

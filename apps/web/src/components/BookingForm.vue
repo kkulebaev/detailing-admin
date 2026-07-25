@@ -330,12 +330,14 @@ function setDiscountUnit(unit: 'rub' | 'pct') {
     unit === 'pct' ? String(Math.min(parseInt(digits, 10), 100)) : formatAmount(digits)
 }
 
-// «Скидка 10% (−950 ₽)» / «Скидка 950 ₽» — appended to the note on save.
+// «Скидка 10%» / «Скидка 950 ₽» — appended to the note on save. The concrete
+// rouble figure derived from a percent discount is intentionally omitted; only
+// the discount size itself is kept.
 function discountNoteLine(): string {
   if (!hasDiscount.value) return ''
   if (discountUnit.value === 'pct') {
     const pct = Math.min(parseInt(discountRaw.value.replace(/\D/g, '') || '0', 10), 100)
-    return `Скидка ${pct}% (−${formatAmount(String(discountAmount.value))} ₽)`
+    return `Скидка ${pct}%`
   }
   return `Скидка ${formatAmount(String(discountAmount.value))} ₽`
 }
