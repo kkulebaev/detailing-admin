@@ -20,4 +20,4 @@ export const MASTERS = [
   'Дмитрий Глотов',
   'Андрей и ко.',
 ] as const
-export type Master = (typeof MASTERS)[number]
+export type MasterName = (typeof MASTERS)[number]

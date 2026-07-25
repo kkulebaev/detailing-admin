@@ -23,6 +23,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/components/PricelistPage.vue'),
     meta: { title: 'Прайс-лист' },
   },
+  {
+    path: '/masters',
+    name: 'masters',
+    component: () => import('@/components/MastersPage.vue'),
+    meta: { title: 'Мастера' },
+  },
   { path: '/:pathMatch(.*)*', redirect: { name: 'booking' } },
 ]
 

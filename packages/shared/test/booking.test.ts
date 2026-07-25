@@ -120,6 +120,25 @@ describe('bookingSchema', () => {
     if (result.success) expect(result.data.readiness).toBe('')
   })
 
+  it('accepts an arbitrary master name outside the former enum', () => {
+    const result = bookingSchema.safeParse({
+      ...validBase,
+      master: 'Пётр Новый',
+      responsible: 'Пётр Новый',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects a master name that starts a formula (anti-injection)', () => {
+    const result = bookingSchema.safeParse({ ...validBase, master: '=SUM(A1)' })
+    expect(result.success).toBe(false)
+  })
+
+  it('master: rejects explicit empty string', () => {
+    const result = bookingSchema.safeParse({ ...validBase, master: '' })
+    expect(result.success).toBe(false)
+  })
+
   it('responsible: rejects explicit empty string', () => {
     const result = bookingSchema.safeParse({ ...validBase, responsible: '' })
     expect(result.success).toBe(false)

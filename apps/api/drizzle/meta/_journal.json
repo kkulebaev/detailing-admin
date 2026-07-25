@@ -36,6 +36,27 @@
       "when": 1784905126555,
       "tag": "0004_perfect_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784973792313,
+      "tag": "0005_acoustic_cardiac",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784973799750,
+      "tag": "0006_seed_masters",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784976182434,
+      "tag": "0007_romantic_prodigy",
+      "breakpoints": true
     }
   ]
 }

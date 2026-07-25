@@ -41,3 +41,16 @@ export const services = pgTable('services', {
 
 export type Service = typeof services.$inferSelect
 export type NewService = typeof services.$inferInsert
+
+export const masters = pgTable('masters', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 120 }).notNull().unique(),
+  // Manual ordering via ▲/▼ buttons; bulk-rewritten on reorder, hence NOT unique.
+  position: integer('position').notNull(),
+  canBeResponsible: boolean('can_be_responsible').notNull().default(true),
+  // Reserved for future Telegram notifications; nullable until a master links one.
+  telegramId: varchar('telegram_id', { length: 64 }),
+})
+
+export type Master = typeof masters.$inferSelect
+export type NewMaster = typeof masters.$inferInsert
