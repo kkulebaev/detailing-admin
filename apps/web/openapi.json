@@ -183,6 +183,11 @@
                       }
                     ]
                   },
+                  "amountFormula": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "pattern": "^=[\\d+\\-*/().\\s]+$"
+                  },
                   "readiness": {
                     "anyOf": [
                       {

@@ -17,7 +17,7 @@ import type { BookingApiResult, CarClass, Master } from '@detailing-admin/shared
 import { submitBooking } from '@/lib/api'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { maskThousands } from '@/lib/number-mask'
-import { formatServiceCell, type ServiceBreakdownRow } from '@/lib/service-breakdown'
+import { formatServiceCell, formatAmountFormula, type ServiceBreakdownRow } from '@/lib/service-breakdown'
 import { usePhoneInput } from '@/composables/use-phone-input'
 
 import { Button } from '@/components/ui/button'
@@ -661,10 +661,14 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   const plate = licensePlate.value.trim()
   const car = [values.car?.trim(), plate].filter(Boolean).join(', ')
   const payload = { ...values, car }
-  // The «Услуга» cell gets the categorised, priced breakdown; the form field
-  // stays a plain name CSV for draft restore.
+  // The «Услуга» cell gets the categorised breakdown (names only); the form
+  // field stays a plain name CSV for draft restore.
   if (serviceBreakdown.value.length > 0) {
     payload.service = formatServiceCell(serviceBreakdown.value)
+    // «Сумма» carries the arithmetic behind the total. `values.amount` is the
+    // pre-discount base; the formula subtracts the discount itself.
+    const base = typeof values.amount === 'number' ? values.amount : 0
+    payload.amountFormula = formatAmountFormula(serviceBreakdown.value, base, discountAmount.value)
   }
   // Discount is applied at submit time: the sheet stores the discounted total
   // and the discount is preserved as a note line (no dedicated column).

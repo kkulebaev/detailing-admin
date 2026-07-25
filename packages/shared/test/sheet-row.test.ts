@@ -77,4 +77,14 @@ describe('bookingToRow', () => {
     expect(row[7]).toBe(200000)
     expect(typeof row[7]).toBe('number')
   })
+
+  it('amountFormula → written verbatim to cell H instead of the number', () => {
+    const row = bookingToRow(parseBooking({ ...baseInput, amount: 5050, amountFormula: '=2000+3000-950' }))
+    expect(row[7]).toBe('=2000+3000-950')
+  })
+
+  it('rejects an amountFormula containing a non-arithmetic Sheets function', () => {
+    const result = bookingSchema.safeParse({ ...baseInput, amountFormula: '=IMPORTRANGE("x","y")' })
+    expect(result.success).toBe(false)
+  })
 })
