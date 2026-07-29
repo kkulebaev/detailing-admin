@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url'
 process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64 ??= Buffer.from('{}').toString('base64')
 process.env.DATABASE_URL ??= 'postgres://placeholder@localhost:5432/placeholder'
 process.env.TELEGRAM_BOT_TOKEN ??= 'placeholder'
+process.env.JWT_SECRET ??= 'x'.repeat(32)
 process.env.SPREADSHEET_ID ??= 'placeholder'
 process.env.SHEET_NAME ??= 'Запись 2026'
 process.env.WEB_ORIGIN ??= 'http://localhost:5173'
@@ -20,6 +21,7 @@ process.env.LOG_LEVEL ??= 'silent'
 
 const { OpenAPIHono } = await import('@hono/zod-openapi')
 const { default: healthzRouter } = await import('../src/routes/healthz.js')
+const { default: authRouter } = await import('../src/routes/auth.js')
 const { default: bookingsRouter } = await import('../src/routes/bookings.js')
 const { default: clientsRouter } = await import('../src/routes/clients.js')
 const { default: pricelistRouter } = await import('../src/routes/pricelist.js')
@@ -30,6 +32,7 @@ const OUT_PATH = resolve(__dirname, '../../web/openapi.json')
 
 const app = new OpenAPIHono()
   .route('/healthz', healthzRouter)
+  .route('/api/auth', authRouter)
   .route('/api/bookings', bookingsRouter)
   .route('/api/clients', clientsRouter)
   .route('/api/pricelist', pricelistRouter)

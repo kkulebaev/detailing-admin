@@ -1,4 +1,20 @@
-import { boolean, integer, pgTable, serial, text, uuid, varchar } from 'drizzle-orm/pg-core'
+import { boolean, integer, pgTable, serial, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+
+// Auth accounts. Provisioned out-of-band via the `user:create` CLI (no
+// self-registration). `passwordHash` stores the scrypt string
+// "scrypt:N:r:p:saltHex:hashHex"; `passwordChangedAt` is stamped into the JWT
+// so a future revocation path can reject tokens issued before a password change.
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  login: varchar('login', { length: 64 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: varchar('role', { length: 16 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  passwordChangedAt: timestamp('password_changed_at').notNull().defaultNow(),
+})
+
+export type User = typeof users.$inferSelect
+export type NewUser = typeof users.$inferInsert
 
 export const clients = pgTable('clients', {
   id: uuid('id').primaryKey().defaultRandom(),

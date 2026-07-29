@@ -6,6 +6,10 @@ vi.mock('../src/env.js', () => ({
     SPREADSHEET_ID: 'test-sheet-id',
     SHEET_NAME: 'Запись 2026',
     GOOGLE_SERVICE_ACCOUNT_JSON_B64: Buffer.from('{}').toString('base64'),
+    JWT_SECRET: 'test-jwt-secret-at-least-32-chars-long',
+    AUTH_COOKIE_SECURE: false,
+    AUTH_COOKIE_SAMESITE: 'lax',
+    AUTH_TOKEN_TTL_SECONDS: 86400,
     WEB_ORIGIN: 'http://localhost:5173',
     LOG_LEVEL: 'silent',
   },
@@ -44,6 +48,7 @@ import { createApp } from '../src/server.js'
 import { _clearForTest } from '../src/idempotency.js'
 import { appendBooking } from '../src/sheets.js'
 import { baseLogger } from '../src/log.js'
+import { adminCookie } from './auth-helpers.js'
 
 const VALID_PAYLOAD = {
   dateFrom: '04.06.2026',
@@ -71,10 +76,12 @@ const REQUIRED_LOG_FIELDS = [
 
 describe('observability — POST /api/bookings log output', () => {
   let app: ReturnType<typeof createApp>
+  let cookie: string
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = createApp()
     _clearForTest()
+    cookie = await adminCookie()
     vi.mocked(appendBooking).mockResolvedValue({
       ok: true,
       updatedRange: 'Запись 2026!A5',
@@ -87,7 +94,7 @@ describe('observability — POST /api/bookings log output', () => {
   it('emits exactly one log line per successful POST', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-test-key' },
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-test-key', Cookie: cookie },
       body: JSON.stringify(VALID_PAYLOAD),
     })
     expect(vi.mocked(baseLogger.info)).toHaveBeenCalledTimes(1)
@@ -96,7 +103,7 @@ describe('observability — POST /api/bookings log output', () => {
   it('log line contains all required structured fields', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-fields-key' },
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-fields-key', Cookie: cookie },
       body: JSON.stringify(VALID_PAYLOAD),
     })
 
@@ -117,7 +124,7 @@ describe('observability — POST /api/bookings log output', () => {
   it('X-Request-Id response header matches request_id in the log', async () => {
     const res = await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'reqid-test' },
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'reqid-test', Cookie: cookie },
       body: JSON.stringify(VALID_PAYLOAD),
     })
     const responseRequestId = res.headers.get('X-Request-Id')
@@ -128,7 +135,7 @@ describe('observability — POST /api/bookings log output', () => {
   it('log object does NOT contain phone, name, or note fields', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'pii-test' },
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'pii-test', Cookie: cookie },
       body: JSON.stringify({
         dateFrom: '04.06.2026',
         time: '10:00',

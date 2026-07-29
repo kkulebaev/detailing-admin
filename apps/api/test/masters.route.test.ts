@@ -6,6 +6,10 @@ vi.mock('../src/env.js', () => ({
     SPREADSHEET_ID: 'test-sheet-id',
     SHEET_NAME: 'Запись 2026',
     GOOGLE_SERVICE_ACCOUNT_JSON_B64: Buffer.from('{}').toString('base64'),
+    JWT_SECRET: 'test-jwt-secret-at-least-32-chars-long',
+    AUTH_COOKIE_SECURE: false,
+    AUTH_COOKIE_SAMESITE: 'lax',
+    AUTH_TOKEN_TTL_SECONDS: 86400,
     WEB_ORIGIN: 'http://localhost:5173',
     LOG_LEVEL: 'silent',
   },
@@ -67,6 +71,7 @@ import {
   deleteMaster,
   reorderMasters,
 } from '../src/db/masters.js'
+import { adminCookie, employeeCookie } from './auth-helpers.js'
 
 const master = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 1,
@@ -77,18 +82,22 @@ const master = (over: Partial<Record<string, unknown>> = {}) => ({
   ...over,
 })
 
+// Set in beforeEach — every request rides a valid admin session cookie.
+let authCookie = ''
+
 function req(
   app: ReturnType<typeof createApp>,
   path: string,
   method: string,
   body?: unknown,
+  cookie: string = authCookie,
 ): Response | Promise<Response> {
   // The list/create routes mount at '/api/masters' exactly — a trailing slash
   // (`/api/masters/`) 404s under Hono's strict matching.
   const suffix = path === '/' ? '' : path
   return app.request(`/api/masters${suffix}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 }
@@ -96,10 +105,27 @@ function req(
 describe('/api/masters', () => {
   let app: ReturnType<typeof createApp>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     app = createApp()
+    authCookie = await adminCookie()
     vi.mocked(isDbReady).mockReturnValue(true)
+  })
+
+  it('GET / without a session cookie → 401', async () => {
+    const res = await req(app, '/', 'GET', undefined, '')
+    expect(res.status).toBe(401)
+    const body = await res.json()
+    expect(body.error).toBe('unauthorized')
+    expect(vi.mocked(listMasters)).not.toHaveBeenCalled()
+  })
+
+  it('GET / with an employee session → 403 forbidden', async () => {
+    const res = await req(app, '/', 'GET', undefined, await employeeCookie())
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('forbidden')
+    expect(vi.mocked(listMasters)).not.toHaveBeenCalled()
   })
 
   it('GET / lists masters', async () => {

@@ -21,7 +21,9 @@
     "seed:dump": "tsx --env-file=.env scripts/seed-dump.ts",
     "seed:load": "tsx --env-file=.env scripts/seed-load.ts",
     "seed:pricelist": "tsx --env-file=.env scripts/seed-pricelist-load.ts",
-    "seed": "pnpm seed:dump && pnpm seed:load"
+    "seed": "pnpm seed:dump && pnpm seed:load",
+    "user:create": "tsx scripts/user-create.ts",
+    "user:reset-password": "tsx scripts/user-reset-password.ts"
   },
   "dependencies": {
     "@detailing-admin/shared": "workspace:*",

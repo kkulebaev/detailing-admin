@@ -7,6 +7,10 @@ vi.mock('../src/env.js', () => ({
     SHEET_NAME: 'Запись 2026',
     GOOGLE_SERVICE_ACCOUNT_JSON_B64: Buffer.from('{}').toString('base64'),
     TELEGRAM_BOT_TOKEN: 'test-bot-token',
+    JWT_SECRET: 'test-jwt-secret-at-least-32-chars-long',
+    AUTH_COOKIE_SECURE: false,
+    AUTH_COOKIE_SAMESITE: 'lax',
+    AUTH_TOKEN_TTL_SECONDS: 86400,
     WEB_ORIGIN: 'http://localhost:5173',
     LOG_LEVEL: 'silent',
   },
@@ -56,6 +60,7 @@ import {
 import { upsertClient } from '../src/db/clients.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
+import { adminCookie } from './auth-helpers.js'
 
 const VALID_PAYLOAD = {
   dateFrom: '04.06.2026',
@@ -78,6 +83,9 @@ const APPEND_SUCCESS = {
   statusCode: 200,
 }
 
+// Set in beforeEach — every protected request rides a valid admin session cookie.
+let authCookie = ''
+
 function post(
   app: ReturnType<typeof createApp>,
   body: unknown,
@@ -85,7 +93,7 @@ function post(
 ): Response | Promise<Response> {
   return app.request('/api/bookings', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie, ...headers },
     body: JSON.stringify(body),
   })
 }
@@ -93,9 +101,10 @@ function post(
 describe('POST /api/bookings', () => {
   let app: ReturnType<typeof createApp>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = createApp()
     _clearForTest()
+    authCookie = await adminCookie()
     vi.mocked(getBootState).mockReturnValue('ok')
     vi.mocked(getBootHeadersMismatch).mockReturnValue(null)
     vi.mocked(appendBooking).mockResolvedValue(APPEND_SUCCESS)
