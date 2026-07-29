@@ -13,11 +13,26 @@ export {
   validationErrorSchema,
   internalErrorSchema,
   notFoundErrorSchema,
+  unauthorizedErrorSchema,
+  forbiddenErrorSchema,
   sheetsErrorSchema,
   unavailableErrorSchema,
   dbUnavailableErrorSchema,
 } from './api.js'
 export type { ApiResult, BookingApiResult, NotificationResult, ValidationIssue } from './api.js'
+export {
+  ROLES,
+  roleSchema,
+  userPublicSchema,
+  loginRequestSchema,
+  changePasswordRequestSchema,
+  loginResponseSchema,
+  meResponseSchema,
+  logoutResponseSchema,
+  changePasswordResponseSchema,
+  stalePasswordConflictSchema,
+} from './auth.js'
+export type { Role, UserPublic, LoginRequest, ChangePasswordRequest } from './auth.js'
 export {
   sectionInputSchema,
   serviceInputSchema,

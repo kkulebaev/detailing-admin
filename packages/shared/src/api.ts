@@ -25,6 +25,19 @@ export const notFoundErrorSchema = z.object({
   error: z.literal('not_found'),
 })
 
+// 401 — no/invalid session. Verified statelessly (no DB read), so it is returned
+// even when Postgres is down.
+export const unauthorizedErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('unauthorized'),
+})
+
+// 403 — authenticated but the role lacks access to the resource.
+export const forbiddenErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('forbidden'),
+})
+
 export const sheetsErrorSchema = z.object({
   ok: z.literal(false),
   error: z.literal('sheets'),
