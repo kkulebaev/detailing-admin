@@ -1,0 +1,57 @@
+/* Boot splash styles. Loaded render-blocking from <head> (see index.html) so the
+   splash markup is styled from the first frame — before the app bundle and
+   globals.css load. Kept out of the app's CSS graph on purpose: it must apply
+   before Vue mounts, which is exactly when the imported globals.css is not there
+   yet. Colours mirror the light-theme tokens in globals.css (the app never
+   toggles a dark class). */
+
+/* Reserve the scrollbar gutter and drop the default body margin from the first
+   frame, so the splash occupies the same box the mounted pages do: no extra
+   scrollbar from `100vh + body margin`, and no horizontal jump on mount. */
+html {
+  scrollbar-gutter: stable;
+}
+html,
+body {
+  margin: 0;
+}
+
+#app-splash {
+  box-sizing: border-box;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: oklch(1 0 0);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+#app-splash .spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  border: 3px solid oklch(0.922 0 0);
+  border-top-color: oklch(0.205 0 0);
+  animation: app-splash-spin 0.7s linear infinite;
+}
+
+#app-splash .label {
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+  color: oklch(0.556 0 0);
+}
+
+@keyframes app-splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app-splash .spinner {
+    animation-duration: 2s;
+  }
+}

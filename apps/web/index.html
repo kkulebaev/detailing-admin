@@ -8,10 +8,22 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Render-blocking so the boot splash below is styled from the first frame,
+         before the app bundle / globals.css load. Styles live in the file, not
+         inline here. -->
+    <link rel="stylesheet" href="/splash.css" />
     <title>Dazzle Detailing</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- Boot splash: Vue replaces #app on mount. main.ts mounts only after the
+           initial navigation (auth `fetchMe`) settles, so this fills that gap
+           instead of a blank/flashing frame. -->
+      <div id="app-splash" role="status" aria-label="Загрузка">
+        <div class="spinner"></div>
+        <div class="label">Dazzle Detailing</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -22,4 +22,17 @@ setUnauthorizedHandler(() => {
   void router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
 })
 
-app.mount('#app')
+// Mount only after the initial navigation settles. Its guard awaits
+// `fetchMe()`, so the first paint is already the resolved route — without this
+// the app flashes the authenticated layout/sidebar for one frame (START
+// location has empty `meta`, so `App.vue` treats it as non-public) while
+// GET /api/auth/me is still in flight, then snaps to the bare /login page.
+async function mountWhenReady() {
+  try {
+    await router.isReady()
+  } finally {
+    app.mount('#app')
+  }
+}
+
+void mountWhenReady()
