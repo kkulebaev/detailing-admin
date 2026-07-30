@@ -17,7 +17,6 @@ import ServiceFormDialog from './ServiceFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -72,6 +71,7 @@ type DeleteTarget =
 const deleteDialogOpen = ref(false)
 const deleteTarget = ref<DeleteTarget | null>(null)
 const deleting = ref(false)
+const deleteError = ref<string | null>(null)
 
 const totalServices = computed(() =>
   sections.value.reduce((acc, s) => acc + s.services.length, 0),
@@ -112,11 +112,13 @@ function openEditService(svc: PricelistService) {
 
 function askDeleteSection(section: PricelistSection) {
   deleteTarget.value = { kind: 'section', id: section.id, name: section.name }
+  deleteError.value = null
   deleteDialogOpen.value = true
 }
 
 function askDeleteService(svc: PricelistService) {
   deleteTarget.value = { kind: 'service', id: svc.id, name: svc.name }
+  deleteError.value = null
   deleteDialogOpen.value = true
 }
 
@@ -131,7 +133,8 @@ function onDeleteDialogOpenChange(v: boolean) {
 
 async function confirmDelete() {
   const target = deleteTarget.value
-  if (!target) return
+  if (!target || deleting.value) return
+  deleteError.value = null
   deleting.value = true
   try {
     const result =
@@ -141,25 +144,29 @@ async function confirmDelete() {
 
     if (result.ok) {
       toast.success(target.kind === 'section' ? 'Раздел удалён' : 'Услуга удалена')
-      deleteTarget.value = null
       deleteDialogOpen.value = false
       await invalidatePricelist()
       return
     }
 
-    if (result.error === 'conflict' && result.reason === 'has_services') {
-      toast.error('Сначала удалите услуги из раздела')
-    } else if (result.error === 'not_found') {
+    if (result.error === 'not_found') {
+      // Already gone — the outcome the user wanted; close and refresh.
       toast.error('Запись уже удалена')
-      deleteTarget.value = null
       deleteDialogOpen.value = false
       await invalidatePricelist()
       return
-    } else if (result.error === 'unavailable') {
-      toast.error(result.message)
-    } else {
-      toast.error('Не удалось удалить')
     }
+
+    // Real failure — keep the dialog open and surface the reason inside it.
+    if (result.error === 'conflict' && result.reason === 'has_services') {
+      deleteError.value = 'Сначала удалите услуги из раздела'
+    } else if (result.error === 'unavailable') {
+      deleteError.value = result.message
+    } else {
+      deleteError.value = 'Не удалось удалить'
+    }
+  } catch {
+    deleteError.value = 'Не удалось удалить'
   } finally {
     deleting.value = false
   }
@@ -352,11 +359,16 @@ async function confirmDelete() {
             </template>
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <p v-if="deleteError" class="text-sm text-destructive">{{ deleteError }}</p>
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
-          <AlertDialogAction :disabled="deleting" @click="confirmDelete">
+          <!-- Plain Button (not AlertDialogAction) so the dialog stays open until
+               the request resolves. Deliberately NOT disabled: a disabled, focused
+               button makes reka-ui's focus scope lag the close by ~1s — a
+               re-entrancy guard in confirmDelete prevents double submits instead. -->
+          <Button @click="confirmDelete">
             {{ deleting ? 'Удаление…' : 'Удалить' }}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

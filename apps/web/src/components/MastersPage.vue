@@ -12,7 +12,6 @@ import MasterFormDialog from './MasterFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -60,6 +59,7 @@ const editing = ref<Master | null>(null)
 const deleteDialogOpen = ref(false)
 const deleteTarget = ref<Master | null>(null)
 const deleting = ref(false)
+const deleteError = ref<string | null>(null)
 
 const reordering = ref(false)
 
@@ -103,6 +103,7 @@ async function move(index: number, dir: -1 | 1) {
 
 function askDelete(master: Master) {
   deleteTarget.value = master
+  deleteError.value = null
   deleteDialogOpen.value = true
 }
 
@@ -112,29 +113,29 @@ function onDeleteDialogOpenChange(v: boolean) {
 
 async function confirmDelete() {
   const target = deleteTarget.value
-  if (!target) return
+  if (!target || deleting.value) return
+  deleteError.value = null
   deleting.value = true
   try {
     const result = await apiDeleteMaster(target.id)
     if (result.ok) {
       toast.success('Мастер удалён')
-      deleteTarget.value = null
       deleteDialogOpen.value = false
       await invalidateMasters()
       return
     }
     if (result.error === 'not_found') {
+      // Already gone — the outcome the user wanted; close and refresh.
       toast.error('Мастер уже удалён')
-      deleteTarget.value = null
       deleteDialogOpen.value = false
       await invalidateMasters()
       return
     }
-    if (result.error === 'unavailable') {
-      toast.error(result.message)
-    } else {
-      toast.error('Не удалось удалить мастера')
-    }
+    // Real failure — keep the dialog open and surface the reason inside it.
+    deleteError.value =
+      result.error === 'unavailable' ? result.message : 'Не удалось удалить мастера'
+  } catch {
+    deleteError.value = 'Не удалось удалить мастера'
   } finally {
     deleting.value = false
   }
@@ -255,11 +256,16 @@ async function confirmDelete() {
             </template>
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <p v-if="deleteError" class="text-sm text-destructive">{{ deleteError }}</p>
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
-          <AlertDialogAction :disabled="deleting" @click="confirmDelete">
+          <!-- Plain Button (not AlertDialogAction) so the dialog stays open until
+               the request resolves. Deliberately NOT disabled: a disabled, focused
+               button makes reka-ui's focus scope lag the close by ~1s — a
+               re-entrancy guard in confirmDelete prevents double submits instead. -->
+          <Button @click="confirmDelete">
             {{ deleting ? 'Удаление…' : 'Удалить' }}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
