@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseDdmmyyyy } from '../src/date.js'
+import { parseDdmmyyyy, ddmmyyyyToIso } from '../src/date.js'
 
 describe('parseDdmmyyyy', () => {
   it('parses 30.12.2025 to correct UTC date', () => {
@@ -25,5 +25,17 @@ describe('parseDdmmyyyy', () => {
 
   it('throws on non-numeric input', () => {
     expect(() => parseDdmmyyyy('aa.bb.cccc')).toThrow()
+  })
+})
+
+describe('ddmmyyyyToIso', () => {
+  it('rearranges DD.MM.YYYY to YYYY-MM-DD without timezone drift', () => {
+    expect(ddmmyyyyToIso('04.06.2026')).toBe('2026-06-04')
+    expect(ddmmyyyyToIso('31.12.2025')).toBe('2025-12-31')
+  })
+
+  it('throws on an invalid date rather than emitting a bad ISO string', () => {
+    expect(() => ddmmyyyyToIso('32.01.2026')).toThrow()
+    expect(() => ddmmyyyyToIso('01.13.2026')).toThrow()
   })
 })
