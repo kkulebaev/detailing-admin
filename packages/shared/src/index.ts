@@ -10,8 +10,16 @@ export {
   bookingRowSchema,
   bookingsListOkSchema,
   bookingsListResponseSchema,
+  bookingMutationOkSchema,
+  bookingMutationResponseSchema,
+  bookingDeleteResponseSchema,
 } from './booking-row.js'
-export type { BookingRow, BookingsListResponse } from './booking-row.js'
+export type {
+  BookingRow,
+  BookingsListResponse,
+  BookingMutationResponse,
+  BookingDeleteResponse,
+} from './booking-row.js'
 export {
   bookingApiResultSchema,
   notificationResultSchema,

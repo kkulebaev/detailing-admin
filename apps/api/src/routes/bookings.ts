@@ -5,10 +5,12 @@ import { bookingSchema } from '@detailing-admin/shared/booking'
 import { bookingToRow } from '@detailing-admin/shared/sheet-row'
 import {
   StatusCodes,
+  bookingMutationOkSchema,
   bookingsListOkSchema,
   dbUnavailableErrorSchema,
   ddmmyyyyToIso,
   internalErrorSchema,
+  notFoundErrorSchema,
   sheetsErrorSchema,
   unavailableErrorSchema,
   validationErrorSchema,
@@ -23,7 +25,7 @@ import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
-import { insertBooking, listBookings } from '../db/bookings.js'
+import { deleteBooking, insertBooking, listBookings, updateBooking } from '../db/bookings.js'
 import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
@@ -115,6 +117,73 @@ const getBookingsRoute = createRoute({
     400: {
       description: 'Validation error',
       content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+const idParamSchema = z.object({
+  id: z.string().uuid(),
+})
+
+const deleteOkSchema = z.object({ ok: z.literal(true) })
+
+const patchBookingRoute = createRoute({
+  method: 'patch',
+  path: '/{id}',
+  tags: ['bookings'],
+  request: {
+    params: idParamSchema,
+    body: { content: { 'application/json': { schema: bookingSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Booking updated',
+      content: { 'application/json': { schema: bookingMutationOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    404: {
+      description: 'Booking not found',
+      content: { 'application/json': { schema: notFoundErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+const deleteBookingRoute = createRoute({
+  method: 'delete',
+  path: '/{id}',
+  tags: ['bookings'],
+  request: { params: idParamSchema },
+  responses: {
+    200: {
+      description: 'Booking deleted',
+      content: { 'application/json': { schema: deleteOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    404: {
+      description: 'Booking not found',
+      content: { 'application/json': { schema: notFoundErrorSchema } },
     },
     500: {
       description: 'Internal server error',
@@ -417,6 +486,111 @@ router.openapi(
           status: 500,
         },
         'Bookings query failed',
+      )
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    }
+  },
+  defaultValidationHook,
+)
+
+router.openapi(
+  patchBookingRoute,
+  async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) {
+      return c.json(
+        {
+          ok: false as const,
+          error: 'unavailable' as const,
+          reason: 'not_configured' as const,
+          message: 'Database not configured or migrations failed',
+        },
+        StatusCodes.SERVICE_UNAVAILABLE,
+      )
+    }
+
+    const { id } = c.req.valid('param')
+    const booking = c.req.valid('json')
+    try {
+      // Re-link the client (phone may have changed); best-effort — null on an
+      // empty/unnormalizable phone or a transient upsert failure (the snapshot
+      // name/phone still get updated).
+      let clientId: string | null = null
+      try {
+        const up = await upsertClient(booking.phone, booking.name)
+        clientId = up.client?.id ?? null
+      } catch {
+        /* keep null */
+      }
+      const updated = await updateBooking(id, booking, clientId)
+      if (!updated) {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      const { idempotencyKey: _idempotencyKey, createdAt, ...rest } = updated
+      baseLogger.info(
+        { event: 'bookings.update', request_id: requestId, booking_id: id, status: 200 },
+        'Booking updated',
+      )
+      return c.json(
+        { ok: true as const, booking: { ...rest, createdAt: createdAt.toISOString() } },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      baseLogger.error(
+        {
+          event: 'bookings.update.error',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+          status: 500,
+        },
+        'Booking update failed',
+      )
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    }
+  },
+  defaultValidationHook,
+)
+
+router.openapi(
+  deleteBookingRoute,
+  async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) {
+      return c.json(
+        {
+          ok: false as const,
+          error: 'unavailable' as const,
+          reason: 'not_configured' as const,
+          message: 'Database not configured or migrations failed',
+        },
+        StatusCodes.SERVICE_UNAVAILABLE,
+      )
+    }
+
+    const { id } = c.req.valid('param')
+    try {
+      const deleted = await deleteBooking(id)
+      if (!deleted) {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      baseLogger.info(
+        { event: 'bookings.delete', request_id: requestId, booking_id: id, status: 200 },
+        'Booking deleted',
+      )
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      baseLogger.error(
+        {
+          event: 'bookings.delete.error',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+          status: 500,
+        },
+        'Booking delete failed',
       )
       return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
     }

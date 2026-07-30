@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { dbUnavailableErrorSchema, internalErrorSchema, validationErrorSchema } from './api.js'
+import {
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+  notFoundErrorSchema,
+  validationErrorSchema,
+} from './api.js'
 
 // Wire shape of a stored booking as returned by `GET /api/bookings`. Mirrors the
 // `bookings` table minus the internal `idempotencyKey`. Dates are ISO strings
@@ -45,3 +50,24 @@ export const bookingsListResponseSchema = z.union([
 ])
 
 export type BookingsListResponse = z.infer<typeof bookingsListResponseSchema>
+
+export const bookingMutationOkSchema = z.object({ ok: z.literal(true), booking: bookingRowSchema })
+
+export const bookingMutationResponseSchema = z.union([
+  bookingMutationOkSchema,
+  validationErrorSchema,
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export type BookingMutationResponse = z.infer<typeof bookingMutationResponseSchema>
+
+export const bookingDeleteResponseSchema = z.union([
+  z.object({ ok: z.literal(true) }),
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export type BookingDeleteResponse = z.infer<typeof bookingDeleteResponseSchema>

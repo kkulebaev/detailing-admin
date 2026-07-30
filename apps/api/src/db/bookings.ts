@@ -15,10 +15,11 @@ export interface BookingWriteMeta {
   sheetRange: string | null
 }
 
-export function bookingToDbRow(b: WireBooking, meta: BookingWriteMeta): NewBooking {
+/** The booking's user-editable columns (everything except the internal
+ * idempotency/client/sheet linkage). Shared by insert and update so both map the
+ * wire booking the same way. */
+function mapEditableFields(b: WireBooking) {
   return {
-    idempotencyKey: meta.idempotencyKey,
-    clientId: meta.clientId,
     name: b.name,
     phone: b.phone,
     car: b.car,
@@ -37,8 +38,16 @@ export function bookingToDbRow(b: WireBooking, meta: BookingWriteMeta): NewBooki
     master: b.master,
     responsible: b.responsible,
     carClass: b.carClass,
+  }
+}
+
+export function bookingToDbRow(b: WireBooking, meta: BookingWriteMeta): NewBooking {
+  return {
+    idempotencyKey: meta.idempotencyKey,
+    clientId: meta.clientId,
     sheetRow: meta.sheetRow,
     sheetRange: meta.sheetRange,
+    ...mapEditableFields(b),
   }
 }
 
@@ -53,6 +62,30 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
     .onConflictDoNothing({ target: bookings.idempotencyKey })
     .returning({ id: bookings.id })
   return inserted.length > 0
+}
+
+/** Update a booking's editable fields (and re-linked client). Leaves the
+ * idempotency key and Sheets linkage untouched. Returns the updated row, or null
+ * if no booking has that id. */
+export async function updateBooking(
+  id: string,
+  b: WireBooking,
+  clientId: string | null,
+): Promise<Booking | null> {
+  const db = getDb()
+  const [row] = await db
+    .update(bookings)
+    .set({ ...mapEditableFields(b), clientId })
+    .where(eq(bookings.id, id))
+    .returning()
+  return row ?? null
+}
+
+/** Delete a booking by id. Returns false if no row matched. */
+export async function deleteBooking(id: string): Promise<boolean> {
+  const db = getDb()
+  const res = await db.delete(bookings).where(eq(bookings.id, id)).returning({ id: bookings.id })
+  return res.length > 0
 }
 
 export interface ListBookingsParams {

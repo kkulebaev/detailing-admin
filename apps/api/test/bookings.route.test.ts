@@ -47,6 +47,8 @@ vi.mock('../src/db/clients.js', () => ({
 vi.mock('../src/db/bookings.js', () => ({
   insertBooking: vi.fn(),
   listBookings: vi.fn(),
+  updateBooking: vi.fn(),
+  deleteBooking: vi.fn(),
 }))
 
 vi.mock('../src/notify.js', () => ({
@@ -63,7 +65,7 @@ import {
   isDbReady,
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
-import { insertBooking, listBookings } from '../src/db/bookings.js'
+import { insertBooking, listBookings, updateBooking, deleteBooking } from '../src/db/bookings.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
@@ -564,6 +566,111 @@ describe('GET /api/bookings', () => {
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toBe('validation')
+  })
+})
+
+describe('PATCH & DELETE /api/bookings/{id}', () => {
+  let app: ReturnType<typeof createApp>
+  let cookie = ''
+  const ID = '4f6d8b2a-1c3e-4a5b-9d7f-0e1a2b3c4d5e'
+  const UPDATED_ROW = {
+    id: ID,
+    idempotencyKey: 'key-1',
+    clientId: null,
+    name: 'Иван',
+    phone: '+79991234567',
+    car: 'Toyota Camry',
+    service: 'Полировка',
+    note: '',
+    amount: 7000,
+    amountFormula: null,
+    dateFrom: '2026-06-04',
+    dateTo: null,
+    timeFrom: '10:00',
+    timeTo: null,
+    readiness: 'Готова к выдаче',
+    master: 'Иван Содель',
+    responsible: 'Иван Содель',
+    carClass: 3,
+    sheetRow: 5,
+    sheetRange: 'Запись 2026!A5',
+    createdAt: new Date('2026-06-01T12:00:00.000Z'),
+  }
+
+  beforeEach(async () => {
+    app = createApp()
+    cookie = await adminCookie()
+    vi.mocked(isDbReady).mockReturnValue(true)
+    vi.mocked(upsertClient).mockResolvedValue({ outcome: 'updated', client: null })
+    vi.mocked(updateBooking).mockResolvedValue(UPDATED_ROW)
+    vi.mocked(deleteBooking).mockResolvedValue(true)
+  })
+
+  const patch = (body: unknown, headers: Record<string, string> = { Cookie: cookie }) =>
+    app.request(`/api/bookings/${ID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    })
+  const del = (headers: Record<string, string> = { Cookie: cookie }) =>
+    app.request(`/api/bookings/${ID}`, { method: 'DELETE', headers })
+
+  it('PATCH updates a booking for admin → 200 with the updated row (no idempotency key)', async () => {
+    const res = await patch(VALID_PAYLOAD)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.booking.id).toBe(ID)
+    expect(body.booking.amount).toBe(7000)
+    expect(body.booking.idempotencyKey).toBeUndefined()
+    expect(vi.mocked(updateBooking)).toHaveBeenCalled()
+  })
+
+  it('PATCH a missing booking → 404', async () => {
+    vi.mocked(updateBooking).mockResolvedValue(null)
+    const res = await patch(VALID_PAYLOAD)
+    expect(res.status).toBe(404)
+    expect((await res.json()).error).toBe('not_found')
+  })
+
+  it('PATCH with an invalid body → 400', async () => {
+    const res = await patch({ ...VALID_PAYLOAD, time: '99:99' })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('validation')
+  })
+
+  it('PATCH from a non-admin role → 403 (writes stay admin-only)', async () => {
+    const res = await patch(VALID_PAYLOAD, { Cookie: await employeeCookie() })
+    expect(res.status).toBe(403)
+    expect(vi.mocked(updateBooking)).not.toHaveBeenCalled()
+  })
+
+  it('PATCH returns 503 when DB is not ready', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    expect((await patch(VALID_PAYLOAD)).status).toBe(503)
+  })
+
+  it('DELETE removes a booking for admin → 200', async () => {
+    const res = await del()
+    expect(res.status).toBe(200)
+    expect((await res.json()).ok).toBe(true)
+    expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID)
+  })
+
+  it('DELETE a missing booking → 404', async () => {
+    vi.mocked(deleteBooking).mockResolvedValue(false)
+    expect((await del()).status).toBe(404)
+  })
+
+  it('DELETE from a non-admin role → 403', async () => {
+    const res = await del({ Cookie: await employeeCookie() })
+    expect(res.status).toBe(403)
+    expect(vi.mocked(deleteBooking)).not.toHaveBeenCalled()
+  })
+
+  it('DELETE returns 503 when DB is not ready', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    expect((await del()).status).toBe(503)
   })
 })
 
