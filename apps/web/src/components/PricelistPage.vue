@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Pencil, Plus, Trash2 } from '@lucide/vue'
+import { Info, Pencil, Plus, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   deleteSection as apiDeleteSection,
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -208,7 +209,7 @@ async function confirmDelete() {
           <colgroup>
             <col class="w-72" />
             <col v-for="c in CLASS_COLUMNS" :key="c" class="w-36" />
-            <col class="hidden md:table-column" />
+            <col class="w-16 md:w-auto" />
             <col class="w-24" />
           </colgroup>
           <TableHeader class="bg-muted/50">
@@ -217,7 +218,10 @@ async function confirmDelete() {
               <TableHead v-for="c in CLASS_COLUMNS" :key="c" class="px-4 text-right">
                 {{ CLASS_LABELS[c] }}
               </TableHead>
-              <TableHead class="hidden px-4 md:table-cell">Примечание</TableHead>
+              <TableHead class="px-4 text-center md:text-left">
+                <span class="hidden md:inline">Примечание</span>
+                <span class="md:hidden">Прим.</span>
+              </TableHead>
               <TableHead class="px-4 text-right">Действия</TableHead>
             </TableRow>
           </TableHeader>
@@ -228,7 +232,7 @@ async function confirmDelete() {
                 <TableCell v-for="c in CLASS_COLUMNS" :key="c" class="px-4 text-right">
                   <Skeleton class="h-4 w-24 ml-auto" />
                 </TableCell>
-                <TableCell class="hidden px-4 md:table-cell"><Skeleton class="h-4 w-40" /></TableCell>
+                <TableCell class="px-4"><Skeleton class="h-4 w-8 md:w-40" /></TableCell>
                 <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
               </TableRow>
             </template>
@@ -296,8 +300,27 @@ async function confirmDelete() {
                 >
                   {{ formatClassPrice(svc, c) }}
                 </TableCell>
-                <TableCell class="hidden px-4 text-xs text-muted-foreground whitespace-pre-line md:table-cell">
-                  {{ svc.description || '' }}
+                <TableCell class="px-4 text-xs text-muted-foreground whitespace-pre-line">
+                  <span class="hidden md:inline">{{ svc.description || '' }}</span>
+                  <div class="flex justify-center md:hidden">
+                    <Popover v-if="svc.description">
+                      <PopoverTrigger as-child>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          :aria-label="`Примечание к услуге ${svc.name}`"
+                        >
+                          <Info class="size-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="center"
+                        class="w-64 text-xs text-muted-foreground whitespace-pre-line"
+                      >
+                        {{ svc.description }}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </TableCell>
                 <TableCell class="px-4 text-right">
                   <div class="inline-flex gap-1">
