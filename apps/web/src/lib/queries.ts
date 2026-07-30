@@ -60,3 +60,8 @@ export function useBookingsQuery(params: Ref<GetApiBookingsParams>) {
     placeholderData: (previous) => previous,
   })
 }
+
+export function useInvalidateBookings() {
+  const cache = useQueryCache()
+  return () => cache.invalidateQueries({ key: BOOKINGS_KEY })
+}

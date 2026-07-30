@@ -1,15 +1,26 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { refDebounced } from '@vueuse/core'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Search, SearchX, X } from '@lucide/vue'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
+import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate, getLocalTimeZone, today } from '@internationalized/date'
 import { READINESS, type BookingRow } from '@detailing-admin/shared'
-import type { GetApiBookingsParams } from '@/lib/bookings-api'
-import { useBookingsQuery, useMastersQuery } from '@/lib/queries'
+import { deleteBooking, type GetApiBookingsParams } from '@/lib/bookings-api'
+import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
+import BookingEditDialog from './BookingEditDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -52,7 +63,67 @@ const ALL = '__all__'
 // The «Сумма» column is admin-only; the API also omits `amount` for non-admins.
 const auth = useAuthStore()
 const isAdmin = computed(() => auth.user?.role === 'admin')
-const columnCount = computed(() => (isAdmin.value ? 11 : 10))
+// admin: +«Сумма» +«Действия» over the employee base of 10.
+const columnCount = computed(() => (isAdmin.value ? 12 : 10))
+
+const invalidateBookings = useInvalidateBookings()
+
+const editDialogOpen = ref(false)
+const editTarget = ref<BookingRow | null>(null)
+
+const deleteDialogOpen = ref(false)
+const deleteTarget = ref<BookingRow | null>(null)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+function openEdit(row: BookingRow) {
+  editTarget.value = row
+  editDialogOpen.value = true
+}
+
+async function onEditSaved() {
+  await invalidateBookings()
+}
+
+function askDelete(row: BookingRow) {
+  deleteTarget.value = row
+  deleteError.value = null
+  deleteDialogOpen.value = true
+}
+
+function onDeleteDialogOpenChange(v: boolean) {
+  deleteDialogOpen.value = v
+}
+
+async function confirmDelete() {
+  const target = deleteTarget.value
+  if (!target || deleting.value) return
+  deleteError.value = null
+  deleting.value = true
+  try {
+    const result = await deleteBooking(target.id)
+    if (result.ok) {
+      toast.success('Запись удалена')
+      deleteDialogOpen.value = false
+      await invalidateBookings()
+      return
+    }
+    if (result.error === 'not_found') {
+      // Already gone — the outcome the user wanted; close and refresh.
+      toast.error('Запись уже удалена')
+      deleteDialogOpen.value = false
+      await invalidateBookings()
+      return
+    }
+    // Real failure — keep the dialog open and surface the reason inside it.
+    deleteError.value =
+      result.error === 'unavailable' ? result.message : 'Не удалось удалить запись'
+  } catch {
+    deleteError.value = 'Не удалось удалить запись'
+  } finally {
+    deleting.value = false
+  }
+}
 
 // ── Filter state ──────────────────────────────────────────────────────────────
 // shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
@@ -416,6 +487,7 @@ function formatAmount(n: number): string {
           <col class="w-40" />
           <col class="w-40" />
           <col class="w-48" />
+          <col v-if="isAdmin" class="w-24" />
         </colgroup>
         <TableHeader class="sticky top-0 z-10 bg-muted">
             <TableRow>
@@ -432,6 +504,7 @@ function formatAmount(n: number): string {
               <TableHead class="px-4">Мастер</TableHead>
               <TableHead class="px-4">Ответственный</TableHead>
               <TableHead class="px-4">Примечание</TableHead>
+              <TableHead v-if="isAdmin" class="px-4 text-right">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -509,6 +582,26 @@ function formatAmount(n: number): string {
               <TableCell class="px-4 align-top whitespace-normal text-muted-foreground">
                 {{ row.note || '—' }}
               </TableCell>
+              <TableCell v-if="isAdmin" class="px-4 align-top text-right">
+                <div class="inline-flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Редактировать запись ${row.name || row.phone}`"
+                    @click="openEdit(row)"
+                  >
+                    <Pencil class="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Удалить запись ${row.name || row.phone}`"
+                    @click="askDelete(row)"
+                  >
+                    <Trash2 class="size-3.5" />
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
           </TableBody>
       </Table>
@@ -546,5 +639,36 @@ function formatAmount(n: number): string {
         </div>
       </div>
     </div>
+
+    <BookingEditDialog
+      v-model:open="editDialogOpen"
+      :booking="editTarget"
+      @saved="onEditSaved"
+    />
+
+    <AlertDialog :open="deleteDialogOpen" @update:open="onDeleteDialogOpenChange">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удалить запись?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <template v-if="deleteTarget">
+              Запись «{{ deleteTarget.name || deleteTarget.phone }}» на
+              {{ formatDateCell(deleteTarget) }} будет удалена. Действие нельзя отменить
+            </template>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <p v-if="deleteError" class="text-sm text-destructive">{{ deleteError }}</p>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
+          <!-- Plain Button (not AlertDialogAction) so the dialog stays open until
+               the request resolves. Deliberately NOT disabled: a disabled, focused
+               button makes reka-ui's focus scope lag the close by ~1s — a
+               re-entrancy guard in confirmDelete prevents double submits instead. -->
+          <Button @click="confirmDelete">
+            {{ deleting ? 'Удаление…' : 'Удалить' }}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
