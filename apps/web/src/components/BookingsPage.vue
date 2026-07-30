@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { refDebounced } from '@vueuse/core'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Search, SearchX, X } from '@lucide/vue'
 import type { DateValue } from 'reka-ui'
@@ -167,10 +167,26 @@ const total = computed(() => {
   return r?.ok ? r.total : 0
 })
 
-// Skeleton only on the very first load — background refetches keep rows visible.
+// Skeleton only on the very first load — background refetches keep the previous
+// rows visible (placeholderData in useBookingsQuery), so `loading` is false then.
 const loading = computed(
   () => asyncStatus.value === 'loading' && queryData.value === undefined,
 )
+
+// Delay the skeleton so a fast first load doesn't flash it — only show it if the
+// initial load is genuinely slow (>200ms).
+const showSkeleton = ref(false)
+let skeletonTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  loading,
+  (isLoading) => {
+    clearTimeout(skeletonTimer)
+    if (isLoading) skeletonTimer = setTimeout(() => (showSkeleton.value = true), 200)
+    else showSkeleton.value = false
+  },
+  { immediate: true },
+)
+onUnmounted(() => clearTimeout(skeletonTimer))
 
 const error = computed<string | null>(() => {
   if (queryError.value) return 'Сетевая ошибка при загрузке записей'
@@ -419,7 +435,7 @@ function formatAmount(n: number): string {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <template v-if="loading">
+            <template v-if="showSkeleton">
               <TableRow v-for="i in 8" :key="i">
                 <TableCell v-for="c in columnCount" :key="c" class="px-4">
                   <Skeleton class="h-4 w-full" />
@@ -427,7 +443,7 @@ function formatAmount(n: number): string {
               </TableRow>
             </template>
             <TableEmpty
-              v-else-if="items.length === 0"
+              v-else-if="!loading && items.length === 0"
               :colspan="columnCount"
               class="whitespace-normal"
             >

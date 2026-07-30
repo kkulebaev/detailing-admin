@@ -55,5 +55,8 @@ export function useBookingsQuery(params: Ref<GetApiBookingsParams>) {
   return useQuery({
     key: () => [...BOOKINGS_KEY, params.value],
     query: () => fetchBookings(params.value),
+    // Keep the previous page/filter's rows on screen while the next request is
+    // in flight, so fast refetches don't flash the loading skeleton.
+    placeholderData: (previous) => previous,
   })
 }
