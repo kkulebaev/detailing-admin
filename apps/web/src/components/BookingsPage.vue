@@ -253,14 +253,14 @@ function formatAmount(n: number): string {
 </script>
 
 <template>
-  <div class="min-h-svh bg-background text-foreground p-4 sm:p-8">
-    <div>
-      <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div class="flex h-svh flex-col bg-background text-foreground p-4 sm:p-8">
+    <div class="flex min-h-0 flex-1 flex-col">
+      <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Записи</h1>
       </header>
 
       <!-- Filters -->
-      <div class="mb-4 flex flex-wrap items-end gap-3">
+      <div class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">Месяц</span>
           <Select v-model="monthValue">
@@ -374,14 +374,16 @@ function formatAmount(n: number): string {
         </Button>
       </div>
 
-      <Alert v-if="error" variant="destructive">
+      <Alert v-if="error" variant="destructive" class="shrink-0">
         <AlertTitle>Не удалось загрузить записи</AlertTitle>
         <AlertDescription>{{ error }}</AlertDescription>
       </Alert>
 
-      <div v-else class="overflow-x-auto rounded-md border border-border">
-        <Table>
-          <TableHeader class="bg-muted/50">
+      <Table
+        v-else
+        container-class="min-h-0 flex-1 rounded-md border border-border"
+      >
+        <TableHeader class="sticky top-0 z-10 bg-muted">
             <TableRow>
               <TableHead class="px-4 whitespace-nowrap">Дата</TableHead>
               <TableHead class="px-4 whitespace-nowrap">Время</TableHead>
@@ -482,13 +484,12 @@ function formatAmount(n: number): string {
               </TableCell>
             </TableRow>
           </TableBody>
-        </Table>
-      </div>
+      </Table>
 
       <!-- Pagination -->
       <div
         v-if="!error"
-        class="mt-4 flex flex-wrap items-center justify-between gap-3"
+        class="mt-4 shrink-0 flex flex-wrap items-center justify-between gap-3"
       >
         <p class="text-sm text-muted-foreground tabular-nums">
           <template v-if="total > 0">
