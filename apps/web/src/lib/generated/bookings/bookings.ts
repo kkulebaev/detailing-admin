@@ -22,6 +22,12 @@ import type {
   PatchApiBookingsId500,
   PatchApiBookingsId503,
   PatchApiBookingsIdBody,
+  PatchApiBookingsIdReadiness200,
+  PatchApiBookingsIdReadiness400,
+  PatchApiBookingsIdReadiness404,
+  PatchApiBookingsIdReadiness500,
+  PatchApiBookingsIdReadiness503,
+  PatchApiBookingsIdReadinessBody,
   PostApiBookings201,
   PostApiBookings400,
   PostApiBookings500,
@@ -247,6 +253,61 @@ export const deleteApiBookingsId = async (id: string, options?: RequestInit): Pr
     method: 'DELETE'
 
 
+  }
+);}
+
+
+export type patchApiBookingsIdReadinessResponse200 = {
+  data: PatchApiBookingsIdReadiness200
+  status: 200
+}
+
+export type patchApiBookingsIdReadinessResponse400 = {
+  data: PatchApiBookingsIdReadiness400
+  status: 400
+}
+
+export type patchApiBookingsIdReadinessResponse404 = {
+  data: PatchApiBookingsIdReadiness404
+  status: 404
+}
+
+export type patchApiBookingsIdReadinessResponse500 = {
+  data: PatchApiBookingsIdReadiness500
+  status: 500
+}
+
+export type patchApiBookingsIdReadinessResponse503 = {
+  data: PatchApiBookingsIdReadiness503
+  status: 503
+}
+
+export type patchApiBookingsIdReadinessResponseSuccess = (patchApiBookingsIdReadinessResponse200) & {
+  headers: Headers;
+};
+export type patchApiBookingsIdReadinessResponseError = (patchApiBookingsIdReadinessResponse400 | patchApiBookingsIdReadinessResponse404 | patchApiBookingsIdReadinessResponse500 | patchApiBookingsIdReadinessResponse503) & {
+  headers: Headers;
+};
+
+export type patchApiBookingsIdReadinessResponse = (patchApiBookingsIdReadinessResponseSuccess | patchApiBookingsIdReadinessResponseError)
+
+export const getPatchApiBookingsIdReadinessUrl = (id: string,) => {
+
+
+
+
+  return `/api/bookings/${id}/readiness`
+}
+
+export const patchApiBookingsIdReadiness = async (id: string,
+    patchApiBookingsIdReadinessBody?: PatchApiBookingsIdReadinessBody, options?: RequestInit): Promise<patchApiBookingsIdReadinessResponse> => {
+
+  return orvalFetch<patchApiBookingsIdReadinessResponse>(getPatchApiBookingsIdReadinessUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(patchApiBookingsIdReadinessBody)
   }
 );}
 
