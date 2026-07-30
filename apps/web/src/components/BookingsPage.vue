@@ -3,6 +3,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { refDebounced } from '@vueuse/core'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Search, SearchX, X } from '@lucide/vue'
 import type { DateValue } from 'reka-ui'
+import { CalendarDate, getLocalTimeZone, today } from '@internationalized/date'
 import { READINESS, type BookingRow } from '@detailing-admin/shared'
 import type { GetApiBookingsParams } from '@/lib/bookings-api'
 import { useBookingsQuery, useMastersQuery } from '@/lib/queries'
@@ -78,6 +79,62 @@ function calToDdmmyyyy(d: DateValue): string {
   const mm = String(d.month).padStart(2, '0')
   return `${dd}.${mm}.${d.year}`
 }
+
+// ── Month quick-filter ──────────────────────────────────────────────────────
+// A convenience over the two date pickers: picking a month sets the range to its
+// first…last day; the pickers stay the single source of truth (manually tweaking
+// them shows «Свой период» in the month select).
+const MONTH_NAMES = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+]
+const MONTH_CUSTOM = '__custom__'
+
+// Rolling window: 1 month ahead down to 12 back, newest first.
+const monthOptions = (() => {
+  const anchor = today(getLocalTimeZone())
+  const first = new CalendarDate(anchor.year, anchor.month, 1)
+  const opts: { value: string; label: string }[] = []
+  for (let i = 1; i >= -12; i--) {
+    const d = first.add({ months: i })
+    opts.push({
+      value: `${d.year}-${String(d.month).padStart(2, '0')}`,
+      label: `${MONTH_NAMES[d.month - 1]} ${d.year}`,
+    })
+  }
+  return opts
+})()
+
+function lastDayOfMonth(year: number, month1: number): number {
+  return new Date(year, month1, 0).getDate()
+}
+
+// Returns the `YYYY-MM` key when the current range spans exactly one whole month.
+function monthKeyOf(from?: DateValue, to?: DateValue): string | null {
+  if (!from || !to) return null
+  if (from.day !== 1 || from.year !== to.year || from.month !== to.month) return null
+  if (to.day !== lastDayOfMonth(to.year, to.month)) return null
+  return `${from.year}-${String(from.month).padStart(2, '0')}`
+}
+
+const monthValue = computed<string>({
+  get() {
+    const key = monthKeyOf(dateFromCal.value, dateToCal.value)
+    if (key) return key
+    return dateFromCal.value || dateToCal.value ? MONTH_CUSTOM : ALL
+  },
+  set(value) {
+    if (value === MONTH_CUSTOM) return
+    if (value === ALL) {
+      dateFromCal.value = undefined
+      dateToCal.value = undefined
+      return
+    }
+    const [y, m] = value.split('-').map(Number)
+    dateFromCal.value = new CalendarDate(y, m, 1)
+    dateToCal.value = new CalendarDate(y, m, lastDayOfMonth(y, m))
+  },
+})
 
 const params = computed<GetApiBookingsParams>(() => ({
   limit: LIMIT,
@@ -204,6 +261,21 @@ function formatAmount(n: number): string {
 
       <!-- Filters -->
       <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div class="flex flex-col gap-1">
+          <span class="text-xs text-muted-foreground">Месяц</span>
+          <Select v-model="monthValue">
+            <SelectTrigger size="sm" class="w-44">
+              <SelectValue placeholder="Свой период" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem :value="ALL">Все месяцы</SelectItem>
+              <SelectItem v-for="mo in monthOptions" :key="mo.value" :value="mo.value">
+                {{ mo.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">С даты</span>
           <Popover v-model:open="dateFromOpen">
