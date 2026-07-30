@@ -1,5 +1,7 @@
 // Creates an auth account. Usage:
 //   pnpm --filter @detailing-admin/api user:create --login <login> --role <admin|employee>
+//     [--first-name <name>] [--last-name <surname>]
+// Name flags are optional (the user can fill them in later on the profile page).
 // Prompts for the password (hidden). Prod: `railway run pnpm --filter
 // @detailing-admin/api user:create --login <admin> --role admin`.
 import { ROLES } from '@detailing-admin/shared'
@@ -9,6 +11,8 @@ loadLocalEnv()
 
 const login = getArg('login')
 const role = getArg('role')
+const firstName = getArg('first-name') ?? ''
+const lastName = getArg('last-name') ?? ''
 
 if (!login) fail('Missing --login')
 if (!role || !ROLES.includes(role as (typeof ROLES)[number])) {
@@ -27,7 +31,13 @@ const { closeDb } = await import('../src/db/client.js')
 
 try {
   const passwordHash = await hashPassword(password)
-  const user = await createUser({ login, passwordHash, role: role as (typeof ROLES)[number] })
+  const user = await createUser({
+    login,
+    passwordHash,
+    role: role as (typeof ROLES)[number],
+    firstName,
+    lastName,
+  })
   console.log(`✓ Created user '${user.login}' (role=${user.role}, id=${user.id})`)
 } catch (err) {
   if (err instanceof UserError && err.code === 'duplicate_login') {

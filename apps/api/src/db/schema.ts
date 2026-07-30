@@ -9,6 +9,10 @@ export const users = pgTable('users', {
   login: varchar('login', { length: 64 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 16 }).notNull(),
+  // Default '' so the migration is safe for pre-existing rows; the user fills
+  // these in on the profile page (or the CLI seeds them at creation).
+  firstName: varchar('first_name', { length: 120 }).notNull().default(''),
+  lastName: varchar('last_name', { length: 120 }).notNull().default(''),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   passwordChangedAt: timestamp('password_changed_at').notNull().defaultNow(),
 })

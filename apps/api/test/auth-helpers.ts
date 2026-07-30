@@ -19,9 +19,25 @@ async function cookieFor(claims: AuthTokenClaims): Promise<string> {
 }
 
 export function adminCookie(over: Partial<AuthTokenClaims> = {}): Promise<string> {
-  return cookieFor({ sub: 'u-admin', login: 'admin', role: 'admin', pwdChangedAt: 0, ...over })
+  return cookieFor({
+    sub: 'u-admin',
+    login: 'admin',
+    role: 'admin',
+    firstName: '',
+    lastName: '',
+    pwdChangedAt: 0,
+    ...over,
+  })
 }
 
 export function employeeCookie(over: Partial<AuthTokenClaims> = {}): Promise<string> {
-  return cookieFor({ sub: 'u-emp', login: 'emp', role: 'employee', pwdChangedAt: 0, ...over })
+  return cookieFor({
+    sub: 'u-emp',
+    login: 'emp',
+    role: 'employee',
+    firstName: '',
+    lastName: '',
+    pwdChangedAt: 0,
+    ...over,
+  })
 }

@@ -9,11 +9,12 @@ import {
   loginRequestSchema,
   stalePasswordConflictSchema,
   unauthorizedErrorSchema,
+  updateProfileRequestSchema,
   userPublicSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
-import { findByLogin, updatePasswordHash } from '../db/users.js'
+import { findByLogin, updatePasswordHash, updateProfile } from '../db/users.js'
 import { dummyVerify, hashPassword, verifyPassword } from '../auth/password.js'
 import { signToken, verifyToken } from '../auth/jwt.js'
 import { setAuthCookie, clearAuthCookie, getAuthToken } from '../auth/cookie.js'
@@ -106,6 +107,22 @@ const changePasswordRoute = createRoute({
   },
 })
 
+const updateProfileRoute = createRoute({
+  method: 'patch',
+  path: '/me',
+  tags: ['auth'],
+  request: {
+    body: { content: { 'application/json': { schema: updateProfileRequestSchema } } },
+  },
+  responses: {
+    200: { description: 'Profile updated', content: { 'application/json': { schema: userOk } } },
+    400: respValidation,
+    401: respUnauthorized,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
 // Auth responses must never be cached (a stale /me could leak a prior session).
@@ -118,6 +135,12 @@ router.use('/*', async (c, next) => {
 // so it wraps that handler; chaining `.use()` mid-`.openapi()` would widen the
 // type to plain Hono and drop `.openapi()` (same reason server.ts builds imperatively).
 router.use('/change-password', requireAuth)
+// PATCH /me (profile edit) needs a session; GET /me stays public (reads the
+// cookie itself). Scoped to PATCH via the method guard so the getter is untouched.
+router.use('/me', async (c, next) => {
+  if (c.req.method !== 'PATCH') return next()
+  return requireAuth(c, next)
+})
 
 router
   .openapi(loginRoute, async (c) => {
@@ -153,6 +176,8 @@ router
       sub: user.id,
       login: user.login,
       role,
+      firstName: user.firstName,
+      lastName: user.lastName,
       pwdChangedAt: Math.floor(user.passwordChangedAt.getTime() / 1000),
     })
     setAuthCookie(c, token)
@@ -161,7 +186,13 @@ router
       { event: 'auth.login.ok', request_id: requestId, login, role, status: 200 },
       'Login ok',
     )
-    return c.json({ ok: true as const, user: { login: user.login, role } }, StatusCodes.OK)
+    return c.json(
+      {
+        ok: true as const,
+        user: { login: user.login, role, firstName: user.firstName, lastName: user.lastName },
+      },
+      StatusCodes.OK,
+    )
   })
   .openapi(logoutRoute, async (c) => {
     // Stateless: clearing the cookie is all we can do server-side. Idempotent —
@@ -184,11 +215,21 @@ router
       sub: claims.sub,
       login: claims.login,
       role: claims.role,
+      firstName: claims.firstName,
+      lastName: claims.lastName,
       pwdChangedAt: claims.pwdChangedAt,
     })
     setAuthCookie(c, token2)
     return c.json(
-      { ok: true as const, user: { login: claims.login, role: claims.role } },
+      {
+        ok: true as const,
+        user: {
+          login: claims.login,
+          role: claims.role,
+          firstName: claims.firstName,
+          lastName: claims.lastName,
+        },
+      },
       StatusCodes.OK,
     )
   })
@@ -237,6 +278,8 @@ router
       sub: current.id,
       login: current.login,
       role: user.role,
+      firstName: current.firstName,
+      lastName: current.lastName,
       pwdChangedAt: Math.floor(Date.now() / 1000),
     })
     setAuthCookie(c, refreshed)
@@ -246,6 +289,43 @@ router
       'Password changed',
     )
     return c.json({ ok: true as const }, StatusCodes.OK)
+  })
+  .openapi(updateProfileRoute, async (c) => {
+    if (!isDbReady()) return dbUnavailable(c)
+
+    const user = c.get('user')
+    const { firstName, lastName } = c.req.valid('json')
+
+    const updated = await updateProfile(user.sub, { firstName, lastName })
+    if (!updated) {
+      // Session valid but account vanished (deleted between sign-in and now).
+      return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
+    }
+
+    // Re-mint so the cookie (and thus the DB-free /me) carries the new name
+    // immediately — no re-login needed. Preserve pwdChangedAt/exp semantics.
+    const refreshed = await signToken({
+      sub: updated.id,
+      login: updated.login,
+      role: user.role,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      pwdChangedAt: user.pwdChangedAt,
+    })
+    setAuthCookie(c, refreshed)
+
+    return c.json(
+      {
+        ok: true as const,
+        user: {
+          login: updated.login,
+          role: user.role,
+          firstName: updated.firstName,
+          lastName: updated.lastName,
+        },
+      },
+      StatusCodes.OK,
+    )
   })
 
 export default router

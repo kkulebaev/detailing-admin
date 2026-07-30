@@ -22,15 +22,37 @@ export async function createUser(input: {
   login: string
   passwordHash: string
   role: Role
+  firstName?: string
+  lastName?: string
 }): Promise<User> {
   const db = getDb()
   const [existing] = await db.select().from(users).where(eq(users.login, input.login)).limit(1)
   if (existing) throw new UserError('duplicate_login')
   const [row] = await db
     .insert(users)
-    .values({ login: input.login, passwordHash: input.passwordHash, role: input.role })
+    .values({
+      login: input.login,
+      passwordHash: input.passwordHash,
+      role: input.role,
+      firstName: input.firstName ?? '',
+      lastName: input.lastName ?? '',
+    })
     .returning()
   return row
+}
+
+/** Updates the caller's own personal fields (name); returns the fresh row. */
+export async function updateProfile(
+  id: string,
+  input: { firstName: string; lastName: string },
+): Promise<User | null> {
+  const db = getDb()
+  const [row] = await db
+    .update(users)
+    .set({ firstName: input.firstName, lastName: input.lastName })
+    .where(eq(users.id, id))
+    .returning()
+  return row ?? null
 }
 
 /**

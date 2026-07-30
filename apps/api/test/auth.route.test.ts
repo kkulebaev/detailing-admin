@@ -65,6 +65,7 @@ vi.mock('../src/db/users.js', () => {
     findByLogin: vi.fn(),
     createUser: vi.fn(),
     updatePasswordHash: vi.fn(),
+    updateProfile: vi.fn(),
     resetPasswordByLogin: vi.fn(),
   }
 })
@@ -74,7 +75,7 @@ import { _clearForTest } from '../src/idempotency.js'
 import { isDbReady } from '../src/boot.js'
 import { appendBooking } from '../src/sheets.js'
 import { listClients } from '../src/db/clients.js'
-import { findByLogin, updatePasswordHash } from '../src/db/users.js'
+import { findByLogin, updatePasswordHash, updateProfile } from '../src/db/users.js'
 import { hashPassword } from '../src/auth/password.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
 
@@ -86,6 +87,8 @@ let adminUser: {
   login: string
   passwordHash: string
   role: string
+  firstName: string
+  lastName: string
   createdAt: Date
   passwordChangedAt: Date
 }
@@ -96,6 +99,8 @@ beforeAll(async () => {
     login: 'admin',
     passwordHash: await hashPassword('secret123'),
     role: 'admin',
+    firstName: 'Админ',
+    lastName: 'Главный',
     createdAt: new Date('2026-01-01T00:00:00Z'),
     passwordChangedAt: new Date('2026-01-01T00:00:00Z'),
   }
@@ -127,7 +132,10 @@ describe('POST /api/auth/login', () => {
     expect(setCookie.toLowerCase()).toContain('httponly')
     expect(res.headers.get('Cache-Control')).toBe('no-store')
     const body = await res.json()
-    expect(body).toEqual({ ok: true, user: { login: 'admin', role: 'admin' } })
+    expect(body).toEqual({
+      ok: true,
+      user: { login: 'admin', role: 'admin', firstName: 'Админ', lastName: 'Главный' },
+    })
   })
 
   it('wrong password → 401, no cookie', async () => {
@@ -177,10 +185,15 @@ describe('GET /api/auth/me', () => {
   })
 
   it('valid cookie → user, without any DB read', async () => {
-    const res = await json(app, '/api/auth/me', 'GET', undefined, { Cookie: await adminCookie() })
+    const res = await json(app, '/api/auth/me', 'GET', undefined, {
+      Cookie: await adminCookie({ firstName: 'Админ', lastName: 'Главный' }),
+    })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toEqual({ ok: true, user: { login: 'admin', role: 'admin' } })
+    expect(body).toEqual({
+      ok: true,
+      user: { login: 'admin', role: 'admin', firstName: 'Админ', lastName: 'Главный' },
+    })
     expect(vi.mocked(findByLogin)).not.toHaveBeenCalled()
     // Sliding refresh re-issues the cookie.
     expect(res.headers.get('set-cookie') ?? '').toContain('auth_token=')
@@ -267,6 +280,71 @@ describe('POST /api/auth/change-password', () => {
     expect(res.status).toBe(409)
     const body = await res.json()
     expect(body).toEqual({ ok: false, error: 'conflict', reason: 'stale_password' })
+  })
+})
+
+describe('PATCH /api/auth/me', () => {
+  let app: ReturnType<typeof createApp>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    app = createApp()
+    vi.mocked(isDbReady).mockReturnValue(true)
+  })
+
+  it('no session → 401', async () => {
+    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' })
+    expect(res.status).toBe(401)
+    expect(vi.mocked(updateProfile)).not.toHaveBeenCalled()
+  })
+
+  it('DB down → 503', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' }, {
+      Cookie: await adminCookie(),
+    })
+    expect(res.status).toBe(503)
+  })
+
+  it('blank name → 400 validation', async () => {
+    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: '  ', lastName: 'Петров' }, {
+      Cookie: await adminCookie(),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toBe('validation')
+    expect(vi.mocked(updateProfile)).not.toHaveBeenCalled()
+  })
+
+  it('valid → 200 with updated user and a re-minted cookie', async () => {
+    vi.mocked(updateProfile).mockResolvedValue({
+      ...adminUser,
+      firstName: 'Иван',
+      lastName: 'Петров',
+    } as never)
+    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' }, {
+      Cookie: await adminCookie(),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({
+      ok: true,
+      user: { login: 'admin', role: 'admin', firstName: 'Иван', lastName: 'Петров' },
+    })
+    expect(vi.mocked(updateProfile)).toHaveBeenCalledWith('u-admin', {
+      firstName: 'Иван',
+      lastName: 'Петров',
+    })
+    // Re-mint so the DB-free /me carries the new name without a re-login.
+    expect(res.headers.get('set-cookie') ?? '').toContain('auth_token=')
+  })
+
+  it('account vanished between sign-in and now → 401', async () => {
+    vi.mocked(updateProfile).mockResolvedValue(null)
+    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' }, {
+      Cookie: await adminCookie(),
+    })
+    expect(res.status).toBe(401)
   })
 })
 

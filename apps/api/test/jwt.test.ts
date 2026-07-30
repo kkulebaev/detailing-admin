@@ -5,7 +5,14 @@ import { signToken, verifyToken } from '../src/auth/jwt.js'
 // Matches JWT_SECRET seeded in test/setup.ts (the real env module is used here).
 const SECRET = 'test-jwt-secret-at-least-32-chars-long'
 
-const CLAIMS = { sub: 'u-1', login: 'admin', role: 'admin' as const, pwdChangedAt: 1700000000 }
+const CLAIMS = {
+  sub: 'u-1',
+  login: 'admin',
+  role: 'admin' as const,
+  firstName: 'Иван',
+  lastName: 'Петров',
+  pwdChangedAt: 1700000000,
+}
 
 describe('jwt', () => {
   it('sign → verify roundtrips and preserves claims', async () => {
@@ -39,6 +46,17 @@ describe('jwt', () => {
   it('rejects a malformed token', async () => {
     expect(await verifyToken('not.a.jwt')).toBeNull()
     expect(await verifyToken('')).toBeNull()
+  })
+
+  it('defaults name claims to empty on tokens minted before they existed', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const legacy = await sign(
+      { sub: 'u-1', login: 'admin', role: 'admin', pwdChangedAt: 1, iat: now, exp: now + 3600 },
+      SECRET,
+      'HS256',
+    )
+    const decoded = await verifyToken(legacy)
+    expect(decoded).toMatchObject({ firstName: '', lastName: '' })
   })
 
   it('rejects a token missing required claims', async () => {
