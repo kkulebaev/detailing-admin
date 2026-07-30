@@ -3,12 +3,14 @@ import type {
   BookingsListResponse,
   BookingMutationResponse,
   BookingDeleteResponse,
+  Readiness,
 } from '@detailing-admin/shared'
 import { unwrap } from './api-client'
 import {
   deleteApiBookingsId,
   getApiBookings,
   patchApiBookingsId,
+  patchApiBookingsIdReadiness,
 } from './generated/bookings/bookings'
 import type { GetApiBookingsParams, PatchApiBookingsIdBody } from './generated/model'
 
@@ -34,4 +36,11 @@ export function updateBooking(
 
 export function deleteBooking(id: string): Promise<BookingDeleteResponse> {
   return unwrap<BookingDeleteResponse>(() => deleteApiBookingsId(id))
+}
+
+export function updateBookingReadiness(
+  id: string,
+  readiness: Readiness | '',
+): Promise<BookingMutationResponse> {
+  return unwrap<BookingMutationResponse>(() => patchApiBookingsIdReadiness(id, { readiness }))
 }

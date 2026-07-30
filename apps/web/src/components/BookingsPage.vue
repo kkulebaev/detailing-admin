@@ -6,7 +6,7 @@ import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate, getLocalTimeZone, today } from '@internationalized/date'
 import { READINESS, type BookingRow } from '@detailing-admin/shared'
-import { deleteBooking, type GetApiBookingsParams } from '@/lib/bookings-api'
+import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from '@/lib/bookings-api'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
@@ -67,6 +67,52 @@ const isAdmin = computed(() => auth.user?.role === 'admin')
 const columnCount = computed(() => (isAdmin.value ? 12 : 10))
 
 const invalidateBookings = useInvalidateBookings()
+
+// ── Inline readiness quick-change (admin) ──────────────────────────────────
+// reka-ui Select rejects '', so the «нет статуса» option rides on a sentinel.
+const READINESS_NONE = '__none__'
+// Optimistic per-row state: the picked value shows immediately while the PATCH
+// is in flight, and reverts to the server value on failure.
+const readinessOverride = ref<Record<string, string>>({})
+const savingReadiness = ref<Record<string, boolean>>({})
+
+function readinessSelectValue(row: BookingRow): string {
+  const v = readinessOverride.value[row.id] ?? row.readiness
+  return v === '' ? READINESS_NONE : v
+}
+
+function clearReadinessPending(id: string) {
+  const o = { ...readinessOverride.value }
+  delete o[id]
+  readinessOverride.value = o
+  const s = { ...savingReadiness.value }
+  delete s[id]
+  savingReadiness.value = s
+}
+
+async function onReadinessChange(row: BookingRow, selected: string) {
+  // Narrow the select value to a known Readiness (or '') without a type cast.
+  const value = selected === READINESS_NONE ? '' : (READINESS.find((r) => r === selected) ?? '')
+  if (value === (readinessOverride.value[row.id] ?? row.readiness)) return
+  readinessOverride.value = { ...readinessOverride.value, [row.id]: value }
+  savingReadiness.value = { ...savingReadiness.value, [row.id]: true }
+  try {
+    const result = await updateBookingReadiness(row.id, value)
+    if (result.ok) {
+      await invalidateBookings()
+    } else {
+      toast.error(
+        result.error === 'unavailable' ? result.message : 'Не удалось обновить готовность',
+      )
+    }
+  } catch {
+    toast.error('Не удалось обновить готовность')
+  } finally {
+    // On success the refetched row carries the value; on failure this reverts the
+    // select to the server value.
+    clearReadinessPending(row.id)
+  }
+}
 
 const editDialogOpen = ref(false)
 const editTarget = ref<BookingRow | null>(null)
@@ -483,7 +529,7 @@ function formatAmount(n: number): string {
           <col class="w-40" />
           <col class="w-64" />
           <col v-if="isAdmin" class="w-28" />
-          <col class="w-32" />
+          <col class="w-44" />
           <col class="w-40" />
           <col class="w-40" />
           <col class="w-48" />
@@ -572,7 +618,22 @@ function formatAmount(n: number): string {
               >
                 {{ row.amount != null ? formatAmount(row.amount) : '—' }}
               </TableCell>
-              <TableCell class="px-4 align-top">
+              <TableCell v-if="isAdmin" class="px-4 align-top">
+                <Select
+                  :model-value="readinessSelectValue(row)"
+                  :disabled="savingReadiness[row.id]"
+                  @update:model-value="(v) => onReadinessChange(row, String(v))"
+                >
+                  <SelectTrigger size="sm" class="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem :value="READINESS_NONE">—</SelectItem>
+                    <SelectItem v-for="r in READINESS" :key="r" :value="r">{{ r }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell v-else class="px-4 align-top">
                 {{ row.readiness || '—' }}
               </TableCell>
               <TableCell class="px-4 align-top whitespace-normal">{{ row.master || '—' }}</TableCell>
