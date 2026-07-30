@@ -514,9 +514,18 @@ function formatAmount(n: number): string {
             <Input
               v-model="searchInput"
               type="search"
-              class="h-9 pl-9"
+              class="h-9 pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
               placeholder="Имя, телефон или машина"
             />
+            <button
+              v-if="searchInput"
+              type="button"
+              aria-label="Очистить поиск"
+              class="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
+              @click="searchInput = ''"
+            >
+              <X class="size-4" />
+            </button>
           </div>
         </div>
 
