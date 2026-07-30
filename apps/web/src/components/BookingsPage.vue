@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { refDebounced } from '@vueuse/core'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search, X } from '@lucide/vue'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Search, SearchX, X } from '@lucide/vue'
 import type { DateValue } from 'reka-ui'
 import { READINESS, type BookingRow } from '@detailing-admin/shared'
 import type { GetApiBookingsParams } from '@/lib/bookings-api'
@@ -9,6 +9,14 @@ import { useBookingsQuery, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import {
@@ -320,8 +328,33 @@ function formatAmount(n: number): string {
                 </TableCell>
               </TableRow>
             </template>
-            <TableEmpty v-else-if="items.length === 0" :colspan="COLUMN_COUNT">
-              Записей нет.
+            <TableEmpty
+              v-else-if="items.length === 0"
+              :colspan="COLUMN_COUNT"
+              class="whitespace-normal"
+            >
+              <Empty class="gap-4 p-0">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <component :is="hasActiveFilters ? SearchX : Inbox" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {{ hasActiveFilters ? 'Ничего не найдено' : 'Пока нет записей' }}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {{
+                      hasActiveFilters
+                        ? 'Попробуйте изменить условия или сбросить фильтры'
+                        : 'Новые записи появятся здесь автоматически'
+                    }}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent v-if="hasActiveFilters">
+                  <Button variant="outline" size="sm" class="gap-1" @click="resetFilters">
+                    <X class="size-4" /> Сбросить фильтры
+                  </Button>
+                </EmptyContent>
+              </Empty>
             </TableEmpty>
             <TableRow v-else v-for="row in items" :key="row.id">
               <TableCell class="px-4 whitespace-nowrap tabular-nums">
