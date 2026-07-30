@@ -71,6 +71,13 @@
       "when": 1785399069732,
       "tag": "0009_magenta_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785408697385,
+      "tag": "0010_cool_black_queen",
+      "breakpoints": true
     }
   ]
 }

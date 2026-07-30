@@ -1,7 +1,7 @@
 export type { Readiness } from './enums.js'
 export { READINESS } from './enums.js'
 export { StatusCodes } from './http-status-codes.js'
-export { parseDdmmyyyy, formatDdmmyyyy } from './date.js'
+export { parseDdmmyyyy, formatDdmmyyyy, ddmmyyyyToIso } from './date.js'
 export { normalizePhone } from './phone.js'
 export { bookingSchema, carClassSchema, DEFAULT_CAR_CLASS } from './booking.js'
 export type { Booking, CarClass } from './booking.js'

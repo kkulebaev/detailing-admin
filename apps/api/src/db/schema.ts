@@ -1,4 +1,16 @@
-import { boolean, integer, pgTable, serial, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  pgTable,
+  serial,
+  smallint,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core'
 
 // Auth accounts. Provisioned out-of-band via the `user:create` CLI (no
 // self-registration). `passwordHash` stores the scrypt string
@@ -28,6 +40,50 @@ export const clients = pgTable('clients', {
 
 export type Client = typeof clients.$inferSelect
 export type NewClient = typeof clients.$inferInsert
+
+// Structured bookings mirror. Stage 1 of the Sheets→app migration: every booking
+// is dual-written here (best-effort) alongside the authoritative Sheets append.
+// Unlike the serialized Sheets row, columns hold normalized values (phone in
+// E.164, dates as DATE, amount as int) so the table can become the source of
+// truth at cutover. `sheetRow`/`sheetRange` link a row back to its Sheets line;
+// there is no `status` column because inserts only ever happen after a
+// successful Sheets append.
+export const bookings = pgTable(
+  'bookings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Durable dedup: guards against a second row when a client retries with the
+    // same key after the in-memory idempotency TTL (5 min) has elapsed.
+    idempotencyKey: text('idempotency_key').notNull().unique(),
+    // Nullable: an empty (unnormalizable) phone yields no client to link.
+    clientId: uuid('client_id').references(() => clients.id),
+    name: varchar('name', { length: 120 }).notNull(),
+    phone: varchar('phone', { length: 32 }).notNull().default(''),
+    car: varchar('car', { length: 200 }).notNull(),
+    service: text('service').notNull(),
+    note: text('note').notNull().default(''),
+    amount: integer('amount').notNull(),
+    amountFormula: text('amount_formula'),
+    dateFrom: date('date_from').notNull(),
+    dateTo: date('date_to'),
+    timeFrom: varchar('time_from', { length: 5 }).notNull(),
+    timeTo: varchar('time_to', { length: 5 }),
+    readiness: text('readiness').notNull().default(''),
+    master: varchar('master', { length: 120 }).notNull(),
+    responsible: varchar('responsible', { length: 120 }).notNull(),
+    carClass: smallint('car_class').notNull(),
+    sheetRow: integer('sheet_row'),
+    sheetRange: text('sheet_range'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('bookings_date_from_idx').on(t.dateFrom),
+    index('bookings_client_id_idx').on(t.clientId),
+  ],
+)
+
+export type Booking = typeof bookings.$inferSelect
+export type NewBooking = typeof bookings.$inferInsert
 
 export const sections = pgTable('sections', {
   id: serial('id').primaryKey(),
