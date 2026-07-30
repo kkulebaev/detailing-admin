@@ -6,6 +6,17 @@
  * OpenAPI spec version: 0.0.1
  */
 
+export * from './deleteApiBookingsId200';
+export * from './deleteApiBookingsId400';
+export * from './deleteApiBookingsId400Error';
+export * from './deleteApiBookingsId400IssuesItem';
+export * from './deleteApiBookingsId404';
+export * from './deleteApiBookingsId404Error';
+export * from './deleteApiBookingsId500';
+export * from './deleteApiBookingsId500Error';
+export * from './deleteApiBookingsId503';
+export * from './deleteApiBookingsId503Error';
+export * from './deleteApiBookingsId503Reason';
 export * from './deleteApiClientsId200';
 export * from './deleteApiClientsId400';
 export * from './deleteApiClientsId400Error';
@@ -115,6 +126,19 @@ export * from './patchApiAuthMe503';
 export * from './patchApiAuthMe503Error';
 export * from './patchApiAuthMe503Reason';
 export * from './patchApiAuthMeBody';
+export * from './patchApiBookingsId200';
+export * from './patchApiBookingsId200Booking';
+export * from './patchApiBookingsId400';
+export * from './patchApiBookingsId400Error';
+export * from './patchApiBookingsId400IssuesItem';
+export * from './patchApiBookingsId404';
+export * from './patchApiBookingsId404Error';
+export * from './patchApiBookingsId500';
+export * from './patchApiBookingsId500Error';
+export * from './patchApiBookingsId503';
+export * from './patchApiBookingsId503Error';
+export * from './patchApiBookingsId503Reason';
+export * from './patchApiBookingsIdBody';
 export * from './patchApiClientsId200';
 export * from './patchApiClientsId200Client';
 export * from './patchApiClientsId400';

@@ -6,11 +6,22 @@
  * OpenAPI spec version: 0.0.1
  */
 import type {
+  DeleteApiBookingsId200,
+  DeleteApiBookingsId400,
+  DeleteApiBookingsId404,
+  DeleteApiBookingsId500,
+  DeleteApiBookingsId503,
   GetApiBookings200,
   GetApiBookings400,
   GetApiBookings500,
   GetApiBookings503,
   GetApiBookingsParams,
+  PatchApiBookingsId200,
+  PatchApiBookingsId400,
+  PatchApiBookingsId404,
+  PatchApiBookingsId500,
+  PatchApiBookingsId503,
+  PatchApiBookingsIdBody,
   PostApiBookings201,
   PostApiBookings400,
   PostApiBookings500,
@@ -125,6 +136,115 @@ export const getApiBookings = async (params?: GetApiBookingsParams, options?: Re
   {
     ...options,
     method: 'GET'
+
+
+  }
+);}
+
+
+export type patchApiBookingsIdResponse200 = {
+  data: PatchApiBookingsId200
+  status: 200
+}
+
+export type patchApiBookingsIdResponse400 = {
+  data: PatchApiBookingsId400
+  status: 400
+}
+
+export type patchApiBookingsIdResponse404 = {
+  data: PatchApiBookingsId404
+  status: 404
+}
+
+export type patchApiBookingsIdResponse500 = {
+  data: PatchApiBookingsId500
+  status: 500
+}
+
+export type patchApiBookingsIdResponse503 = {
+  data: PatchApiBookingsId503
+  status: 503
+}
+
+export type patchApiBookingsIdResponseSuccess = (patchApiBookingsIdResponse200) & {
+  headers: Headers;
+};
+export type patchApiBookingsIdResponseError = (patchApiBookingsIdResponse400 | patchApiBookingsIdResponse404 | patchApiBookingsIdResponse500 | patchApiBookingsIdResponse503) & {
+  headers: Headers;
+};
+
+export type patchApiBookingsIdResponse = (patchApiBookingsIdResponseSuccess | patchApiBookingsIdResponseError)
+
+export const getPatchApiBookingsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/bookings/${id}`
+}
+
+export const patchApiBookingsId = async (id: string,
+    patchApiBookingsIdBody?: PatchApiBookingsIdBody, options?: RequestInit): Promise<patchApiBookingsIdResponse> => {
+
+  return orvalFetch<patchApiBookingsIdResponse>(getPatchApiBookingsIdUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(patchApiBookingsIdBody)
+  }
+);}
+
+
+export type deleteApiBookingsIdResponse200 = {
+  data: DeleteApiBookingsId200
+  status: 200
+}
+
+export type deleteApiBookingsIdResponse400 = {
+  data: DeleteApiBookingsId400
+  status: 400
+}
+
+export type deleteApiBookingsIdResponse404 = {
+  data: DeleteApiBookingsId404
+  status: 404
+}
+
+export type deleteApiBookingsIdResponse500 = {
+  data: DeleteApiBookingsId500
+  status: 500
+}
+
+export type deleteApiBookingsIdResponse503 = {
+  data: DeleteApiBookingsId503
+  status: 503
+}
+
+export type deleteApiBookingsIdResponseSuccess = (deleteApiBookingsIdResponse200) & {
+  headers: Headers;
+};
+export type deleteApiBookingsIdResponseError = (deleteApiBookingsIdResponse400 | deleteApiBookingsIdResponse404 | deleteApiBookingsIdResponse500 | deleteApiBookingsIdResponse503) & {
+  headers: Headers;
+};
+
+export type deleteApiBookingsIdResponse = (deleteApiBookingsIdResponseSuccess | deleteApiBookingsIdResponseError)
+
+export const getDeleteApiBookingsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/bookings/${id}`
+}
+
+export const deleteApiBookingsId = async (id: string, options?: RequestInit): Promise<deleteApiBookingsIdResponse> => {
+
+  return orvalFetch<deleteApiBookingsIdResponse>(getDeleteApiBookingsIdUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
 
 
   }
