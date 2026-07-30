@@ -253,8 +253,10 @@ function formatAmount(n: number): string {
 </script>
 
 <template>
-  <div class="flex h-svh flex-col bg-background text-foreground p-4 sm:p-8">
-    <div class="flex min-h-0 flex-1 flex-col">
+  <!-- Mobile: normal page flow (few rows fit — let the whole page scroll).
+       md+: fixed-height flex column so only the rows scroll internally. -->
+  <div class="min-h-svh bg-background text-foreground p-4 sm:p-8 md:flex md:h-svh md:flex-col">
+    <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Записи</h1>
       </header>
@@ -381,7 +383,7 @@ function formatAmount(n: number): string {
 
       <Table
         v-else
-        container-class="min-h-0 flex-1 rounded-md border border-border"
+        container-class="rounded-md border border-border md:min-h-0 md:flex-1"
         class="table-fixed"
       >
         <!-- Fixed column widths so they don't jump between pages (table-fixed
