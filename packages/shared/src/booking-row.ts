@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { READINESS } from './enums.js'
 import {
   dbUnavailableErrorSchema,
   internalErrorSchema,
@@ -71,3 +72,10 @@ export const bookingDeleteResponseSchema = z.union([
 ])
 
 export type BookingDeleteResponse = z.infer<typeof bookingDeleteResponseSchema>
+
+// Body for the quick inline readiness change (PATCH /api/bookings/{id}/readiness).
+export const bookingReadinessInputSchema = z.object({
+  readiness: z.enum(READINESS).or(z.literal('')),
+})
+
+export type BookingReadinessInput = z.infer<typeof bookingReadinessInputSchema>

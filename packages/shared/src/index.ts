@@ -13,12 +13,14 @@ export {
   bookingMutationOkSchema,
   bookingMutationResponseSchema,
   bookingDeleteResponseSchema,
+  bookingReadinessInputSchema,
 } from './booking-row.js'
 export type {
   BookingRow,
   BookingsListResponse,
   BookingMutationResponse,
   BookingDeleteResponse,
+  BookingReadinessInput,
 } from './booking-row.js'
 export {
   bookingApiResultSchema,

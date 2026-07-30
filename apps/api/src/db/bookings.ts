@@ -81,6 +81,21 @@ export async function updateBooking(
   return row ?? null
 }
 
+/** Update only a booking's readiness (the quick inline status change). Returns
+ * the updated row, or null if no booking has that id. */
+export async function updateBookingReadiness(
+  id: string,
+  readiness: string,
+): Promise<Booking | null> {
+  const db = getDb()
+  const [row] = await db
+    .update(bookings)
+    .set({ readiness })
+    .where(eq(bookings.id, id))
+    .returning()
+  return row ?? null
+}
+
 /** Delete a booking by id. Returns false if no row matched. */
 export async function deleteBooking(id: string): Promise<boolean> {
   const db = getDb()

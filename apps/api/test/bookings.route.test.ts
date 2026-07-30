@@ -48,6 +48,7 @@ vi.mock('../src/db/bookings.js', () => ({
   insertBooking: vi.fn(),
   listBookings: vi.fn(),
   updateBooking: vi.fn(),
+  updateBookingReadiness: vi.fn(),
   deleteBooking: vi.fn(),
 }))
 
@@ -65,7 +66,13 @@ import {
   isDbReady,
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
-import { insertBooking, listBookings, updateBooking, deleteBooking } from '../src/db/bookings.js'
+import {
+  insertBooking,
+  listBookings,
+  updateBooking,
+  updateBookingReadiness,
+  deleteBooking,
+} from '../src/db/bookings.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
@@ -603,6 +610,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'updated', client: null })
     vi.mocked(updateBooking).mockResolvedValue(UPDATED_ROW)
+    vi.mocked(updateBookingReadiness).mockResolvedValue(UPDATED_ROW)
     vi.mocked(deleteBooking).mockResolvedValue(true)
   })
 
@@ -671,6 +679,51 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   it('DELETE returns 503 when DB is not ready', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     expect((await del()).status).toBe(503)
+  })
+
+  const patchReadiness = (body: unknown, headers: Record<string, string> = { Cookie: cookie }) =>
+    app.request(`/api/bookings/${ID}/readiness`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    })
+
+  it('PATCH readiness updates just the status for admin → 200', async () => {
+    const res = await patchReadiness({ readiness: 'В работе' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.booking.id).toBe(ID)
+    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе')
+  })
+
+  it('PATCH readiness accepts an empty value (cleared status) → 200', async () => {
+    const res = await patchReadiness({ readiness: '' })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, '')
+  })
+
+  it('PATCH readiness rejects an invalid value → 400', async () => {
+    const res = await patchReadiness({ readiness: 'НеСуществует' })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('validation')
+    expect(vi.mocked(updateBookingReadiness)).not.toHaveBeenCalled()
+  })
+
+  it('PATCH readiness on a missing booking → 404', async () => {
+    vi.mocked(updateBookingReadiness).mockResolvedValue(null)
+    expect((await patchReadiness({ readiness: 'Готова к выдаче' })).status).toBe(404)
+  })
+
+  it('PATCH readiness from a non-admin role → 403', async () => {
+    const res = await patchReadiness({ readiness: 'В работе' }, { Cookie: await employeeCookie() })
+    expect(res.status).toBe(403)
+    expect(vi.mocked(updateBookingReadiness)).not.toHaveBeenCalled()
+  })
+
+  it('PATCH readiness returns 503 when DB is not ready', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    expect((await patchReadiness({ readiness: 'В работе' })).status).toBe(503)
   })
 })
 

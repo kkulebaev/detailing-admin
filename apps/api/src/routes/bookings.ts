@@ -6,6 +6,7 @@ import { bookingToRow } from '@detailing-admin/shared/sheet-row'
 import {
   StatusCodes,
   bookingMutationOkSchema,
+  bookingReadinessInputSchema,
   bookingsListOkSchema,
   dbUnavailableErrorSchema,
   ddmmyyyyToIso,
@@ -25,7 +26,13 @@ import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
-import { deleteBooking, insertBooking, listBookings, updateBooking } from '../db/bookings.js'
+import {
+  deleteBooking,
+  insertBooking,
+  listBookings,
+  updateBooking,
+  updateBookingReadiness,
+} from '../db/bookings.js'
 import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
@@ -176,6 +183,38 @@ const deleteBookingRoute = createRoute({
     200: {
       description: 'Booking deleted',
       content: { 'application/json': { schema: deleteOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    404: {
+      description: 'Booking not found',
+      content: { 'application/json': { schema: notFoundErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+const patchReadinessRoute = createRoute({
+  method: 'patch',
+  path: '/{id}/readiness',
+  tags: ['bookings'],
+  request: {
+    params: idParamSchema,
+    body: { content: { 'application/json': { schema: bookingReadinessInputSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Readiness updated',
+      content: { 'application/json': { schema: bookingMutationOkSchema } },
     },
     400: {
       description: 'Validation error',
@@ -591,6 +630,56 @@ router.openapi(
           status: 500,
         },
         'Booking delete failed',
+      )
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    }
+  },
+  defaultValidationHook,
+)
+
+router.openapi(
+  patchReadinessRoute,
+  async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) {
+      return c.json(
+        {
+          ok: false as const,
+          error: 'unavailable' as const,
+          reason: 'not_configured' as const,
+          message: 'Database not configured or migrations failed',
+        },
+        StatusCodes.SERVICE_UNAVAILABLE,
+      )
+    }
+
+    const { id } = c.req.valid('param')
+    const { readiness } = c.req.valid('json')
+    try {
+      const updated = await updateBookingReadiness(id, readiness)
+      if (!updated) {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      const { idempotencyKey: _idempotencyKey, createdAt, ...rest } = updated
+      baseLogger.info(
+        { event: 'bookings.readiness', request_id: requestId, booking_id: id, status: 200 },
+        'Booking readiness updated',
+      )
+      return c.json(
+        { ok: true as const, booking: { ...rest, createdAt: createdAt.toISOString() } },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      baseLogger.error(
+        {
+          event: 'bookings.readiness.error',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+          status: 500,
+        },
+        'Booking readiness update failed',
       )
       return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
     }
