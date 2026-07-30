@@ -7,6 +7,7 @@ import { READINESS, type BookingRow } from '@detailing-admin/shared'
 import type { GetApiBookingsParams } from '@/lib/bookings-api'
 import { useBookingsQuery, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
+import { useAuthStore } from '@/stores/auth'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -47,7 +48,10 @@ const LIMIT = 50
 // params builder maps back to `undefined` (no filter).
 const ALL = '__all__'
 
-const COLUMN_COUNT = 11
+// The «Сумма» column is admin-only; the API also omits `amount` for non-admins.
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.user?.role === 'admin')
+const columnCount = computed(() => (isAdmin.value ? 11 : 10))
 
 // ── Filter state ──────────────────────────────────────────────────────────────
 // shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
@@ -313,7 +317,9 @@ function formatAmount(n: number): string {
               <TableHead class="px-4">Телефон</TableHead>
               <TableHead class="px-4">Машина</TableHead>
               <TableHead class="px-4">Услуга</TableHead>
-              <TableHead class="px-4 text-right whitespace-nowrap">Сумма ₽</TableHead>
+              <TableHead v-if="isAdmin" class="px-4 text-right whitespace-nowrap">
+                Сумма ₽
+              </TableHead>
               <TableHead class="px-4">Готовность</TableHead>
               <TableHead class="px-4">Мастер</TableHead>
               <TableHead class="px-4">Ответственный</TableHead>
@@ -323,14 +329,14 @@ function formatAmount(n: number): string {
           <TableBody>
             <template v-if="loading">
               <TableRow v-for="i in 8" :key="i">
-                <TableCell v-for="c in COLUMN_COUNT" :key="c" class="px-4">
+                <TableCell v-for="c in columnCount" :key="c" class="px-4">
                   <Skeleton class="h-4 w-full" />
                 </TableCell>
               </TableRow>
             </template>
             <TableEmpty
               v-else-if="items.length === 0"
-              :colspan="COLUMN_COUNT"
+              :colspan="columnCount"
               class="whitespace-normal"
             >
               <Empty class="gap-4 p-0">
@@ -373,8 +379,11 @@ function formatAmount(n: number): string {
                   {{ row.service || '—' }}
                 </span>
               </TableCell>
-              <TableCell class="px-4 text-right whitespace-nowrap tabular-nums">
-                {{ formatAmount(row.amount) }}
+              <TableCell
+                v-if="isAdmin"
+                class="px-4 text-right whitespace-nowrap tabular-nums"
+              >
+                {{ row.amount != null ? formatAmount(row.amount) : '—' }}
               </TableCell>
               <TableCell class="px-4 whitespace-nowrap">
                 {{ row.readiness || '—' }}

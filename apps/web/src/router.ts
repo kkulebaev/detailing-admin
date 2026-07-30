@@ -43,7 +43,7 @@ export const routes: RouteRecordRaw[] = [
     path: '/bookings',
     name: 'bookings',
     component: () => import('@/components/BookingsPage.vue'),
-    meta: { title: 'Записи', requiresAuth: true, roles: ['admin'] },
+    meta: { title: 'Записи', requiresAuth: true, roles: ['admin', 'employee'] },
   },
   {
     path: '/clients',

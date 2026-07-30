@@ -15,9 +15,9 @@ export type GetApiBookings200ItemsItem = {
   car: string;
   service: string;
   note: string;
-  amount: number;
+  amount?: number;
   /** @nullable */
-  amountFormula: string | null;
+  amountFormula?: string | null;
   dateFrom: string;
   /** @nullable */
   dateTo: string | null;

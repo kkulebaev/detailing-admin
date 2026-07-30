@@ -12,8 +12,10 @@ export const bookingRowSchema = z.object({
   car: z.string(),
   service: z.string(),
   note: z.string(),
-  amount: z.number().int(),
-  amountFormula: z.string().nullable(),
+  // Omitted (undefined) for non-admin roles — amounts are admin-only. Present
+  // for admins.
+  amount: z.number().int().optional(),
+  amountFormula: z.string().nullable().optional(),
   dateFrom: z.string(),
   dateTo: z.string().nullable(),
   timeFrom: z.string(),

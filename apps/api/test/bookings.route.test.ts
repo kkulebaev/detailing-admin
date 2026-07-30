@@ -446,6 +446,15 @@ describe('POST /api/bookings', () => {
       expect.any(String),
     )
   })
+
+  it('rejects a booking write from a non-admin role (writes stay admin-only)', async () => {
+    const res = await post(app, VALID_PAYLOAD, {
+      'Idempotency-Key': 'k-emp-write',
+      Cookie: await employeeCookie(),
+    })
+    expect(res.status).toBe(403)
+    expect(vi.mocked(appendBooking)).not.toHaveBeenCalled()
+  })
 })
 
 describe('GET /api/bookings', () => {
@@ -498,6 +507,8 @@ describe('GET /api/bookings', () => {
     expect(body.items[0].id).toBe(SAMPLE_ROW.id)
     expect(body.items[0].createdAt).toBe('2026-06-01T12:00:00.000Z')
     expect(body.items[0].idempotencyKey).toBeUndefined()
+    // Admins see the amount.
+    expect(body.items[0].amount).toBe(SAMPLE_ROW.amount)
   })
 
   it('converts DD.MM.YYYY date filters to ISO and forwards paging/search', async () => {
@@ -535,9 +546,17 @@ describe('GET /api/bookings', () => {
     expect(res.status).toBe(401)
   })
 
-  it('returns 403 for a non-admin role', async () => {
+  it('lets a non-admin role read the list but strips the amount fields', async () => {
     const res = await getList('', { Cookie: await employeeCookie() })
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.items).toHaveLength(1)
+    // Non-amount fields stay visible…
+    expect(body.items[0].name).toBe(SAMPLE_ROW.name)
+    // …but amounts are admin-only.
+    expect(body.items[0].amount).toBeUndefined()
+    expect(body.items[0].amountFormula).toBeUndefined()
   })
 
   it('returns 400 for a malformed date filter', async () => {

@@ -392,12 +392,17 @@ router.openapi(
         readiness: query.readiness,
         q: query.q,
       })
-      // Drop the internal idempotency key and serialize the timestamp to match
-      // the wire shape (bookingRowSchema declares createdAt as an ISO string).
-      const items = rows.map(({ idempotencyKey: _idempotencyKey, createdAt, ...rest }) => ({
-        ...rest,
-        createdAt: createdAt.toISOString(),
-      }))
+      // Drop the internal idempotency key, serialize the timestamp, and hide the
+      // amount from non-admin roles — amounts are admin-only (the GET list is
+      // otherwise available to any authenticated role).
+      const isAdmin = c.get('user')?.role === 'admin'
+      const items = rows.map(
+        ({ idempotencyKey: _idempotencyKey, createdAt, amount, amountFormula, ...rest }) => ({
+          ...rest,
+          createdAt: createdAt.toISOString(),
+          ...(isAdmin ? { amount, amountFormula } : {}),
+        }),
+      )
       baseLogger.info(
         { event: 'bookings.list', request_id: requestId, count: items.length, total, status: 200 },
         'Bookings listed',

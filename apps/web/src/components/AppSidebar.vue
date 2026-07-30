@@ -30,7 +30,7 @@ interface NavItem {
 // see .omc/plans/auth-rbac-plan.md's access matrix (real employee rights land later).
 const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'booking' }, label: 'Новая запись', icon: CalendarPlus, roles: ['admin'] },
-  { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin'] },
+  { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin', 'employee'] },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users, roles: ['admin'] },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText, roles: ['admin'] },
   { to: { name: 'masters' }, label: 'Мастера', icon: Wrench, roles: ['admin'] },

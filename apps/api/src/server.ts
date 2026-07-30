@@ -43,7 +43,12 @@ export function createApp() {
   // Everything else under /api is admin-only. The `/*` wildcard also covers the
   // bare collection path (POST /api/bookings) under Hono's matching, and the
   // stateless requireAuth keeps the booking flow independent of Postgres.
-  app.use('/api/bookings/*', requireAuth, requireAdmin)
+  // The bookings list (GET) is available to any authenticated role — amounts are
+  // hidden from non-admins in the handler. Writes (POST) stay admin-only.
+  app.use('/api/bookings/*', requireAuth)
+  app.use('/api/bookings/*', (c, next) =>
+    c.req.method === 'GET' ? next() : requireAdmin(c, next),
+  )
   app.use('/api/clients/*', requireAuth, requireAdmin)
   app.use('/api/pricelist/*', requireAuth, requireAdmin)
   app.use('/api/masters/*', requireAuth, requireAdmin)
