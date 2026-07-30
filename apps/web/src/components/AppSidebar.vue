@@ -29,7 +29,7 @@ interface NavItem {
 // All existing sections are admin-only; employee gets the stub home only —
 // see .omc/plans/auth-rbac-plan.md's access matrix (real employee rights land later).
 const NAV_ITEMS: readonly NavItem[] = [
-  { to: { name: 'booking' }, label: 'Запись', icon: CalendarPlus, roles: ['admin'] },
+  { to: { name: 'booking' }, label: 'Добавить запись', icon: CalendarPlus, roles: ['admin'] },
   { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin'] },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users, roles: ['admin'] },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText, roles: ['admin'] },
