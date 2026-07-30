@@ -21,6 +21,15 @@ const clientConflictSchema = z.object({
   reason: z.literal('duplicate_phone'),
 })
 
+// A client cannot be deleted while any booking still references it — the
+// bookings mirror is retained (its rows carry their own phone/name), so the
+// delete is refused instead of cascading or orphaning the link.
+const clientDeleteConflictSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('conflict'),
+  reason: z.literal('has_bookings'),
+})
+
 export const clientsListResponseSchema = z.union([
   z.object({ ok: z.literal(true), clients: z.array(clientSchema) }),
   dbUnavailableErrorSchema,
@@ -38,6 +47,7 @@ export const clientMutationResponseSchema = z.union([
 
 export const clientDeleteResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
+  clientDeleteConflictSchema,
   notFoundErrorSchema,
   dbUnavailableErrorSchema,
   internalErrorSchema,

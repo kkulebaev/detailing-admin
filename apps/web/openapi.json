@@ -3378,7 +3378,7 @@
             }
           },
           "409": {
-            "description": "Duplicate phone",
+            "description": "Client still referenced by bookings",
             "content": {
               "application/json": {
                 "schema": {
@@ -3399,7 +3399,7 @@
                     "reason": {
                       "type": "string",
                       "enum": [
-                        "duplicate_phone"
+                        "has_bookings"
                       ]
                     }
                   },

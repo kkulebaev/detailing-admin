@@ -183,8 +183,13 @@ async function confirmDelete() {
       return
     }
     // Real failure — keep the dialog open and surface the reason inside it.
-    deleteError.value =
-      result.error === 'unavailable' ? result.message : 'Не удалось удалить клиента'
+    if (result.error === 'conflict') {
+      deleteError.value =
+        'У клиента есть записи. Сначала удалите или перенесите его записи, затем удалите клиента.'
+    } else {
+      deleteError.value =
+        result.error === 'unavailable' ? result.message : 'Не удалось удалить клиента'
+    }
   } catch {
     deleteError.value = 'Не удалось удалить клиента'
   } finally {

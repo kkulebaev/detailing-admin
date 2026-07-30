@@ -33,6 +33,12 @@ const conflictDuplicatePhoneSchema = z.object({
   reason: z.literal('duplicate_phone'),
 })
 
+const conflictHasBookingsSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('conflict'),
+  reason: z.literal('has_bookings'),
+})
+
 const listOkResponse = z.object({ ok: z.literal(true), clients: z.array(clientSchema) })
 const mutationOkResponse = z.object({ ok: z.literal(true), client: clientSchema })
 const deleteOkResponse = z.object({ ok: z.literal(true) })
@@ -49,12 +55,12 @@ function unavailable(c: Context) {
   )
 }
 
-function clientErrorResponse(c: Context, err: unknown) {
-  if (err instanceof ClientError) {
-    if (err.code === 'not_found') {
-      return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
-    }
-    return c.json({ ok: false as const, error: 'conflict' as const, reason: err.code }, StatusCodes.CONFLICT)
+// not_found → 404, anything else → 500. Conflict is handled at each call site
+// because its `reason` literal differs per route (duplicate_phone for
+// create/update, has_bookings for delete) and each route pins a single literal.
+function clientErrorFallback(c: Context, err: unknown) {
+  if (err instanceof ClientError && err.code === 'not_found') {
+    return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
   }
   baseLogger.error(
     { message: err instanceof Error ? err.message : String(err) },
@@ -83,6 +89,10 @@ const respNotFound = {
 const respConflictDuplicatePhone = {
   description: 'Duplicate phone',
   content: { 'application/json': { schema: conflictDuplicatePhoneSchema } },
+}
+const respConflictHasBookings = {
+  description: 'Client still referenced by bookings',
+  content: { 'application/json': { schema: conflictHasBookingsSchema } },
 }
 
 const listClientsRoute = createRoute({
@@ -148,10 +158,9 @@ const deleteClientRoute = createRoute({
     200: { description: 'Client deleted', content: { 'application/json': { schema: deleteOkResponse } } },
     400: respValidation,
     404: respNotFound,
-    // The shared `clientErrorResponse` mapper can technically surface 409 for
-    // any `ClientError` even though deleteClient never throws conflict in
-    // practice. Declared so the route signature accepts the handler's union.
-    409: respConflictDuplicatePhone,
+    // `deleteClient` throws `has_bookings` when a booking FK still references
+    // the client; `clientErrorResponse` maps it to this 409 variant.
+    409: respConflictHasBookings,
     500: respInternal,
     503: respDbUnavailable,
   },
@@ -199,7 +208,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       )
       return c.json({ ok: true as const, client }, StatusCodes.CREATED)
     } catch (err) {
-      return clientErrorResponse(c, err)
+      if (err instanceof ClientError && err.code === 'duplicate_phone') {
+        return c.json(
+          { ok: false as const, error: 'conflict' as const, reason: 'duplicate_phone' as const },
+          StatusCodes.CONFLICT,
+        )
+      }
+      return clientErrorFallback(c, err)
     }
   })
   .openapi(updateClientRoute, async (c) => {
@@ -219,7 +234,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       )
       return c.json({ ok: true as const, client }, StatusCodes.OK)
     } catch (err) {
-      return clientErrorResponse(c, err)
+      if (err instanceof ClientError && err.code === 'duplicate_phone') {
+        return c.json(
+          { ok: false as const, error: 'conflict' as const, reason: 'duplicate_phone' as const },
+          StatusCodes.CONFLICT,
+        )
+      }
+      return clientErrorFallback(c, err)
     }
   })
   .openapi(deleteClientRoute, async (c) => {
@@ -238,7 +259,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       )
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
-      return clientErrorResponse(c, err)
+      if (err instanceof ClientError && err.code === 'has_bookings') {
+        return c.json(
+          { ok: false as const, error: 'conflict' as const, reason: 'has_bookings' as const },
+          StatusCodes.CONFLICT,
+        )
+      }
+      return clientErrorFallback(c, err)
     }
   })
 

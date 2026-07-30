@@ -1,6 +1,6 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { getDb } from './client.js'
-import { clients, type Client } from './schema.js'
+import { bookings, clients, type Client } from './schema.js'
 
 export type UpsertOutcome = 'inserted' | 'updated' | 'unchanged' | 'skipped'
 
@@ -9,7 +9,7 @@ export interface UpsertResult {
   client: Client | null
 }
 
-export type ClientMutationError = 'duplicate_phone' | 'not_found'
+export type ClientMutationError = 'duplicate_phone' | 'not_found' | 'has_bookings'
 
 export class ClientError extends Error {
   constructor(public readonly code: ClientMutationError) {
@@ -92,6 +92,15 @@ export async function updateClient(id: string, phone: string, name: string): Pro
 
 export async function deleteClient(id: string): Promise<void> {
   const db = getDb()
+  // A booking FK (bookings.client_id) still references this client — Postgres
+  // would reject the delete. Refuse it explicitly so the route can surface a
+  // 409 instead of a generic 500; the bookings mirror is retained deliberately.
+  const [linked] = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(eq(bookings.clientId, id))
+    .limit(1)
+  if (linked) throw new ClientError('has_bookings')
   const result = await db.delete(clients).where(eq(clients.id, id)).returning({ id: clients.id })
   if (result.length === 0) throw new ClientError('not_found')
 }
