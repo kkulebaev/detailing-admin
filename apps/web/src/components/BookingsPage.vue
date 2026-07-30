@@ -382,11 +382,27 @@ function formatAmount(n: number): string {
       <Table
         v-else
         container-class="min-h-0 flex-1 rounded-md border border-border"
+        class="table-fixed"
       >
+        <!-- Fixed column widths so they don't jump between pages (table-fixed
+             sizes columns from these, not from each page's content). -->
+        <colgroup>
+          <col class="w-40" />
+          <col class="w-24" />
+          <col class="w-36" />
+          <col class="w-40" />
+          <col class="w-40" />
+          <col class="w-64" />
+          <col v-if="isAdmin" class="w-28" />
+          <col class="w-32" />
+          <col class="w-40" />
+          <col class="w-40" />
+          <col class="w-48" />
+        </colgroup>
         <TableHeader class="sticky top-0 z-10 bg-muted">
             <TableRow>
-              <TableHead class="px-4 whitespace-nowrap">Дата</TableHead>
-              <TableHead class="px-4 whitespace-nowrap">Время</TableHead>
+              <TableHead class="px-4">Дата</TableHead>
+              <TableHead class="px-4">Время</TableHead>
               <TableHead class="px-4">Имя</TableHead>
               <TableHead class="px-4">Телефон</TableHead>
               <TableHead class="px-4">Машина</TableHead>
@@ -437,14 +453,14 @@ function formatAmount(n: number): string {
               </Empty>
             </TableEmpty>
             <TableRow v-else v-for="row in items" :key="row.id">
-              <TableCell class="px-4 whitespace-nowrap tabular-nums">
+              <TableCell class="px-4 tabular-nums">
                 {{ formatDateCell(row) }}
               </TableCell>
-              <TableCell class="px-4 whitespace-nowrap tabular-nums">
+              <TableCell class="px-4 tabular-nums">
                 {{ formatTimeCell(row) }}
               </TableCell>
               <TableCell class="px-4">{{ row.name || '—' }}</TableCell>
-              <TableCell class="px-4 whitespace-nowrap tabular-nums">
+              <TableCell class="px-4 tabular-nums">
                 {{ row.phone ? formatPhone(row.phone) : '—' }}
               </TableCell>
               <TableCell class="px-4">{{ row.car || '—' }}</TableCell>
@@ -465,11 +481,11 @@ function formatAmount(n: number): string {
               >
                 {{ row.amount != null ? formatAmount(row.amount) : '—' }}
               </TableCell>
-              <TableCell class="px-4 whitespace-nowrap">
+              <TableCell class="px-4">
                 {{ row.readiness || '—' }}
               </TableCell>
-              <TableCell class="px-4 whitespace-nowrap">{{ row.master || '—' }}</TableCell>
-              <TableCell class="px-4 whitespace-nowrap">
+              <TableCell class="px-4">{{ row.master || '—' }}</TableCell>
+              <TableCell class="px-4">
                 {{ row.responsible || '—' }}
               </TableCell>
               <TableCell class="px-4">
