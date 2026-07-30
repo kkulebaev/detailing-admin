@@ -541,7 +541,7 @@ function formatAmount(n: number): string {
             :disabled="!canNext || loading"
             @click="nextPage"
           >
-            Вперёд <ChevronRight class="size-4" />
+            Вперед <ChevronRight class="size-4" />
           </Button>
         </div>
       </div>
