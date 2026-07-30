@@ -20,6 +20,7 @@ import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
+import { insertBooking } from '../db/bookings.js'
 import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
 
@@ -233,13 +234,19 @@ router.openapi(postBookingRoute, async (c) => {
       )
     }
 
-    // Mirror the client into Postgres (best-effort; Sheets is still source of
-    // truth). Failures here never block the booking — DB is purely additive.
+    // Mirror the client and the booking into Postgres (best-effort; Sheets is
+    // still the source of truth). Failures here never block the booking — the DB
+    // is purely additive at stage 1. The client upsert and the booking mirror are
+    // independent: if the upsert fails the booking row is still persisted with a
+    // null client link (the snapshot name/phone keep the row self-sufficient).
     let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
+    let clientId: string | null = null
+    let bookingPersisted = false
     if (isDbReady()) {
       try {
         const result = await upsertClient(booking.phone, booking.name)
         clientOutcome = result.outcome
+        clientId = result.client?.id ?? null
       } catch (err) {
         clientOutcome = 'error'
         baseLogger.warn(
@@ -249,6 +256,26 @@ router.openapi(postBookingRoute, async (c) => {
             message: err instanceof Error ? err.message : String(err),
           },
           'Client upsert failed — booking succeeded, DB skipped',
+        )
+      }
+
+      try {
+        // Idempotent on the key: a post-TTL retry (which re-appends to Sheets)
+        // will not create a second mirror row.
+        bookingPersisted = await insertBooking(booking, {
+          idempotencyKey,
+          clientId,
+          sheetRow: appendResult.updatedRow,
+          sheetRange: appendResult.updatedRange,
+        })
+      } catch (err) {
+        baseLogger.warn(
+          {
+            event: 'booking.db_mirror_failed',
+            request_id: requestId,
+            message: err instanceof Error ? err.message : String(err),
+          },
+          'Booking mirror insert failed — booking succeeded, DB skipped',
         )
       }
     }
@@ -277,6 +304,7 @@ router.openapi(postBookingRoute, async (c) => {
         sheets_latency_ms: appendResult.latencyMs,
         sheets_status_code: appendResult.statusCode,
         client_outcome: clientOutcome,
+        booking_persisted: bookingPersisted,
         notification_attempted: notification?.attempted ?? false,
         notification_delivered: notification?.delivered ?? null,
         status: 201,

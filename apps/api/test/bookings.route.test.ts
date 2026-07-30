@@ -44,6 +44,10 @@ vi.mock('../src/db/clients.js', () => ({
   upsertClient: vi.fn(),
 }))
 
+vi.mock('../src/db/bookings.js', () => ({
+  insertBooking: vi.fn(),
+}))
+
 vi.mock('../src/notify.js', () => ({
   notifyMaster: vi.fn(),
 }))
@@ -58,6 +62,7 @@ import {
   isDbReady,
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
+import { insertBooking } from '../src/db/bookings.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
 import { adminCookie } from './auth-helpers.js'
@@ -110,6 +115,7 @@ describe('POST /api/bookings', () => {
     vi.mocked(appendBooking).mockResolvedValue(APPEND_SUCCESS)
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'inserted', client: null })
+    vi.mocked(insertBooking).mockResolvedValue(true)
     vi.mocked(notifyMaster).mockResolvedValue({ attempted: true, delivered: true })
   })
 
@@ -382,6 +388,60 @@ describe('POST /api/bookings', () => {
     expect(body.ok).toBe(true)
     expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'booking.client_upsert_failed' }),
+      expect.any(String),
+    )
+  })
+
+  it('mirrors the booking into the DB with client link and Sheets coords', async () => {
+    vi.mocked(upsertClient).mockResolvedValue({
+      outcome: 'inserted',
+      client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван' },
+    })
+    await post(
+      app,
+      { ...VALID_PAYLOAD, phone: '8 (900) 123-45-67', name: 'Иван' },
+      { 'Idempotency-Key': 'k-mirror' },
+    )
+    expect(vi.mocked(insertBooking)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '+79001234567', name: 'Иван' }),
+      {
+        idempotencyKey: 'k-mirror',
+        clientId: 'client-uuid-1',
+        sheetRow: 5,
+        sheetRange: 'Запись 2026!A5',
+      },
+    )
+  })
+
+  it('does not mirror the booking when DB is not ready (best-effort)', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-no-mirror' })
+    expect(res.status).toBe(201)
+    expect(vi.mocked(insertBooking)).not.toHaveBeenCalled()
+  })
+
+  it('mirrors the booking with a null client link when upsertClient throws', async () => {
+    vi.mocked(upsertClient).mockRejectedValueOnce(new Error('db connection refused'))
+    await post(
+      app,
+      { ...VALID_PAYLOAD, phone: '+79001234567', name: 'Иван' },
+      { 'Idempotency-Key': 'k-mirror-null-client' },
+    )
+    expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ clientId: null, idempotencyKey: 'k-mirror-null-client' }),
+    )
+  })
+
+  it('booking still succeeds when the mirror insert throws (best-effort)', async () => {
+    vi.mocked(insertBooking).mockRejectedValueOnce(new Error('unique violation'))
+    const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-mirror-fail' })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'booking.db_mirror_failed' }),
       expect.any(String),
     )
   })
