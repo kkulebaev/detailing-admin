@@ -26,13 +26,21 @@ export {
   userPublicSchema,
   loginRequestSchema,
   changePasswordRequestSchema,
+  updateProfileRequestSchema,
   loginResponseSchema,
   meResponseSchema,
   logoutResponseSchema,
   changePasswordResponseSchema,
+  updateProfileResponseSchema,
   stalePasswordConflictSchema,
 } from './auth.js'
-export type { Role, UserPublic, LoginRequest, ChangePasswordRequest } from './auth.js'
+export type {
+  Role,
+  UserPublic,
+  LoginRequest,
+  ChangePasswordRequest,
+  UpdateProfileRequest,
+} from './auth.js'
 export {
   sectionInputSchema,
   serviceInputSchema,
