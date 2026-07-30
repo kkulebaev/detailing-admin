@@ -490,15 +490,8 @@ function formatAmount(n: number): string {
               <TableCell class="px-4">
                 {{ row.responsible || '—' }}
               </TableCell>
-              <TableCell class="px-4">
-                <span
-                  v-if="row.note"
-                  class="line-clamp-2 w-full text-muted-foreground"
-                  :title="row.note"
-                >
-                  {{ row.note }}
-                </span>
-                <span v-else class="text-muted-foreground">—</span>
+              <TableCell class="px-4 align-top text-muted-foreground">
+                {{ row.note || '—' }}
               </TableCell>
             </TableRow>
           </TableBody>
