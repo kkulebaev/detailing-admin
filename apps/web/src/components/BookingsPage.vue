@@ -493,7 +493,7 @@ function formatAmount(n: number): string {
               <TableCell class="px-4">
                 <span
                   v-if="row.note"
-                  class="line-clamp-2 max-w-xs text-muted-foreground"
+                  class="line-clamp-2 w-full text-muted-foreground"
                   :title="row.note"
                 >
                   {{ row.note }}
