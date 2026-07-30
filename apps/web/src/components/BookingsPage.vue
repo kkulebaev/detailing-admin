@@ -455,17 +455,17 @@ function formatAmount(n: number): string {
               </Empty>
             </TableEmpty>
             <TableRow v-else v-for="row in items" :key="row.id">
-              <TableCell class="px-4 tabular-nums">
+              <TableCell class="px-4 align-top tabular-nums">
                 {{ formatDateCell(row) }}
               </TableCell>
-              <TableCell class="px-4 tabular-nums">
+              <TableCell class="px-4 align-top tabular-nums">
                 {{ formatTimeCell(row) }}
               </TableCell>
-              <TableCell class="px-4">{{ row.name || '—' }}</TableCell>
-              <TableCell class="px-4 tabular-nums">
+              <TableCell class="px-4 align-top whitespace-normal">{{ row.name || '—' }}</TableCell>
+              <TableCell class="px-4 align-top tabular-nums">
                 {{ row.phone ? formatPhone(row.phone) : '—' }}
               </TableCell>
-              <TableCell class="px-4">{{ row.car || '—' }}</TableCell>
+              <TableCell class="px-4 align-top whitespace-normal">{{ row.car || '—' }}</TableCell>
               <TableCell class="px-4 align-top">
                 <!-- `service` is newline-separated (one line per pricelist
                      section); render it as a vertical list to keep the column
@@ -479,18 +479,18 @@ function formatAmount(n: number): string {
               </TableCell>
               <TableCell
                 v-if="isAdmin"
-                class="px-4 text-right whitespace-nowrap tabular-nums"
+                class="px-4 align-top text-right whitespace-nowrap tabular-nums"
               >
                 {{ row.amount != null ? formatAmount(row.amount) : '—' }}
               </TableCell>
-              <TableCell class="px-4">
+              <TableCell class="px-4 align-top">
                 {{ row.readiness || '—' }}
               </TableCell>
-              <TableCell class="px-4">{{ row.master || '—' }}</TableCell>
-              <TableCell class="px-4">
+              <TableCell class="px-4 align-top whitespace-normal">{{ row.master || '—' }}</TableCell>
+              <TableCell class="px-4 align-top whitespace-normal">
                 {{ row.responsible || '—' }}
               </TableCell>
-              <TableCell class="px-4 align-top text-muted-foreground">
+              <TableCell class="px-4 align-top whitespace-normal text-muted-foreground">
                 {{ row.note || '—' }}
               </TableCell>
             </TableRow>
