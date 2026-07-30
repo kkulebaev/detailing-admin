@@ -374,8 +374,14 @@ function formatAmount(n: number): string {
                 {{ row.phone ? formatPhone(row.phone) : '—' }}
               </TableCell>
               <TableCell class="px-4">{{ row.car || '—' }}</TableCell>
-              <TableCell class="px-4">
-                <span class="line-clamp-2 max-w-sm" :title="row.service">
+              <TableCell class="px-4 align-top">
+                <!-- `service` is newline-separated (one line per pricelist
+                     section); render it as a vertical list to keep the column
+                     narrow instead of one wide run of text. -->
+                <span
+                  class="block max-w-56 whitespace-pre-line leading-snug"
+                  :title="row.service"
+                >
                   {{ row.service || '—' }}
                 </span>
               </TableCell>
