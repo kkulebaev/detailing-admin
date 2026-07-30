@@ -369,7 +369,7 @@ function formatAmount(n: number): string {
               </TableCell>
               <TableCell class="px-4">{{ row.car || '—' }}</TableCell>
               <TableCell class="px-4">
-                <span class="line-clamp-2" :title="row.service">
+                <span class="line-clamp-2 max-w-sm" :title="row.service">
                   {{ row.service || '—' }}
                 </span>
               </TableCell>
@@ -386,7 +386,7 @@ function formatAmount(n: number): string {
               <TableCell class="px-4">
                 <span
                   v-if="row.note"
-                  class="line-clamp-2 text-muted-foreground"
+                  class="line-clamp-2 max-w-xs text-muted-foreground"
                   :title="row.note"
                 >
                   {{ row.note }}
