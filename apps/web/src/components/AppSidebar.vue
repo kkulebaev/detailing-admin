@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, type Component } from 'vue'
-import { CalendarPlus, LogOut, ReceiptText, User, Users, Wrench, X } from '@lucide/vue'
+import { CalendarPlus, ClipboardList, LogOut, ReceiptText, User, Users, Wrench, X } from '@lucide/vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { Role } from '@detailing-admin/shared'
 import AppLogo from '@/components/AppLogo.vue'
@@ -30,6 +30,7 @@ interface NavItem {
 // see .omc/plans/auth-rbac-plan.md's access matrix (real employee rights land later).
 const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'booking' }, label: 'Запись', icon: CalendarPlus, roles: ['admin'] },
+  { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin'] },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users, roles: ['admin'] },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText, roles: ['admin'] },
   { to: { name: 'masters' }, label: 'Мастера', icon: Wrench, roles: ['admin'] },

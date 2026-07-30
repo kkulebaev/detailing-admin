@@ -1,13 +1,16 @@
+import type { Ref } from 'vue'
 import { useQuery, useQueryCache } from '@pinia/colada'
 import { fetchClients } from './clients-api'
 import { fetchPricelist } from './pricelist-api'
 import { fetchMasters } from './masters-api'
+import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
 
 // Query keys live next to the composables so callers never have to know the
 // concrete string — they just call `useInvalidate*()` after a mutation.
 export const CLIENTS_KEY = ['clients'] as const
 export const PRICELIST_KEY = ['pricelist'] as const
 export const MASTERS_KEY = ['masters'] as const
+export const BOOKINGS_KEY = ['bookings'] as const
 
 export function useClientsQuery() {
   return useQuery({
@@ -43,4 +46,14 @@ export function useMastersQuery() {
 export function useInvalidateMasters() {
   const cache = useQueryCache()
   return () => cache.invalidateQueries({ key: MASTERS_KEY })
+}
+
+// Reactive key so changing filters (dates, master, readiness, search, paging)
+// refetches automatically. `params` is a ref the page recomputes from its
+// filter state.
+export function useBookingsQuery(params: Ref<GetApiBookingsParams>) {
+  return useQuery({
+    key: () => [...BOOKINGS_KEY, params.value],
+    query: () => fetchBookings(params.value),
+  })
 }

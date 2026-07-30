@@ -40,6 +40,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Запись клиента', requiresAuth: true, roles: ['admin'] },
   },
   {
+    path: '/bookings',
+    name: 'bookings',
+    component: () => import('@/components/BookingsPage.vue'),
+    meta: { title: 'Записи', requiresAuth: true, roles: ['admin'] },
+  },
+  {
     path: '/clients',
     name: 'clients',
     component: () => import('@/components/ClientsPage.vue'),
