@@ -1,7 +1,14 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { LoginRequest, Role, UserPublic } from '@detailing-admin/shared'
-import { login as apiLogin, logout as apiLogout, me as apiMe, type LoginResult } from '@/lib/auth-api'
+import type { LoginRequest, Role, UpdateProfileRequest, UserPublic } from '@detailing-admin/shared'
+import {
+  login as apiLogin,
+  logout as apiLogout,
+  me as apiMe,
+  updateProfile as apiUpdateProfile,
+  type LoginResult,
+  type UpdateProfileResult,
+} from '@/lib/auth-api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserPublic | null>(null)
@@ -11,6 +18,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const role = computed<Role | null>(() => user.value?.role ?? null)
   const isAdmin = computed(() => user.value?.role === 'admin')
+
+  // Full name once the user has filled it in; falls back to the login for
+  // accounts provisioned before names existed (empty firstName/lastName).
+  const displayName = computed(() => {
+    const u = user.value
+    if (!u) return ''
+    return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.login
+  })
 
   async function fetchMe() {
     try {
@@ -29,6 +44,14 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = result.user
       ready.value = true
     }
+    return result
+  }
+
+  async function updateProfile(payload: UpdateProfileRequest): Promise<UpdateProfileResult> {
+    const result = await apiUpdateProfile(payload)
+    // The server re-mints the cookie; mirror the new name locally so the
+    // sidebar/profile update without a round-trip to /me.
+    if (result.ok) user.value = result.user
     return result
   }
 
@@ -51,5 +74,16 @@ export const useAuthStore = defineStore('auth', () => {
     ready.value = true
   }
 
-  return { user, ready, role, isAdmin, fetchMe, login, logout, clearSession }
+  return {
+    user,
+    ready,
+    role,
+    isAdmin,
+    displayName,
+    fetchMe,
+    login,
+    updateProfile,
+    logout,
+    clearSession,
+  }
 })

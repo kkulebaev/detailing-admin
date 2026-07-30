@@ -4,8 +4,10 @@ import {
   loginResponseSchema,
   logoutResponseSchema,
   meResponseSchema,
+  updateProfileResponseSchema,
   type ChangePasswordRequest,
   type LoginRequest,
+  type UpdateProfileRequest,
 } from '@detailing-admin/shared'
 import { orvalFetch, type OrvalEnvelope } from './orval-mutator'
 
@@ -13,6 +15,7 @@ export type LoginResult = z.infer<typeof loginResponseSchema>
 export type MeResult = z.infer<typeof meResponseSchema>
 export type LogoutResult = z.infer<typeof logoutResponseSchema>
 export type ChangePasswordResult = z.infer<typeof changePasswordResponseSchema>
+export type UpdateProfileResult = z.infer<typeof updateProfileResponseSchema>
 
 // Auth routes ship ahead of the generated orval client (no OpenAPI regen in
 // this change) — call orvalFetch directly, the way `api.ts submitBooking`
@@ -47,6 +50,15 @@ export async function logout(): Promise<LogoutResult> {
 export async function me(): Promise<MeResult> {
   const envelope = await orvalFetch<OrvalEnvelope<unknown>>('/api/auth/me')
   return parseResponse(meResponseSchema, envelope)
+}
+
+export async function updateProfile(payload: UpdateProfileRequest): Promise<UpdateProfileResult> {
+  const envelope = await orvalFetch<OrvalEnvelope<unknown>>('/api/auth/me', {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  })
+  return parseResponse(updateProfileResponseSchema, envelope)
 }
 
 export async function changePassword(payload: ChangePasswordRequest): Promise<ChangePasswordResult> {

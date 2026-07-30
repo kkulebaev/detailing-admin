@@ -104,7 +104,7 @@ async function onLogout() {
           <SidebarMenuButton as-child :is-active="route.name === 'profile'" :class="ACTIVE_CLASS">
             <RouterLink :to="{ name: 'profile' }">
               <User />
-              <span class="truncate">{{ auth.user?.login ?? 'Профиль' }}</span>
+              <span class="truncate">{{ auth.displayName || 'Профиль' }}</span>
             </RouterLink>
           </SidebarMenuButton>
         </SidebarMenuItem>
