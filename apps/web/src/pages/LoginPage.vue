@@ -145,6 +145,14 @@ function onSubmit() {
             {{ isSubmitting ? 'Входим…' : 'Войти' }}
           </Button>
         </form>
+
+        <!-- TEMP: shared demo credentials until each user gets their own account
+             and changes the password. Remove this whole block afterwards. -->
+        <div class="mt-5 rounded-md border border-dashed border-muted-foreground/40 bg-muted/40 p-3 text-center text-sm text-muted-foreground">
+          <p class="font-medium">Временный доступ</p>
+          <p>Логин: <span class="font-mono text-foreground">dglotov</span></p>
+          <p>Пароль: <span class="font-mono text-foreground">adminadmin</span></p>
+        </div>
       </CardContent>
     </Card>
   </div>
