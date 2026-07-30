@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Mobile booking form for a detailing shop. One submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`) — Sheets is the source of truth for bookings. Postgres holds auxiliary data: `clients` (upserted by phone on each successful booking, best-effort) and the pricelist (`sections` + `services`). No auth — intentional, time-boxed risk.
+Mobile booking form for a detailing shop. One submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`) — Sheets is the source of truth for bookings. Postgres holds auxiliary data: `clients` (upserted by phone on each successful booking, best-effort), the pricelist (`sections` + `services`), and a structured `bookings` mirror. The `bookings` mirror is **stage 1 of migrating bookings off Sheets**: every booking is dual-written to Postgres best-effort alongside the authoritative Sheets append, and an in-app read-only list page renders it. Sheets stays the source of truth until a later cutover.
 
 ## Commands
 
@@ -58,9 +58,18 @@ On startup `init()` calls `initDb()` (applies drizzle migrations against `DATABA
 - The booking route short-circuits **before** validation, idempotency lookup, and any Sheets call — no per-request log line (the single `boot.headers.mismatch` / `boot.init.error` line at startup is the signal).
 - Recovery requires a process restart after fixing the sheet (or updating `EXPECTED_HEADERS`).
 
-DB readiness is tracked separately via `isDbReady()` (`_dbReady` flag). If migrations fail, `_dbReady` stays `false` but `_bootState` may still be `'ok'` — bookings continue to flow to Sheets and client upserts are silently skipped. Routes that strictly require Postgres (`/api/clients`, `/api/pricelist`) return 503 `unavailable` when `isDbReady()` is `false`. Never gate the booking flow on DB readiness — Sheets is the source of truth.
+DB readiness is tracked separately via `isDbReady()` (`_dbReady` flag). If migrations fail, `_dbReady` stays `false` but `_bootState` may still be `'ok'` — bookings continue to flow to Sheets while the best-effort DB side (client upsert **and** the `bookings` mirror insert) is silently skipped. Read routes that strictly require Postgres (`GET /api/bookings`, `/api/clients`, `/api/pricelist`, `/api/masters`) return 503 `unavailable` when `isDbReady()` is `false`. Never gate the booking **write** flow on DB readiness — Sheets is the source of truth; the `POST` mirror is additive and only the `GET` read is DB-gated.
 
 This is deliberate: Railway treats a crash-loop as zero healthy revisions, hiding the root cause. A live listener returning structured 503s is observable.
+
+### Bookings DB mirror (dual-write, stage 1)
+
+`POST /api/bookings` writes to Sheets (authoritative) and then, best-effort, mirrors a structured row into the `bookings` table (`apps/api/src/db/bookings.ts`), reusing the same `if (isDbReady()) { … }` block as the client upsert. The mirror insert runs **after** a successful Sheets append and **never blocks the booking** — a DB failure logs `booking.db_mirror_failed` (or `booking.client_upsert_failed`) and the request still returns 201. Consequences:
+- **Best-effort, not strict.** A Postgres outage means the row lands in Sheets but not the DB (drift), healed by a later backfill before cutover. This preserves the "never lose a booking" invariant.
+- **No `status` column.** Because inserts only happen post-Sheets-success, every mirror row is already in Sheets; `sheetRow`/`sheetRange` link it back.
+- **Durable idempotency.** `bookings.idempotencyKey` is `UNIQUE` and the insert is `onConflictDoNothing` — a post-TTL client retry (which re-appends to Sheets, pre-existing behavior) will not create a second mirror row.
+- **Structured, not serialized.** Unlike the Sheets row, columns hold normalized values (phone in E.164, dates as `date`, amount as int) so the table can become the source of truth at cutover with minimal change. `bookingToDbRow()` maps the wire `Booking` → row (dates via `ddmmyyyyToIso`).
+- **Read side.** `GET /api/bookings` is admin-only (the `/api/bookings/*` guard covers it) and read-only, with filters (date range, master, readiness), phone-normalized search, and limit/offset paging. The web page is `apps/web/src/components/BookingsPage.vue` at `/bookings`.
 
 ### `EXPECTED_HEADERS` is a byte-exact contract
 
@@ -107,5 +116,5 @@ Base components live in `apps/web/src/components/ui/<name>/` — the full shadcn
 - **Don't cache non-ok results in the idempotency map** — the route relies on `ok: true` being the only thing in the map and evicts anything else on hit.
 - **Don't rename a header** (e.g. column K `Ответственный`) without updating both the sheet and `EXPECTED_HEADERS` in the same change.
 - **Don't switch to `RAW`** for the Sheets append — `USER_ENTERED` is what makes column H a number, column A a date, and columns I/J/K satisfy data validation.
-- **Don't make the booking route depend on Postgres.** Client upsert is best-effort; if the DB is down, the booking still goes to Sheets. Only `/api/clients` and `/api/pricelist` should consult `isDbReady()`.
+- **Don't make the booking `POST` depend on Postgres.** Both the client upsert and the `bookings` mirror insert are best-effort; if the DB is down, the booking still goes to Sheets and returns 201. Only the read routes (`GET /api/bookings`, `/api/clients`, `/api/pricelist`, `/api/masters`) should consult `isDbReady()`.
 - **Don't commit anything from `apps/api/.seed/`.** The directory is gitignored on purpose (PII in `clients.json`; pricelist intentionally regenerated locally). If a fresh checkout needs the pricelist, regenerate `pricelist.json` from the source Sheets — there is no dump script for it.
