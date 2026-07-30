@@ -328,6 +328,12 @@ function nextPage() {
 }
 
 // ── Filter reset ──────────────────────────────────────────────────────────────
+// Drives the full-height empty state: stretch the table so the placeholder
+// centers vertically in the scroll area instead of clinging under the header.
+const isEmpty = computed(
+  () => !showSkeleton.value && !loading.value && items.value.length === 0,
+)
+
 const hasActiveFilters = computed(
   () =>
     !!dateFromCal.value ||
@@ -517,7 +523,7 @@ function formatAmount(n: number): string {
       <Table
         v-else
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
-        class="table-fixed"
+        :class="['table-fixed', { 'h-full': isEmpty }]"
       >
         <!-- Fixed column widths so they don't jump between pages (table-fixed
              sizes columns from these, not from each page's content). -->

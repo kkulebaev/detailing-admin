@@ -16,17 +16,17 @@ const delegatedProps = reactiveOmit(props, "class")
 </script>
 
 <template>
-  <TableRow>
+  <TableRow class="h-full border-b-0 hover:bg-transparent">
     <TableCell
       :class="
         cn(
-          'p-4 whitespace-nowrap align-middle text-sm text-foreground',
+          'h-full p-4 whitespace-nowrap align-middle text-sm text-foreground',
           props.class,
         )
       "
       v-bind="delegatedProps"
     >
-      <div class="flex items-center justify-center py-10">
+      <div class="flex h-full items-center justify-center py-10">
         <slot />
       </div>
     </TableCell>
