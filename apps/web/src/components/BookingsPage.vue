@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { refDebounced } from '@vueuse/core'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
@@ -180,7 +179,16 @@ const dateToOpen = ref(false)
 const masterFilter = ref<string>(ALL)
 const readinessFilter = ref<string>(ALL)
 const searchInput = ref('')
-const searchDebounced = refDebounced(searchInput, 300)
+// Manual debounce (instead of refDebounced) so `resetFilters` can flush it
+// synchronously — otherwise the query keeps the stale search term for 300ms
+// after a reset and the table flashes its empty state before real rows load.
+const searchDebounced = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+watch(searchInput, (v) => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => (searchDebounced.value = v), 300)
+})
+onUnmounted(() => clearTimeout(searchTimer))
 const offset = ref(0)
 
 const { data: mastersData } = useMastersQuery()
@@ -331,7 +339,11 @@ function nextPage() {
 // Drives the full-height empty state: stretch the table so the placeholder
 // centers vertically in the scroll area instead of clinging under the header.
 const isEmpty = computed(
-  () => !showSkeleton.value && !loading.value && items.value.length === 0,
+  () =>
+    asyncStatus.value !== 'loading' &&
+    !showSkeleton.value &&
+    !loading.value &&
+    items.value.length === 0,
 )
 
 const hasActiveFilters = computed(
@@ -349,6 +361,10 @@ function resetFilters() {
   masterFilter.value = ALL
   readinessFilter.value = ALL
   searchInput.value = ''
+  // Flush the debounce so the query drops the search term this tick, not 300ms
+  // later — keeps the empty state from flashing during reset.
+  clearTimeout(searchTimer)
+  searchDebounced.value = ''
 }
 
 function onDateFromSelect(d: DateValue | undefined) {
@@ -568,7 +584,7 @@ function formatAmount(n: number): string {
               </TableRow>
             </template>
             <TableEmpty
-              v-else-if="!loading && items.length === 0"
+              v-else-if="isEmpty"
               :colspan="columnCount"
               class="whitespace-normal"
             >
