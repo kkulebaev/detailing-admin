@@ -36,6 +36,12 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'employee' }, label: 'Главная', icon: CalendarPlus, roles: ['employee'] },
 ]
 
+// Shared active look for every sidebar entry (nav + footer profile): the
+// default SidebarMenuButton active state is a faint accent, but we want the
+// selected item to read as the solid brand-dark primary everywhere.
+const ACTIVE_CLASS =
+  'transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:font-semibold data-[active=true]:hover:bg-sidebar-primary data-[active=true]:hover:text-sidebar-primary-foreground'
+
 const auth = useAuthStore()
 const navItems = computed(() => {
   const role = auth.user?.role
@@ -80,7 +86,7 @@ async function onLogout() {
                 as-child
                 size="lg"
                 :is-active="route.name === item.to.name"
-                class="transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:font-semibold data-[active=true]:hover:bg-sidebar-primary data-[active=true]:hover:text-sidebar-primary-foreground"
+                :class="ACTIVE_CLASS"
               >
                 <RouterLink :to="item.to">
                   <component :is="item.icon" />
@@ -95,7 +101,7 @@ async function onLogout() {
     <SidebarFooter class="border-t border-border">
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton as-child :is-active="route.name === 'profile'">
+          <SidebarMenuButton as-child :is-active="route.name === 'profile'" :class="ACTIVE_CLASS">
             <RouterLink :to="{ name: 'profile' }">
               <User />
               <span class="truncate">{{ auth.user?.login ?? 'Профиль' }}</span>
