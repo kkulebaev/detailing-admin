@@ -46,6 +46,7 @@ vi.mock('../src/db/clients.js', () => ({
 
 vi.mock('../src/db/bookings.js', () => ({
   insertBooking: vi.fn(),
+  listBookings: vi.fn(),
 }))
 
 vi.mock('../src/notify.js', () => ({
@@ -62,10 +63,10 @@ import {
   isDbReady,
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
-import { insertBooking } from '../src/db/bookings.js'
+import { insertBooking, listBookings } from '../src/db/bookings.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
-import { adminCookie } from './auth-helpers.js'
+import { adminCookie, employeeCookie } from './auth-helpers.js'
 
 const VALID_PAYLOAD = {
   dateFrom: '04.06.2026',
@@ -444,6 +445,106 @@ describe('POST /api/bookings', () => {
       expect.objectContaining({ event: 'booking.db_mirror_failed' }),
       expect.any(String),
     )
+  })
+})
+
+describe('GET /api/bookings', () => {
+  let app: ReturnType<typeof createApp>
+  let cookie = ''
+
+  const SAMPLE_ROW = {
+    id: '11111111-1111-1111-1111-111111111111',
+    idempotencyKey: 'key-1',
+    clientId: null,
+    name: 'Иван',
+    phone: '+79991234567',
+    car: 'Toyota Camry',
+    service: 'Полировка',
+    note: '',
+    amount: 5000,
+    amountFormula: null,
+    dateFrom: '2026-06-04',
+    dateTo: null,
+    timeFrom: '10:00',
+    timeTo: null,
+    readiness: '',
+    master: 'Иван Содель',
+    responsible: 'Иван Содель',
+    carClass: 3,
+    sheetRow: 5,
+    sheetRange: 'Запись 2026!A5',
+    createdAt: new Date('2026-06-01T12:00:00.000Z'),
+  }
+
+  beforeEach(async () => {
+    app = createApp()
+    cookie = await adminCookie()
+    vi.mocked(getBootState).mockReturnValue('ok')
+    vi.mocked(isDbReady).mockReturnValue(true)
+    vi.mocked(listBookings).mockResolvedValue({ items: [SAMPLE_ROW], total: 1 })
+  })
+
+  function getList(query = '', headers: Record<string, string> = { Cookie: cookie }) {
+    return app.request(`/api/bookings${query}`, { method: 'GET', headers })
+  }
+
+  it('returns 200 with items and total for admin, without the idempotency key', async () => {
+    const res = await getList()
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.total).toBe(1)
+    expect(body.items).toHaveLength(1)
+    expect(body.items[0].id).toBe(SAMPLE_ROW.id)
+    expect(body.items[0].createdAt).toBe('2026-06-01T12:00:00.000Z')
+    expect(body.items[0].idempotencyKey).toBeUndefined()
+  })
+
+  it('converts DD.MM.YYYY date filters to ISO and forwards paging/search', async () => {
+    const qs = new URLSearchParams({
+      dateFrom: '04.06.2026',
+      dateTo: '05.06.2026',
+      master: 'Иван Содель',
+      q: 'Toyota',
+      limit: '10',
+      offset: '20',
+    })
+    await getList(`?${qs.toString()}`)
+    expect(vi.mocked(listBookings)).toHaveBeenCalledWith({
+      limit: 10,
+      offset: 20,
+      dateFrom: '2026-06-04',
+      dateTo: '2026-06-05',
+      master: 'Иван Содель',
+      readiness: undefined,
+      q: 'Toyota',
+    })
+  })
+
+  it('returns 503 when DB is not ready, without querying', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await getList()
+    expect(res.status).toBe(503)
+    const body = await res.json()
+    expect(body.error).toBe('unavailable')
+    expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 without an auth cookie', async () => {
+    const res = await getList('', {})
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 403 for a non-admin role', async () => {
+    const res = await getList('', { Cookie: await employeeCookie() })
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 400 for a malformed date filter', async () => {
+    const res = await getList('?dateFrom=2026-06-04')
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toBe('validation')
   })
 })
 

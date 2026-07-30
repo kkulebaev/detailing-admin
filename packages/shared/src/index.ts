@@ -7,6 +7,12 @@ export { bookingSchema, carClassSchema, DEFAULT_CAR_CLASS } from './booking.js'
 export type { Booking, CarClass } from './booking.js'
 export { EXPECTED_HEADERS, bookingToRow } from './sheet-row.js'
 export {
+  bookingRowSchema,
+  bookingsListOkSchema,
+  bookingsListResponseSchema,
+} from './booking-row.js'
+export type { BookingRow, BookingsListResponse } from './booking-row.js'
+export {
   bookingApiResultSchema,
   notificationResultSchema,
   validationIssueSchema,

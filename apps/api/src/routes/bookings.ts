@@ -5,6 +5,9 @@ import { bookingSchema } from '@detailing-admin/shared/booking'
 import { bookingToRow } from '@detailing-admin/shared/sheet-row'
 import {
   StatusCodes,
+  bookingsListOkSchema,
+  dbUnavailableErrorSchema,
+  ddmmyyyyToIso,
   internalErrorSchema,
   sheetsErrorSchema,
   unavailableErrorSchema,
@@ -20,9 +23,10 @@ import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
-import { insertBooking } from '../db/bookings.js'
+import { insertBooking, listBookings } from '../db/bookings.js'
 import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
+import { defaultValidationHook } from '../openapi.js'
 
 type Vars = { requestId: string }
 
@@ -86,6 +90,43 @@ const postBookingRoute = createRoute({
   },
 })
 
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  // Date filters arrive in the UI's DD.MM.YYYY format; the handler converts to
+  // ISO before querying. Bad shapes 400 rather than silently ignoring a filter.
+  dateFrom: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/).optional(),
+  dateTo: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/).optional(),
+  master: z.string().max(120).optional(),
+  readiness: z.string().max(40).optional(),
+  q: z.string().max(200).optional(),
+})
+
+const getBookingsRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['bookings'],
+  request: { query: listQuerySchema },
+  responses: {
+    200: {
+      description: 'Bookings list',
+      content: { 'application/json': { schema: bookingsListOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
 // Validation hook owns the booking-specific logging plus path rewrites so the
 // wire format and the per-request log line both stay byte-compatible with the
 // pre-OpenAPI implementation.
@@ -131,6 +172,14 @@ router.use('/', async (c, next) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
     c.set('requestId', requestId)
+
+    // Boot state (Sheets header/credential checks) only gates the write path.
+    // The GET read serves from Postgres and is independent of Sheets — it guards
+    // itself with isDbReady().
+    if (c.req.method !== 'POST') {
+      await next()
+      return
+    }
 
     const state = getBootState()
     if (state === 'ok') {
@@ -314,5 +363,60 @@ router.openapi(postBookingRoute, async (c) => {
 
     return c.json(successResult, StatusCodes.CREATED)
   })
+
+router.openapi(
+  getBookingsRoute,
+  async (c) => {
+    const requestId = c.get('requestId')
+
+    if (!isDbReady()) {
+      return c.json(
+        {
+          ok: false as const,
+          error: 'unavailable' as const,
+          reason: 'not_configured' as const,
+          message: 'Database not configured or migrations failed',
+        },
+        StatusCodes.SERVICE_UNAVAILABLE,
+      )
+    }
+
+    const query = c.req.valid('query')
+    try {
+      const { items: rows, total } = await listBookings({
+        limit: query.limit,
+        offset: query.offset,
+        dateFrom: query.dateFrom ? ddmmyyyyToIso(query.dateFrom) : undefined,
+        dateTo: query.dateTo ? ddmmyyyyToIso(query.dateTo) : undefined,
+        master: query.master,
+        readiness: query.readiness,
+        q: query.q,
+      })
+      // Drop the internal idempotency key and serialize the timestamp to match
+      // the wire shape (bookingRowSchema declares createdAt as an ISO string).
+      const items = rows.map(({ idempotencyKey: _idempotencyKey, createdAt, ...rest }) => ({
+        ...rest,
+        createdAt: createdAt.toISOString(),
+      }))
+      baseLogger.info(
+        { event: 'bookings.list', request_id: requestId, count: items.length, total, status: 200 },
+        'Bookings listed',
+      )
+      return c.json({ ok: true as const, items, total }, StatusCodes.OK)
+    } catch (err) {
+      baseLogger.error(
+        {
+          event: 'bookings.list.error',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+          status: 500,
+        },
+        'Bookings query failed',
+      )
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    }
+  },
+  defaultValidationHook,
+)
 
 export default router
