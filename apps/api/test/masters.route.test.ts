@@ -120,12 +120,27 @@ describe('/api/masters', () => {
     expect(vi.mocked(listMasters)).not.toHaveBeenCalled()
   })
 
-  it('GET / with an employee session → 403 forbidden', async () => {
+  it('GET / with an employee session lists masters (read-only, all roles)', async () => {
+    vi.mocked(listMasters).mockResolvedValue([master()])
     const res = await req(app, '/', 'GET', undefined, await employeeCookie())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(vi.mocked(listMasters)).toHaveBeenCalled()
+  })
+
+  it('POST / with an employee session → 403 (writes stay admin-only)', async () => {
+    const res = await req(
+      app,
+      '/',
+      'POST',
+      { name: 'Новый Мастер', canBeResponsible: true, telegramId: null },
+      await employeeCookie(),
+    )
     expect(res.status).toBe(403)
     const body = await res.json()
     expect(body.error).toBe('forbidden')
-    expect(vi.mocked(listMasters)).not.toHaveBeenCalled()
+    expect(vi.mocked(createMaster)).not.toHaveBeenCalled()
   })
 
   it('GET / lists masters', async () => {
