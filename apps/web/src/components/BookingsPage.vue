@@ -533,11 +533,14 @@ function formatAmount(n: number): string {
       <Table
         v-else
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
-        :class="['table-fixed', { 'h-full': isEmpty }]"
+        :class="[{ 'table-fixed': !isEmpty, 'h-full': isEmpty }]"
       >
         <!-- Fixed column widths so they don't jump between pages (table-fixed
-             sizes columns from these, not from each page's content). -->
-        <colgroup>
+             sizes columns from these, not from each page's content). Dropped when
+             empty: the fixed widths force the table far wider than the viewport,
+             which would leave the placeholder behind a horizontal scrollbar with
+             nothing to scroll to. -->
+        <colgroup v-if="!isEmpty">
           <col class="w-40" />
           <col class="w-24" />
           <col class="w-36" />
@@ -551,7 +554,7 @@ function formatAmount(n: number): string {
           <col class="w-48" />
           <col v-if="isAdmin" class="w-24" />
         </colgroup>
-        <TableHeader class="sticky top-0 z-10 bg-muted">
+        <TableHeader v-if="!isEmpty" class="sticky top-0 z-10 bg-muted">
             <TableRow>
               <TableHead class="px-4">Дата</TableHead>
               <TableHead class="px-4">Время</TableHead>
