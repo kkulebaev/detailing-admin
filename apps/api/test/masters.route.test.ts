@@ -78,6 +78,7 @@ const master = (over: Partial<Record<string, unknown>> = {}) => ({
   name: 'Иван Содель',
   position: 0,
   canBeResponsible: true,
+  paidSalary: true,
   telegramId: null,
   ...over,
 })
@@ -158,6 +159,7 @@ describe('/api/masters', () => {
     const res = await req(app, '/', 'POST', {
       name: 'Новый Мастер',
       canBeResponsible: true,
+      paidSalary: true,
       telegramId: null,
     })
     expect(res.status).toBe(201)
@@ -171,6 +173,7 @@ describe('/api/masters', () => {
     const res = await req(app, '/', 'POST', {
       name: 'Новый Мастер',
       canBeResponsible: true,
+      paidSalary: true,
       telegramId: '123456789',
     })
     expect(res.status).toBe(201)
@@ -179,6 +182,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(createMaster)).toHaveBeenCalledWith({
       name: 'Новый Мастер',
       canBeResponsible: true,
+      paidSalary: true,
       telegramId: '123456789',
     })
   })
@@ -188,6 +192,7 @@ describe('/api/masters', () => {
     const res = await req(app, '/', 'POST', {
       name: 'Иван Содель',
       canBeResponsible: true,
+      paidSalary: true,
       telegramId: null,
     })
     expect(res.status).toBe(409)
@@ -209,6 +214,7 @@ describe('/api/masters', () => {
     const res = await req(app, '/1', 'PATCH', {
       name: 'Иван Содель',
       canBeResponsible: false,
+      paidSalary: true,
       telegramId: '42',
     })
     expect(res.status).toBe(200)
@@ -231,6 +237,7 @@ describe('/api/masters', () => {
     const res = await req(app, '/999', 'PATCH', {
       name: 'Пётр Новый',
       canBeResponsible: true,
+      paidSalary: true,
       telegramId: null,
     })
     expect(res.status).toBe(404)
@@ -245,6 +252,15 @@ describe('/api/masters', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(vi.mocked(deleteMaster)).toHaveBeenCalledWith(1)
+  })
+
+  it('DELETE /{id} with recorded work hours → 409 has_work_hours', async () => {
+    vi.mocked(deleteMaster).mockRejectedValue(new MasterError('has_work_hours'))
+    const res = await req(app, '/1', 'DELETE')
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toBe('conflict')
+    expect(body.reason).toBe('has_work_hours')
   })
 
   it('PATCH /reorder → 200', async () => {
@@ -268,9 +284,9 @@ describe('/api/masters', () => {
 
   it.each([
     ['/', 'GET', undefined],
-    ['/', 'POST', { name: 'Новый Мастер', canBeResponsible: true, telegramId: null }],
+    ['/', 'POST', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null }],
     ['/reorder', 'PATCH', { ids: [1] }],
-    ['/1', 'PATCH', { name: 'Новый Мастер', canBeResponsible: true, telegramId: null }],
+    ['/1', 'PATCH', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null }],
     ['/1', 'DELETE', undefined],
   ])('%s %s returns 503 when DB is not ready', async (path, method, body) => {
     vi.mocked(isDbReady).mockReturnValue(false)

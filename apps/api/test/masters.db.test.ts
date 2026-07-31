@@ -13,7 +13,7 @@ vi.mock('../src/env.js', () => ({
 }))
 
 import { _setDbForTest, type Db } from '../src/db/client.js'
-import { createMaster, reorderMasters, MasterError } from '../src/db/masters.js'
+import { createMaster, deleteMaster, reorderMasters, MasterError } from '../src/db/masters.js'
 
 // Minimal thenable query-builder fake. Terminal methods resolve to a queued
 // result; `.set()` / `.values()` payloads are captured for assertions. Results
@@ -75,7 +75,7 @@ describe('createMaster (T2)', () => {
     _setDbForTest(db)
 
     await expect(
-      createMaster({ name: 'Иван Содель', canBeResponsible: true, telegramId: null }),
+      createMaster({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null }),
     ).rejects.toBeInstanceOf(MasterError)
   })
 
@@ -85,13 +85,14 @@ describe('createMaster (T2)', () => {
         [], // no existing row
         [{ max: 4 }], // nextPosition
       ],
-      insertResults: [[{ id: 9, name: 'Новый Мастер', position: 5, canBeResponsible: true, telegramId: null }]],
+      insertResults: [[{ id: 9, name: 'Новый Мастер', position: 5, canBeResponsible: true, paidSalary: true, telegramId: null }]],
     })
     _setDbForTest(db)
 
     const row = await createMaster({
       name: 'Новый Мастер',
       canBeResponsible: true,
+      paidSalary: true,
       telegramId: null,
     })
 
@@ -105,14 +106,35 @@ describe('createMaster (T2)', () => {
         [], // no existing row
         [{ max: 0 }], // nextPosition
       ],
-      insertResults: [[{ id: 10, name: 'Пётр', position: 1, canBeResponsible: true, telegramId: '777' }]],
+      insertResults: [[{ id: 10, name: 'Пётр', position: 1, canBeResponsible: true, paidSalary: true, telegramId: '777' }]],
     })
     _setDbForTest(db)
 
-    const row = await createMaster({ name: 'Пётр', canBeResponsible: true, telegramId: '777' })
+    const row = await createMaster({ name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: '777' })
 
     expect(row.telegramId).toBe('777')
     expect(capture.values[0]).toMatchObject({ telegramId: '777' })
+  })
+})
+
+describe('deleteMaster work-hours guard', () => {
+  it('throws has_work_hours when the master still has recorded hours', async () => {
+    // Probe finds a linked work_hours row → refuse before deleting.
+    const { db } = makeFakeDb({ selectResults: [[{ id: 42 }]] })
+    _setDbForTest(db)
+
+    const err = await deleteMaster(1).catch((e) => e)
+    expect(err).toBeInstanceOf(MasterError)
+    expect(err.code).toBe('has_work_hours')
+  })
+
+  it('throws not_found when the master has no hours and no row is deleted', async () => {
+    const { db } = makeFakeDb({ selectResults: [[]] })
+    _setDbForTest(db)
+
+    const err = await deleteMaster(999).catch((e) => e)
+    expect(err).toBeInstanceOf(MasterError)
+    expect(err.code).toBe('not_found')
   })
 })
 
@@ -130,8 +152,8 @@ describe('reorderMasters invariant (T3)', () => {
 
   it('assigns dense positions 0..n-1 in posted order for a full set', async () => {
     const final = [
-      { id: 2, name: 'b', position: 0, canBeResponsible: true, telegramId: null },
-      { id: 1, name: 'a', position: 1, canBeResponsible: true, telegramId: null },
+      { id: 2, name: 'b', position: 0, canBeResponsible: true, paidSalary: true, telegramId: null },
+      { id: 1, name: 'a', position: 1, canBeResponsible: true, paidSalary: true, telegramId: null },
     ]
     const { db, capture } = makeFakeDb({
       selectResults: [

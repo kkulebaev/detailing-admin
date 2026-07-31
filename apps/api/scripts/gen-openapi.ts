@@ -26,6 +26,7 @@ const { default: bookingsRouter } = await import('../src/routes/bookings.js')
 const { default: clientsRouter } = await import('../src/routes/clients.js')
 const { default: pricelistRouter } = await import('../src/routes/pricelist.js')
 const { default: mastersRouter } = await import('../src/routes/masters.js')
+const { default: salariesRouter } = await import('../src/routes/salaries.js')
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT_PATH = resolve(__dirname, '../../web/openapi.json')
@@ -37,6 +38,7 @@ const app = new OpenAPIHono()
   .route('/api/clients', clientsRouter)
   .route('/api/pricelist', pricelistRouter)
   .route('/api/masters', mastersRouter)
+  .route('/api/salaries', salariesRouter)
 
 const doc = app.getOpenAPIDocument({
   openapi: '3.0.0',

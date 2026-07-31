@@ -78,6 +78,20 @@
       "when": 1785408697385,
       "tag": "0010_cool_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785451835182,
+      "tag": "0011_kind_fixer",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785481575022,
+      "tag": "0012_clumsy_sunfire",
+      "breakpoints": true
     }
   ]
 }

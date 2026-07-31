@@ -1,8 +1,12 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
-import { masters, type Master } from './schema.js'
+import { masters, workHours, type Master } from './schema.js'
 
-export type MasterMutationError = 'duplicate_name' | 'not_found' | 'invalid_order'
+export type MasterMutationError =
+  | 'duplicate_name'
+  | 'not_found'
+  | 'invalid_order'
+  | 'has_work_hours'
 
 export class MasterError extends Error {
   constructor(public readonly code: MasterMutationError) {
@@ -14,6 +18,7 @@ export class MasterError extends Error {
 export interface MasterInput {
   name: string
   canBeResponsible: boolean
+  paidSalary: boolean
   telegramId: string | null
 }
 
@@ -55,6 +60,7 @@ export async function createMaster(input: MasterInput): Promise<Master> {
     .values({
       name: input.name,
       canBeResponsible: input.canBeResponsible,
+      paidSalary: input.paidSalary,
       telegramId: input.telegramId,
       position,
     })
@@ -65,6 +71,7 @@ export async function createMaster(input: MasterInput): Promise<Master> {
 export interface MasterPatch {
   name?: string
   canBeResponsible?: boolean
+  paidSalary?: boolean
   telegramId?: string | null
 }
 
@@ -87,6 +94,15 @@ export async function updateMaster(id: number, patch: MasterPatch): Promise<Mast
 
 export async function deleteMaster(id: number): Promise<void> {
   const db = getDb()
+  // Payment history in work_hours references this master with onDelete:'restrict'
+  // — Postgres would reject the delete. Refuse it explicitly so the route can
+  // surface a 409 instead of a generic 500 (mirrors deleteClient/has_bookings).
+  const [linked] = await db
+    .select({ id: workHours.id })
+    .from(workHours)
+    .where(eq(workHours.masterId, id))
+    .limit(1)
+  if (linked) throw new MasterError('has_work_hours')
   const result = await db.delete(masters).where(eq(masters.id, id)).returning({ id: masters.id })
   if (result.length === 0) throw new MasterError('not_found')
 }

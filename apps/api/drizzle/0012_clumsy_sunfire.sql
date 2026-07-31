@@ -1,0 +1,1 @@
+ALTER TABLE "masters" ADD COLUMN "paid_salary" boolean DEFAULT true NOT NULL;

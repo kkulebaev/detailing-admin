@@ -124,9 +124,53 @@ export const masters = pgTable('masters', {
   // Manual ordering via ▲/▼ buttons; bulk-rewritten on reorder, hence NOT unique.
   position: integer('position').notNull(),
   canBeResponsible: boolean('can_be_responsible').notNull().default(true),
+  // Whether this master is paid a salary — filters the Зарплаты page. Defaults
+  // true so existing masters keep appearing there; admins opt individuals out.
+  paidSalary: boolean('paid_salary').notNull().default(true),
   // Reserved for future Telegram notifications; nullable until a master links one.
   telegramId: varchar('telegram_id', { length: 64 }),
 })
 
 export type Master = typeof masters.$inferSelect
 export type NewMaster = typeof masters.$inferInsert
+
+// Current hourly rate per master — the source of the snapshot copied into each
+// work_hours row. Kept OUT of `masters` on purpose: `GET /api/masters` does a
+// `SELECT *` open to all authenticated roles, so a rate column there would leak
+// to employees. PK = masterId → one row per master; no row = rate not set (a
+// LEFT JOIN yields null, distinct from a 0 rate). Cascade delete is fine: this
+// is "current", not history — the history lives in work_hours (restrict).
+export const masterRates = pgTable('master_rates', {
+  masterId: integer('master_id')
+    .primaryKey()
+    .references(() => masters.id, { onDelete: 'cascade' }),
+  hourlyRate: integer('hourly_rate').notNull(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+export type MasterRate = typeof masterRates.$inferSelect
+export type NewMasterRate = typeof masterRates.$inferInsert
+
+// Records of hours worked. `rateSnapshot` freezes the master's rate at insert so
+// a later rate change never rewrites past months' pay. `onDelete: 'restrict'`
+// (not cascade) is the DB-level guard against losing payment history when a
+// master is deleted; deleteMaster() also refuses in app code (has_work_hours).
+// `minutes` (not float hours) keeps arithmetic integer — "money = int".
+export const workHours = pgTable(
+  'work_hours',
+  {
+    id: serial('id').primaryKey(),
+    masterId: integer('master_id')
+      .notNull()
+      .references(() => masters.id, { onDelete: 'restrict' }),
+    workDate: date('work_date').notNull(),
+    minutes: integer('minutes').notNull(),
+    rateSnapshot: integer('rate_snapshot').notNull(),
+    note: text('note').notNull().default(''),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('work_hours_master_date_idx').on(t.masterId, t.workDate)],
+)
+
+export type WorkHoursRow = typeof workHours.$inferSelect
+export type NewWorkHours = typeof workHours.$inferInsert
