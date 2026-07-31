@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { masterInputSchema, reorderInputSchema } from '../src/masters.js'
 
 describe('masterInputSchema', () => {
-  const base = { canBeResponsible: true, telegramId: null }
+  const base = { canBeResponsible: true, paidSalary: true, telegramId: null }
 
   it('accepts a known name with the flag and null telegramId', () => {
     const r = masterInputSchema.safeParse({ name: 'Иван Содель', ...base })
@@ -15,7 +15,12 @@ describe('masterInputSchema', () => {
   })
 
   it('rejects a payload missing canBeResponsible — no default, so PATCH omission cannot resurrect it', () => {
-    const r = masterInputSchema.safeParse({ name: 'Пётр Новый', telegramId: null })
+    const r = masterInputSchema.safeParse({ name: 'Пётр Новый', paidSalary: true, telegramId: null })
+    expect(r.success).toBe(false)
+  })
+
+  it('rejects a payload missing paidSalary — no default', () => {
+    const r = masterInputSchema.safeParse({ name: 'Пётр Новый', canBeResponsible: true, telegramId: null })
     expect(r.success).toBe(false)
   })
 
@@ -38,6 +43,7 @@ describe('masterInputSchema', () => {
     const r = masterInputSchema.safeParse({
       name: 'Андрей и ко.',
       canBeResponsible: false,
+      paidSalary: true,
       telegramId: null,
     })
     expect(r.success).toBe(true)
@@ -48,6 +54,7 @@ describe('masterInputSchema', () => {
     const r = masterInputSchema.safeParse({
       name: 'Иван Содель',
       canBeResponsible: true,
+      paidSalary: true,
       telegramId: '123456789',
     })
     expect(r.success).toBe(true)
@@ -55,7 +62,7 @@ describe('masterInputSchema', () => {
   })
 
   it('accepts a null telegramId', () => {
-    const r = masterInputSchema.safeParse({ name: 'Иван Содель', canBeResponsible: true, telegramId: null })
+    const r = masterInputSchema.safeParse({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.telegramId).toBeNull()
   })

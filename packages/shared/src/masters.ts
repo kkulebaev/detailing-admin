@@ -12,6 +12,8 @@ export const masterSchema = z.object({
   name: z.string(),
   position: z.number().int(),
   canBeResponsible: z.boolean(),
+  // Whether the master is paid a salary — the Зарплаты page lists only paid ones.
+  paidSalary: z.boolean(),
   // Nullable — reserved for future Telegram notifications; the sheet never sees it.
   telegramId: z.string().nullable(),
 })
@@ -35,6 +37,7 @@ const masterName = z
 export const masterInputSchema = z.object({
   name: masterName,
   canBeResponsible: z.boolean(),
+  paidSalary: z.boolean(),
   telegramId: z.string().max(64).nullable(),
 })
 
