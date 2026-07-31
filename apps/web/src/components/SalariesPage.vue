@@ -264,11 +264,10 @@ async function confirmDelete() {
         </div>
 
         <Button
+          v-if="eligibleMasters.length > 0"
           variant="outline"
           size="sm"
           class="ml-auto"
-          :disabled="eligibleMasters.length === 0"
-          :title="eligibleMasters.length === 0 ? 'Сначала задайте ставку хотя бы одному мастеру' : undefined"
           @click="openAddHoursGeneral"
         >
           <Plus class="size-4" /> Добавить часы
