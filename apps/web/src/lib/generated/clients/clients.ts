@@ -13,8 +13,10 @@ import type {
   DeleteApiClientsId500,
   DeleteApiClientsId503,
   GetApiClients200,
+  GetApiClients400,
   GetApiClients500,
   GetApiClients503,
+  GetApiClientsParams,
   PatchApiClientsId200,
   PatchApiClientsId400,
   PatchApiClientsId404,
@@ -38,6 +40,11 @@ export type getApiClientsResponse200 = {
   status: 200
 }
 
+export type getApiClientsResponse400 = {
+  data: GetApiClients400
+  status: 400
+}
+
 export type getApiClientsResponse500 = {
   data: GetApiClients500
   status: 500
@@ -51,23 +58,30 @@ export type getApiClientsResponse503 = {
 export type getApiClientsResponseSuccess = (getApiClientsResponse200) & {
   headers: Headers;
 };
-export type getApiClientsResponseError = (getApiClientsResponse500 | getApiClientsResponse503) & {
+export type getApiClientsResponseError = (getApiClientsResponse400 | getApiClientsResponse500 | getApiClientsResponse503) & {
   headers: Headers;
 };
 
 export type getApiClientsResponse = (getApiClientsResponseSuccess | getApiClientsResponseError)
 
-export const getGetApiClientsUrl = () => {
+export const getGetApiClientsUrl = (params?: GetApiClientsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/clients`
+  return stringifiedParams.length > 0 ? `/api/clients?${stringifiedParams}` : `/api/clients`
 }
 
-export const getApiClients = async ( options?: RequestInit): Promise<getApiClientsResponse> => {
+export const getApiClients = async (params?: GetApiClientsParams, options?: RequestInit): Promise<getApiClientsResponse> => {
 
-  return orvalFetch<getApiClientsResponse>(getGetApiClientsUrl(),
+  return orvalFetch<getApiClientsResponse>(getGetApiClientsUrl(params),
   {
     ...options,
     method: 'GET'

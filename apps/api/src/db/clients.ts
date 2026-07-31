@@ -1,4 +1,5 @@
-import { and, eq, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm'
+import { normalizePhone } from '@detailing-admin/shared/phone'
 import { getDb } from './client.js'
 import { bookings, clients, type Client } from './schema.js'
 
@@ -18,9 +19,61 @@ export class ClientError extends Error {
   }
 }
 
-export async function listClients(): Promise<Client[]> {
+export interface ListClientsParams {
+  limit: number
+  offset: number
+  /** Free-text search across name/phone. A phone-looking term is normalized to
+   * E.164 before matching the stored (E.164) phone. */
+  q?: string
+  /** Sort column. Defaults to name. */
+  sort?: 'name' | 'phone'
+  dir?: 'asc' | 'desc'
+}
+
+export async function listClients(
+  p: ListClientsParams,
+): Promise<{ items: Client[]; total: number }> {
   const db = getDb()
-  return db.select().from(clients)
+
+  const q = p.q?.trim()
+  let where
+  if (q) {
+    const textLike = `%${q}%`
+    // The stored phone is E.164, but staff type `8XXX`; normalize so a phone
+    // search still matches. normalizePhone throws on non-phone input — fall back
+    // to raw text matching in that case.
+    let phoneLike = textLike
+    try {
+      const normalized = normalizePhone(q)
+      if (normalized) phoneLike = `%${normalized}%`
+    } catch {
+      // Not a phone — keep the text pattern.
+    }
+    where = or(ilike(clients.name, textLike), ilike(clients.phone, phoneLike))
+  }
+
+  const direction = p.dir === 'desc' ? desc : asc
+  const orderBy =
+    p.sort === 'phone'
+      ? [direction(clients.phone)]
+      : // Empty names always sort last (regardless of direction), matching the
+        // UI's collator ordering; then by name in the requested direction.
+        [asc(sql`${clients.name} = ''`), direction(sql`lower(${clients.name})`)]
+
+  const items = await db
+    .select()
+    .from(clients)
+    .where(where)
+    .orderBy(...orderBy)
+    .limit(p.limit)
+    .offset(p.offset)
+
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(clients)
+    .where(where)
+
+  return { items, total: countRow?.count ?? 0 }
 }
 
 /**

@@ -39,7 +39,19 @@ const conflictHasBookingsSchema = z.object({
   reason: z.literal('has_bookings'),
 })
 
-const listOkResponse = z.object({ ok: z.literal(true), clients: z.array(clientSchema) })
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  q: z.string().max(200).optional(),
+  sort: z.enum(['name', 'phone']).default('name'),
+  dir: z.enum(['asc', 'desc']).default('asc'),
+})
+
+const listOkResponse = z.object({
+  ok: z.literal(true),
+  clients: z.array(clientSchema),
+  total: z.number().int(),
+})
 const mutationOkResponse = z.object({ ok: z.literal(true), client: clientSchema })
 const deleteOkResponse = z.object({ ok: z.literal(true) })
 
@@ -99,8 +111,10 @@ const listClientsRoute = createRoute({
   method: 'get',
   path: '/',
   tags: ['clients'],
+  request: { query: listQuerySchema },
   responses: {
     200: { description: 'Clients list', content: { 'application/json': { schema: listOkResponse } } },
+    400: respValidation,
     500: respInternal,
     503: respDbUnavailable,
   },
@@ -173,13 +187,20 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
     if (!isDbReady()) return unavailable(c)
 
+    const query = c.req.valid('query')
     try {
-      const rows = await listClients()
+      const { items: rows, total } = await listClients({
+        limit: query.limit,
+        offset: query.offset,
+        q: query.q,
+        sort: query.sort,
+        dir: query.dir,
+      })
       baseLogger.info(
-        { event: 'clients.list', request_id: requestId, count: rows.length, status: 200 },
+        { event: 'clients.list', request_id: requestId, count: rows.length, total, status: 200 },
         'Clients listed',
       )
-      return c.json({ ok: true as const, clients: rows }, StatusCodes.OK)
+      return c.json({ ok: true as const, clients: rows, total }, StatusCodes.OK)
     } catch (err) {
       baseLogger.error(
         {

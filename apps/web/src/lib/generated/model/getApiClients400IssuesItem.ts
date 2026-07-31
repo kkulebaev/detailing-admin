@@ -5,10 +5,8 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
-import type { GetApiClients200ClientsItem } from './getApiClients200ClientsItem';
 
-export type GetApiClients200 = {
-  ok: true;
-  clients: GetApiClients200ClientsItem[];
-  total: number;
+export type GetApiClients400IssuesItem = {
+  path: (string | number)[];
+  message: string;
 };

@@ -12,8 +12,9 @@ import {
   patchApiClientsId,
   postApiClients,
 } from './generated/clients/clients'
+import type { GetApiClientsParams } from './generated/model'
 
-export type { Client }
+export type { Client, GetApiClientsParams }
 
 export type ClientsApiResult = z.infer<typeof clientsListResponseSchema>
 export type ClientMutationResult = z.infer<typeof clientMutationResponseSchema>
@@ -24,8 +25,8 @@ export interface ClientInputPayload {
   phone: string
 }
 
-export function fetchClients(): Promise<ClientsApiResult> {
-  return unwrap<ClientsApiResult>(() => getApiClients())
+export function fetchClients(params: GetApiClientsParams): Promise<ClientsApiResult> {
+  return unwrap<ClientsApiResult>(() => getApiClients(params))
 }
 
 export function createClient(payload: ClientInputPayload): Promise<ClientMutationResult> {

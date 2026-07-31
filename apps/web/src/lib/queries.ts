@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import { useQuery, useQueryCache } from '@pinia/colada'
-import { fetchClients } from './clients-api'
+import { fetchClients, type GetApiClientsParams } from './clients-api'
 import { fetchPricelist } from './pricelist-api'
 import { fetchMasters } from './masters-api'
 import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
@@ -15,10 +15,15 @@ export const BOOKINGS_KEY = ['bookings'] as const
 export const SALARIES_KEY = ['salaries'] as const
 export const WORK_HOURS_KEY = ['work-hours'] as const
 
-export function useClientsQuery() {
+// Reactive key so changing the search term, sort, or paging refetches
+// automatically. `params` is a ref the page recomputes from its filter state;
+// placeholderData keeps the previous page's rows on screen while the next
+// request is in flight (no loading flash).
+export function useClientsQuery(params: Ref<GetApiClientsParams>) {
   return useQuery({
-    key: CLIENTS_KEY,
-    query: fetchClients,
+    key: () => [...CLIENTS_KEY, params.value],
+    query: () => fetchClients(params.value),
+    placeholderData: (previous) => previous,
   })
 }
 

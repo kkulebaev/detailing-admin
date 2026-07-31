@@ -374,7 +374,7 @@ describe('guards on existing routes', () => {
   })
 
   it('GET /api/clients with an admin session → 200', async () => {
-    vi.mocked(listClients).mockResolvedValue([])
+    vi.mocked(listClients).mockResolvedValue({ items: [], total: 0 })
     const res = await json(app, '/api/clients', 'GET', undefined, { Cookie: await adminCookie() })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -444,7 +444,7 @@ describe('ADR consequences (stateless sessions)', () => {
     expect(changed.status).toBe(200)
 
     // The OLD token is not revoked server-side — it still authenticates.
-    vi.mocked(listClients).mockResolvedValue([])
+    vi.mocked(listClients).mockResolvedValue({ items: [], total: 0 })
     const res = await json(app, '/api/clients', 'GET', undefined, { Cookie: oldCookie })
     expect(res.status).toBe(200)
   })

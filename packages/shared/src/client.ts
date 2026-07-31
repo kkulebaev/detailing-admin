@@ -31,7 +31,8 @@ const clientDeleteConflictSchema = z.object({
 })
 
 export const clientsListResponseSchema = z.union([
-  z.object({ ok: z.literal(true), clients: z.array(clientSchema) }),
+  z.object({ ok: z.literal(true), clients: z.array(clientSchema), total: z.number().int() }),
+  validationErrorSchema,
   dbUnavailableErrorSchema,
   internalErrorSchema,
 ])
