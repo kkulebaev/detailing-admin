@@ -341,7 +341,7 @@ async function confirmDelete() {
       <Table
         v-else
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
-        :class="[{ 'table-fixed': !isEmpty, 'h-full': isEmpty }]"
+        :class="[{ 'table-fixed min-w-176': !isEmpty, 'h-full': isEmpty }]"
       >
         <colgroup v-if="!isEmpty">
           <col class="w-16" />
