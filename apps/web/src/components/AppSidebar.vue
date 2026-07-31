@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, type Component } from 'vue'
-import { CalendarPlus, ClipboardList, LogOut, ReceiptText, User, Users, Wrench, X } from '@lucide/vue'
+import { CalendarPlus, ClipboardList, LogOut, ReceiptText, User, Users, Wallet, Wrench, X } from '@lucide/vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { Role } from '@detailing-admin/shared'
 import AppLogo from '@/components/AppLogo.vue'
@@ -34,6 +34,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users, roles: ['admin'] },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText, roles: ['admin'] },
   { to: { name: 'masters' }, label: 'Мастера', icon: Wrench, roles: ['admin'] },
+  { to: { name: 'salaries' }, label: 'Зарплаты', icon: Wallet, roles: ['admin'] },
   { to: { name: 'employee' }, label: 'Главная', icon: CalendarPlus, roles: ['employee'] },
 ]
 

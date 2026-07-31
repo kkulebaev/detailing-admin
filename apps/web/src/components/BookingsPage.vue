@@ -3,8 +3,9 @@ import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
-import { CalendarDate, getLocalTimeZone, today } from '@internationalized/date'
+import { CalendarDate } from '@internationalized/date'
 import { READINESS, type BookingRow } from '@detailing-admin/shared'
+import { buildMonthOptions } from '@/lib/month-options'
 import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from '@/lib/bookings-api'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
@@ -209,26 +210,10 @@ function calToDdmmyyyy(d: DateValue): string {
 // A convenience over the two date pickers: picking a month sets the range to its
 // first…last day; the pickers stay the single source of truth (manually tweaking
 // them shows «Свой период» in the month select).
-const MONTH_NAMES = [
-  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
-]
 const MONTH_CUSTOM = '__custom__'
 
 // Rolling window: 1 month ahead down to 12 back, newest first.
-const monthOptions = (() => {
-  const anchor = today(getLocalTimeZone())
-  const first = new CalendarDate(anchor.year, anchor.month, 1)
-  const opts: { value: string; label: string }[] = []
-  for (let i = 1; i >= -12; i--) {
-    const d = first.add({ months: i })
-    opts.push({
-      value: `${d.year}-${String(d.month).padStart(2, '0')}`,
-      label: `${MONTH_NAMES[d.month - 1]} ${d.year}`,
-    })
-  }
-  return opts
-})()
+const monthOptions = buildMonthOptions()
 
 function lastDayOfMonth(year: number, month1: number): number {
   return new Date(year, month1, 0).getDate()

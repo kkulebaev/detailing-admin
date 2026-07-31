@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type DeleteApiMastersId409Reason = 'duplicate_name';
+export type DeleteApiMastersId409Reason = 'has_work_hours';

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ShieldCheck } from '@lucide/vue'
+import { ShieldCheck, Wallet } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   createMaster,
@@ -31,6 +31,7 @@ const emit = defineEmits<{
 
 const name = ref('')
 const canBeResponsible = ref(true)
+const paidSalary = ref(true)
 const telegramId = ref('')
 
 const submitting = ref(false)
@@ -46,6 +47,7 @@ watch(
     const m = props.editing
     name.value = m?.name ?? ''
     canBeResponsible.value = m?.canBeResponsible ?? true
+    paidSalary.value = m?.paidSalary ?? true
     telegramId.value = m?.telegramId ?? ''
     error.value = null
     fieldErrors.value = {}
@@ -76,6 +78,7 @@ async function submit() {
   const payload = {
     name: trimmedName,
     canBeResponsible: canBeResponsible.value,
+    paidSalary: paidSalary.value,
     telegramId: trimmedTelegram === '' ? null : trimmedTelegram,
   }
 
@@ -179,6 +182,19 @@ async function submit() {
           <Label for="master-can-be-responsible" class="flex cursor-pointer items-center gap-1.5">
             <ShieldCheck class="size-4 text-muted-foreground" />
             Может быть ответственным
+          </Label>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <Checkbox
+            id="master-paid-salary"
+            :model-value="paidSalary"
+            :disabled="submitting"
+            @update:model-value="(v) => (paidSalary = v === true)"
+          />
+          <Label for="master-paid-salary" class="flex cursor-pointer items-center gap-1.5">
+            <Wallet class="size-4 text-muted-foreground" />
+            Начисляется зарплата
           </Label>
         </div>
 

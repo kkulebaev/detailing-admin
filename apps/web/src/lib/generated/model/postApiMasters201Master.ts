@@ -11,6 +11,7 @@ export type PostApiMasters201Master = {
   name: string;
   position: number;
   canBeResponsible: boolean;
+  paidSalary: boolean;
   /** @nullable */
   telegramId: string | null;
 };

@@ -8,6 +8,7 @@ function master(overrides: Partial<Master>): Master {
     name: 'Тест',
     position: 0,
     canBeResponsible: true,
+    paidSalary: true,
     telegramId: null,
     ...overrides,
   }

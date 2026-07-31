@@ -27,6 +27,7 @@ export type MasterReorderResult = z.infer<typeof masterReorderResponseSchema>
 export interface MasterInputPayload {
   name: string
   canBeResponsible: boolean
+  paidSalary: boolean
   telegramId: string | null
 }
 
