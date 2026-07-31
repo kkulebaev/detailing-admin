@@ -10,4 +10,5 @@ export type GetApiClients200ClientsItem = {
   id: string;
   phone: string;
   name: string;
+  createdAt: string;
 };

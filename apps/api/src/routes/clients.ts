@@ -43,7 +43,7 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
   q: z.string().max(200).optional(),
-  sort: z.enum(['name', 'phone']).default('name'),
+  sort: z.enum(['name', 'phone', 'createdAt']).default('name'),
   dir: z.enum(['asc', 'desc']).default('asc'),
 })
 
@@ -54,6 +54,11 @@ const listOkResponse = z.object({
 })
 const mutationOkResponse = z.object({ ok: z.literal(true), client: clientSchema })
 const deleteOkResponse = z.object({ ok: z.literal(true) })
+
+// The DB row carries `createdAt` as a Date; the wire schema is an ISO string.
+function toWireClient(row: { id: string; phone: string; name: string; createdAt: Date }) {
+  return { id: row.id, phone: row.phone, name: row.name, createdAt: row.createdAt.toISOString() }
+}
 
 function unavailable(c: Context) {
   return c.json(
@@ -200,7 +205,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'clients.list', request_id: requestId, count: rows.length, total, status: 200 },
         'Clients listed',
       )
-      return c.json({ ok: true as const, clients: rows, total }, StatusCodes.OK)
+      return c.json({ ok: true as const, clients: rows.map(toWireClient), total }, StatusCodes.OK)
     } catch (err) {
       baseLogger.error(
         {
@@ -227,7 +232,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'clients.create', request_id: requestId, client_id: client.id, status: 201 },
         'Client created',
       )
-      return c.json({ ok: true as const, client }, StatusCodes.CREATED)
+      return c.json({ ok: true as const, client: toWireClient(client) }, StatusCodes.CREATED)
     } catch (err) {
       if (err instanceof ClientError && err.code === 'duplicate_phone') {
         return c.json(
@@ -253,7 +258,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { event: 'clients.update', request_id: requestId, client_id: id, status: 200 },
         'Client updated',
       )
-      return c.json({ ok: true as const, client }, StatusCodes.OK)
+      return c.json({ ok: true as const, client: toWireClient(client) }, StatusCodes.OK)
     } catch (err) {
       if (err instanceof ClientError && err.code === 'duplicate_phone') {
         return c.json(

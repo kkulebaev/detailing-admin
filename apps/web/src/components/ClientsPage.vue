@@ -56,7 +56,7 @@ import {
 
 const LIMIT = 50
 
-const COLUMN_COUNT = 4
+const COLUMN_COUNT = 5
 
 // ── Filter / sort / paging state ────────────────────────────────────────────
 const searchInput = ref('')
@@ -71,7 +71,7 @@ watch(searchInput, (v) => {
 })
 onUnmounted(() => clearTimeout(searchTimer))
 
-type SortColumn = 'name' | 'phone'
+type SortColumn = 'name' | 'phone' | 'createdAt'
 const sort = ref<SortColumn>('name')
 const dir = ref<'asc' | 'desc'>('asc')
 const offset = ref(0)
@@ -203,6 +203,14 @@ function formatPhone(raw: string): string {
   if (!match) return raw
   const [, prefix, a, b, c, d] = match
   return `${prefix}-${a}-${b}-${c}-${d}`
+}
+
+function formatCreatedAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${dd}.${mm}.${d.getFullYear()}`
 }
 
 async function copyPhone(phone: string) {
@@ -339,6 +347,7 @@ async function confirmDelete() {
           <col class="w-16" />
           <col />
           <col class="w-56" />
+          <col class="w-36" />
           <col class="w-28" />
         </colgroup>
         <TableHeader v-if="!isEmpty" class="sticky top-0 z-10 bg-muted">
@@ -370,6 +379,19 @@ async function confirmDelete() {
                 <ChevronsUpDown v-else class="size-3.5 opacity-50" />
               </button>
             </TableHead>
+            <TableHead class="px-4" :aria-sort="ariaSortFor(sortState('createdAt'))">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                :class="{ 'text-foreground': sortState('createdAt') }"
+                @click="toggleSort('createdAt')"
+              >
+                Добавлен
+                <ChevronUp v-if="sortState('createdAt') === 'asc'" class="size-3.5" />
+                <ChevronDown v-else-if="sortState('createdAt') === 'desc'" class="size-3.5" />
+                <ChevronsUpDown v-else class="size-3.5 opacity-50" />
+              </button>
+            </TableHead>
             <TableHead class="px-4 text-right">Действия</TableHead>
           </TableRow>
         </TableHeader>
@@ -379,6 +401,7 @@ async function confirmDelete() {
               <TableCell class="px-4"><Skeleton class="h-4 w-6" /></TableCell>
               <TableCell class="px-4"><Skeleton class="h-4 w-40" /></TableCell>
               <TableCell class="px-4"><Skeleton class="h-4 w-32" /></TableCell>
+              <TableCell class="px-4"><Skeleton class="h-4 w-20" /></TableCell>
               <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
             </TableRow>
           </template>
@@ -424,6 +447,9 @@ async function confirmDelete() {
               >
                 {{ formatPhone(row.phone) }}
               </button>
+            </TableCell>
+            <TableCell class="px-4 tabular-nums text-muted-foreground">
+              {{ formatCreatedAt(row.createdAt) }}
             </TableCell>
             <TableCell class="px-4 text-right">
               <div class="inline-flex gap-1">

@@ -36,6 +36,10 @@ export const clients = pgTable('clients', {
   id: uuid('id').primaryKey().defaultRandom(),
   phone: varchar('phone', { length: 32 }).notNull().unique(),
   name: varchar('name', { length: 120 }).notNull().default(''),
+  // Backfilled to the migration time for pre-existing clients — historical
+  // add-dates aren't recoverable (clients were upserted by phone with no
+  // timestamp before this column existed).
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 export type Client = typeof clients.$inferSelect

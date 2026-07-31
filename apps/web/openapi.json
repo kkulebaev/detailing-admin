@@ -2647,7 +2647,8 @@
               "type": "string",
               "enum": [
                 "name",
-                "phone"
+                "phone",
+                "createdAt"
               ],
               "default": "name"
             },
@@ -2697,12 +2698,16 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "id",
                           "phone",
-                          "name"
+                          "name",
+                          "createdAt"
                         ]
                       }
                     },
@@ -2898,12 +2903,16 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "id",
                         "phone",
-                        "name"
+                        "name",
+                        "createdAt"
                       ]
                     }
                   },
@@ -3170,12 +3179,16 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "id",
                         "phone",
-                        "name"
+                        "name",
+                        "createdAt"
                       ]
                     }
                   },

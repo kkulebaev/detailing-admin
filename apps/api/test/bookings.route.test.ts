@@ -405,7 +405,7 @@ describe('POST /api/bookings', () => {
   it('mirrors the booking into the DB with client link and Sheets coords', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'inserted',
-      client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван' },
+      client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
     })
     await post(
       app,

@@ -10,4 +10,5 @@ export type PatchApiClientsId200Client = {
   id: string;
   phone: string;
   name: string;
+  createdAt: string;
 };

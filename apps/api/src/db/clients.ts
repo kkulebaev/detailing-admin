@@ -26,7 +26,7 @@ export interface ListClientsParams {
    * E.164 before matching the stored (E.164) phone. */
   q?: string
   /** Sort column. Defaults to name. */
-  sort?: 'name' | 'phone'
+  sort?: 'name' | 'phone' | 'createdAt'
   dir?: 'asc' | 'desc'
 }
 
@@ -53,12 +53,16 @@ export async function listClients(
   }
 
   const direction = p.dir === 'desc' ? desc : asc
-  const orderBy =
-    p.sort === 'phone'
-      ? [direction(clients.phone)]
-      : // Empty names always sort last (regardless of direction), matching the
-        // UI's collator ordering; then by name in the requested direction.
-        [asc(sql`${clients.name} = ''`), direction(sql`lower(${clients.name})`)]
+  let orderBy
+  if (p.sort === 'phone') {
+    orderBy = [direction(clients.phone)]
+  } else if (p.sort === 'createdAt') {
+    orderBy = [direction(clients.createdAt)]
+  } else {
+    // Empty names always sort last (regardless of direction), matching the
+    // UI's collator ordering; then by name in the requested direction.
+    orderBy = [asc(sql`${clients.name} = ''`), direction(sql`lower(${clients.name})`)]
+  }
 
   const items = await db
     .select()

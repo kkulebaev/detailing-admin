@@ -10,4 +10,5 @@ export type PostApiClients201Client = {
   id: string;
   phone: string;
   name: string;
+  createdAt: string;
 };

@@ -11,6 +11,8 @@ export const clientSchema = z.object({
   id: z.string().uuid(),
   phone: z.string(),
   name: z.string(),
+  // ISO datetime after JSON serialization (the DB column is a timestamp).
+  createdAt: z.string(),
 })
 
 export type Client = z.infer<typeof clientSchema>
