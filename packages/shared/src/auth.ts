@@ -24,6 +24,10 @@ export type UserPublic = z.infer<typeof userPublicSchema>
 export const loginRequestSchema = z.object({
   login: z.string().min(1, 'Укажите логин').max(64),
   password: z.string().min(1, 'Укажите пароль').max(200),
+  // "Запомнить меня": true → длинная сессия (AUTH_REMEMBER_TTL_SECONDS),
+  // false/отсутствует → обычный TTL. Optional (не .default()): @vee-validate/zod
+  // ломается на ZodDefault под Zod 4, а дефолт всё равно применяется на сервере.
+  remember: z.boolean().optional(),
 })
 export type LoginRequest = z.infer<typeof loginRequestSchema>
 

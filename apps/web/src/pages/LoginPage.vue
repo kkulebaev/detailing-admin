@@ -11,8 +11,10 @@ import { useAuthStore } from '@/stores/auth'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { FORM_SHOW_ERRORS_KEY } from '@/components/ui/form/injectionKeys'
 
@@ -30,9 +32,9 @@ const showPassword = ref(false)
 const showErrors = ref(false)
 provide(FORM_SHOW_ERRORS_KEY, showErrors)
 
-const { handleSubmit, isSubmitting, values, setValues } = useForm({
+const { handleSubmit, isSubmitting, values, setValues, setFieldValue } = useForm({
   validationSchema: toTypedSchema(loginRequestSchema),
-  initialValues: { login: '', password: '' },
+  initialValues: { login: '', password: '', remember: false },
 })
 
 // TEMP: matches the shared demo credentials shown below — remove alongside them.
@@ -142,6 +144,18 @@ function onSubmit() {
               <FormMessage />
             </FormItem>
           </FormField>
+
+          <div class="flex items-center gap-2">
+            <Checkbox
+              id="remember"
+              :model-value="values.remember"
+              :disabled="isSubmitting"
+              @update:model-value="(v) => setFieldValue('remember', v === true)"
+            />
+            <Label for="remember" class="cursor-pointer font-normal text-muted-foreground">
+              Запомнить меня
+            </Label>
+          </div>
 
           <Alert v-if="loginError" variant="destructive">
             <TriangleAlert />

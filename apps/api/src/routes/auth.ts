@@ -16,7 +16,7 @@ import {
 import { isDbReady } from '../boot.js'
 import { findByLogin, updatePasswordHash, updateProfile } from '../db/users.js'
 import { dummyVerify, hashPassword, verifyPassword } from '../auth/password.js'
-import { signToken, verifyToken } from '../auth/jwt.js'
+import { signToken, verifyToken, ttlForRemember } from '../auth/jwt.js'
 import { setAuthCookie, clearAuthCookie, getAuthToken } from '../auth/cookie.js'
 import { requireAuth } from '../auth/middleware.js'
 import { baseLogger } from '../log.js'
@@ -149,7 +149,7 @@ router
 
     if (!isDbReady()) return dbUnavailable(c)
 
-    const { login, password } = c.req.valid('json')
+    const { login, password, remember } = c.req.valid('json')
     const user = await findByLogin(login)
 
     if (!user) {
@@ -179,8 +179,9 @@ router
       firstName: user.firstName,
       lastName: user.lastName,
       pwdChangedAt: Math.floor(user.passwordChangedAt.getTime() / 1000),
+      remember: remember ?? false,
     })
-    setAuthCookie(c, token)
+    setAuthCookie(c, token, ttlForRemember(remember ?? false))
 
     baseLogger.info(
       { event: 'auth.login.ok', request_id: requestId, login, role, status: 200 },
@@ -218,8 +219,9 @@ router
       firstName: claims.firstName,
       lastName: claims.lastName,
       pwdChangedAt: claims.pwdChangedAt,
+      remember: claims.remember,
     })
-    setAuthCookie(c, token2)
+    setAuthCookie(c, token2, ttlForRemember(claims.remember))
     return c.json(
       {
         ok: true as const,
@@ -281,8 +283,9 @@ router
       firstName: current.firstName,
       lastName: current.lastName,
       pwdChangedAt: Math.floor(Date.now() / 1000),
+      remember: user.remember,
     })
-    setAuthCookie(c, refreshed)
+    setAuthCookie(c, refreshed, ttlForRemember(user.remember))
 
     baseLogger.info(
       { event: 'auth.change_password.ok', request_id: requestId, login: user.login, status: 200 },
@@ -311,8 +314,9 @@ router
       firstName: updated.firstName,
       lastName: updated.lastName,
       pwdChangedAt: user.pwdChangedAt,
+      remember: user.remember,
     })
-    setAuthCookie(c, refreshed)
+    setAuthCookie(c, refreshed, ttlForRemember(user.remember))
 
     return c.json(
       {

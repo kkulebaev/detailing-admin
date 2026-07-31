@@ -41,6 +41,7 @@ describe('parseEnv', () => {
     expect(result.AUTH_COOKIE_SECURE).toBe(false)
     expect(result.AUTH_COOKIE_SAMESITE).toBe('lax')
     expect(result.AUTH_TOKEN_TTL_SECONDS).toBe(86400)
+    expect(result.AUTH_REMEMBER_TTL_SECONDS).toBe(2592000)
   })
 
   it('does not coerce the literal "false" to true for AUTH_COOKIE_SECURE', () => {

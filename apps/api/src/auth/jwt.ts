@@ -15,16 +15,25 @@ export interface AuthTokenClaims {
   // revocation path can reject tokens minted before a password reset without a
   // token-format migration (auth plan §3, Option C).
   pwdChangedAt: number
+  // "Запомнить меня" chosen at login. Carried in the token so sliding refresh
+  // (/me) and re-mints (profile/password change) preserve the session lifetime
+  // instead of silently downgrading a long session to the default TTL.
+  remember: boolean
 }
 
 type SignedPayload = AuthTokenClaims & JWTPayload & { exp: number; iat: number }
+
+/** Session lifetime in seconds implied by the "remember me" choice. */
+export function ttlForRemember(remember: boolean): number {
+  return remember ? env.AUTH_REMEMBER_TTL_SECONDS : env.AUTH_TOKEN_TTL_SECONDS
+}
 
 export async function signToken(claims: AuthTokenClaims): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
   const payload: SignedPayload = {
     ...claims,
     iat: now,
-    exp: now + env.AUTH_TOKEN_TTL_SECONDS,
+    exp: now + ttlForRemember(claims.remember),
   }
   return sign(payload, env.JWT_SECRET, 'HS256')
 }
@@ -50,6 +59,9 @@ export async function verifyToken(token: string): Promise<AuthTokenClaims | null
       firstName: typeof payload.firstName === 'string' ? payload.firstName : '',
       lastName: typeof payload.lastName === 'string' ? payload.lastName : '',
       pwdChangedAt: payload.pwdChangedAt,
+      // Tokens minted before this claim existed lack it — treat as "not
+      // remembered" (default TTL), the safe/short-lived default.
+      remember: payload.remember === true,
     }
   } catch {
     // Expired / bad signature / malformed — all collapse to "no session".

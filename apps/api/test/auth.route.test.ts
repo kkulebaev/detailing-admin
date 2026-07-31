@@ -11,6 +11,7 @@ vi.mock('../src/env.js', () => ({
     AUTH_COOKIE_SECURE: false,
     AUTH_COOKIE_SAMESITE: 'lax',
     AUTH_TOKEN_TTL_SECONDS: 86400,
+    AUTH_REMEMBER_TTL_SECONDS: 2592000,
     WEB_ORIGIN: 'http://localhost:5173',
     LOG_LEVEL: 'silent',
   },
@@ -136,6 +137,24 @@ describe('POST /api/auth/login', () => {
       ok: true,
       user: { login: 'admin', role: 'admin', firstName: 'Админ', lastName: 'Главный' },
     })
+  })
+
+  it('remember: true → cookie carries the long Max-Age', async () => {
+    vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
+    const res = await json(app, '/api/auth/login', 'POST', {
+      login: 'admin',
+      password: 'secret123',
+      remember: true,
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('set-cookie') ?? '').toContain('Max-Age=2592000')
+  })
+
+  it('remember omitted → cookie uses the default Max-Age', async () => {
+    vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
+    const res = await json(app, '/api/auth/login', 'POST', { login: 'admin', password: 'secret123' })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('set-cookie') ?? '').toContain('Max-Age=86400')
   })
 
   it('wrong password → 401, no cookie', async () => {

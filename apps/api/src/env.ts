@@ -23,6 +23,9 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
   AUTH_COOKIE_SAMESITE: z.enum(['lax', 'none']).default('lax'),
   AUTH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
+  // "Запомнить меня" session lifetime (default 30 days). Selected at login when
+  // the box is ticked; drives both the JWT exp and the cookie maxAge.
+  AUTH_REMEMBER_TTL_SECONDS: z.coerce.number().int().positive().default(2592000),
   WEB_ORIGIN: z.string().min(1).default('http://localhost:5173'),
   LOG_LEVEL: z
     .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])

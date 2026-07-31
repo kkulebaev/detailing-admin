@@ -8,18 +8,20 @@ function sameSite() {
   return env.AUTH_COOKIE_SAMESITE === 'none' ? ('None' as const) : ('Lax' as const)
 }
 
-function cookieOptions() {
+function cookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
     secure: env.AUTH_COOKIE_SECURE,
     sameSite: sameSite(),
     path: '/',
-    maxAge: env.AUTH_TOKEN_TTL_SECONDS,
+    // Must match the token's exp so the browser drops the cookie exactly when
+    // the JWT expires — the caller derives both from ttlForRemember().
+    maxAge: maxAgeSeconds,
   }
 }
 
-export function setAuthCookie(c: Context, token: string): void {
-  setCookie(c, AUTH_COOKIE_NAME, token, cookieOptions())
+export function setAuthCookie(c: Context, token: string, maxAgeSeconds: number): void {
+  setCookie(c, AUTH_COOKIE_NAME, token, cookieOptions(maxAgeSeconds))
 }
 
 export function clearAuthCookie(c: Context): void {

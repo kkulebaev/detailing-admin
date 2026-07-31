@@ -33,6 +33,17 @@ describe('loginRequestSchema', () => {
   it('rejects an empty password', () => {
     expect(loginRequestSchema.safeParse({ login: 'ivan', password: '' }).success).toBe(false)
   })
+
+  it('allows omitting remember (defaulted to false server-side)', () => {
+    const r = loginRequestSchema.safeParse({ login: 'ivan', password: 'secret' })
+    expect(r.success).toBe(true)
+    expect(r.success && r.data.remember).toBeUndefined()
+  })
+
+  it('keeps an explicit remember flag', () => {
+    const r = loginRequestSchema.safeParse({ login: 'ivan', password: 'secret', remember: true })
+    expect(r.success && r.data.remember).toBe(true)
+  })
 })
 
 describe('changePasswordRequestSchema', () => {

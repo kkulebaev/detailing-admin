@@ -11,6 +11,7 @@ export const AUTH_ENV = {
   AUTH_COOKIE_SECURE: false,
   AUTH_COOKIE_SAMESITE: 'lax' as const,
   AUTH_TOKEN_TTL_SECONDS: 86400,
+  AUTH_REMEMBER_TTL_SECONDS: 2592000,
 }
 
 async function cookieFor(claims: AuthTokenClaims): Promise<string> {
@@ -26,6 +27,7 @@ export function adminCookie(over: Partial<AuthTokenClaims> = {}): Promise<string
     firstName: '',
     lastName: '',
     pwdChangedAt: 0,
+    remember: false,
     ...over,
   })
 }
@@ -38,6 +40,7 @@ export function employeeCookie(over: Partial<AuthTokenClaims> = {}): Promise<str
     firstName: '',
     lastName: '',
     pwdChangedAt: 0,
+    remember: false,
     ...over,
   })
 }
