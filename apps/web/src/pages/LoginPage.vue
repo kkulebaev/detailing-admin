@@ -4,7 +4,7 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useRoute, useRouter } from 'vue-router'
 import { loginRequestSchema } from '@detailing-admin/shared'
-import { Eye, EyeOff, LoaderCircle, TriangleAlert } from '@lucide/vue'
+import { Eye, EyeOff, LoaderCircle, MousePointerClick, TriangleAlert } from '@lucide/vue'
 import { homeRouteFor } from '@/router'
 import { isSafeRedirect } from '@/lib/safe-redirect'
 import { useAuthStore } from '@/stores/auth'
@@ -30,10 +30,18 @@ const showPassword = ref(false)
 const showErrors = ref(false)
 provide(FORM_SHOW_ERRORS_KEY, showErrors)
 
-const { handleSubmit, isSubmitting, values } = useForm({
+const { handleSubmit, isSubmitting, values, setValues } = useForm({
   validationSchema: toTypedSchema(loginRequestSchema),
   initialValues: { login: '', password: '' },
 })
+
+// TEMP: matches the shared demo credentials shown below — remove alongside them.
+const DEMO_LOGIN = 'dglotov'
+const DEMO_PASSWORD = 'adminadmin'
+
+function fillDemoCredentials() {
+  setValues({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+}
 
 // Drop the server-side "wrong credentials" alert as soon as the user edits a
 // field, so a stale error doesn't linger while they retype.
@@ -148,11 +156,19 @@ function onSubmit() {
 
         <!-- TEMP: shared demo credentials until each user gets their own account
              and changes the password. Remove this whole block afterwards. -->
-        <div class="mt-5 rounded-md border border-dashed border-muted-foreground/40 bg-muted/40 p-3 text-center text-sm text-muted-foreground">
-          <p class="font-medium">Временный доступ</p>
-          <p>Логин: <span class="font-mono text-foreground">dglotov</span></p>
-          <p>Пароль: <span class="font-mono text-foreground">adminadmin</span></p>
-        </div>
+        <button
+          type="button"
+          class="mt-5 flex w-full flex-col items-center gap-1 rounded-md border border-dashed border-muted-foreground/40 bg-muted/40 p-3 text-center text-sm text-muted-foreground transition-colors hover:border-ring/60 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          @click="fillDemoCredentials"
+        >
+          <span class="flex items-center gap-1.5 font-medium">
+            <MousePointerClick class="size-4" />
+            Временный доступ
+          </span>
+          <span>Логин: <span class="font-mono text-foreground">dglotov</span></span>
+          <span>Пароль: <span class="font-mono text-foreground">adminadmin</span></span>
+          <span class="mt-1 text-xs">Нажмите, чтобы подставить логин и пароль</span>
+        </button>
       </CardContent>
     </Card>
   </div>
