@@ -636,7 +636,7 @@ function readinessRowClass(readiness: BookingRow['readiness']): string {
               <TableCell class="px-4 align-top text-right tabular-nums text-muted-foreground">
                 {{ total - offset - index }}
               </TableCell>
-              <TableCell class="px-4 align-top tabular-nums">
+              <TableCell class="px-4 align-top tabular-nums whitespace-normal">
                 {{ formatDateCell(row) }}
               </TableCell>
               <TableCell class="px-4 align-top tabular-nums">
