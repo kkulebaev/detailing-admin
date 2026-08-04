@@ -370,14 +370,16 @@ function isoToDdmmyyyy(iso: string): string {
   return `${d}.${m}.${y}`
 }
 
+// Пробелы вокруг тире дают точку переноса: иначе диапазон — неразрывный токен,
+// который вылезает из фиксированной колонки и налезает на соседнюю (Время/Имя).
 function formatDateCell(row: BookingRow): string {
   const from = isoToDdmmyyyy(row.dateFrom)
-  return row.dateTo ? `${from}–${isoToDdmmyyyy(row.dateTo)}` : from
+  return row.dateTo ? `${from} – ${isoToDdmmyyyy(row.dateTo)}` : from
 }
 
 function formatTimeCell(row: BookingRow): string {
   if (!row.timeFrom) return '—'
-  return row.timeTo ? `${row.timeFrom}–${row.timeTo}` : row.timeFrom
+  return row.timeTo ? `${row.timeFrom} – ${row.timeTo}` : row.timeFrom
 }
 
 function formatPhone(raw: string): string {
