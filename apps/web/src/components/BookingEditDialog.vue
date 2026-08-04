@@ -7,6 +7,7 @@ import { CalendarDate } from '@internationalized/date'
 import {
   bookingSchema,
   DEFAULT_CAR_CLASS,
+  MAX_MASTERS,
   READINESS,
   type BookingRow,
 } from '@detailing-admin/shared'
@@ -38,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import MasterMultiSelect from './MasterMultiSelect.vue'
 
 const props = defineProps<{
   open: boolean
@@ -74,7 +76,7 @@ const service = ref('')
 const note = ref('')
 const amountRaw = ref('')
 const readiness = ref<string>(READINESS_NONE)
-const master = ref<string | undefined>(undefined)
+const master = ref<string[]>([])
 const responsible = ref<string | undefined>(undefined)
 const carClass = ref<string>(String(DEFAULT_CAR_CLASS))
 
@@ -94,15 +96,15 @@ const {
 
 const { data: mastersData } = useMastersQuery()
 
-// Include the booking's current master/responsible even if it's no longer in the
+// Include the booking's current master(s)/responsible even if no longer in the
 // live list, so an edit doesn't silently drop a value the row already holds.
 const masterOptions = computed(() => {
   const base = resolveMasterOptions(
     mastersData.value?.ok ? mastersData.value.masters : undefined,
     () => true,
   )
-  const cur = master.value
-  return cur && !base.includes(cur) ? [cur, ...base] : base
+  const missing = master.value.filter((m) => !base.includes(m))
+  return missing.length > 0 ? [...missing, ...base] : base
 })
 const responsibleOptions = computed(() => {
   const base = resolveMasterOptions(
@@ -164,7 +166,7 @@ watch(
     amountRaw.value = b?.amount != null ? formatAmount(String(b.amount)) : ''
     readiness.value =
       b && READINESS.some((r) => r === b.readiness) ? b.readiness : READINESS_NONE
-    master.value = b?.master ? b.master : undefined
+    master.value = b?.master ?? []
     responsible.value = b?.responsible ? b.responsible : undefined
     carClass.value = b ? String(b.carClass) : String(DEFAULT_CAR_CLASS)
   },
@@ -241,7 +243,7 @@ async function submit() {
     note: note.value,
     amount: digits === '' ? '' : parseInt(digits, 10),
     readiness: readiness.value === READINESS_NONE ? '' : readiness.value,
-    master: master.value ?? '',
+    master: master.value,
     responsible: responsible.value ?? '',
     carClass: Number(carClass.value),
   }
@@ -550,16 +552,12 @@ async function submit() {
         <!-- Мастер -->
         <div class="grid gap-2">
           <Label>Мастер</Label>
-          <Select v-model="master">
-            <SelectTrigger :disabled="submitting">
-              <SelectValue placeholder="Не выбрано" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="m in masterOptions" :key="m" :value="m">
-                {{ m }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <MasterMultiSelect
+            v-model="master"
+            :options="masterOptions"
+            :max="MAX_MASTERS"
+            :disabled="submitting"
+          />
           <p v-if="fieldErrors.master" class="text-sm text-destructive">
             {{ fieldErrors.master }}
           </p>

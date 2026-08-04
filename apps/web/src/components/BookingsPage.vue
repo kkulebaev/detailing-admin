@@ -179,7 +179,7 @@ const dateToCal = shallowRef<DateValue | undefined>(undefined)
 const dateFromOpen = ref(false)
 const dateToOpen = ref(false)
 const masterFilter = ref<string>(ALL)
-const readinessFilter = ref<string>(ALL)
+const readinessFilter = ref<Readiness | typeof ALL>(ALL)
 const searchInput = ref('')
 // Manual debounce (instead of refDebounced) so `resetFilters` can flush it
 // synchronously — otherwise the query keeps the stale search term for 300ms
@@ -693,7 +693,7 @@ function readinessRowClass(readiness: BookingRow['readiness']): string {
               <TableCell v-else class="px-4 align-top">
                 {{ row.readiness || '—' }}
               </TableCell>
-              <TableCell class="px-4 align-top whitespace-normal">{{ row.master || '—' }}</TableCell>
+              <TableCell class="px-4 align-top whitespace-normal">{{ row.master.length ? row.master.join(', ') : '—' }}</TableCell>
               <TableCell class="px-4 align-top whitespace-normal">
                 {{ row.responsible || '—' }}
               </TableCell>

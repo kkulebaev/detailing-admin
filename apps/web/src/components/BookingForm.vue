@@ -12,6 +12,7 @@ import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
   DEFAULT_CAR_CLASS,
+  MAX_MASTERS,
 } from '@detailing-admin/shared'
 import type { BookingApiResult, CarClass } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
@@ -33,6 +34,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Calendar } from '@/components/ui/calendar'
 import ServicePicker from './ServicePicker.vue'
+import MasterMultiSelect from './MasterMultiSelect.vue'
 import {
   Popover,
   PopoverAnchor,
@@ -112,21 +114,30 @@ const mastersWarning = computed(() => {
     : 'Список мастеров недоступен. Обновите страницу.'
 })
 
-// The «Отправить уведомление» toggle is only meaningful for a master who has a
-// Telegram ID on record. Names are unique in the masters table, so matching the
-// selected name against the live list is safe; when the list can't load there is
-// no telegramId to check, so notifications stay unavailable.
-const selectedMaster = computed(() => {
+// The «Отправить уведомление» toggle is meaningful once at least one selected
+// master has a Telegram ID on record. Names are unique in the masters table, so
+// matching selected names against the live list is safe; when the list can't
+// load there is no telegramId to check, so notifications stay unavailable.
+const selectedMasters = computed(() => {
   const list = mastersData.value?.ok ? mastersData.value.masters : undefined
-  if (!list || !values.master) return undefined
-  return list.find((m) => m.name === values.master)
+  const names = values.master ?? []
+  if (!list || names.length === 0) return []
+  return list.filter((m) => names.includes(m.name))
 })
-const canNotifyMaster = computed(() => {
-  const tg = selectedMaster.value?.telegramId
-  return typeof tg === 'string' && tg.trim().length > 0
-})
+// Только мастера с Telegram ID реально получают сообщение (бэкенд шлёт им и
+// дедупит по telegramId). Под тоглом показываем, кто НЕ получит — выбранные
+// мастера без Telegram ID (в т.ч. отсутствующие в живом списке).
+const notifyRecipients = computed(() =>
+  selectedMasters.value
+    .filter((m) => typeof m.telegramId === 'string' && m.telegramId.trim().length > 0)
+    .map((m) => m.name),
+)
+const canNotifyMaster = computed(() => notifyRecipients.value.length > 0)
+const notifyMissing = computed(() =>
+  (values.master ?? []).filter((name) => !notifyRecipients.value.includes(name)),
+)
 const notifyHint = computed(() =>
-  values.master ? 'У мастера не указан Telegram ID' : 'Выберите мастера',
+  (values.master?.length ?? 0) > 0 ? 'У мастеров не указан Telegram ID' : 'Выберите мастера',
 )
 
 // ── Idempotency key: same across retries, regenerated on success ──────────────
@@ -383,7 +394,7 @@ interface BookingFormInitial {
   service: string
   note: string
   amount: '' | number
-  master: string | undefined
+  master: string[]
   responsible: string | undefined
   carClass: CarClass
 }
@@ -399,7 +410,7 @@ const initialFormValues: BookingFormInitial = {
   service: '',
   note: '',
   amount: '',
-  master: undefined,
+  master: [],
   responsible: undefined,
   carClass: DEFAULT_CAR_CLASS,
 }
@@ -771,7 +782,7 @@ function resetFormState() {
       service: '',
       note: '',
       amount: '',
-      master: undefined,
+      master: [],
       responsible: undefined,
       carClass: DEFAULT_CAR_CLASS,
     },
@@ -823,7 +834,9 @@ const draftSchema = z.object({
   amountRaw: z.string().optional(),
   discountRaw: z.string().optional(),
   discountUnit: z.union([z.literal('rub'), z.literal('pct')]).optional(),
-  master: z.string().optional(),
+  // Accepts the legacy single-string shape from pre-multi-master drafts (v5)
+  // alongside the current array — loadDraft() branches on which one it got.
+  master: z.array(z.string()).or(z.string()).optional(),
   responsible: z.string().optional(),
   carClass: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
 })
@@ -855,9 +868,12 @@ function saveDraft() {
       responsible: values.responsible,
       carClass: values.carClass,
     }
+    // `draft.master` is now an array — `[]` is truthy in JS, so a plain `||`
+    // check would call an untouched, empty-selection draft "meaningful".
+    const hasMaster = Array.isArray(draft.master) ? draft.master.length > 0 : Boolean(draft.master)
     const meaningful =
       draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.licensePlate ||
-      draft.service || draft.note || draft.amountRaw || draft.discountRaw || draft.master ||
+      draft.service || draft.note || draft.amountRaw || draft.discountRaw || hasMaster ||
       draft.responsible || (draft.phoneRaw && draft.phoneRaw.replace(/\D/g, '').length > 1)
     if (!meaningful) { clearDraft(); return }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
@@ -907,7 +923,14 @@ function loadDraft() {
     }
     if (d.discountUnit) discountUnit.value = d.discountUnit
     if (d.discountRaw) discountRaw.value = d.discountRaw
-    if (d.master && d.master.trim()) setFieldValue('master', d.master)
+    // Legacy (pre-multi-master) drafts stored `master` as a single string; a
+    // naive `.trim()` here would throw on the new array shape and the throw is
+    // swallowed by the outer catch below, silently losing the entire draft.
+    if (Array.isArray(d.master)) {
+      if (d.master.length > 0) setFieldValue('master', d.master)
+    } else if (typeof d.master === 'string' && d.master.trim()) {
+      setFieldValue('master', [d.master])
+    }
     if (d.responsible && d.responsible.trim()) setFieldValue('responsible', d.responsible)
     if (d.carClass) setFieldValue('carClass', d.carClass)
   } catch { /* corrupted draft: ignore */ }
@@ -925,6 +948,16 @@ const PLATE_LETTER_LIST = [...PLATE_LETTERS]
 
 function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!
+}
+
+function pickRandomMasters(arr: readonly string[], count: number): string[] {
+  const pool = [...arr]
+  const picked: string[] = []
+  while (picked.length < count && pool.length > 0) {
+    const idx = Math.floor(Math.random() * pool.length)
+    picked.push(pool.splice(idx, 1)[0]!)
+  }
+  return picked
 }
 
 function randomDigits(n: number): string {
@@ -948,7 +981,7 @@ function fillTestData() {
   setFieldValue('car', pickRandom(CAR_SUGGESTIONS))
   licensePlate.value = randomPlate()
   setFieldValue('note', pickRandom(TEST_NOTES))
-  setFieldValue('master', pickRandom(mastersForMaster.value))
+  setFieldValue('master', pickRandomMasters(mastersForMaster.value, pickRandom([1, 2])))
   setFieldValue('responsible', pickRandom(mastersForResponsible.value))
 
   const r = pricelistData.value
@@ -1500,22 +1533,16 @@ watch(
             <FormField v-slot="{ componentField }" name="master">
               <FormItem>
                 <FormLabel>Мастер</FormLabel>
-                <Select v-bind="componentField">
-                  <FormControl>
-                    <SelectTrigger class="h-11">
-                      <SelectValue placeholder="Не выбрано" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="m in mastersForMaster"
-                      :key="m"
-                      :value="m"
-                    >
-                      {{ m }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <!-- No FormControl: its id/aria-* attrs are meant for the
+                     wrapped element directly, but the real button here sits
+                     behind Popover/PopoverTrigger layers (like the ServicePicker
+                     case above, componentField fallthrough isn't a plain input). -->
+                <MasterMultiSelect
+                  v-bind="componentField"
+                  :options="mastersForMaster"
+                  :max="MAX_MASTERS"
+                  class="min-h-11"
+                />
                 <FormMessage />
               </FormItem>
             </FormField>
@@ -1553,6 +1580,9 @@ watch(
                 </Label>
                 <p v-if="!canNotifyMaster" class="text-xs text-muted-foreground">
                   {{ notifyHint }}
+                </p>
+                <p v-else-if="sendNotification && notifyMissing.length" class="text-xs text-muted-foreground">
+                  Не получат: {{ notifyMissing.join(', ') }}
                 </p>
               </div>
             </div>
