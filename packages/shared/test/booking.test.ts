@@ -9,7 +9,7 @@ const validBase = {
   car: 'Toyota Camry',
   service: 'Полировка',
   amount: 5000,
-  master: 'Иван Содель',
+  master: ['Иван Содель'],
   responsible: 'Иван Содель',
   carClass: 3,
 }
@@ -123,19 +123,39 @@ describe('bookingSchema', () => {
   it('accepts an arbitrary master name outside the former enum', () => {
     const result = bookingSchema.safeParse({
       ...validBase,
-      master: 'Пётр Новый',
+      master: ['Пётр Новый'],
       responsible: 'Пётр Новый',
     })
     expect(result.success).toBe(true)
   })
 
-  it('rejects a master name that starts a formula (anti-injection)', () => {
-    const result = bookingSchema.safeParse({ ...validBase, master: '=SUM(A1)' })
+  it('accepts multiple masters', () => {
+    const result = bookingSchema.safeParse({ ...validBase, master: ['Иван', 'Пётр'] })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.master).toEqual(['Иван', 'Пётр'])
+  })
+
+  it('dedups repeated masters, preserving first-occurrence order', () => {
+    const result = bookingSchema.safeParse({ ...validBase, master: ['Пётр', 'Иван', 'Пётр'] })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.master).toEqual(['Пётр', 'Иван'])
+  })
+
+  it('rejects more than MAX_MASTERS masters', () => {
+    const result = bookingSchema.safeParse({
+      ...validBase,
+      master: ['А', 'Б', 'В', 'Г', 'Д', 'Е'],
+    })
     expect(result.success).toBe(false)
   })
 
-  it('master: rejects explicit empty string', () => {
-    const result = bookingSchema.safeParse({ ...validBase, master: '' })
+  it('rejects a master name that starts a formula (anti-injection)', () => {
+    const result = bookingSchema.safeParse({ ...validBase, master: ['=SUM(A1)'] })
+    expect(result.success).toBe(false)
+  })
+
+  it('master: rejects an empty array', () => {
+    const result = bookingSchema.safeParse({ ...validBase, master: [] })
     expect(result.success).toBe(false)
   })
 

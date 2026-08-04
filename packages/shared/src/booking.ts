@@ -16,6 +16,10 @@ export const carClassSchema = z.union(
 export type CarClass = z.infer<typeof carClassSchema>
 export const DEFAULT_CAR_CLASS: CarClass = 2
 
+// Upper bound on how many masters one booking can carry. Enforced in the wire
+// schema (below) and mirrored by the multi-select UI limit.
+export const MAX_MASTERS = 5
+
 export const bookingSchema = z
   .object({
     dateFrom: ddmmyyyy,
@@ -49,12 +53,26 @@ export const bookingSchema = z
     // at runtime, not a closed enum. The refine restores the anti-injection
     // barrier the enum used to give: a leading =/+/-/@ would let a rejected
     // dropdown value smuggle a live formula into columns J/K under USER_ENTERED.
+    // Multi-master: N masters per booking. Each element keeps the same
+    // anti-injection barrier (leading =/+/-/@ smuggles a live formula into
+    // column J under USER_ENTERED). Dedup runs before the length check so a
+    // repeated pick doesn't count toward MAX_MASTERS.
     master: z
-      .string()
-      .trim()
-      .min(1, 'Выберите мастера')
-      .max(120)
-      .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1, 'Выберите мастера')
+          .max(120)
+          .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
+      )
+      .transform((arr) => [...new Set(arr)])
+      .pipe(
+        z
+          .array(z.string())
+          .min(1, 'Выберите хотя бы одного мастера')
+          .max(MAX_MASTERS),
+      ),
     responsible: z
       .string()
       .trim()

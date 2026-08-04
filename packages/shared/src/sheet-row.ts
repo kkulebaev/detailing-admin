@@ -51,7 +51,7 @@ export function bookingToRow(b: Booking): (string | number)[] {
     b.amountFormula ?? b.amount,
 
     b.readiness,        // I — Готовность (always string post-parse; '' when blank)
-    b.master,           // J — Мастер
+    b.master.join(', '), // J — Мастер (N мастеров через «, »)
     b.responsible,      // K — Ответственный (always string post-parse; '' when blank)
   ]
 }

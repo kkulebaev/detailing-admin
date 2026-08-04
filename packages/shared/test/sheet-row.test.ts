@@ -17,7 +17,7 @@ const baseInput = {
   car: 'Toyota Camry',
   service: 'Полировка',
   amount: 5000,
-  master: 'Иван Содель',
+  master: ['Иван Содель'],
   responsible: 'Иван Содель',
   carClass: 3,
 }
@@ -70,6 +70,16 @@ describe('bookingToRow', () => {
   it('responsible from base input is written to cell K', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[10]).toBe('Иван Содель')
+  })
+
+  it('single master → cell J is the bare name', () => {
+    const row = bookingToRow(parseBooking(baseInput))
+    expect(row[9]).toBe('Иван Содель')
+  })
+
+  it('multiple masters → cell J joins names with ", "', () => {
+    const row = bookingToRow(parseBooking({ ...baseInput, master: ['Иван', 'Пётр'] }))
+    expect(row[9]).toBe('Иван, Пётр')
   })
 
   it('amount 200000 → numeric 200000 in cell H', () => {

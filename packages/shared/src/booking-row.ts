@@ -31,7 +31,7 @@ export const bookingRowSchema = z.object({
   // The DB column is free text, but no route runtime-validates the response, so
   // this is a type-level narrowing only.
   readiness: z.enum(READINESS).or(z.literal('')),
-  master: z.string(),
+  master: z.array(z.string()),
   responsible: z.string(),
   carClass: z.number().int(),
   sheetRow: z.number().int().nullable(),

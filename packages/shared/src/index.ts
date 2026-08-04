@@ -3,7 +3,7 @@ export { READINESS } from './enums.js'
 export { StatusCodes } from './http-status-codes.js'
 export { parseDdmmyyyy, formatDdmmyyyy, ddmmyyyyToIso } from './date.js'
 export { normalizePhone } from './phone.js'
-export { bookingSchema, carClassSchema, DEFAULT_CAR_CLASS } from './booking.js'
+export { bookingSchema, carClassSchema, DEFAULT_CAR_CLASS, MAX_MASTERS } from './booking.js'
 export type { Booking, CarClass } from './booking.js'
 export { EXPECTED_HEADERS, bookingToRow } from './sheet-row.js'
 export {
