@@ -219,7 +219,10 @@ async function submit() {
             </Button>
           </div>
 
-          <div v-if="cars.length > 0" class="grid gap-3 max-h-64 overflow-y-auto">
+          <!-- px/py дают место кольцу фокуса: overflow-y-auto клиппит и по X,
+               иначе ring выделенного инпута срезается по краям. -mx компенсирует
+               паддинг, чтобы инпуты остались выровнены с полями выше. -->
+          <div v-if="cars.length > 0" class="grid gap-3 max-h-64 overflow-y-auto px-1.5 py-1.5 -mx-1.5">
             <div v-for="(car, index) in cars" :key="index" class="grid gap-1">
               <div class="flex items-center gap-2">
                 <Input
