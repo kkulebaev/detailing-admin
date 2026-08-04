@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
+import { Calendar as CalendarIcon, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
@@ -10,6 +10,7 @@ import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
+import { useOffsetPagination } from '@/composables/use-offset-pagination'
 import BookingEditDialog from './BookingEditDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -22,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import TablePagination from './TablePagination.vue'
 import {
   Empty,
   EmptyContent,
@@ -55,7 +57,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const LIMIT = 50
 // reka-ui Select needs a non-empty value, so «Все» rides on a sentinel that the
 // params builder maps back to `undefined` (no filter).
 const ALL = '__all__'
@@ -190,7 +191,8 @@ watch(searchInput, (v) => {
   searchTimer = setTimeout(() => (searchDebounced.value = v), 300)
 })
 onUnmounted(() => clearTimeout(searchTimer))
-const offset = ref(0)
+
+const { limit: LIMIT, offset, page, resetToFirstPage } = useOffsetPagination()
 
 const { data: mastersData } = useMastersQuery()
 const masterOptions = computed(() =>
@@ -261,7 +263,7 @@ const params = computed<GetApiBookingsParams>(() => ({
 watch(
   [dateFromCal, dateToCal, masterFilter, readinessFilter, searchDebounced],
   () => {
-    offset.value = 0
+    resetToFirstPage()
   },
 )
 
@@ -306,19 +308,6 @@ const error = computed<string | null>(() => {
   return 'Не удалось загрузить список записей'
 })
 
-// ── Pagination ────────────────────────────────────────────────────────────────
-const canPrev = computed(() => offset.value > 0)
-const canNext = computed(() => offset.value + LIMIT < total.value)
-const rangeStart = computed(() => (total.value === 0 ? 0 : offset.value + 1))
-const rangeEnd = computed(() => Math.min(offset.value + LIMIT, total.value))
-
-function prevPage() {
-  offset.value = Math.max(0, offset.value - LIMIT)
-}
-
-function nextPage() {
-  if (canNext.value) offset.value += LIMIT
-}
 
 // ── Filter reset ──────────────────────────────────────────────────────────────
 // Drives the full-height empty state: stretch the table so the placeholder
@@ -735,38 +724,13 @@ function readinessRowClass(readiness: BookingRow['readiness']): string {
           </TableBody>
       </Table>
 
-      <!-- Pagination -->
-      <div
+      <TablePagination
         v-if="!error"
-        class="mt-4 shrink-0 flex flex-wrap items-center justify-between gap-3"
-      >
-        <p class="text-sm text-muted-foreground tabular-nums">
-          <template v-if="total > 0">
-            {{ rangeStart }}–{{ rangeEnd }} из {{ total }}
-          </template>
-          <template v-else>Всего: 0</template>
-        </p>
-        <div class="inline-flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            class="gap-1"
-            :disabled="!canPrev || loading"
-            @click="prevPage"
-          >
-            <ChevronLeft class="size-4" /> Назад
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            class="gap-1"
-            :disabled="!canNext || loading"
-            @click="nextPage"
-          >
-            Вперед <ChevronRight class="size-4" />
-          </Button>
-        </div>
-      </div>
+        v-model:page="page"
+        :total="total"
+        :items-per-page="LIMIT"
+        :disabled="loading"
+      />
     </div>
 
     <BookingEditDialog

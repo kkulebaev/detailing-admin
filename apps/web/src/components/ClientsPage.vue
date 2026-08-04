@@ -3,8 +3,6 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { useClipboard } from '@vueuse/core'
 import {
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   ChevronsUpDown,
   ChevronUp,
   Inbox,
@@ -23,6 +21,7 @@ import {
   type GetApiClientsParams,
 } from '@/lib/clients-api'
 import { useClientsQuery, useInvalidateClients } from '@/lib/queries'
+import { useOffsetPagination } from '@/composables/use-offset-pagination'
 import ClientFormDialog from './ClientFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -35,6 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import TablePagination from './TablePagination.vue'
 import {
   Empty,
   EmptyContent,
@@ -56,8 +56,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const LIMIT = 50
-
 const COLUMN_COUNT = 6
 
 // ── Filter / sort / paging state ────────────────────────────────────────────
@@ -76,7 +74,8 @@ onUnmounted(() => clearTimeout(searchTimer))
 type SortColumn = 'name' | 'phone' | 'createdAt'
 const sort = ref<SortColumn>('name')
 const dir = ref<'asc' | 'desc'>('asc')
-const offset = ref(0)
+
+const { limit: LIMIT, offset, page, resetToFirstPage } = useOffsetPagination()
 
 const params = computed<GetApiClientsParams>(() => ({
   limit: LIMIT,
@@ -89,7 +88,7 @@ const params = computed<GetApiClientsParams>(() => ({
 // Any filter/sort change returns to the first page; paging itself moves `offset`
 // directly and is intentionally excluded here.
 watch([searchDebounced, sort, dir], () => {
-  offset.value = 0
+  resetToFirstPage()
 })
 
 const { data: queryData, error: queryError, asyncStatus } = useClientsQuery(params)
@@ -156,19 +155,6 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
   return 'none'
 }
 
-// ── Pagination ──────────────────────────────────────────────────────────────
-const canPrev = computed(() => offset.value > 0)
-const canNext = computed(() => offset.value + LIMIT < total.value)
-const rangeStart = computed(() => (total.value === 0 ? 0 : offset.value + 1))
-const rangeEnd = computed(() => Math.min(offset.value + LIMIT, total.value))
-
-function prevPage() {
-  offset.value = Math.max(0, offset.value - LIMIT)
-}
-
-function nextPage() {
-  if (canNext.value) offset.value += LIMIT
-}
 
 // ── Empty / reset ───────────────────────────────────────────────────────────
 const isEmpty = computed(
@@ -506,38 +492,13 @@ async function confirmDelete() {
         </TableBody>
       </Table>
 
-      <!-- Pagination -->
-      <div
+      <TablePagination
         v-if="!error"
-        class="mt-4 shrink-0 flex flex-wrap items-center justify-between gap-3"
-      >
-        <p class="text-sm text-muted-foreground tabular-nums">
-          <template v-if="total > 0">
-            {{ rangeStart }}–{{ rangeEnd }} из {{ total }}
-          </template>
-          <template v-else>Всего: 0</template>
-        </p>
-        <div class="inline-flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            class="gap-1"
-            :disabled="!canPrev || loading"
-            @click="prevPage"
-          >
-            <ChevronLeft class="size-4" /> Назад
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            class="gap-1"
-            :disabled="!canNext || loading"
-            @click="nextPage"
-          >
-            Вперед <ChevronRight class="size-4" />
-          </Button>
-        </div>
-      </div>
+        v-model:page="page"
+        :total="total"
+        :items-per-page="LIMIT"
+        :disabled="loading"
+      />
     </div>
 
     <ClientFormDialog
