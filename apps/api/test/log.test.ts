@@ -58,7 +58,7 @@ const VALID_PAYLOAD = {
   car: 'Toyota Camry',
   service: 'Полировка',
   amount: 5000,
-  master: 'Иван Содель',
+  master: ['Иван Содель'],
   responsible: 'Иван Содель',
   carClass: 3,
 }

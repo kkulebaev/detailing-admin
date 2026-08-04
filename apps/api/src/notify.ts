@@ -29,20 +29,28 @@ export function formatMasterNotification(b: Booking): string {
   ].join('\n')
 }
 
-// Best-effort Telegram notification to the assigned master. Never throws — every
-// failure mode collapses into `{ attempted: true, delivered: false, reason }`
-// so the caller can surface a warning without failing the booking. The master's
+// Best-effort Telegram notification to every assigned master. Never throws —
+// every failure mode collapses into `{ attempted: true, delivered: false, reason }`
+// so the caller can surface a warning without failing the booking. Each master's
 // chat id is resolved server-side by name (names are unique) rather than trusted
 // from the client, so a request can't address an arbitrary chat.
+//
+// A booking can carry several masters who may share one Telegram chat, so chat
+// ids are deduped before sending. The N per-master results collapse into one:
+// `delivered` is true when at least one message lands, and `reason` carries the
+// first failure seen (contract stays a single NotificationResult).
 export async function notifyMaster(booking: Booking): Promise<NotificationResult> {
   if (!isDbReady()) {
     return { attempted: true, delivered: false, reason: 'db_unavailable' }
   }
 
-  let chatId: string | undefined
+  const chatIds = new Set<string>()
   try {
-    const master = await findMasterByName(booking.master)
-    chatId = master?.telegramId?.trim() || undefined
+    for (const name of booking.master) {
+      const master = await findMasterByName(name)
+      const chatId = master?.telegramId?.trim()
+      if (chatId) chatIds.add(chatId)
+    }
   } catch (err) {
     baseLogger.warn(
       {
@@ -54,13 +62,24 @@ export async function notifyMaster(booking: Booking): Promise<NotificationResult
     return { attempted: true, delivered: false, reason: 'lookup_failed' }
   }
 
-  if (!chatId) {
+  if (chatIds.size === 0) {
     return { attempted: true, delivered: false, reason: 'no_telegram_id' }
   }
 
-  const sent = await sendTelegramMessage(chatId, formatMasterNotification(booking))
-  if (!sent.ok) {
-    return { attempted: true, delivered: false, reason: sent.reason ?? 'send_failed' }
+  const message = formatMasterNotification(booking)
+  let delivered = false
+  let firstReason: string | undefined
+  for (const chatId of chatIds) {
+    const sent = await sendTelegramMessage(chatId, message)
+    if (sent.ok) {
+      delivered = true
+    } else if (!firstReason) {
+      firstReason = sent.reason ?? 'send_failed'
+    }
   }
-  return { attempted: true, delivered: true }
+
+  if (delivered) {
+    return { attempted: true, delivered: true }
+  }
+  return { attempted: true, delivered: false, reason: firstReason ?? 'send_failed' }
 }

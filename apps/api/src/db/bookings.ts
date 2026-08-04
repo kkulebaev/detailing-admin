@@ -129,7 +129,9 @@ export async function listBookings(
   const conds = []
   if (p.dateFrom) conds.push(gte(bookings.dateFrom, p.dateFrom))
   if (p.dateTo) conds.push(lte(bookings.dateFrom, p.dateTo))
-  if (p.master) conds.push(eq(bookings.master, p.master))
+  // Membership, not equality: a single-master filter must match any booking
+  // where that master is among the assigned ones.
+  if (p.master) conds.push(sql`${p.master} = ANY(${bookings.master})`)
   if (p.readiness) conds.push(eq(bookings.readiness, p.readiness))
 
   const q = p.q?.trim()

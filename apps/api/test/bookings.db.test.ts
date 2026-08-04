@@ -4,8 +4,10 @@ import { describe, it, expect, vi } from 'vitest'
 // → env.js. Stub the client so the env chain never loads.
 vi.mock('../src/db/client.js', () => ({ getDb: vi.fn() }))
 
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { bookingSchema } from '@detailing-admin/shared/booking'
-import { bookingToDbRow } from '../src/db/bookings.js'
+import { bookingToDbRow, listBookings } from '../src/db/bookings.js'
+import { getDb } from '../src/db/client.js'
 
 function makeBooking(over: Record<string, unknown> = {}) {
   return bookingSchema.parse({
@@ -16,7 +18,7 @@ function makeBooking(over: Record<string, unknown> = {}) {
     car: 'Toyota Camry',
     service: 'Полировка',
     amount: 5000,
-    master: 'Мастер А',
+    master: ['Мастер А'],
     responsible: 'Мастер Б',
     carClass: 3,
     ...over,
@@ -68,5 +70,50 @@ describe('bookingToDbRow', () => {
     const row = bookingToDbRow(makeBooking(), { ...META, clientId: null })
     expect(row.clientId).toBeNull()
     expect(row.note).toBe('')
+  })
+})
+
+describe('listBookings master filter', () => {
+  // A thenable query-builder stub: every chain method returns `this`, and the
+  // whole object resolves to [] when awaited — so both the items query
+  // (…offset() then await) and the count query (await …where()) work without a
+  // real DB. Each `.where()` call records its condition for inspection.
+  function fakeDb(captured: unknown[]) {
+    const chain: Record<string, unknown> = {
+      select: () => chain,
+      from: () => chain,
+      where: (w: unknown) => {
+        captured.push(w)
+        return chain
+      },
+      orderBy: () => chain,
+      limit: () => chain,
+      offset: () => chain,
+      then: (resolve: (v: unknown[]) => unknown) => resolve([]),
+    }
+    return chain
+  }
+
+  it('filters a single master via `= ANY(master)` membership, not equality', async () => {
+    const captured: unknown[] = []
+    vi.mocked(getDb).mockReturnValue(fakeDb(captured) as never)
+
+    await listBookings({ limit: 10, offset: 0, master: 'Пётр' })
+
+    expect(captured.length).toBeGreaterThan(0)
+    const rendered = new PgDialect().sqlToQuery(captured[0] as never)
+    expect(rendered.sql).toContain('= ANY')
+    expect(rendered.sql).toContain('"master"')
+    expect(rendered.params).toContain('Пётр')
+  })
+
+  it('builds no where clause when no filters are given', async () => {
+    const captured: unknown[] = []
+    vi.mocked(getDb).mockReturnValue(fakeDb(captured) as never)
+
+    await listBookings({ limit: 10, offset: 0 })
+
+    // undefined where → the stub still gets called with undefined.
+    expect(captured[0]).toBeUndefined()
   })
 })

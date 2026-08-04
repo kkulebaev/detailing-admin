@@ -101,7 +101,7 @@ export const bookings = pgTable(
     // the READINESS union (or '' for «нет статуса»), so no wire-boundary cast is
     // needed. Type-only — no migration, no runtime effect.
     readiness: text('readiness').notNull().default('').$type<Readiness | ''>(),
-    master: varchar('master', { length: 120 }).notNull(),
+    master: text('master').array().notNull(),
     responsible: varchar('responsible', { length: 120 }).notNull(),
     carClass: smallint('car_class').notNull(),
     sheetRow: integer('sheet_row'),

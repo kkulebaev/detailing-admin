@@ -1,0 +1,1 @@
+ALTER TABLE "bookings" ALTER COLUMN "master" SET DATA TYPE text[] USING array["master"]::text[];

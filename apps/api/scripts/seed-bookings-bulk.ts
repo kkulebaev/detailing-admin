@@ -76,7 +76,7 @@ function makePayload(i: number) {
     ...(withFormula ? { amountFormula: `=${amount - 500}+500` } : {}),
     // Every 7th row has a blank readiness to exercise the «—» rendering.
     readiness: i % 7 === 0 ? '' : READINESS[i % READINESS.length],
-    master: MASTERS[i % MASTERS.length],
+    master: [MASTERS[i % MASTERS.length]],
     responsible: MASTERS[(i + 1) % MASTERS.length],
     carClass: ((i % 4) + 1) as 1 | 2 | 3 | 4,
   }
