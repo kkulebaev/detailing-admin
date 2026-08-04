@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useMediaQuery } from '@vueuse/core'
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import {
   Pagination,
@@ -21,6 +22,11 @@ const props = withDefaults(
 
 const page = defineModel<number>('page', { required: true })
 
+// Narrow screens can't fit a full sibling window, so collapse to
+// «первая … текущая … последняя» on mobile and widen it from sm up.
+const isDesktop = useMediaQuery('(min-width: 640px)')
+const siblingCount = computed(() => (isDesktop.value ? 1 : 0))
+
 const rangeStart = computed(() =>
   props.total === 0 ? 0 : (page.value - 1) * props.itemsPerPage + 1,
 )
@@ -37,7 +43,7 @@ const rangeEnd = computed(() => Math.min(page.value * props.itemsPerPage, props.
       v-model:page="page"
       :items-per-page="itemsPerPage"
       :total="total"
-      :sibling-count="1"
+      :sibling-count="siblingCount"
       :disabled="disabled"
       show-edges
       class="mx-0 w-auto"
