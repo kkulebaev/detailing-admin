@@ -58,6 +58,7 @@ const rangeEnd = computed(() => Math.min(page.value * props.itemsPerPage, props.
             :value="item.value"
             :is-active="item.value === page"
             size="sm"
+            class="px-2 sm:px-3"
           >
             {{ item.value }}
           </PaginationItem>
