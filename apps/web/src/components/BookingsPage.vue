@@ -392,6 +392,26 @@ function formatPhone(raw: string): string {
 function formatAmount(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 }
+
+// Заливка строки по статусу готовности — как в исходной таблице. Прочие статусы
+// (Готова к выдаче, Оплачено, Не оплачено) пока без заливки. hover намеренно
+// отключён: базовый цвет помечен важным (`!`), поэтому он выигрывает и в hover-
+// состоянии над вшитым в TableRow `hover:bg-muted/50` — hover-класс каждому
+// статусу не нужен. Некрашеным строкам гасим тот же hover одной общей строкой.
+const READINESS_ROW_CLASS: Record<string, string> = {
+  'В работе': 'bg-orange-100!',
+  Перенос: 'bg-violet-100!',
+  // «Выдана» — отработанные записи: приглушаем (почти белый фон + серый текст),
+  // чтобы взгляд цеплялся за активные статусы, а не за завершённые.
+  Выдана: 'bg-zinc-50! text-muted-foreground',
+  'Не ответил': 'bg-rose-100!',
+  Подтвердил: 'bg-green-100!',
+  'Не приехал': 'bg-red-200!',
+  Отмена: 'bg-amber-100!',
+}
+function readinessRowClass(readiness: string): string {
+  return READINESS_ROW_CLASS[readiness] ?? 'hover:bg-transparent'
+}
 </script>
 
 <template>
@@ -612,7 +632,12 @@ function formatAmount(n: number): string {
                 </EmptyContent>
               </Empty>
             </TableEmpty>
-            <TableRow v-else v-for="(row, index) in items" :key="row.id">
+            <TableRow
+              v-else
+              v-for="(row, index) in items"
+              :key="row.id"
+              :class="readinessRowClass(row.readiness)"
+            >
               <!-- Сквозной порядковый номер на убывание: верхняя строка = total,
                    консистентно между страницами (учитывает offset). -->
               <TableCell class="px-4 align-top text-right tabular-nums text-muted-foreground">
