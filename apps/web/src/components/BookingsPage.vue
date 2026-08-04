@@ -635,7 +635,18 @@ function formatAmount(n: number): string {
                 v-if="isAdmin"
                 class="px-4 align-top text-right whitespace-nowrap tabular-nums"
               >
-                {{ row.amount != null ? formatAmount(row.amount) : '—' }}
+                <!-- Пунктирное подчёркивание сигналит, что у суммы есть формула,
+                     показываемая тултипом при наведении. -->
+                <span
+                  :class="
+                    row.amountFormula
+                      ? 'underline decoration-dotted decoration-muted-foreground/60 underline-offset-4'
+                      : ''
+                  "
+                  :title="row.amountFormula ?? ''"
+                >
+                  {{ row.amount != null ? formatAmount(row.amount) : '—' }}
+                </span>
               </TableCell>
               <TableCell v-if="isAdmin" class="px-4 align-top">
                 <Select
