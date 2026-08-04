@@ -3,6 +3,7 @@ import type { Booking as WireBooking } from '@detailing-admin/shared/booking'
 import { joinCar } from '@detailing-admin/shared/car'
 import { ddmmyyyyToIso } from '@detailing-admin/shared/date'
 import { normalizePhone } from '@detailing-admin/shared/phone'
+import type { Readiness } from '@detailing-admin/shared/enums'
 import { getDb } from './client.js'
 import { bookings, type Booking, type NewBooking } from './schema.js'
 
@@ -88,7 +89,7 @@ export async function updateBooking(
  * the updated row, or null if no booking has that id. */
 export async function updateBookingReadiness(
   id: string,
-  readiness: string,
+  readiness: Readiness | '',
 ): Promise<Booking | null> {
   const db = getDb()
   const [row] = await db
@@ -114,7 +115,7 @@ export interface ListBookingsParams {
   /** ISO `YYYY-MM-DD`; filters rows whose `dateFrom` is <= this. */
   dateTo?: string
   master?: string
-  readiness?: string
+  readiness?: Readiness
   /** Free-text search across name/car/phone. A phone-looking term is normalized
    * to E.164 before matching the stored (E.164) phone. */
   q?: string

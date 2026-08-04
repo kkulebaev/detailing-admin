@@ -5,6 +5,7 @@ import { bookingSchema } from '@detailing-admin/shared/booking'
 import { bookingToRow } from '@detailing-admin/shared/sheet-row'
 import {
   StatusCodes,
+  READINESS,
   bookingMutationOkSchema,
   bookingReadinessInputSchema,
   bookingsListOkSchema,
@@ -108,7 +109,7 @@ const listQuerySchema = z.object({
   dateFrom: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/).optional(),
   dateTo: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/).optional(),
   master: z.string().max(120).optional(),
-  readiness: z.string().max(40).optional(),
+  readiness: z.enum(READINESS).optional(),
   q: z.string().max(200).optional(),
 })
 

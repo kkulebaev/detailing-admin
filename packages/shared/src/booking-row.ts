@@ -26,7 +26,11 @@ export const bookingRowSchema = z.object({
   dateTo: z.string().nullable(),
   timeFrom: z.string(),
   timeTo: z.string().nullable(),
-  readiness: z.string(),
+  // Narrowed to the READINESS enum (or '' for «нет статуса») so the wire type —
+  // and the orval-generated client — carry a concrete union, not a bare string.
+  // The DB column is free text, but no route runtime-validates the response, so
+  // this is a type-level narrowing only.
+  readiness: z.enum(READINESS).or(z.literal('')),
   master: z.string(),
   responsible: z.string(),
   carClass: z.number().int(),

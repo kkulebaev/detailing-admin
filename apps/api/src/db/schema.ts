@@ -12,6 +12,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
+import type { Readiness } from '@detailing-admin/shared/enums'
 
 // Auth accounts. Provisioned out-of-band via the `user:create` CLI (no
 // self-registration). `passwordHash` stores the scrypt string
@@ -96,7 +97,10 @@ export const bookings = pgTable(
     dateTo: date('date_to'),
     timeFrom: varchar('time_from', { length: 5 }).notNull(),
     timeTo: varchar('time_to', { length: 5 }),
-    readiness: text('readiness').notNull().default(''),
+    // Column stays free `text` in Postgres; `$type` narrows only the TS type to
+    // the READINESS union (or '' for «нет статуса»), so no wire-boundary cast is
+    // needed. Type-only — no migration, no runtime effect.
+    readiness: text('readiness').notNull().default('').$type<Readiness | ''>(),
     master: varchar('master', { length: 120 }).notNull(),
     responsible: varchar('responsible', { length: 120 }).notNull(),
     carClass: smallint('car_class').notNull(),

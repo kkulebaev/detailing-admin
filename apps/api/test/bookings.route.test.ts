@@ -71,6 +71,7 @@ import {
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
 import { upsertClientCar } from '../src/db/client-cars.js'
+import type { Booking } from '../src/db/schema.js'
 import {
   insertBooking,
   listBookings,
@@ -521,7 +522,7 @@ describe('GET /api/bookings', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''
 
-  const SAMPLE_ROW = {
+  const SAMPLE_ROW: Booking = {
     id: '11111111-1111-1111-1111-111111111111',
     idempotencyKey: 'key-1',
     clientId: null,
@@ -631,7 +632,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''
   const ID = '4f6d8b2a-1c3e-4a5b-9d7f-0e1a2b3c4d5e'
-  const UPDATED_ROW = {
+  const UPDATED_ROW: Booking = {
     id: ID,
     idempotencyKey: 'key-1',
     clientId: null,

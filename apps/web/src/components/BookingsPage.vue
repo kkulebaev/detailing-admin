@@ -4,7 +4,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Inbox, Pencil, Sea
 import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
-import { READINESS, type BookingRow } from '@detailing-admin/shared'
+import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/shared'
 import { buildMonthOptions } from '@/lib/month-options'
 import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from '@/lib/bookings-api'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
@@ -398,7 +398,10 @@ function formatAmount(n: number): string {
 // отключён: базовый цвет помечен важным (`!`), поэтому он выигрывает и в hover-
 // состоянии над вшитым в TableRow `hover:bg-muted/50` — hover-класс каждому
 // статусу не нужен. Некрашеным строкам гасим тот же hover одной общей строкой.
-const READINESS_ROW_CLASS: Record<string, string> = {
+// Ключ — конкретный Readiness (не string): опечатка в статусе теперь ошибка
+// компиляции. Partial — красим не все статусы. `readiness` из BookingRow сужен
+// до `Readiness | ''` (контракт), '' и незакрашенные статусы дают fallback.
+const READINESS_ROW_CLASS: Partial<Record<Readiness, string>> = {
   'В работе': 'bg-orange-100!',
   Перенос: 'bg-violet-100!',
   // «Выдана» — отработанные записи: приглушаем (почти белый фон + серый текст),
@@ -409,7 +412,8 @@ const READINESS_ROW_CLASS: Record<string, string> = {
   'Не приехал': 'bg-red-200!',
   Отмена: 'bg-amber-100!',
 }
-function readinessRowClass(readiness: string): string {
+function readinessRowClass(readiness: BookingRow['readiness']): string {
+  if (!readiness) return 'hover:bg-transparent'
   return READINESS_ROW_CLASS[readiness] ?? 'hover:bg-transparent'
 }
 </script>

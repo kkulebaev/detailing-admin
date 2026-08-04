@@ -24,7 +24,7 @@ export type GetApiBookings200ItemsItem = {
   timeFrom: string;
   /** @nullable */
   timeTo: string | null;
-  readiness: string;
+  readiness: 'Подтвердил' | 'Не ответил' | 'В работе' | 'Готова к выдаче' | 'Выдана' | 'Перенос' | 'Отмена' | 'Не приехал' | 'Оплачено' | 'Не оплачено' | '';
   master: string;
   responsible: string;
   carClass: number;
