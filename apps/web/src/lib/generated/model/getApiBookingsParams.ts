@@ -5,6 +5,7 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
+import type { GetApiBookingsReadiness } from './getApiBookingsReadiness';
 
 export type GetApiBookingsParams = {
 /**
@@ -29,10 +30,7 @@ dateTo?: string;
  * @maxLength 120
  */
 master?: string;
-/**
- * @maxLength 40
- */
-readiness?: string;
+readiness?: GetApiBookingsReadiness;
 /**
  * @maxLength 200
  */

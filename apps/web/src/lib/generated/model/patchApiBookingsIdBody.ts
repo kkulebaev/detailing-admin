@@ -59,10 +59,10 @@ export type PatchApiBookingsIdBody = {
   amountFormula?: string;
   readiness?: 'Подтвердил' | 'Не ответил' | 'В работе' | 'Готова к выдаче' | 'Выдана' | 'Перенос' | 'Отмена' | 'Не приехал' | 'Оплачено' | 'Не оплачено' | '';
   /**
-     * @minLength 1
-     * @maxLength 120
+     * @items.minLength 1
+     * @items.maxLength 120
      */
-  master: string;
+  master: string[];
   /**
      * @minLength 1
      * @maxLength 120

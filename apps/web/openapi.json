@@ -1045,9 +1045,12 @@
                     "default": ""
                   },
                   "master": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    }
                   },
                   "responsible": {
                     "type": "string",
@@ -1391,7 +1394,18 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 40
+              "enum": [
+                "Подтвердил",
+                "Не ответил",
+                "В работе",
+                "Готова к выдаче",
+                "Выдана",
+                "Перенос",
+                "Отмена",
+                "Не приехал",
+                "Оплачено",
+                "Не оплачено"
+              ]
             },
             "required": false,
             "name": "readiness",
@@ -1497,7 +1511,10 @@
                             ]
                           },
                           "master": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           },
                           "responsible": {
                             "type": "string"
@@ -1795,9 +1812,12 @@
                     "default": ""
                   },
                   "master": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 120
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    }
                   },
                   "responsible": {
                     "type": "string",
@@ -1941,7 +1961,10 @@
                           ]
                         },
                         "master": {
-                          "type": "string"
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         },
                         "responsible": {
                           "type": "string"
@@ -2478,7 +2501,10 @@
                           ]
                         },
                         "master": {
-                          "type": "string"
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         },
                         "responsible": {
                           "type": "string"

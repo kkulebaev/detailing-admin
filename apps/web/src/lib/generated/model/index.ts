@@ -98,6 +98,7 @@ export * from './getApiBookings503';
 export * from './getApiBookings503Error';
 export * from './getApiBookings503Reason';
 export * from './getApiBookingsParams';
+export * from './getApiBookingsReadiness';
 export * from './getApiClients200';
 export * from './getApiClients200ClientsItem';
 export * from './getApiClients200ClientsItemCarsItem';
