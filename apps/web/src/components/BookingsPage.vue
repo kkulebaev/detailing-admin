@@ -63,8 +63,8 @@ const ALL = '__all__'
 // The «Сумма» column is admin-only; the API also omits `amount` for non-admins.
 const auth = useAuthStore()
 const isAdmin = computed(() => auth.user?.role === 'admin')
-// admin: +«Сумма» +«Действия» over the employee base of 10.
-const columnCount = computed(() => (isAdmin.value ? 12 : 10))
+// «#» + employee base of 10; admin adds «Сумма» +«Действия».
+const columnCount = computed(() => (isAdmin.value ? 13 : 11))
 
 const invalidateBookings = useInvalidateBookings()
 
@@ -541,6 +541,7 @@ function formatAmount(n: number): string {
              which would leave the placeholder behind a horizontal scrollbar with
              nothing to scroll to. -->
         <colgroup v-if="!isEmpty">
+          <col class="w-14" />
           <col class="w-40" />
           <col class="w-24" />
           <col class="w-36" />
@@ -556,6 +557,7 @@ function formatAmount(n: number): string {
         </colgroup>
         <TableHeader v-if="!isEmpty" class="sticky top-0 z-10 bg-muted">
             <TableRow>
+              <TableHead class="px-4 text-right">#</TableHead>
               <TableHead class="px-4">Дата</TableHead>
               <TableHead class="px-4">Время</TableHead>
               <TableHead class="px-4">Имя</TableHead>
@@ -608,7 +610,12 @@ function formatAmount(n: number): string {
                 </EmptyContent>
               </Empty>
             </TableEmpty>
-            <TableRow v-else v-for="row in items" :key="row.id">
+            <TableRow v-else v-for="(row, index) in items" :key="row.id">
+              <!-- Сквозной порядковый номер на убывание: верхняя строка = total,
+                   консистентно между страницами (учитывает offset). -->
+              <TableCell class="px-4 align-top text-right tabular-nums text-muted-foreground">
+                {{ total - offset - index }}
+              </TableCell>
               <TableCell class="px-4 align-top tabular-nums">
                 {{ formatDateCell(row) }}
               </TableCell>
