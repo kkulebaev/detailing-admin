@@ -19,6 +19,7 @@ import { usePricelistQuery, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { maskThousands } from '@/lib/number-mask'
+import { maskLicensePlate, PLATE_LETTERS } from '@/lib/license-plate'
 import { formatServiceCell, formatAmountFormula, type ServiceBreakdownRow } from '@/lib/service-breakdown'
 import { usePhoneInput, formatPastedPhone } from '@/composables/use-phone-input'
 
@@ -182,15 +183,6 @@ function maskTimeText(raw: string): string {
   return `${d.slice(0, 2)}:${d.slice(2)}`
 }
 
-// Russian plate: 1 letter + 3 digits + 2 letters + 2–3 digits (region).
-// Only letters shared with Latin glyphs are legal; Latin look-alikes are
-// transliterated so a keyboard layout slip doesn't block typing.
-const PLATE_LETTERS = new Set(['А', 'В', 'Е', 'К', 'М', 'Н', 'О', 'Р', 'С', 'Т', 'У', 'Х'])
-const LATIN_TO_CYRILLIC: Record<string, string> = {
-  A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н',
-  O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
-}
-
 function capitalizeWords(raw: string): string {
   return raw.replace(/(^|[\s\-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'))
 }
@@ -201,22 +193,6 @@ function maskName(raw: string): string {
 
 function maskCar(raw: string): string {
   return capitalizeWords(raw)
-}
-
-function maskLicensePlate(raw: string): string {
-  let out = ''
-  for (const ch of raw.toUpperCase()) {
-    if (out.length >= 9) break
-    const c = LATIN_TO_CYRILLIC[ch] ?? ch
-    const pos = out.length
-    const expectsLetter = pos === 0 || pos === 4 || pos === 5
-    if (expectsLetter) {
-      if (PLATE_LETTERS.has(c)) out += c
-    } else if (/\d/.test(c)) {
-      out += c
-    }
-  }
-  return out
 }
 
 function parseDateText(text: string): DateValue | null {

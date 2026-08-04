@@ -24,6 +24,7 @@ export type ClientDeleteResult = z.infer<typeof clientDeleteResponseSchema>
 export interface ClientInputPayload {
   name: string
   phone: string
+  cars: { makeModel: string; plate: string }[]
 }
 
 export function fetchClients(params: GetApiClientsParams): Promise<ClientsApiResult> {

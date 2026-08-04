@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import { Plus, Trash2 } from '@lucide/vue'
 import {
   createClient,
   updateClient,
   type Client,
 } from '@/lib/clients-api'
 import { formatPastedPhone, usePhoneInput } from '@/composables/use-phone-input'
+import { maskLicensePlate } from '@/lib/license-plate'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,7 +30,13 @@ const emit = defineEmits<{
   (e: 'saved'): void
 }>()
 
+interface CarRow {
+  makeModel: string
+  plate: string
+}
+
 const name = ref('')
+const cars = ref<CarRow[]>([])
 const submitting = ref(false)
 const error = ref<string | null>(null)
 const fieldErrors = ref<Record<string, string>>({})
@@ -55,6 +63,7 @@ watch(
     } else {
       resetPhone()
     }
+    cars.value = props.client?.cars.map((c) => ({ makeModel: c.makeModel, plate: c.plate })) ?? []
     error.value = null
     fieldErrors.value = {}
   },
@@ -63,6 +72,28 @@ watch(
 function close() {
   if (submitting.value) return
   emit('update:open', false)
+}
+
+function addCar() {
+  cars.value.push({ makeModel: '', plate: '' })
+}
+
+function removeCar(index: number) {
+  cars.value.splice(index, 1)
+}
+
+// Unlike BookingForm's plate input, this one is one-way bound (`:model-value`)
+// rather than `v-model`, so the mask is the sole source of truth — no need to
+// only reassign on change to avoid a double-write race.
+function onPlateInput(index: number, e: Event) {
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
+  const masked = maskLicensePlate(target.value)
+  if (target.value !== masked) {
+    target.value = masked
+    target.setSelectionRange(masked.length, masked.length)
+  }
+  cars.value[index]!.plate = masked
 }
 
 async function submit() {
@@ -81,7 +112,13 @@ async function submit() {
     return
   }
 
-  const payload = { name: trimmedName, phone }
+  // Full-replace semantics on the server — drop rows never filled in rather
+  // than sending blanks it would reject.
+  const carsPayload = cars.value
+    .map((c) => ({ makeModel: c.makeModel.trim(), plate: c.plate.trim() }))
+    .filter((c) => c.makeModel.length > 0)
+
+  const payload = { name: trimmedName, phone, cars: carsPayload }
 
   submitting.value = true
   try {
@@ -172,6 +209,53 @@ async function submit() {
           <p v-if="fieldErrors.phone" class="text-sm text-destructive">
             {{ fieldErrors.phone }}
           </p>
+        </div>
+
+        <div class="grid gap-2">
+          <div class="flex items-center justify-between">
+            <Label>Машины</Label>
+            <Button type="button" variant="outline" size="sm" :disabled="submitting" @click="addCar">
+              <Plus class="size-4" /> Добавить машину
+            </Button>
+          </div>
+
+          <div v-if="cars.length > 0" class="grid gap-3 max-h-64 overflow-y-auto">
+            <div v-for="(car, index) in cars" :key="index" class="grid gap-1">
+              <div class="flex items-center gap-2">
+                <Input
+                  v-model="car.makeModel"
+                  placeholder="Марка и модель"
+                  :disabled="submitting"
+                  autocomplete="off"
+                  maxlength="200"
+                  class="flex-1"
+                />
+                <Input
+                  :model-value="car.plate"
+                  placeholder="А123АА777"
+                  :disabled="submitting"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  maxlength="9"
+                  class="w-28"
+                  @input="onPlateInput(index, $event)"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="`Удалить машину ${index + 1}`"
+                  :disabled="submitting"
+                  @click="removeCar(index)"
+                >
+                  <Trash2 class="size-3.5" />
+                </Button>
+              </div>
+              <p v-if="fieldErrors[`cars.${index}.makeModel`]" class="text-sm text-destructive">
+                {{ fieldErrors[`cars.${index}.makeModel`] }}
+              </p>
+            </div>
+          </div>
         </div>
 
         <p v-if="error && !fieldErrors.phone && !fieldErrors.name" class="text-sm text-destructive">

@@ -16,6 +16,7 @@ import { _setDbForTest, type Db } from '../src/db/client.js'
 import {
   upsertClientCar,
   listCarsByClientIds,
+  syncClientCars,
 } from '../src/db/client-cars.js'
 
 const CLIENT_ID = 'f233cc73-2f2b-4e6b-8f9a-c3d81f2df450'
@@ -112,5 +113,124 @@ describe('listCarsByClientIds', () => {
 
     expect(map.size).toBe(0)
     expect(select).not.toHaveBeenCalled()
+  })
+})
+
+// Fake tx for syncClientCars: select() → existing rows; delete().where() and
+// insert().values().onConflictDoNothing() capture their inputs. transaction()
+// invokes the callback with this same fake (single connection is enough).
+function makeSyncDb(existing: { id: string; makeModel: string; plate: string }[]) {
+  const captured: {
+    deleteWhere: unknown
+    insertValues: { clientId: string; makeModel: string; plate: string }[] | null
+  } = { deleteWhere: undefined, insertValues: null }
+
+  const tx = {
+    select: () => ({ from: () => ({ where: () => Promise.resolve(existing) }) }),
+    delete: () => ({
+      where: (cond: unknown) => {
+        captured.deleteWhere = cond
+        return Promise.resolve([])
+      },
+    }),
+    insert: () => ({
+      values: (v: { clientId: string; makeModel: string; plate: string }[]) => {
+        captured.insertValues = v
+        return { onConflictDoNothing: () => Promise.resolve([]) }
+      },
+    }),
+  }
+  const db = {
+    transaction: async (fn: (t: unknown) => unknown) => fn(tx),
+  } as unknown as Db
+  return { db, captured }
+}
+
+describe('syncClientCars', () => {
+  it('inserts the missing normalized pairs when the client has none', async () => {
+    const { db, captured } = makeSyncDb([])
+    _setDbForTest(db)
+
+    await syncClientCars(CLIENT_ID, [
+      { makeModel: 'Toyota  Camry', plate: 'а 123 аа 77' },
+      { makeModel: 'BMW X5', plate: '' },
+    ])
+
+    expect(captured.insertValues).toEqual([
+      { clientId: CLIENT_ID, makeModel: 'Toyota Camry', plate: 'А123АА77' },
+      { clientId: CLIENT_ID, makeModel: 'BMW X5', plate: '' },
+    ])
+  })
+
+  it('dedupes pairs that normalize to the same key', async () => {
+    const { db, captured } = makeSyncDb([])
+    _setDbForTest(db)
+
+    await syncClientCars(CLIENT_ID, [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+      { makeModel: 'Toyota  Camry', plate: 'а123аа77' },
+    ])
+
+    expect(captured.insertValues).toEqual([
+      { clientId: CLIENT_ID, makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+  })
+
+  it('skips empty make/model entries', async () => {
+    const { db, captured } = makeSyncDb([])
+    _setDbForTest(db)
+
+    await syncClientCars(CLIENT_ID, [
+      { makeModel: '   ', plate: 'А123АА77' },
+      { makeModel: 'Kia Rio', plate: '' },
+    ])
+
+    expect(captured.insertValues).toEqual([
+      { clientId: CLIENT_ID, makeModel: 'Kia Rio', plate: '' },
+    ])
+  })
+
+  it('deletes rows no longer desired and keeps survivors (no re-insert)', async () => {
+    // Keep Toyota, drop BMW, add Kia.
+    const { db, captured } = makeSyncDb([
+      { id: 'row-toyota', makeModel: 'Toyota Camry', plate: 'А123АА77' },
+      { id: 'row-bmw', makeModel: 'BMW X5', plate: '' },
+    ])
+    _setDbForTest(db)
+
+    await syncClientCars(CLIENT_ID, [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+      { makeModel: 'Kia Rio', plate: '' },
+    ])
+
+    // Toyota survives → not re-inserted; only Kia is inserted.
+    expect(captured.insertValues).toEqual([
+      { clientId: CLIENT_ID, makeModel: 'Kia Rio', plate: '' },
+    ])
+    expect(captured.deleteWhere).toBeDefined()
+  })
+
+  it('is idempotent: re-sync of the current set inserts and deletes nothing', async () => {
+    const { db, captured } = makeSyncDb([
+      { id: 'row-toyota', makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+    _setDbForTest(db)
+
+    await syncClientCars(CLIENT_ID, [{ makeModel: 'Toyota Camry', plate: 'А123АА77' }])
+
+    expect(captured.insertValues).toBeNull()
+    expect(captured.deleteWhere).toBeUndefined()
+  })
+
+  it('clears all rows when given an empty list', async () => {
+    const { db, captured } = makeSyncDb([
+      { id: 'row-toyota', makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+    _setDbForTest(db)
+
+    await syncClientCars(CLIENT_ID, [])
+
+    expect(captured.insertValues).toBeNull()
+    expect(captured.deleteWhere).toBeDefined()
   })
 })

@@ -53,7 +53,7 @@ vi.mock('../src/db/client-cars.js', () => ({
 
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
-import { listClients } from '../src/db/clients.js'
+import { listClients, createClient, updateClient } from '../src/db/clients.js'
 import { listCarsByClientIds } from '../src/db/client-cars.js'
 import { adminCookie } from './auth-helpers.js'
 
@@ -95,5 +95,69 @@ describe('GET /api/clients', () => {
     expect(b.cars).toEqual([])
     // Grouped fetch keyed by the page's client ids (no N+1).
     expect(vi.mocked(listCarsByClientIds)).toHaveBeenCalledWith([CLIENT_A.id, CLIENT_B.id])
+  })
+})
+
+describe('clients mutations echo the reconciled cars', () => {
+  let app: ReturnType<typeof createApp>
+  let cookie = ''
+
+  const CAR = { id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА77' }
+
+  beforeEach(async () => {
+    app = createApp()
+    cookie = await adminCookie()
+    vi.mocked(isDbReady).mockReturnValue(true)
+  })
+
+  it('forwards cars to createClient and returns the actual set', async () => {
+    vi.mocked(createClient).mockResolvedValue({ client: CLIENT_A, cars: [CAR] })
+    const res = await app.request('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({
+        phone: '+79001234567',
+        name: 'Иван',
+        cars: [{ makeModel: 'Toyota Camry', plate: 'А123АА77' }],
+      }),
+    })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.client.cars).toEqual([CAR])
+    expect(vi.mocked(createClient)).toHaveBeenCalledWith('+79001234567', 'Иван', [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+  })
+
+  it('forwards cars to updateClient and returns the actual set', async () => {
+    vi.mocked(updateClient).mockResolvedValue({ client: CLIENT_A, cars: [CAR] })
+    const res = await app.request(`/api/clients/${CLIENT_A.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({
+        phone: '+79001234567',
+        name: 'Иван',
+        cars: [{ makeModel: 'Toyota Camry', plate: 'А123АА77' }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.client.cars).toEqual([CAR])
+    expect(vi.mocked(updateClient)).toHaveBeenCalledWith(CLIENT_A.id, '+79001234567', 'Иван', [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+  })
+
+  it('defaults cars to [] when the body omits them', async () => {
+    vi.mocked(createClient).mockResolvedValue({ client: CLIENT_A, cars: [] })
+    const res = await app.request('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ phone: '+79001234567', name: 'Иван' }),
+    })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.client.cars).toEqual([])
+    expect(vi.mocked(createClient)).toHaveBeenCalledWith('+79001234567', 'Иван', [])
   })
 })

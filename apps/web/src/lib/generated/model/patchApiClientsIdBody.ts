@@ -5,6 +5,7 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
+import type { PatchApiClientsIdBodyCarsItem } from './patchApiClientsIdBodyCarsItem';
 
 export type PatchApiClientsIdBody = {
   /** @maxLength 120 */
@@ -14,4 +15,5 @@ export type PatchApiClientsIdBody = {
      * @maxLength 40
      */
   phone: string;
+  cars?: PatchApiClientsIdBodyCarsItem[];
 };

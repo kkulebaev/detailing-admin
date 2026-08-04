@@ -12,8 +12,17 @@ vi.mock('../src/env.js', () => ({
   },
 }))
 
+// Isolate the client-row logic: syncClientCars/listCarsByClient are exercised
+// in client-cars.db.test.ts. Here we only assert createClient/updateClient wire
+// the cars through and echo the reconciled set the car layer reports.
+vi.mock('../src/db/client-cars.js', () => ({
+  syncClientCars: vi.fn().mockResolvedValue(undefined),
+  listCarsByClient: vi.fn().mockResolvedValue([]),
+}))
+
 import { _setDbForTest, type Db } from '../src/db/client.js'
-import { deleteClient, ClientError } from '../src/db/clients.js'
+import { deleteClient, createClient, updateClient, ClientError } from '../src/db/clients.js'
+import { syncClientCars, listCarsByClient } from '../src/db/client-cars.js'
 
 // Minimal thenable query-builder fake. `deleteClient` runs a `select` (the
 // booking-reference probe) followed by a `delete`; both queues are dequeued in
@@ -67,5 +76,102 @@ describe('deleteClient', () => {
     _setDbForTest(makeFakeDb({ selectResults: [[]], deleteResults: [[{ id: CLIENT_ID }]] }))
 
     await expect(deleteClient(CLIENT_ID)).resolves.toBeUndefined()
+  })
+})
+
+// Chain fake covering select/insert/update; each verb dequeues its own result
+// queue in call order.
+function makeMutationDb(opts: {
+  selectResults?: unknown[]
+  insertResults?: unknown[]
+  updateResults?: unknown[]
+}): Db {
+  const selectQ = [...(opts.selectResults ?? [])]
+  const insertQ = [...(opts.insertResults ?? [])]
+  const updateQ = [...(opts.updateResults ?? [])]
+
+  const chain = (resolve: () => unknown) => {
+    const c: Record<string, unknown> = {}
+    const passthrough = () => c
+    c.from = passthrough
+    c.where = passthrough
+    c.limit = passthrough
+    c.set = passthrough
+    c.values = passthrough
+    c.returning = passthrough
+    c.then = (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
+      Promise.resolve(resolve()).then(res, rej)
+    return c
+  }
+
+  return {
+    select: () => chain(() => selectQ.shift()),
+    insert: () => chain(() => insertQ.shift()),
+    update: () => chain(() => updateQ.shift()),
+  } as unknown as Db
+}
+
+const ROW = {
+  id: CLIENT_ID,
+  phone: '+79001234567',
+  name: 'Иван',
+  createdAt: new Date('2026-06-01T12:00:00.000Z'),
+}
+const CAR = { id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА77' }
+
+describe('createClient', () => {
+  it('throws duplicate_phone when the phone already exists', async () => {
+    _setDbForTest(makeMutationDb({ selectResults: [[{ id: 'other' }]] }))
+
+    await expect(createClient('+79001234567', 'Иван', [])).rejects.toMatchObject({
+      constructor: ClientError,
+      code: 'duplicate_phone',
+    })
+  })
+
+  it('inserts the client, syncs cars, and returns the reconciled set', async () => {
+    _setDbForTest(makeMutationDb({ selectResults: [[]], insertResults: [[ROW]] }))
+    vi.mocked(listCarsByClient).mockResolvedValueOnce([CAR])
+
+    const result = await createClient('+79001234567', 'Иван', [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+
+    expect(result).toEqual({ client: ROW, cars: [CAR] })
+    expect(vi.mocked(syncClientCars)).toHaveBeenCalledWith(CLIENT_ID, [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+  })
+})
+
+describe('updateClient', () => {
+  it('throws duplicate_phone when another client owns the phone', async () => {
+    _setDbForTest(makeMutationDb({ selectResults: [[{ id: 'other' }]] }))
+
+    await expect(updateClient(CLIENT_ID, '+79001234567', 'Иван', [])).rejects.toMatchObject({
+      code: 'duplicate_phone',
+    })
+  })
+
+  it('throws not_found when the row does not exist', async () => {
+    _setDbForTest(makeMutationDb({ selectResults: [[]], updateResults: [[]] }))
+
+    await expect(updateClient(CLIENT_ID, '+79001234567', 'Иван', [])).rejects.toMatchObject({
+      code: 'not_found',
+    })
+  })
+
+  it('updates the client, replaces cars, and returns the reconciled set', async () => {
+    _setDbForTest(makeMutationDb({ selectResults: [[]], updateResults: [[ROW]] }))
+    vi.mocked(listCarsByClient).mockResolvedValueOnce([CAR])
+
+    const result = await updateClient(CLIENT_ID, '+79001234567', 'Иван', [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
+
+    expect(result).toEqual({ client: ROW, cars: [CAR] })
+    expect(vi.mocked(syncClientCars)).toHaveBeenCalledWith(CLIENT_ID, [
+      { makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ])
   })
 })

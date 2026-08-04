@@ -71,10 +71,23 @@ export const clientDeleteResponseSchema = z.union([
   internalErrorSchema,
 ])
 
+// One car as submitted by the client dialog. Unlike `carSchema` (a persisted
+// row, carries `id`), this is the write shape: no id, plate optional. The db
+// layer normalizes/dedupes — here we only enforce a non-empty make/model.
+export const carInputSchema = z.object({
+  makeModel: z.string().trim().min(1, 'Укажите марку и модель').max(200),
+  plate: z.string().trim().max(32).default(''),
+})
+
+export type CarInput = z.infer<typeof carInputSchema>
+
 export const clientInputSchema = z
   .object({
     name: z.string().max(120).default(''),
     phone: z.string().min(1, 'Укажите номер телефона').max(40),
+    // Full-replace semantics: the submitted list is authoritative, the db sync
+    // reconciles the client's rows to exactly this set.
+    cars: z.array(carInputSchema).default([]),
   })
   .transform((v, ctx) => {
     try {
@@ -87,7 +100,7 @@ export const clientInputSchema = z
         })
         return z.NEVER
       }
-      return { name: v.name.trim(), phone }
+      return { name: v.name.trim(), phone, cars: v.cars }
     } catch (e) {
       ctx.addIssue({
         code: 'custom',

@@ -1,6 +1,8 @@
 import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm'
 import { normalizePhone } from '@detailing-admin/shared/phone'
+import type { Car, CarInput } from '@detailing-admin/shared/client'
 import { getDb } from './client.js'
+import { listCarsByClient, syncClientCars } from './client-cars.js'
 import { bookings, clients, type Client } from './schema.js'
 
 export type UpsertOutcome = 'inserted' | 'updated' | 'unchanged' | 'skipped'
@@ -122,15 +124,27 @@ export async function upsertClient(phone: string, name: string): Promise<UpsertR
   return { outcome: 'unchanged', client: after ?? null }
 }
 
-export async function createClient(phone: string, name: string): Promise<Client> {
+// Returns the persisted client together with its actual cars (post-sync), so
+// the route can echo the reconciled set back to the dialog.
+export async function createClient(
+  phone: string,
+  name: string,
+  cars: CarInput[] = [],
+): Promise<{ client: Client; cars: Car[] }> {
   const db = getDb()
   const [existing] = await db.select().from(clients).where(eq(clients.phone, phone)).limit(1)
   if (existing) throw new ClientError('duplicate_phone')
   const [row] = await db.insert(clients).values({ phone, name }).returning()
-  return row
+  await syncClientCars(row.id, cars)
+  return { client: row, cars: await listCarsByClient(row.id) }
 }
 
-export async function updateClient(id: string, phone: string, name: string): Promise<Client> {
+export async function updateClient(
+  id: string,
+  phone: string,
+  name: string,
+  cars: CarInput[] = [],
+): Promise<{ client: Client; cars: Car[] }> {
   const db = getDb()
   const [duplicate] = await db
     .select()
@@ -144,7 +158,8 @@ export async function updateClient(id: string, phone: string, name: string): Pro
     .where(eq(clients.id, id))
     .returning()
   if (!row) throw new ClientError('not_found')
-  return row
+  await syncClientCars(row.id, cars)
+  return { client: row, cars: await listCarsByClient(row.id) }
 }
 
 export async function deleteClient(id: string): Promise<void> {

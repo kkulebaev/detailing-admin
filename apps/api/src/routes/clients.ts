@@ -242,14 +242,17 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
     if (!isDbReady()) return unavailable(c)
 
-    const { phone, name } = c.req.valid('json')
+    const { phone, name, cars } = c.req.valid('json')
     try {
-      const client = await createClient(phone, name)
+      const { client, cars: savedCars } = await createClient(phone, name, cars)
       baseLogger.info(
         { event: 'clients.create', request_id: requestId, client_id: client.id, status: 201 },
         'Client created',
       )
-      return c.json({ ok: true as const, client: toWireClient(client) }, StatusCodes.CREATED)
+      return c.json(
+        { ok: true as const, client: toWireClient(client, savedCars) },
+        StatusCodes.CREATED,
+      )
     } catch (err) {
       if (err instanceof ClientError && err.code === 'duplicate_phone') {
         return c.json(
@@ -267,15 +270,15 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     if (!isDbReady()) return unavailable(c)
 
     const { id } = c.req.valid('param')
-    const { phone, name } = c.req.valid('json')
+    const { phone, name, cars } = c.req.valid('json')
 
     try {
-      const client = await updateClient(id, phone, name)
+      const { client, cars: savedCars } = await updateClient(id, phone, name, cars)
       baseLogger.info(
         { event: 'clients.update', request_id: requestId, client_id: id, status: 200 },
         'Client updated',
       )
-      return c.json({ ok: true as const, client: toWireClient(client) }, StatusCodes.OK)
+      return c.json({ ok: true as const, client: toWireClient(client, savedCars) }, StatusCodes.OK)
     } catch (err) {
       if (err instanceof ClientError && err.code === 'duplicate_phone') {
         return c.json(
