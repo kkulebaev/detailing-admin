@@ -8,6 +8,7 @@ import {
   smallint,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
@@ -44,6 +45,29 @@ export const clients = pgTable('clients', {
 
 export type Client = typeof clients.$inferSelect
 export type NewClient = typeof clients.$inferInsert
+
+// Best-effort auto-accumulated from bookings (see routes/bookings.ts ingest);
+// also the target of a future manual CRUD. plate defaults to '' (not NULL) —
+// a UNIQUE index does not dedupe NULLs, and an empty plate is a valid car.
+export const clientCars = pgTable(
+  'client_cars',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    makeModel: varchar('make_model', { length: 200 }).notNull(),
+    plate: varchar('plate', { length: 32 }).notNull().default(''),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('client_cars_uniq').on(t.clientId, t.makeModel, t.plate),
+    index('client_cars_client_id_idx').on(t.clientId),
+  ],
+)
+
+export type ClientCar = typeof clientCars.$inferSelect
+export type NewClientCar = typeof clientCars.$inferInsert
 
 // Structured bookings mirror. Stage 1 of the Sheets→app migration: every booking
 // is dual-written here (best-effort) alongside the authoritative Sheets append.

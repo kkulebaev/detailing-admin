@@ -26,6 +26,7 @@ import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
+import { upsertClientCar } from '../db/client-cars.js'
 import {
   deleteBooking,
   insertBooking,
@@ -414,6 +415,25 @@ router.openapi(postBookingRoute, async (c) => {
           },
           'Client upsert failed — booking succeeded, DB skipped',
         )
+      }
+
+      // Best-effort ingest of the client's car. Own try/catch (sibling to the
+      // upsert and mirror catches, NOT combined) — a car failure must not
+      // suppress the mirror insert below. Skipped without a linked client
+      // (nowhere to attach it) or an empty make/model.
+      if (clientId && booking.car) {
+        try {
+          await upsertClientCar(clientId, booking.car, booking.plate ?? '')
+        } catch (err) {
+          baseLogger.warn(
+            {
+              event: 'booking.client_car_upsert_failed',
+              request_id: requestId,
+              message: err instanceof Error ? err.message : String(err),
+            },
+            'Client car upsert failed — booking succeeded, DB skipped',
+          )
+        }
       }
 
       try {

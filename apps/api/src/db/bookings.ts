@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
 import type { Booking as WireBooking } from '@detailing-admin/shared/booking'
+import { joinCar } from '@detailing-admin/shared/car'
 import { ddmmyyyyToIso } from '@detailing-admin/shared/date'
 import { normalizePhone } from '@detailing-admin/shared/phone'
 import { getDb } from './client.js'
@@ -22,7 +23,9 @@ function mapEditableFields(b: WireBooking) {
   return {
     name: b.name,
     phone: b.phone,
-    car: b.car,
+    // Зеркало bookings.car хранит склеенную строку (марка/модель + номер),
+    // как раньше писала форма — единый формат через joinCar (см. shared/car.ts).
+    car: joinCar(b.car, b.plate),
     service: b.service,
     note: b.note,
     // `amount` is `'' | number` on the wire type — the schema's refine guarantees

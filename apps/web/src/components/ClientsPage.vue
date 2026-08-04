@@ -18,6 +18,7 @@ import {
 import { toast } from 'vue-sonner'
 import {
   deleteClient as apiDeleteClient,
+  type Car,
   type Client,
   type GetApiClientsParams,
 } from '@/lib/clients-api'
@@ -43,6 +44,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -56,7 +58,7 @@ import {
 
 const LIMIT = 50
 
-const COLUMN_COUNT = 5
+const COLUMN_COUNT = 6
 
 // ── Filter / sort / paging state ────────────────────────────────────────────
 const searchInput = ref('')
@@ -213,6 +215,10 @@ function formatCreatedAt(iso: string): string {
   return `${dd}.${mm}.${d.getFullYear()}`
 }
 
+function formatCar(car: Car): string {
+  return car.plate ? `${car.makeModel} (${car.plate})` : car.makeModel
+}
+
 async function copyPhone(phone: string) {
   const formatted = formatPhone(phone)
   if (!clipboardSupported.value) {
@@ -341,13 +347,14 @@ async function confirmDelete() {
       <Table
         v-else
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
-        :class="[{ 'table-fixed min-w-176': !isEmpty, 'h-full': isEmpty }]"
+        :class="[{ 'table-fixed min-w-228': !isEmpty, 'h-full': isEmpty }]"
       >
         <colgroup v-if="!isEmpty">
           <col class="w-16" />
           <col />
           <col class="w-56" />
           <col class="w-36" />
+          <col class="w-52" />
           <col class="w-28" />
         </colgroup>
         <TableHeader v-if="!isEmpty" class="sticky top-0 z-10 bg-muted">
@@ -392,6 +399,7 @@ async function confirmDelete() {
                 <ChevronsUpDown v-else class="size-3.5 opacity-50" />
               </button>
             </TableHead>
+            <TableHead class="px-4">Машины</TableHead>
             <TableHead class="px-4 text-right">Действия</TableHead>
           </TableRow>
         </TableHeader>
@@ -402,6 +410,7 @@ async function confirmDelete() {
               <TableCell class="px-4"><Skeleton class="h-4 w-40" /></TableCell>
               <TableCell class="px-4"><Skeleton class="h-4 w-32" /></TableCell>
               <TableCell class="px-4"><Skeleton class="h-4 w-20" /></TableCell>
+              <TableCell class="px-4"><Skeleton class="h-4 w-24" /></TableCell>
               <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
             </TableRow>
           </template>
@@ -450,6 +459,28 @@ async function confirmDelete() {
             </TableCell>
             <TableCell class="px-4 tabular-nums text-muted-foreground">
               {{ formatCreatedAt(row.createdAt) }}
+            </TableCell>
+            <TableCell class="px-4">
+              <span v-if="row.cars.length === 0" class="text-muted-foreground">—</span>
+              <span v-else-if="row.cars.length === 1" class="truncate block">
+                {{ formatCar(row.cars[0]!) }}
+              </span>
+              <Popover v-else>
+                <PopoverTrigger as-child>
+                  <button
+                    type="button"
+                    class="inline-flex max-w-full items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span class="truncate">{{ formatCar(row.cars[0]!) }}</span>
+                    <span class="shrink-0 text-muted-foreground">+{{ row.cars.length - 1 }}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent class="w-64 p-2" align="start">
+                  <ul class="space-y-1 text-sm">
+                    <li v-for="car in row.cars" :key="car.id">{{ formatCar(car) }}</li>
+                  </ul>
+                </PopoverContent>
+              </Popover>
             </TableCell>
             <TableCell class="px-4 text-right">
               <div class="inline-flex gap-1">

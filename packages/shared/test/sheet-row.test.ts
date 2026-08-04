@@ -87,4 +87,27 @@ describe('bookingToRow', () => {
     const result = bookingSchema.safeParse({ ...baseInput, amountFormula: '=IMPORTRANGE("x","y")' })
     expect(result.success).toBe(false)
   })
+
+  // Golden: перенос склейки car+plate на сервер (joinCar) не должен менять
+  // байты колонки E при том же вводе. Без plate — голый car, как раньше.
+  it('cell E: without plate is byte-identical to bare car', () => {
+    const row = bookingToRow(parseBooking(baseInput))
+    expect(row[4]).toBe('Toyota Camry')
+  })
+
+  it('cell E: with plate joins as "car, plate"', () => {
+    const row = bookingToRow(parseBooking({ ...baseInput, plate: 'А123АА77' }))
+    expect(row[4]).toBe('Toyota Camry, А123АА77')
+  })
+
+  it('cell E: empty plate is byte-identical to bare car (no trailing ", ")', () => {
+    const row = bookingToRow(parseBooking({ ...baseInput, plate: '' }))
+    expect(row[4]).toBe('Toyota Camry')
+  })
+
+  it('bookingSchema accepts plate', () => {
+    const result = bookingSchema.safeParse({ ...baseInput, plate: 'А123АА77' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.plate).toBe('А123АА77')
+  })
 })

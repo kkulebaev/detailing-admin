@@ -121,6 +121,9 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  "remember": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -982,6 +985,10 @@
                     "minLength": 1,
                     "maxLength": 200
                   },
+                  "plate": {
+                    "type": "string",
+                    "maxLength": 32
+                  },
                   "service": {
                     "type": "string",
                     "minLength": 1,
@@ -1705,6 +1712,10 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  "plate": {
+                    "type": "string",
+                    "maxLength": 32
                   },
                   "service": {
                     "type": "string",
@@ -2701,6 +2712,30 @@
                           },
                           "createdAt": {
                             "type": "string"
+                          },
+                          "cars": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "makeModel": {
+                                  "type": "string"
+                                },
+                                "plate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "makeModel",
+                                "plate"
+                              ]
+                            },
+                            "default": []
                           }
                         },
                         "required": [
@@ -2868,6 +2903,28 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 40
+                  },
+                  "cars": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "makeModel": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "plate": {
+                          "type": "string",
+                          "maxLength": 32,
+                          "default": ""
+                        }
+                      },
+                      "required": [
+                        "makeModel"
+                      ]
+                    },
+                    "default": []
                   }
                 },
                 "required": [
@@ -2906,6 +2963,30 @@
                         },
                         "createdAt": {
                           "type": "string"
+                        },
+                        "cars": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "makeModel": {
+                                "type": "string"
+                              },
+                              "plate": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "makeModel",
+                              "plate"
+                            ]
+                          },
+                          "default": []
                         }
                       },
                       "required": [
@@ -3144,6 +3225,28 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 40
+                  },
+                  "cars": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "makeModel": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "plate": {
+                          "type": "string",
+                          "maxLength": 32,
+                          "default": ""
+                        }
+                      },
+                      "required": [
+                        "makeModel"
+                      ]
+                    },
+                    "default": []
                   }
                 },
                 "required": [
@@ -3182,6 +3285,30 @@
                         },
                         "createdAt": {
                           "type": "string"
+                        },
+                        "cars": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "makeModel": {
+                                "type": "string"
+                              },
+                              "plate": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "makeModel",
+                              "plate"
+                            ]
+                          },
+                          "default": []
                         }
                       },
                       "required": [

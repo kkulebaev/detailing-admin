@@ -25,6 +25,10 @@ export const bookingSchema = z
     name: z.string().min(1, 'Укажите имя').max(120),
     phone: z.string().min(1, 'Укажите номер телефона').max(40),
     car: z.string().min(1, 'Укажите марку и модель').max(200),
+    // Гос. номер — отдельным полем: форма шлёт его сырым, склейка с `car` для
+    // колонки E и зеркала `bookings.car` делается на сервере через joinCar.
+    // Permissive (как остальные поля) — строгой валидации формата номера нет.
+    plate: z.string().max(32).optional(),
     service: z.string().min(1, 'Укажите услугу').max(2000),
     note: z.string().max(2000).default(''),
     amount: z

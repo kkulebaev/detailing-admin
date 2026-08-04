@@ -44,6 +44,10 @@ vi.mock('../src/db/clients.js', () => ({
   upsertClient: vi.fn(),
 }))
 
+vi.mock('../src/db/client-cars.js', () => ({
+  upsertClientCar: vi.fn(),
+}))
+
 vi.mock('../src/db/bookings.js', () => ({
   insertBooking: vi.fn(),
   listBookings: vi.fn(),
@@ -66,6 +70,7 @@ import {
   isDbReady,
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
+import { upsertClientCar } from '../src/db/client-cars.js'
 import {
   insertBooking,
   listBookings,
@@ -125,6 +130,7 @@ describe('POST /api/bookings', () => {
     vi.mocked(appendBooking).mockResolvedValue(APPEND_SUCCESS)
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'inserted', client: null })
+    vi.mocked(upsertClientCar).mockResolvedValue(undefined)
     vi.mocked(insertBooking).mockResolvedValue(true)
     vi.mocked(notifyMaster).mockResolvedValue({ attempted: true, delivered: true })
   })
@@ -452,6 +458,51 @@ describe('POST /api/bookings', () => {
     expect(body.ok).toBe(true)
     expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'booking.db_mirror_failed' }),
+      expect.any(String),
+    )
+  })
+
+  it('ingests the client car after a successful booking (best-effort)', async () => {
+    vi.mocked(upsertClient).mockResolvedValue({
+      outcome: 'inserted',
+      client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
+    })
+    await post(
+      app,
+      { ...VALID_PAYLOAD, car: 'Toyota Camry', plate: 'А123АА77' },
+      { 'Idempotency-Key': 'k-car' },
+    )
+    expect(vi.mocked(upsertClientCar)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(upsertClientCar)).toHaveBeenCalledWith('client-uuid-1', 'Toyota Camry', 'А123АА77')
+  })
+
+  it('does not ingest the car when DB is not ready (best-effort)', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-no-db' })
+    expect(res.status).toBe(201)
+    expect(vi.mocked(upsertClientCar)).not.toHaveBeenCalled()
+  })
+
+  it('does not ingest the car when no client is linked (null clientId)', async () => {
+    vi.mocked(upsertClient).mockResolvedValue({ outcome: 'skipped', client: null })
+    const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-no-client' })
+    expect(res.status).toBe(201)
+    expect(vi.mocked(upsertClientCar)).not.toHaveBeenCalled()
+  })
+
+  it('a failing car ingest does not suppress the mirror insert (separate catch)', async () => {
+    vi.mocked(upsertClient).mockResolvedValue({
+      outcome: 'inserted',
+      client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
+    })
+    vi.mocked(upsertClientCar).mockRejectedValueOnce(new Error('unique violation'))
+    const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-fail' })
+    expect(res.status).toBe(201)
+    expect((await res.json()).ok).toBe(true)
+    // The mirror insert must still run despite the car failure.
+    expect(vi.mocked(insertBooking)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'booking.client_car_upsert_failed' }),
       expect.any(String),
     )
   })

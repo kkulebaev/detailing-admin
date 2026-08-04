@@ -3,6 +3,7 @@ import {
   clientDeleteResponseSchema,
   clientMutationResponseSchema,
   clientsListResponseSchema,
+  type Car,
   type Client,
 } from '@detailing-admin/shared'
 import { unwrap } from './api-client'
@@ -14,7 +15,7 @@ import {
 } from './generated/clients/clients'
 import type { GetApiClientsParams } from './generated/model'
 
-export type { Client, GetApiClientsParams }
+export type { Car, Client, GetApiClientsParams }
 
 export type ClientsApiResult = z.infer<typeof clientsListResponseSchema>
 export type ClientMutationResult = z.infer<typeof clientMutationResponseSchema>

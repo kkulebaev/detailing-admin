@@ -17,4 +17,5 @@ export type PostApiAuthLoginBody = {
      * @maxLength 200
      */
   password: string;
+  remember?: boolean;
 };

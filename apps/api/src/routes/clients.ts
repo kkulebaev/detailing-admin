@@ -18,6 +18,8 @@ import {
   listClients,
   updateClient,
 } from '../db/clients.js'
+import { listCarsByClientIds } from '../db/client-cars.js'
+import type { Car } from '@detailing-admin/shared'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
@@ -56,8 +58,13 @@ const mutationOkResponse = z.object({ ok: z.literal(true), client: clientSchema 
 const deleteOkResponse = z.object({ ok: z.literal(true) })
 
 // The DB row carries `createdAt` as a Date; the wire schema is an ISO string.
-function toWireClient(row: { id: string; phone: string; name: string; createdAt: Date }) {
-  return { id: row.id, phone: row.phone, name: row.name, createdAt: row.createdAt.toISOString() }
+// `cars` defaults to [] but every path passes an explicit set: the list path
+// the grouped fetch, create/update the reconciled set echoed by the db layer.
+function toWireClient(
+  row: { id: string; phone: string; name: string; createdAt: Date },
+  cars: Car[] = [],
+) {
+  return { id: row.id, phone: row.phone, name: row.name, createdAt: row.createdAt.toISOString(), cars }
 }
 
 function unavailable(c: Context) {
@@ -201,11 +208,21 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         sort: query.sort,
         dir: query.dir,
       })
+      // Embed each client's cars in one grouped query (≤ page size ids) to
+      // avoid N+1; a client with no cars gets [].
+      const carsByClient = await listCarsByClientIds(rows.map((r) => r.id))
       baseLogger.info(
         { event: 'clients.list', request_id: requestId, count: rows.length, total, status: 200 },
         'Clients listed',
       )
-      return c.json({ ok: true as const, clients: rows.map(toWireClient), total }, StatusCodes.OK)
+      return c.json(
+        {
+          ok: true as const,
+          clients: rows.map((r) => toWireClient(r, carsByClient.get(r.id) ?? [])),
+          total,
+        },
+        StatusCodes.OK,
+      )
     } catch (err) {
       baseLogger.error(
         {

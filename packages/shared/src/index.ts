@@ -81,11 +81,13 @@ export type {
 export {
   clientInputSchema,
   clientSchema,
+  carSchema,
   clientsListResponseSchema,
   clientMutationResponseSchema,
   clientDeleteResponseSchema,
 } from './client.js'
-export type { ClientInput, Client } from './client.js'
+export type { ClientInput, Client, Car } from './client.js'
+export { joinCar, normalizeCarKey } from './car.js'
 export {
   masterSchema,
   masterInputSchema,

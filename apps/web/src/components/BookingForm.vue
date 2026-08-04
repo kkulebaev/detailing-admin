@@ -64,6 +64,7 @@ type BookingField =
   | 'name'
   | 'phone'
   | 'car'
+  | 'plate'
   | 'service'
   | 'note'
   | 'amount'
@@ -78,6 +79,7 @@ const BOOKING_FIELDS: Record<BookingField, true> = {
   name: true,
   phone: true,
   car: true,
+  plate: true,
   service: true,
   note: true,
   amount: true,
@@ -259,7 +261,8 @@ const {
   onClickPastePhone,
   resetPhone,
 } = usePhoneInput()
-// ── License plate (UI-only, concatenated into `car` on submit) ───────────────
+// ── License plate — sent as a separate `plate` field; the server joins it
+// with `car` (joinCar) for the sheet column and the bookings mirror. ────────
 const licensePlate = ref('')
 // ── Amount display value (formatted with thousand separators) ────────────────
 const amountRaw = ref('')
@@ -703,10 +706,9 @@ function onDateToSelect(date: DateValue | undefined) {
 const handleValidatedSubmit = handleSubmit(async (values) => {
   unavailableBanner.value = null
   const plate = licensePlate.value.trim()
-  const car = [values.car?.trim(), plate].filter(Boolean).join(', ')
   // The toggle is force-disabled when the master has no Telegram ID, so its
   // value is authoritative; the backend re-checks and never trusts it blindly.
-  const payload = { ...values, car, notify: sendNotification.value }
+  const payload = { ...values, plate: plate || undefined, notify: sendNotification.value }
   // The «Услуга» cell gets the categorised breakdown (names only); the form
   // field stays a plain name CSV for draft restore.
   if (serviceBreakdown.value.length > 0) {

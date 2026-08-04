@@ -42,6 +42,8 @@ export type PostApiBookingsBody = {
      * @maxLength 200
      */
   car: string;
+  /** @maxLength 32 */
+  plate?: string;
   /**
      * @minLength 1
      * @maxLength 2000

@@ -7,12 +7,27 @@ import {
   validationErrorSchema,
 } from './api.js'
 
+// Одна машина клиента (строка `client_cars`). make/model и plate хранятся
+// раздельно (структурные данные, не склеенная строка колонки E).
+export const carSchema = z.object({
+  id: z.string().uuid(),
+  makeModel: z.string(),
+  plate: z.string(),
+})
+
+export type Car = z.infer<typeof carSchema>
+
 export const clientSchema = z.object({
   id: z.string().uuid(),
   phone: z.string(),
   name: z.string(),
   // ISO datetime after JSON serialization (the DB column is a timestamp).
   createdAt: z.string(),
+  // Машины клиента, вложенные в list-ответ одним сгруппированным запросом.
+  // Дефолт [] обязателен: clientSchema переиспользуется в
+  // clientMutationResponseSchema — create/update-ответы (у нового клиента
+  // машин нет) тоже валидны с cars: [].
+  cars: z.array(carSchema).default([]),
 })
 
 export type Client = z.infer<typeof clientSchema>
