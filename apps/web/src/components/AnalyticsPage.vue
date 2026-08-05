@@ -11,6 +11,7 @@ import type {
   AnalyticsTopClient,
 } from '@detailing-admin/shared'
 import { calToDdmmyyyy } from '@/lib/date'
+import { formatPhone } from '@/lib/phone'
 import { buildMonthOptions, currentMonthKey, MONTH_NAMES } from '@/lib/month-options'
 import { useAnalyticsOverviewQuery } from '@/lib/queries'
 import type { GetApiAnalyticsOverviewParams } from '@/lib/analytics-api'
@@ -224,7 +225,7 @@ function formatPct(pct: number | null): string {
 const deltaClass = computed(() => {
   const pct = revenuePct.value
   if (pct === null || pct === 0) return 'text-muted-foreground'
-  return pct > 0 ? 'text-green-600' : 'text-destructive'
+  return pct > 0 ? 'text-success' : 'text-destructive'
 })
 
 const deltaIcon = computed(() => {
@@ -409,13 +410,6 @@ const topRows = computed<AnalyticsTopClient[]>(() => {
   if (!c) return []
   return topTab.value === 'sum' ? c.topBySum : c.topByVisits
 })
-
-function formatPhone(raw: string): string {
-  const match = /^(.+?)(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(raw)
-  if (!match) return raw
-  const [, prefix, a, b, c, d] = match
-  return `${prefix}-${a}-${b}-${c}-${d}`
-}
 </script>
 
 <template>
@@ -462,17 +456,58 @@ function formatPhone(raw: string): string {
     </Alert>
 
     <template v-else>
+      <!-- Skeleton mirrors the loaded layout's card chrome (header + padded
+           content) so its height matches the real sections — a bare-block
+           placeholder would be shorter than the chart/KPI cards and jerk the
+           page down on first load. -->
       <template v-if="showSkeleton">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Skeleton v-for="i in 4" :key="i" class="h-28" />
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Card v-for="i in 4" :key="i">
+            <CardHeader>
+              <Skeleton class="h-4 w-24" />
+              <Skeleton class="h-8 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton class="h-3 w-40" />
+            </CardContent>
+          </Card>
         </div>
-        <Skeleton class="mt-4 h-80" />
-        <Skeleton class="mt-4 h-96" />
+
+        <Card class="mt-4">
+          <CardHeader>
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="space-y-1.5">
+                <Skeleton class="h-5 w-48" />
+                <Skeleton class="h-4 w-64" />
+              </div>
+              <Skeleton class="h-9 w-56" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Skeleton class="h-80 w-full" />
+          </CardContent>
+        </Card>
+
+        <Card class="mt-4">
+          <CardHeader>
+            <Skeleton class="h-5 w-24" />
+          </CardHeader>
+          <CardContent class="space-y-6">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div v-for="i in 3" :key="i" class="space-y-2">
+                <Skeleton class="h-4 w-20" />
+                <Skeleton class="h-6 w-12" />
+              </div>
+            </div>
+            <Skeleton class="h-12 w-full" />
+            <Skeleton class="h-64 w-full" />
+          </CardContent>
+        </Card>
       </template>
 
       <template v-else>
         <!-- KPI row -->
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card>
             <CardHeader>
               <CardDescription>Выручка</CardDescription>
@@ -534,7 +569,7 @@ function formatPhone(raw: string): string {
                 </CardDescription>
               </div>
               <Tabs :model-value="granularity" @update:model-value="onGranularityChange">
-                <TabsList>
+                <TabsList aria-label="Группировка выручки">
                   <TabsTrigger value="day">День</TabsTrigger>
                   <TabsTrigger value="week">Неделя</TabsTrigger>
                   <TabsTrigger value="month">Месяц</TabsTrigger>
@@ -637,7 +672,7 @@ function formatPhone(raw: string): string {
 
             <div>
               <Tabs :model-value="topTab" class="mb-3" @update:model-value="onTopTabChange">
-                <TabsList>
+                <TabsList aria-label="Сортировка топ-клиентов">
                   <TabsTrigger value="sum">По сумме</TabsTrigger>
                   <TabsTrigger value="visits">По визитам</TabsTrigger>
                 </TabsList>

@@ -20,6 +20,7 @@ import {
   type Client,
   type GetApiClientsParams,
 } from '@/lib/clients-api'
+import { formatPhone } from '@/lib/phone'
 import { useClientsQuery, useInvalidateClients } from '@/lib/queries'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
 import ClientFormDialog from './ClientFormDialog.vue'
@@ -185,13 +186,6 @@ const deleting = ref(false)
 const deleteError = ref<string | null>(null)
 
 const { copy, isSupported: clipboardSupported } = useClipboard({ legacy: true })
-
-function formatPhone(raw: string): string {
-  const match = /^(.+?)(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(raw)
-  if (!match) return raw
-  const [, prefix, a, b, c, d] = match
-  return `${prefix}-${a}-${b}-${c}-${d}`
-}
 
 function formatCreatedAt(iso: string): string {
   const d = new Date(iso)

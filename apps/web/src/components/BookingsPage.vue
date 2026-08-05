@@ -7,6 +7,7 @@ import { CalendarDate } from '@internationalized/date'
 import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/shared'
 import { buildMonthOptions } from '@/lib/month-options'
 import { calToDdmmyyyy } from '@/lib/date'
+import { formatPhone } from '@/lib/phone'
 import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from '@/lib/bookings-api'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
@@ -364,13 +365,6 @@ function formatDateCell(row: BookingRow): string {
 function formatTimeCell(row: BookingRow): string {
   if (!row.timeFrom) return '—'
   return row.timeTo ? `${row.timeFrom} – ${row.timeTo}` : row.timeFrom
-}
-
-function formatPhone(raw: string): string {
-  const match = /^(.+?)(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(raw)
-  if (!match) return raw
-  const [, prefix, a, b, c, d] = match
-  return `${prefix}-${a}-${b}-${c}-${d}`
 }
 
 function formatAmount(n: number): string {
