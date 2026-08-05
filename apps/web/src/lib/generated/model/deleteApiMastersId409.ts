@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { DeleteApiMastersId409Error } from './deleteApiMastersId409Error';
-import type { DeleteApiMastersId409Reason } from './deleteApiMastersId409Reason';
 
 export type DeleteApiMastersId409 = {
   ok: false;
   error: DeleteApiMastersId409Error;
-  reason: DeleteApiMastersId409Reason;
+  reason: 'has_work_hours' | 'has_bookings';
 };

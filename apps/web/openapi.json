@@ -6802,7 +6802,7 @@
             }
           },
           "409": {
-            "description": "Master still has work hours history",
+            "description": "Master still has work hours or booking history",
             "content": {
               "application/json": {
                 "schema": {
@@ -6821,9 +6821,19 @@
                       ]
                     },
                     "reason": {
-                      "type": "string",
-                      "enum": [
-                        "has_work_hours"
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "has_work_hours"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "has_bookings"
+                          ]
+                        }
                       ]
                     }
                   },
