@@ -15,6 +15,10 @@ import { baseLogger } from '../log.js'
 export interface BookingWriteMeta {
   idempotencyKey: string
   clientId: string | null
+  // Derived id-link to the client's normalized car row, resolved in the route
+  // (where the car ingest already runs) so the insert doesn't re-upsert. Null
+  // when unresolved — the snapshot `car` string stays authoritative.
+  carId: string | null
   sheetRow: number | null
   sheetRange: string | null
 }
@@ -55,6 +59,7 @@ export function bookingToDbRow(
   return {
     idempotencyKey: meta.idempotencyKey,
     clientId: meta.clientId,
+    carId: meta.carId,
     sheetRow: meta.sheetRow,
     sheetRange: meta.sheetRange,
     responsibleId,
@@ -161,9 +166,10 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
   return true
 }
 
-/** Update a booking's editable fields (and re-linked client). Leaves the
+/** Update a booking's editable fields (and re-linked client + car). Leaves the
  * idempotency key and Sheets linkage untouched. Returns the updated row, or null
- * if no booking has that id. `responsible_id` is refreshed atomically with the
+ * if no booking has that id. `car_id` (resolved read-only in the route) and
+ * `responsible_id` are refreshed atomically with the
  * fields; the junction is rewritten (delete + re-insert) as a separate best-effort
  * step whose failure is swallowed — the PATCH still returns 200 (Sheets is the
  * source of truth; the id-link is derived and healed by the backfill). */
@@ -171,13 +177,14 @@ export async function updateBooking(
   id: string,
   b: WireBooking,
   clientId: string | null,
+  carId: string | null,
 ): Promise<Booking | null> {
   const db = getDb()
   const ids = await resolveMasterIds([...b.master, b.responsible])
   const responsibleId = ids.get(b.responsible.trim()) ?? null
   const [row] = await db
     .update(bookings)
-    .set({ ...mapEditableFields(b), clientId, responsibleId })
+    .set({ ...mapEditableFields(b), clientId, carId, responsibleId })
     .where(eq(bookings.id, id))
     .returning()
   if (!row) return null

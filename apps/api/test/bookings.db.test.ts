@@ -37,6 +37,7 @@ function makeBooking(over: Record<string, unknown> = {}) {
 const META = {
   idempotencyKey: 'k1',
   clientId: 'c1' as string | null,
+  carId: 'car-1' as string | null,
   sheetRow: 5 as number | null,
   sheetRange: 'Запись 2026!A5' as string | null,
 }
@@ -58,6 +59,7 @@ describe('bookingToDbRow', () => {
       timeFrom: '10:00',
       timeTo: null,
       carClass: 3,
+      carId: 'car-1',
       sheetRow: 5,
       sheetRange: 'Запись 2026!A5',
     })
@@ -79,6 +81,11 @@ describe('bookingToDbRow', () => {
     const row = bookingToDbRow(makeBooking(), { ...META, clientId: null })
     expect(row.clientId).toBeNull()
     expect(row.note).toBe('')
+  })
+
+  it('writes the car id-link from meta (including a null when unresolved)', () => {
+    expect(bookingToDbRow(makeBooking(), META).carId).toBe('car-1')
+    expect(bookingToDbRow(makeBooking(), { ...META, carId: null }).carId).toBeNull()
   })
 
   it('writes the passed responsibleId and defaults it to null when omitted', () => {
@@ -405,10 +412,14 @@ describe('updateBooking master id-link', () => {
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('bk1', makeBooking(), 'client-1')
+    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9')
     expect(row).toEqual(updatedRow)
-    // Fields + client + responsible id all set in the same atomic update.
-    expect(capture.sets[0]).toMatchObject({ clientId: 'client-1', responsibleId: 2 })
+    // Fields + client + car + responsible id all set in the same atomic update.
+    expect(capture.sets[0]).toMatchObject({
+      clientId: 'client-1',
+      carId: 'car-9',
+      responsibleId: 2,
+    })
     // Old links cleared, matched master re-inserted with its snapshot position.
     expect(capture.deletes).toBe(1)
     expect(capture.inserts[0]).toEqual([{ bookingId: 'bk1', masterId: 1, position: 0 }])
@@ -424,7 +435,7 @@ describe('updateBooking master id-link', () => {
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('bk1', makeBooking(), 'client-1')
+    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9')
     // PATCH invariant: the field update stands; the failure is swallowed + logged.
     expect(row).toEqual(updatedRow)
     expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
@@ -451,7 +462,7 @@ describe('updateBooking master id-link', () => {
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('bk1', makeBooking(), 'client-1')
+    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9')
     // The returned row carries the current master name, not the snapshot.
     expect(row?.master).toEqual(['Живое А'])
   })
@@ -463,10 +474,31 @@ describe('updateBooking master id-link', () => {
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('missing', makeBooking(), null)
+    const row = await updateBooking('missing', makeBooking(), null, null)
     expect(row).toBeNull()
     expect(capture.deletes).toBe(0)
     expect(capture.inserts).toHaveLength(0)
+  })
+})
+
+describe('0017 migration car_id link', () => {
+  const sql = readFileSync(
+    resolve(import.meta.dirname, '../drizzle/0017_curvy_saracen.sql'),
+    'utf-8',
+  )
+
+  it('adds a nullable car_id column', () => {
+    expect(sql).toMatch(/ADD COLUMN "car_id" uuid;/)
+  })
+
+  it('nulls car_id on car delete so the snapshot row survives a routine client edit', () => {
+    expect(sql).toMatch(
+      /bookings_car_id_client_cars_id_fk[\s\S]*?ON DELETE set null/,
+    )
+  })
+
+  it('indexes car_id for a future car→bookings reader', () => {
+    expect(sql).toMatch(/CREATE INDEX "bookings_car_id_idx" ON "bookings"[\s\S]*?"car_id"/)
   })
 })
 
@@ -562,6 +594,67 @@ describe('backfillMasterIds', () => {
 
     await backfillMasterIds(first.tag as never)
     await backfillMasterIds(second.tag as never)
+
+    expect(second.calls).toEqual(first.calls)
+  })
+})
+
+describe('backfillCarIds', () => {
+  // Same tagged-template fake as backfillMasterIds: records statements (with `?`
+  // placeholders) and resolves to the next queued result with a postgres-js-style
+  // `.count`.
+  function fakeSql(results: unknown[][]) {
+    const calls: string[] = []
+    let i = 0
+    const withCount = (rows: unknown[]) => Object.assign([...rows], { count: rows.length })
+    const tag = (strings: TemplateStringsArray, ..._args: unknown[]) => {
+      calls.push(strings.join('?').replace(/\s+/g, ' ').trim())
+      return Promise.resolve(withCount(results[i++] ?? []))
+    }
+    return { tag, calls }
+  }
+
+  async function importBackfill() {
+    return import('../scripts/backfill-car-ids.js')
+  }
+
+  it('issues an idempotent UPDATE (car_id IS NULL, same-client normalized-key join) + a remaining-count SELECT', async () => {
+    const { backfillCarIds } = await importBackfill()
+    const { tag, calls } = fakeSql([[], [{ count: 0 }]])
+
+    await backfillCarIds(tag as never)
+
+    expect(calls).toHaveLength(2)
+    // The link UPDATE: normalized-key join, same client, only NULL rows.
+    expect(calls[0]).toContain('UPDATE bookings')
+    expect(calls[0]).toContain('SET car_id')
+    expect(calls[0]).toContain('cc.client_id = bb.client_id')
+    expect(calls[0]).toContain('regexp_replace')
+    expect(calls[0]).toContain('DISTINCT ON (bb.id)')
+    expect(calls[0]).toContain('bb.car_id IS NULL')
+    expect(calls[0]).toContain('b.car_id IS NULL')
+    // The diagnostic count is read-only.
+    expect(calls[1]).toContain('SELECT count(*)')
+    expect(calls[1]).toContain('b.car_id IS NULL')
+  })
+
+  it('reports linked and remaining-linkable counts', async () => {
+    const { backfillCarIds } = await importBackfill()
+    // 2 rows linked by the UPDATE; 3 still linkable-but-unlinked.
+    const { tag } = fakeSql([[{}, {}], [{ count: 3 }]])
+
+    const res = await backfillCarIds(tag as never)
+    expect(res.linked).toBe(2)
+    expect(res.remainingLinkable).toBe(3)
+  })
+
+  it('is idempotent: a second run issues the identical statements', async () => {
+    const { backfillCarIds } = await importBackfill()
+    const first = fakeSql([[], [{ count: 0 }]])
+    const second = fakeSql([[], [{ count: 0 }]])
+
+    await backfillCarIds(first.tag as never)
+    await backfillCarIds(second.tag as never)
 
     expect(second.calls).toEqual(first.calls)
   })

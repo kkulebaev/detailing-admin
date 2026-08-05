@@ -120,6 +120,13 @@
       "when": 1785919270137,
       "tag": "0016_first_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785925637972,
+      "tag": "0017_curvy_saracen",
+      "breakpoints": true
     }
   ]
 }

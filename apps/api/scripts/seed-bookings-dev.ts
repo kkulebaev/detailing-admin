@@ -125,6 +125,7 @@ async function main() {
     const ok = await insertBooking(booking, {
       idempotencyKey: key,
       clientId: null,
+      carId: null,
       sheetRow: null,
       sheetRange: null,
     })

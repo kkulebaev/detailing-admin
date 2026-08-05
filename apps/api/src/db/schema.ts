@@ -108,6 +108,13 @@ export const bookings = pgTable(
     // authoritative "as-written" snapshot; an unmatched name simply carries no id.
     // `set null` on master delete keeps the row (and its snapshot) intact.
     responsibleId: integer('responsible_id').references(() => masters.id, { onDelete: 'set null' }),
+    // Derived id-link to the client's normalized car row. Nullable: the joined
+    // `car` string stays the authoritative "as-written" snapshot; a null-client,
+    // unmatched, or lookalike-plate row simply carries no id. `set null` on car
+    // delete keeps the row (and its snapshot) intact — the client dialog deletes
+    // cars via a full-replace (syncClientCars), so a restrict guard would block a
+    // routine edit; the link is re-healed by the backfill if the car is re-added.
+    carId: uuid('car_id').references(() => clientCars.id, { onDelete: 'set null' }),
     carClass: smallint('car_class').notNull(),
     sheetRow: integer('sheet_row'),
     sheetRange: text('sheet_range'),
@@ -116,6 +123,8 @@ export const bookings = pgTable(
   (t) => [
     index('bookings_date_from_idx').on(t.dateFrom),
     index('bookings_client_id_idx').on(t.clientId),
+    // A car→bookings reader filters on this.
+    index('bookings_car_id_idx').on(t.carId),
   ],
 )
 

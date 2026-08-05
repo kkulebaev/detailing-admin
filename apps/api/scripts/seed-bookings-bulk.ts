@@ -96,6 +96,7 @@ async function main() {
     const ok = await insertBooking(booking, {
       idempotencyKey: `dev-bulk-${String(i).padStart(3, '0')}`,
       clientId: null,
+      carId: null,
       sheetRow: null,
       sheetRange: null,
     })

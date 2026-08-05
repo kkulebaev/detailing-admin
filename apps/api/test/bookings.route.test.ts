@@ -45,7 +45,8 @@ vi.mock('../src/db/clients.js', () => ({
 }))
 
 vi.mock('../src/db/client-cars.js', () => ({
-  upsertClientCar: vi.fn(),
+  upsertClientCarReturningId: vi.fn(),
+  selectCarId: vi.fn(),
 }))
 
 vi.mock('../src/db/bookings.js', () => ({
@@ -70,7 +71,7 @@ import {
   isDbReady,
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
-import { upsertClientCar } from '../src/db/client-cars.js'
+import { selectCarId, upsertClientCarReturningId } from '../src/db/client-cars.js'
 import type { Booking } from '../src/db/schema.js'
 import {
   insertBooking,
@@ -131,7 +132,7 @@ describe('POST /api/bookings', () => {
     vi.mocked(appendBooking).mockResolvedValue(APPEND_SUCCESS)
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'inserted', client: null })
-    vi.mocked(upsertClientCar).mockResolvedValue(undefined)
+    vi.mocked(upsertClientCarReturningId).mockResolvedValue('car-uuid-1')
     vi.mocked(insertBooking).mockResolvedValue(true)
     vi.mocked(notifyMaster).mockResolvedValue({ attempted: true, delivered: true })
   })
@@ -409,11 +410,12 @@ describe('POST /api/bookings', () => {
     )
   })
 
-  it('mirrors the booking into the DB with client link and Sheets coords', async () => {
+  it('mirrors the booking into the DB with client link, car link and Sheets coords', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'inserted',
       client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
     })
+    vi.mocked(upsertClientCarReturningId).mockResolvedValue('car-uuid-9')
     await post(
       app,
       { ...VALID_PAYLOAD, phone: '8 (900) 123-45-67', name: 'Иван' },
@@ -425,6 +427,7 @@ describe('POST /api/bookings', () => {
       {
         idempotencyKey: 'k-mirror',
         clientId: 'client-uuid-1',
+        carId: 'car-uuid-9',
         sheetRow: 5,
         sheetRange: 'Запись 2026!A5',
       },
@@ -447,8 +450,14 @@ describe('POST /api/bookings', () => {
     )
     expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ clientId: null, idempotencyKey: 'k-mirror-null-client' }),
+      expect.objectContaining({
+        clientId: null,
+        // No client → the car is never resolved either (Fork 5).
+        carId: null,
+        idempotencyKey: 'k-mirror-null-client',
+      }),
     )
+    expect(vi.mocked(upsertClientCarReturningId)).not.toHaveBeenCalled()
   })
 
   it('booking still succeeds when the mirror insert throws (best-effort)', async () => {
@@ -463,45 +472,59 @@ describe('POST /api/bookings', () => {
     )
   })
 
-  it('ingests the client car after a successful booking (best-effort)', async () => {
+  it('ingests the client car and links car_id after a successful booking (best-effort)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'inserted',
       client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
     })
+    vi.mocked(upsertClientCarReturningId).mockResolvedValue('car-uuid-9')
     await post(
       app,
       { ...VALID_PAYLOAD, car: 'Toyota Camry', plate: 'А123АА77' },
       { 'Idempotency-Key': 'k-car' },
     )
-    expect(vi.mocked(upsertClientCar)).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(upsertClientCar)).toHaveBeenCalledWith('client-uuid-1', 'Toyota Camry', 'А123АА77')
+    expect(vi.mocked(upsertClientCarReturningId)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(upsertClientCarReturningId)).toHaveBeenCalledWith(
+      'client-uuid-1',
+      'Toyota Camry',
+      'А123АА77',
+    )
+    // The resolved car id is threaded into the mirror insert.
+    expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ carId: 'car-uuid-9' }),
+    )
   })
 
   it('does not ingest the car when DB is not ready (best-effort)', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-no-db' })
     expect(res.status).toBe(201)
-    expect(vi.mocked(upsertClientCar)).not.toHaveBeenCalled()
+    expect(vi.mocked(upsertClientCarReturningId)).not.toHaveBeenCalled()
   })
 
   it('does not ingest the car when no client is linked (null clientId)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'skipped', client: null })
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-no-client' })
     expect(res.status).toBe(201)
-    expect(vi.mocked(upsertClientCar)).not.toHaveBeenCalled()
+    expect(vi.mocked(upsertClientCarReturningId)).not.toHaveBeenCalled()
   })
 
-  it('a failing car ingest does not suppress the mirror insert (separate catch)', async () => {
+  it('a failing car ingest does not suppress the mirror insert and links car_id=null', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'inserted',
       client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
     })
-    vi.mocked(upsertClientCar).mockRejectedValueOnce(new Error('unique violation'))
+    vi.mocked(upsertClientCarReturningId).mockRejectedValueOnce(new Error('unique violation'))
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-fail' })
     expect(res.status).toBe(201)
     expect((await res.json()).ok).toBe(true)
-    // The mirror insert must still run despite the car failure.
+    // The mirror insert must still run despite the car failure, with a null link.
     expect(vi.mocked(insertBooking)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ carId: null }),
+    )
     expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'booking.client_car_upsert_failed' }),
       expect.any(String),
@@ -541,6 +564,7 @@ describe('GET /api/bookings', () => {
     master: ['Иван Содель'],
     responsible: 'Иван Содель',
     responsibleId: 7,
+    carId: 'car-uuid-1',
     carClass: 3,
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
@@ -569,9 +593,13 @@ describe('GET /api/bookings', () => {
     expect(body.items[0].id).toBe(SAMPLE_ROW.id)
     expect(body.items[0].createdAt).toBe('2026-06-01T12:00:00.000Z')
     expect(body.items[0].idempotencyKey).toBeUndefined()
-    // The derived id-link is internal and must never reach the wire (AC9).
+    // The derived id-links are internal and must never reach the wire (AC9).
     expect(body.items[0].responsibleId).toBeUndefined()
     expect(body.items[0].responsible_id).toBeUndefined()
+    expect(body.items[0].carId).toBeUndefined()
+    expect(body.items[0].car_id).toBeUndefined()
+    // Byte-level guard: the derived id must not leak under any key spelling.
+    expect(JSON.stringify(body.items[0])).not.toContain('car-uuid-1')
     // Admins see the amount.
     expect(body.items[0].amount).toBe(SAMPLE_ROW.amount)
   })
@@ -655,6 +683,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     master: ['Иван Содель'],
     responsible: 'Иван Содель',
     responsibleId: 7,
+    carId: 'car-uuid-1',
     carClass: 3,
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
@@ -666,6 +695,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     cookie = await adminCookie()
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'updated', client: null })
+    vi.mocked(selectCarId).mockResolvedValue('car-uuid-1')
     vi.mocked(updateBooking).mockResolvedValue(UPDATED_ROW)
     vi.mocked(updateBookingReadiness).mockResolvedValue(UPDATED_ROW)
     vi.mocked(deleteBooking).mockResolvedValue(true)
@@ -681,6 +711,10 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     app.request(`/api/bookings/${ID}`, { method: 'DELETE', headers })
 
   it('PATCH updates a booking for admin → 200 with the updated row (no idempotency key)', async () => {
+    vi.mocked(upsertClient).mockResolvedValue({
+      outcome: 'updated',
+      client: { id: 'client-uuid-1', phone: '+79991234567', name: 'Иван', createdAt: new Date() },
+    })
     const res = await patch(VALID_PAYLOAD)
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -688,10 +722,51 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect(body.booking.id).toBe(ID)
     expect(body.booking.amount).toBe(7000)
     expect(body.booking.idempotencyKey).toBeUndefined()
-    // The derived id-link is internal and must never reach the wire (AC9).
+    // The derived id-links are internal and must never reach the wire (AC9).
     expect(body.booking.responsibleId).toBeUndefined()
     expect(body.booking.responsible_id).toBeUndefined()
+    expect(body.booking.carId).toBeUndefined()
+    expect(body.booking.car_id).toBeUndefined()
+    expect(JSON.stringify(body.booking)).not.toContain('car-uuid-1')
     expect(vi.mocked(updateBooking)).toHaveBeenCalled()
+    // The car link is resolved read-only (selectCarId, not an upsert) and threaded
+    // into updateBooking so a PATCH never accumulates client_cars rows.
+    expect(vi.mocked(selectCarId)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(
+      ID,
+      expect.any(Object),
+      'client-uuid-1',
+      'car-uuid-1',
+    )
+  })
+
+  it('PATCH still returns 200 with a null car link when selectCarId throws (best-effort)', async () => {
+    vi.mocked(upsertClient).mockResolvedValue({
+      outcome: 'updated',
+      client: { id: 'client-uuid-1', phone: '+79991234567', name: 'Иван', createdAt: new Date() },
+    })
+    vi.mocked(selectCarId).mockRejectedValueOnce(new Error('db blip'))
+    const res = await patch(VALID_PAYLOAD)
+    expect(res.status).toBe(200)
+    expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(
+      ID,
+      expect.any(Object),
+      'client-uuid-1',
+      null,
+    )
+  })
+
+  it('PATCH resolves no car link when the client is null (never calls selectCarId)', async () => {
+    vi.mocked(upsertClient).mockResolvedValue({ outcome: 'skipped', client: null })
+    const res = await patch(VALID_PAYLOAD)
+    expect(res.status).toBe(200)
+    expect(vi.mocked(selectCarId)).not.toHaveBeenCalled()
+    expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(
+      ID,
+      expect.any(Object),
+      null,
+      null,
+    )
   })
 
   it('PATCH a missing booking → 404', async () => {
@@ -754,6 +829,11 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(body.booking.id).toBe(ID)
+    // The derived id-links never reach the wire (AC9).
+    expect(body.booking.responsibleId).toBeUndefined()
+    expect(body.booking.carId).toBeUndefined()
+    expect(body.booking.car_id).toBeUndefined()
+    expect(JSON.stringify(body.booking)).not.toContain('car-uuid-1')
     expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе')
   })
 

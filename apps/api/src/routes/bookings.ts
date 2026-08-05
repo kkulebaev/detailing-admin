@@ -27,7 +27,7 @@ import { appendBooking } from '../sheets.js'
 // Only successful (ok: true) results are cached. See plan §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
-import { upsertClientCar } from '../db/client-cars.js'
+import { selectCarId, upsertClientCarReturningId } from '../db/client-cars.js'
 import {
   deleteBooking,
   insertBooking,
@@ -400,6 +400,7 @@ router.openapi(postBookingRoute, async (c) => {
     // null client link (the snapshot name/phone keep the row self-sufficient).
     let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
     let clientId: string | null = null
+    let carId: string | null = null
     let bookingPersisted = false
     if (isDbReady()) {
       try {
@@ -424,7 +425,10 @@ router.openapi(postBookingRoute, async (c) => {
       // (nowhere to attach it) or an empty make/model.
       if (clientId && booking.car) {
         try {
-          await upsertClientCar(clientId, booking.car, booking.plate ?? '')
+          // Returns the id of the normalized car row so the mirror can link
+          // `car_id` atomically below; a failure leaves carId null (booking
+          // proceeds).
+          carId = await upsertClientCarReturningId(clientId, booking.car, booking.plate ?? '')
         } catch (err) {
           baseLogger.warn(
             {
@@ -443,6 +447,7 @@ router.openapi(postBookingRoute, async (c) => {
         bookingPersisted = await insertBooking(booking, {
           idempotencyKey,
           clientId,
+          carId,
           sheetRow: appendResult.updatedRow,
           sheetRange: appendResult.updatedRange,
         })
@@ -528,9 +533,11 @@ router.openapi(
       const items = rows.map(
         ({
           idempotencyKey: _idempotencyKey,
-          // Internal derived id-link — never part of the wire response (the
-          // snapshot `responsible` name is what the UI/Sheets use).
+          // Internal derived id-links — never part of the wire response (the
+          // snapshot `responsible` name and `car` string are what the UI/Sheets
+          // use).
           responsibleId: _responsibleId,
+          carId: _carId,
           createdAt,
           amount,
           amountFormula,
@@ -593,14 +600,25 @@ router.openapi(
       } catch {
         /* keep null */
       }
-      const updated = await updateBooking(id, booking, clientId)
+      // Best-effort, read-only re-link of the car: matches only a car already in
+      // `client_cars` (no upsert — a PATCH must never accumulate car rows). Null
+      // on no client, a failure, or an unmatched car; the snapshot stays truth.
+      const carId = clientId
+        ? await selectCarId(clientId, booking.car, booking.plate ?? '').catch(() => null)
+        : null
+      const updated = await updateBooking(id, booking, clientId, carId)
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      // Strip the internal idempotency key and the derived responsible id-link —
-      // neither belongs in the wire response.
-      const { idempotencyKey: _idempotencyKey, responsibleId: _responsibleId, createdAt, ...rest } =
-        updated
+      // Strip the internal idempotency key and the derived id-links (responsible +
+      // car) — none belong in the wire response.
+      const {
+        idempotencyKey: _idempotencyKey,
+        responsibleId: _responsibleId,
+        carId: _carId,
+        createdAt,
+        ...rest
+      } = updated
       baseLogger.info(
         { event: 'bookings.update', request_id: requestId, booking_id: id, status: 200 },
         'Booking updated',
@@ -695,10 +713,15 @@ router.openapi(
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      // Strip the internal idempotency key and the derived responsible id-link —
-      // neither belongs in the wire response.
-      const { idempotencyKey: _idempotencyKey, responsibleId: _responsibleId, createdAt, ...rest } =
-        updated
+      // Strip the internal idempotency key and the derived id-links (responsible +
+      // car) — none belong in the wire response.
+      const {
+        idempotencyKey: _idempotencyKey,
+        responsibleId: _responsibleId,
+        carId: _carId,
+        createdAt,
+        ...rest
+      } = updated
       baseLogger.info(
         { event: 'bookings.readiness', request_id: requestId, booking_id: id, status: 200 },
         'Booking readiness updated',
