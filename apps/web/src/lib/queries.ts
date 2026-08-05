@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import { useQuery, useQueryCache } from '@pinia/colada'
+import { fetchAnalyticsOverview, type GetApiAnalyticsOverviewParams } from './analytics-api'
 import { fetchClients, type GetApiClientsParams } from './clients-api'
 import { fetchPricelist } from './pricelist-api'
 import { fetchMasters } from './masters-api'
@@ -14,6 +15,7 @@ export const MASTERS_KEY = ['masters'] as const
 export const BOOKINGS_KEY = ['bookings'] as const
 export const SALARIES_KEY = ['salaries'] as const
 export const WORK_HOURS_KEY = ['work-hours'] as const
+export const ANALYTICS_KEY = ['analytics'] as const
 
 // Reactive key so changing the search term, sort, or paging refetches
 // automatically. `params` is a ref the page recomputes from its filter state;
@@ -104,4 +106,16 @@ export function useWorkHoursQuery(masterId: Ref<number | null>, month: Ref<strin
 export function useInvalidateWorkHours() {
   const cache = useQueryCache()
   return () => cache.invalidateQueries({ key: WORK_HOURS_KEY })
+}
+
+// Reactive key so changing the period or granularity refetches automatically.
+// `params` is a ref the page recomputes from its filter state; placeholderData
+// keeps the previous period's numbers on screen while the next request is in
+// flight (no loading flash on every period/granularity change).
+export function useAnalyticsOverviewQuery(params: Ref<GetApiAnalyticsOverviewParams>) {
+  return useQuery({
+    key: () => [...ANALYTICS_KEY, params.value],
+    query: () => fetchAnalyticsOverview(params.value),
+    placeholderData: (previous) => previous,
+  })
 }

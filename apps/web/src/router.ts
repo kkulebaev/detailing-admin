@@ -70,6 +70,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Зарплаты', requiresAuth: true, roles: ['admin'] },
   },
   {
+    path: '/analytics',
+    name: 'analytics',
+    component: () => import('@/components/AnalyticsPage.vue'),
+    meta: { title: 'Аналитика', requiresAuth: true, roles: ['admin'] },
+  },
+  {
     path: '/employee',
     name: 'employee',
     component: () => import('@/pages/EmployeeHome.vue'),
