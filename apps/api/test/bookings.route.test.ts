@@ -540,6 +540,7 @@ describe('GET /api/bookings', () => {
     readiness: '',
     master: ['Иван Содель'],
     responsible: 'Иван Содель',
+    responsibleId: 7,
     carClass: 3,
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
@@ -568,6 +569,9 @@ describe('GET /api/bookings', () => {
     expect(body.items[0].id).toBe(SAMPLE_ROW.id)
     expect(body.items[0].createdAt).toBe('2026-06-01T12:00:00.000Z')
     expect(body.items[0].idempotencyKey).toBeUndefined()
+    // The derived id-link is internal and must never reach the wire (AC9).
+    expect(body.items[0].responsibleId).toBeUndefined()
+    expect(body.items[0].responsible_id).toBeUndefined()
     // Admins see the amount.
     expect(body.items[0].amount).toBe(SAMPLE_ROW.amount)
   })
@@ -650,6 +654,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     readiness: 'Готова к выдаче',
     master: ['Иван Содель'],
     responsible: 'Иван Содель',
+    responsibleId: 7,
     carClass: 3,
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
@@ -683,6 +688,9 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect(body.booking.id).toBe(ID)
     expect(body.booking.amount).toBe(7000)
     expect(body.booking.idempotencyKey).toBeUndefined()
+    // The derived id-link is internal and must never reach the wire (AC9).
+    expect(body.booking.responsibleId).toBeUndefined()
+    expect(body.booking.responsible_id).toBeUndefined()
     expect(vi.mocked(updateBooking)).toHaveBeenCalled()
   })
 

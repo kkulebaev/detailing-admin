@@ -526,7 +526,16 @@ router.openapi(
       // otherwise available to any authenticated role).
       const isAdmin = c.get('user')?.role === 'admin'
       const items = rows.map(
-        ({ idempotencyKey: _idempotencyKey, createdAt, amount, amountFormula, ...rest }) => ({
+        ({
+          idempotencyKey: _idempotencyKey,
+          // Internal derived id-link — never part of the wire response (the
+          // snapshot `responsible` name is what the UI/Sheets use).
+          responsibleId: _responsibleId,
+          createdAt,
+          amount,
+          amountFormula,
+          ...rest
+        }) => ({
           ...rest,
           createdAt: createdAt.toISOString(),
           ...(isAdmin ? { amount, amountFormula } : {}),
@@ -588,7 +597,10 @@ router.openapi(
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      const { idempotencyKey: _idempotencyKey, createdAt, ...rest } = updated
+      // Strip the internal idempotency key and the derived responsible id-link —
+      // neither belongs in the wire response.
+      const { idempotencyKey: _idempotencyKey, responsibleId: _responsibleId, createdAt, ...rest } =
+        updated
       baseLogger.info(
         { event: 'bookings.update', request_id: requestId, booking_id: id, status: 200 },
         'Booking updated',
@@ -683,7 +695,10 @@ router.openapi(
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      const { idempotencyKey: _idempotencyKey, createdAt, ...rest } = updated
+      // Strip the internal idempotency key and the derived responsible id-link —
+      // neither belongs in the wire response.
+      const { idempotencyKey: _idempotencyKey, responsibleId: _responsibleId, createdAt, ...rest } =
+        updated
       baseLogger.info(
         { event: 'bookings.readiness', request_id: requestId, booking_id: id, status: 200 },
         'Booking readiness updated',

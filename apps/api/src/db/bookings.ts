@@ -1,11 +1,13 @@
-import { and, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm'
 import type { Booking as WireBooking } from '@detailing-admin/shared/booking'
 import { joinCar } from '@detailing-admin/shared/car'
 import { ddmmyyyyToIso } from '@detailing-admin/shared/date'
 import { normalizePhone } from '@detailing-admin/shared/phone'
 import type { Readiness } from '@detailing-admin/shared/enums'
 import { getDb } from './client.js'
-import { bookings, type Booking, type NewBooking } from './schema.js'
+import { resolveMasterIds } from './masters.js'
+import { bookingMasters, bookings, masters, type Booking, type NewBooking } from './schema.js'
+import { baseLogger } from '../log.js'
 
 /** Per-write context the wire booking doesn't carry: the idempotency key, the
  * linked client (null for an empty phone), and the Sheets coordinates returned
@@ -45,44 +47,159 @@ function mapEditableFields(b: WireBooking) {
   }
 }
 
-export function bookingToDbRow(b: WireBooking, meta: BookingWriteMeta): NewBooking {
+export function bookingToDbRow(
+  b: WireBooking,
+  meta: BookingWriteMeta,
+  responsibleId: number | null = null,
+): NewBooking {
   return {
     idempotencyKey: meta.idempotencyKey,
     clientId: meta.clientId,
     sheetRow: meta.sheetRow,
     sheetRange: meta.sheetRange,
+    responsibleId,
     ...mapEditableFields(b),
   }
 }
 
+/** Junction rows for the masters that resolved to an id, deduped by id (two
+ * distinct names can't share an id, but the snapshot may list a name twice —
+ * the first occurrence wins the position). `position` is the name's index in the
+ * snapshot array, so the read side can overlay a live name onto `master[i]`. An
+ * unmatched name is skipped — the id-link is intentionally partial. */
+function matchedMasterRows(
+  bookingId: string,
+  masterNames: string[],
+  ids: Map<string, number>,
+): { bookingId: string; masterId: number; position: number }[] {
+  const seen = new Set<number>()
+  const rows: { bookingId: string; masterId: number; position: number }[] = []
+  for (let i = 0; i < masterNames.length; i++) {
+    const masterId = ids.get(masterNames[i].trim())
+    if (masterId !== undefined && !seen.has(masterId)) {
+      seen.add(masterId)
+      rows.push({ bookingId, masterId, position: i })
+    }
+  }
+  return rows
+}
+
+/** Overlays live master names onto a page of mirror rows. The snapshot columns
+ * (`master text[]`, `responsible`) stay the authoritative "as-written" record and
+ * serve as the fallback; wherever an id-link exists, the master's *current* name
+ * from `masters` wins — so renaming a master reflects across the whole history.
+ *
+ * Per row: `master[i]` becomes the live name if a junction row anchors `position
+ * === i`, else the snapshot name (unmatched / deleted / legacy slot); the same
+ * for `responsible` via `responsibleId`. Two batched queries for the whole page,
+ * not per-row. */
+async function withLiveMasterNames(rows: Booking[]): Promise<Booking[]> {
+  if (rows.length === 0) return rows
+  const db = getDb()
+
+  const bookingIds = rows.map((r) => r.id)
+  const links = await db
+    .select({
+      bookingId: bookingMasters.bookingId,
+      position: bookingMasters.position,
+      name: masters.name,
+    })
+    .from(bookingMasters)
+    .innerJoin(masters, eq(bookingMasters.masterId, masters.id))
+    .where(inArray(bookingMasters.bookingId, bookingIds))
+
+  const liveByBooking = new Map<string, Map<number, string>>()
+  for (const l of links) {
+    const byPos = liveByBooking.get(l.bookingId) ?? new Map<number, string>()
+    byPos.set(l.position, l.name)
+    liveByBooking.set(l.bookingId, byPos)
+  }
+
+  const respIds = [
+    ...new Set(rows.map((r) => r.responsibleId).filter((v): v is number => v != null)),
+  ]
+  const respNames = new Map<number, string>()
+  if (respIds.length > 0) {
+    const mrows = await db
+      .select({ id: masters.id, name: masters.name })
+      .from(masters)
+      .where(inArray(masters.id, respIds))
+    for (const m of mrows) respNames.set(m.id, m.name)
+  }
+
+  return rows.map((r) => {
+    const byPos = liveByBooking.get(r.id)
+    const master = byPos ? r.master.map((snapshot, i) => byPos.get(i) ?? snapshot) : r.master
+    const responsible =
+      (r.responsibleId != null ? respNames.get(r.responsibleId) : undefined) ?? r.responsible
+    return { ...r, master, responsible }
+  })
+}
+
 /** Best-effort mirror insert. Idempotent on `idempotencyKey`: a duplicate key is
  * a no-op (returns false), never an error — a post-TTL client retry must not
- * create a second row. */
+ * create a second row. Resolves master/responsible names to ids: `responsible_id`
+ * is written atomically with the row; the junction is a separate step that only
+ * runs on a real insert (never on a conflict no-op), so a retry adds no links. A
+ * junction failure propagates to the route's best-effort catch (the booking still
+ * lands in Sheets and returns 201; the link is healed by the backfill). */
 export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Promise<boolean> {
   const db = getDb()
+  const ids = await resolveMasterIds([...b.master, b.responsible])
+  const responsibleId = ids.get(b.responsible.trim()) ?? null
   const inserted = await db
     .insert(bookings)
-    .values(bookingToDbRow(b, meta))
+    .values(bookingToDbRow(b, meta, responsibleId))
     .onConflictDoNothing({ target: bookings.idempotencyKey })
     .returning({ id: bookings.id })
-  return inserted.length > 0
+  if (inserted.length === 0) return false
+
+  const masterRows = matchedMasterRows(inserted[0].id, b.master, ids)
+  if (masterRows.length > 0) {
+    await db.insert(bookingMasters).values(masterRows).onConflictDoNothing()
+  }
+  return true
 }
 
 /** Update a booking's editable fields (and re-linked client). Leaves the
  * idempotency key and Sheets linkage untouched. Returns the updated row, or null
- * if no booking has that id. */
+ * if no booking has that id. `responsible_id` is refreshed atomically with the
+ * fields; the junction is rewritten (delete + re-insert) as a separate best-effort
+ * step whose failure is swallowed — the PATCH still returns 200 (Sheets is the
+ * source of truth; the id-link is derived and healed by the backfill). */
 export async function updateBooking(
   id: string,
   b: WireBooking,
   clientId: string | null,
 ): Promise<Booking | null> {
   const db = getDb()
+  const ids = await resolveMasterIds([...b.master, b.responsible])
+  const responsibleId = ids.get(b.responsible.trim()) ?? null
   const [row] = await db
     .update(bookings)
-    .set({ ...mapEditableFields(b), clientId })
+    .set({ ...mapEditableFields(b), clientId, responsibleId })
     .where(eq(bookings.id, id))
     .returning()
-  return row ?? null
+  if (!row) return null
+
+  try {
+    await db.delete(bookingMasters).where(eq(bookingMasters.bookingId, id))
+    const masterRows = matchedMasterRows(id, b.master, ids)
+    if (masterRows.length > 0) {
+      await db.insert(bookingMasters).values(masterRows).onConflictDoNothing()
+    }
+  } catch (err) {
+    baseLogger.warn(
+      {
+        event: 'booking.junction_update_failed',
+        booking_id: id,
+        message: err instanceof Error ? err.message : String(err),
+      },
+      'Booking master id-link update failed — fields saved, links stale',
+    )
+  }
+  const [enriched] = await withLiveMasterNames([row])
+  return enriched
 }
 
 /** Update only a booking's readiness (the quick inline status change). Returns
@@ -97,7 +214,9 @@ export async function updateBookingReadiness(
     .set({ readiness })
     .where(eq(bookings.id, id))
     .returning()
-  return row ?? null
+  if (!row) return null
+  const [enriched] = await withLiveMasterNames([row])
+  return enriched
 }
 
 /** Delete a booking by id. Returns false if no row matched. */
@@ -129,9 +248,22 @@ export async function listBookings(
   const conds = []
   if (p.dateFrom) conds.push(gte(bookings.dateFrom, p.dateFrom))
   if (p.dateTo) conds.push(lte(bookings.dateFrom, p.dateTo))
-  // Membership, not equality: a single-master filter must match any booking
-  // where that master is among the assigned ones.
-  if (p.master) conds.push(sql`${p.master} = ANY(${bookings.master})`)
+  // Filter by the master's *current* name: resolve it to an id and match the
+  // junction, so records still surface after the master was renamed. Fall back
+  // to snapshot membership (`= ANY(master)`) for legacy rows that never got an
+  // id-link (and as the sole branch when the name resolves to no id).
+  if (p.master) {
+    const masterId = (await resolveMasterIds([p.master])).get(p.master.trim())
+    const snapshotMatch = sql`${p.master} = ANY(${bookings.master})`
+    conds.push(
+      masterId !== undefined
+        ? or(
+            sql`EXISTS (SELECT 1 FROM ${bookingMasters} WHERE ${bookingMasters.bookingId} = ${bookings.id} AND ${bookingMasters.masterId} = ${masterId})`,
+            snapshotMatch,
+          )
+        : snapshotMatch,
+    )
+  }
   if (p.readiness) conds.push(eq(bookings.readiness, p.readiness))
 
   const q = p.q?.trim()
@@ -167,5 +299,5 @@ export async function listBookings(
     .from(bookings)
     .where(where)
 
-  return { items, total: countRow?.count ?? 0 }
+  return { items: await withLiveMasterNames(items), total: countRow?.count ?? 0 }
 }

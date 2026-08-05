@@ -12,8 +12,15 @@ vi.mock('../src/env.js', () => ({
   },
 }))
 
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { _setDbForTest, type Db } from '../src/db/client.js'
-import { createMaster, deleteMaster, reorderMasters, MasterError } from '../src/db/masters.js'
+import {
+  createMaster,
+  deleteMaster,
+  reorderMasters,
+  resolveMasterIds,
+  MasterError,
+} from '../src/db/masters.js'
 
 // Minimal thenable query-builder fake. Terminal methods resolve to a queued
 // result; `.set()` / `.values()` payloads are captured for assertions. Results
@@ -117,7 +124,7 @@ describe('createMaster (T2)', () => {
   })
 })
 
-describe('deleteMaster work-hours guard', () => {
+describe('deleteMaster guards', () => {
   it('throws has_work_hours when the master still has recorded hours', async () => {
     // Probe finds a linked work_hours row → refuse before deleting.
     const { db } = makeFakeDb({ selectResults: [[{ id: 42 }]] })
@@ -128,13 +135,92 @@ describe('deleteMaster work-hours guard', () => {
     expect(err.code).toBe('has_work_hours')
   })
 
-  it('throws not_found when the master has no hours and no row is deleted', async () => {
-    const { db } = makeFakeDb({ selectResults: [[]] })
+  it('throws has_bookings when a junction row still links the master', async () => {
+    // work_hours empty → junction probe finds a link → refuse.
+    const { db } = makeFakeDb({ selectResults: [[], [{ bookingId: 'bk1' }]] })
+    _setDbForTest(db)
+
+    const err = await deleteMaster(1).catch((e) => e)
+    expect(err).toBeInstanceOf(MasterError)
+    expect(err.code).toBe('has_bookings')
+  })
+
+  it('throws has_bookings when a booking still names the master as responsible', async () => {
+    // work_hours + junction empty → responsible_id probe finds a booking → refuse.
+    const { db } = makeFakeDb({ selectResults: [[], [], [{ id: 'bk1' }]] })
+    _setDbForTest(db)
+
+    const err = await deleteMaster(1).catch((e) => e)
+    expect(err).toBeInstanceOf(MasterError)
+    expect(err.code).toBe('has_bookings')
+  })
+
+  it('throws not_found when the master has no history and no row is deleted', async () => {
+    // All three probes empty; the delete removes nothing.
+    const { db } = makeFakeDb({ selectResults: [[], [], []] })
     _setDbForTest(db)
 
     const err = await deleteMaster(999).catch((e) => e)
     expect(err).toBeInstanceOf(MasterError)
     expect(err.code).toBe('not_found')
+  })
+})
+
+describe('resolveMasterIds', () => {
+  // Records the `where` condition (for param inspection) and resolves the select
+  // to the queued rows. `throwingDb` proves the empty-input short-circuit never
+  // touches the DB.
+  function resolverDb(rows: { id: number; name: string }[], captured: unknown[] = []): Db {
+    const chain: Record<string, unknown> = {
+      select: () => chain,
+      from: () => chain,
+      where: (w: unknown) => {
+        captured.push(w)
+        return chain
+      },
+      then: (res: (v: unknown) => unknown) => res(rows),
+    }
+    return chain as unknown as Db
+  }
+
+  it('maps only the matched subset of names to ids', async () => {
+    _setDbForTest(resolverDb([{ id: 1, name: 'Пётр' }]))
+    const map = await resolveMasterIds(['Пётр', 'Неизвестный'])
+    expect(map.get('Пётр')).toBe(1)
+    expect(map.has('Неизвестный')).toBe(false)
+    expect(map.size).toBe(1)
+  })
+
+  it('returns an empty map without querying for empty input', async () => {
+    // A db whose select throws — proves the short-circuit fires before any query.
+    const throwingDb = {
+      select: () => {
+        throw new Error('should not query on empty input')
+      },
+    } as unknown as Db
+    _setDbForTest(throwingDb)
+    const map = await resolveMasterIds([])
+    expect(map.size).toBe(0)
+  })
+
+  it('returns an empty map when whitespace-only names filter out to nothing', async () => {
+    const throwingDb = {
+      select: () => {
+        throw new Error('should not query when nothing to look up')
+      },
+    } as unknown as Db
+    _setDbForTest(throwingDb)
+    const map = await resolveMasterIds(['   ', ''])
+    expect(map.size).toBe(0)
+  })
+
+  it('trims and dedups names before querying (one param per distinct trimmed name)', async () => {
+    const captured: unknown[] = []
+    _setDbForTest(resolverDb([{ id: 5, name: 'Костя' }], captured))
+    await resolveMasterIds(['  Костя  ', 'Костя'])
+    const rendered = new PgDialect().sqlToQuery(captured[0] as never)
+    // Both inputs collapse to the single trimmed «Костя».
+    expect(rendered.params).toEqual(['Костя'])
   })
 })
 

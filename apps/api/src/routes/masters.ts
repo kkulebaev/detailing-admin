@@ -37,13 +37,14 @@ const masterConflictSchema = z.object({
   reason: z.literal('duplicate_name'),
 })
 
-// Delete-only conflict: the master still has work_hours history. Kept a separate
-// literal from duplicate_name (the shared mapper pins one reason per route) and
+// Delete-only conflict: the master still has history that pins it — recorded
+// work_hours, or bookings linked by id (junction / responsible_id). Kept
+// separate from duplicate_name (the shared mapper pins one reason per route) and
 // handled inline in the delete handler — same pattern as clients' has_bookings.
-const masterConflictHasWorkHoursSchema = z.object({
+const masterDeleteConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
-  reason: z.literal('has_work_hours'),
+  reason: z.union([z.literal('has_work_hours'), z.literal('has_bookings')]),
 })
 
 const masterInvalidOrderSchema = z.object({
@@ -116,9 +117,9 @@ const respConflict = {
   description: 'Duplicate name',
   content: { 'application/json': { schema: masterConflictSchema } },
 }
-const respConflictHasWorkHours = {
-  description: 'Master still has work hours history',
-  content: { 'application/json': { schema: masterConflictHasWorkHoursSchema } },
+const respDeleteConflict = {
+  description: 'Master still has work hours or booking history',
+  content: { 'application/json': { schema: masterDeleteConflictSchema } },
 }
 
 const listMastersRoute = createRoute({
@@ -190,9 +191,10 @@ const deleteMasterRoute = createRoute({
     200: { description: 'Master deleted', content: { 'application/json': { schema: deleteOk } } },
     400: respValidation,
     404: respNotFound,
-    // deleteMaster throws has_work_hours when payment history still references
-    // the master; handled inline below (the shared mapper pins duplicate_name).
-    409: respConflictHasWorkHours,
+    // deleteMaster throws has_work_hours / has_bookings when payment or booking
+    // history still references the master; handled inline below (the shared
+    // mapper pins duplicate_name).
+    409: respDeleteConflict,
     500: respInternal,
     503: respDbUnavailable,
   },
@@ -308,11 +310,14 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       // Handled inline (not via the shared masterErrorResponse): delete's only
-      // conflict is has_work_hours, and the shared mapper would widen the union
-      // with a duplicate_name 409 this route never emits nor declares.
-      if (err instanceof MasterError && err.code === 'has_work_hours') {
+      // conflicts are has_work_hours / has_bookings, and the shared mapper would
+      // widen the union with a duplicate_name 409 this route never emits nor declares.
+      if (
+        err instanceof MasterError &&
+        (err.code === 'has_work_hours' || err.code === 'has_bookings')
+      ) {
         return c.json(
-          { ok: false as const, error: 'conflict' as const, reason: 'has_work_hours' as const },
+          { ok: false as const, error: 'conflict' as const, reason: err.code },
           StatusCodes.CONFLICT,
         )
       }

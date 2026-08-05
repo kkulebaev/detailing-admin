@@ -4,6 +4,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   serial,
   smallint,
   text,
@@ -103,6 +104,10 @@ export const bookings = pgTable(
     readiness: text('readiness').notNull().default('').$type<Readiness | ''>(),
     master: text('master').array().notNull(),
     responsible: varchar('responsible', { length: 120 }).notNull(),
+    // Derived id-link to the responsible master. Nullable: `responsible` stays the
+    // authoritative "as-written" snapshot; an unmatched name simply carries no id.
+    // `set null` on master delete keeps the row (and its snapshot) intact.
+    responsibleId: integer('responsible_id').references(() => masters.id, { onDelete: 'set null' }),
     carClass: smallint('car_class').notNull(),
     sheetRow: integer('sheet_row'),
     sheetRange: text('sheet_range'),
@@ -165,6 +170,35 @@ export const masters = pgTable('masters', {
 
 export type Master = typeof masters.$inferSelect
 export type NewMaster = typeof masters.$inferInsert
+
+// Junction for the many-to-many booking↔master id-link. `master text[]` on
+// bookings stays the authoritative "as-written" snapshot; this table carries the
+// derived referential link the read side resolves into live master names (and a
+// future salary/hours reconciliation JOIN needs). `position` anchors a link to
+// its snapshot slot: the read enrichment overlays the live name onto
+// `master[position]`, so an unmatched slot cleanly falls back to the snapshot.
+// Both FKs cascade: deleting a booking clears its links, deleting a master drops
+// its links (snapshot names on bookings are untouched). The composite PK dedups,
+// so the insert is idempotent under onConflictDoNothing.
+export const bookingMasters = pgTable(
+  'booking_masters',
+  {
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'cascade' }),
+    masterId: integer('master_id')
+      .notNull()
+      .references(() => masters.id, { onDelete: 'cascade' }),
+    position: smallint('position').notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.bookingId, t.masterId] }),
+    index('booking_masters_master_id_idx').on(t.masterId),
+  ],
+)
+
+export type BookingMaster = typeof bookingMasters.$inferSelect
+export type NewBookingMaster = typeof bookingMasters.$inferInsert
 
 // Current hourly rate per master — the source of the snapshot copied into each
 // work_hours row. Kept OUT of `masters` on purpose: `GET /api/masters` does a

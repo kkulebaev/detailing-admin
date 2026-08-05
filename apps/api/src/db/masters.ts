@@ -1,12 +1,13 @@
-import { eq, sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
-import { masters, workHours, type Master } from './schema.js'
+import { bookingMasters, bookings, masters, workHours, type Master } from './schema.js'
 
 export type MasterMutationError =
   | 'duplicate_name'
   | 'not_found'
   | 'invalid_order'
   | 'has_work_hours'
+  | 'has_bookings'
 
 export class MasterError extends Error {
   constructor(public readonly code: MasterMutationError) {
@@ -34,6 +35,21 @@ export async function findMasterByName(name: string): Promise<Master | undefined
   const db = getDb()
   const [row] = await db.select().from(masters).where(eq(masters.name, name)).limit(1)
   return row
+}
+
+// Batch, best-effort name→id resolver for the booking↔master id-link. Trims and
+// dedups the requested names, then matches them against the UNIQUE `masters.name`
+// (same exact-match semantics as findMasterByName). An unmatched name is simply
+// absent from the map — by design, not an error. Empty input short-circuits.
+export async function resolveMasterIds(names: string[]): Promise<Map<string, number>> {
+  const wanted = [...new Set(names.map((n) => n.trim()).filter(Boolean))]
+  if (wanted.length === 0) return new Map()
+  const db = getDb()
+  const rows = await db
+    .select({ id: masters.id, name: masters.name })
+    .from(masters)
+    .where(inArray(masters.name, wanted))
+  return new Map(rows.map((r) => [r.name, r.id]))
 }
 
 // Next slot at the end of the ordered list. -1 + 1 = 0 when the table is empty.
@@ -97,12 +113,28 @@ export async function deleteMaster(id: number): Promise<void> {
   // Payment history in work_hours references this master with onDelete:'restrict'
   // — Postgres would reject the delete. Refuse it explicitly so the route can
   // surface a 409 instead of a generic 500 (mirrors deleteClient/has_bookings).
-  const [linked] = await db
+  const [linkedWork] = await db
     .select({ id: workHours.id })
     .from(workHours)
     .where(eq(workHours.masterId, id))
     .limit(1)
-  if (linked) throw new MasterError('has_work_hours')
+  if (linkedWork) throw new MasterError('has_work_hours')
+  // Booking history references this master by id-link (junction and/or the
+  // responsible_id FK). Both would `cascade`/`set null` silently, orphaning the
+  // history from its master; refuse instead so a rename is the only path and the
+  // live-name history stays intact.
+  const [linkedJunction] = await db
+    .select({ bookingId: bookingMasters.bookingId })
+    .from(bookingMasters)
+    .where(eq(bookingMasters.masterId, id))
+    .limit(1)
+  if (linkedJunction) throw new MasterError('has_bookings')
+  const [linkedResponsible] = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(eq(bookings.responsibleId, id))
+    .limit(1)
+  if (linkedResponsible) throw new MasterError('has_bookings')
   const result = await db.delete(masters).where(eq(masters.id, id)).returning({ id: masters.id })
   if (result.length === 0) throw new MasterError('not_found')
 }
