@@ -12,7 +12,7 @@ import type {
 } from '@detailing-admin/shared'
 import { calToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
-import { buildMonthOptions, currentMonthKey, MONTH_NAMES } from '@/lib/month-options'
+import { buildMonthOptions, MONTH_NAMES } from '@/lib/month-options'
 import { useAnalyticsOverviewQuery } from '@/lib/queries'
 import type { GetApiAnalyticsOverviewParams } from '@/lib/analytics-api'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -56,7 +56,10 @@ function monthRange(key: string): [CalendarDate, CalendarDate] {
   return [new CalendarDate(y, m, 1), new CalendarDate(y, m, lastDayOfMonth(y, m))]
 }
 
-const [initFrom, initTo] = monthRange(currentMonthKey())
+// Default period is month-to-date (1st of the current month → today), not the
+// whole calendar month — the remaining days have no bookings to report yet.
+const initTo = today(getLocalTimeZone())
+const initFrom = new CalendarDate(initTo.year, initTo.month, 1)
 // shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
 const dateFromCal = shallowRef<DateValue>(initFrom)
 const dateToCal = shallowRef<DateValue>(initTo)
