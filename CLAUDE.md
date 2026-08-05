@@ -36,12 +36,19 @@ docker compose up -d postgres                          # local Postgres (port 54
 pnpm --filter @detailing-admin/api db:generate         # regenerate migration after schema.ts change
 pnpm --filter @detailing-admin/api db:migrate          # apply migrations against DATABASE_URL
 pnpm --filter @detailing-admin/api db:studio           # drizzle studio
+pnpm --filter @detailing-admin/api db:sync-prod        # mirror the prod DB into local (wipes local!)
 pnpm --filter @detailing-admin/api seed:dump           # dump clients from Sheets → .seed/clients.json
 pnpm --filter @detailing-admin/api seed:load           # upsert clients from .seed/clients.json
 pnpm --filter @detailing-admin/api seed:pricelist      # load pricelist from .seed/pricelist.json
 ```
 
 Local dev needs `apps/api/.env` (copy from `apps/api/.env.example`, supply `GOOGLE_SERVICE_ACCOUNT_JSON_B64`; `DATABASE_URL` already points at the docker-compose instance). API runs migrations automatically on boot. Web `.env.local` is optional — Vite dev server proxies `/api` to `localhost:3000` by default; override with `VITE_API_PROXY_TARGET` to point dev at a remote API.
+
+### `db:sync-prod` — refresh local from prod
+
+`pnpm --filter @detailing-admin/api db:sync-prod` (`apps/api/scripts/sync-prod-db.sh`) drops and recreates the **local** DB from a fresh `pg_dump` of prod, so local mirrors prod exactly. Prod is only read; the local DB is wiped (pass `--yes` to skip the confirmation). Both dump and restore run inside the local `postgres` container (streamed, no file on disk — historical client data never lands on your FS), so no host `pg_dump`/`psql` is needed (prod and local share the major version). After a sync, restart the API so it re-runs boot and flips `_dbReady`.
+
+The prod connection string is **not** in the repo: put the **public** proxy URL (Railway → Postgres → Connect → Public Network — the `*.railway.internal` host does not resolve off-platform) in `apps/api/.env.prod` as `PROD_DATABASE_URL=…` (gitignored; template in `apps/api/.env.prod.example`), or pass it inline: `PROD_DATABASE_URL=… pnpm … db:sync-prod`. Rotating the prod password only means updating `.env.prod`.
 
 ## Architecture
 
