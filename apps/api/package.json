@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:sync-prod": "bash scripts/sync-prod-db.sh",
     "gen:openapi": "tsx scripts/gen-openapi.ts",
     "seed:dump": "tsx --env-file=.env scripts/seed-dump.ts",
     "seed:load": "tsx --env-file=.env scripts/seed-load.ts",
