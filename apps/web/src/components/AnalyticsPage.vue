@@ -390,6 +390,12 @@ function crosshairTemplate(d: AnalyticsSeriesPoint): string {
 
 // ── Clients block ────────────────────────────────────────────────────────
 const clients = computed(() => overview.value?.clients ?? null)
+// Attributed clients only (new + returning); noClientCount is bookings without a
+// linked client, not a client bucket, so it stays out of the total.
+const totalClients = computed(() => {
+  const c = clients.value
+  return c ? c.newCount + c.returningCount : 0
+})
 const repeatRateLabel = computed(() => {
   const r = clients.value?.repeatRate
   return r == null ? '—' : `${r}%`
@@ -479,8 +485,8 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
             <Skeleton class="h-5 w-24" />
           </CardHeader>
           <CardContent class="space-y-6">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div v-for="i in 3" :key="i" class="space-y-2">
+            <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div v-for="i in 4" :key="i" class="space-y-2">
                 <Skeleton class="h-4 w-20" />
                 <Skeleton class="h-6 w-12" />
               </div>
@@ -631,7 +637,11 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
             <CardTitle>Клиенты</CardTitle>
           </CardHeader>
           <CardContent class="space-y-6">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div>
+                <p class="text-sm text-muted-foreground">Всего</p>
+                <p class="text-xl font-semibold tabular-nums">{{ totalClients }}</p>
+              </div>
               <div>
                 <p class="text-sm text-muted-foreground">Новые</p>
                 <p class="text-xl font-semibold tabular-nums">{{ clients?.newCount ?? 0 }}</p>
