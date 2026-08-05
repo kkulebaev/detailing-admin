@@ -63,6 +63,15 @@ const masterInvalidOrderSchema = z.object({
   reason: z.literal('invalid_order'),
 })
 
+// Delete-only conflict: the master is still pinned by recorded work_hours or by
+// bookings linked via the id-link (junction / responsible_id). Refused instead
+// of cascading so the live-name booking history stays intact.
+const masterDeleteConflictSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('conflict'),
+  reason: z.union([z.literal('has_work_hours'), z.literal('has_bookings')]),
+})
+
 export const mastersListResponseSchema = z.union([
   z.object({ ok: z.literal(true), masters: z.array(masterSchema) }),
   dbUnavailableErrorSchema,
@@ -89,6 +98,7 @@ export const masterUpdateResponseSchema = z.union([
 
 export const masterDeleteResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
+  masterDeleteConflictSchema,
   notFoundErrorSchema,
   dbUnavailableErrorSchema,
   internalErrorSchema,
