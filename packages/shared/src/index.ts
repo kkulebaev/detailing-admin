@@ -14,6 +14,11 @@ export {
   bookingMutationResponseSchema,
   bookingDeleteResponseSchema,
   bookingReadinessInputSchema,
+  analyticsGranularitySchema,
+  analyticsSeriesPointSchema,
+  analyticsTopClientSchema,
+  analyticsOverviewOkSchema,
+  analyticsOverviewResponseSchema,
 } from './booking-row.js'
 export type {
   BookingRow,
@@ -21,6 +26,11 @@ export type {
   BookingMutationResponse,
   BookingDeleteResponse,
   BookingReadinessInput,
+  AnalyticsGranularity,
+  AnalyticsSeriesPoint,
+  AnalyticsTopClient,
+  AnalyticsOverviewOk,
+  AnalyticsOverviewResponse,
 } from './booking-row.js'
 export {
   bookingApiResultSchema,

@@ -83,3 +83,78 @@ export const bookingReadinessInputSchema = z.object({
 })
 
 export type BookingReadinessInput = z.infer<typeof bookingReadinessInputSchema>
+
+// ── Analytics (GET /api/analytics/overview) ────────────────────────────────
+// Wire contract for the admin-only analytics page. Every numeric field is a
+// plain `number`: the API coerces the string aggregates postgres-js returns
+// (SUM/COUNT come back as strings) with Number() before the response is built —
+// the declared `number` type is what the web client does arithmetic on (avgCheck,
+// Δ%, repeatRate, chart math), so a string operand would silently corrupt it.
+
+export const analyticsGranularitySchema = z.enum(['day', 'week', 'month'])
+
+export type AnalyticsGranularity = z.infer<typeof analyticsGranularitySchema>
+
+// One point of the zero-filled revenue series. `revenue` counts only «Выдана»
+// bookings; `count` is the volume (all statuses) in the bucket — deliberately
+// different denominators (see the API's db layer).
+export const analyticsSeriesPointSchema = z.object({
+  bucket: z.string(),
+  revenue: z.number(),
+  count: z.number(),
+})
+
+export type AnalyticsSeriesPoint = z.infer<typeof analyticsSeriesPointSchema>
+
+// A top-client row. The grouping is restricted to «Выдана» rows, so a client with no
+// delivered cars in the period never appears (and a no-delivery period yields an empty top).
+export const analyticsTopClientSchema = z.object({
+  clientId: z.string().uuid(),
+  name: z.string(),
+  phone: z.string(),
+  sum: z.number(),
+  visits: z.number(),
+})
+
+export type AnalyticsTopClient = z.infer<typeof analyticsTopClientSchema>
+
+export const analyticsOverviewOkSchema = z.object({
+  ok: z.literal(true),
+  period: z.object({
+    from: z.string(),
+    to: z.string(),
+    granularity: analyticsGranularitySchema,
+  }),
+  revenue: z.object({
+    total: z.number(),
+    avgCheck: z.number(),
+    completedCount: z.number(),
+    bookingsCount: z.number(),
+    delta: z.object({
+      // null when the previous period earned nothing (no meaningful %).
+      revenuePct: z.number().nullable(),
+      prevTotal: z.number(),
+    }),
+    series: z.array(analyticsSeriesPointSchema),
+  }),
+  clients: z.object({
+    newCount: z.number(),
+    returningCount: z.number(),
+    noClientCount: z.number(),
+    // null when there are no attributable clients (empty denominator).
+    repeatRate: z.number().nullable(),
+    topBySum: z.array(analyticsTopClientSchema),
+    topByVisits: z.array(analyticsTopClientSchema),
+  }),
+})
+
+export type AnalyticsOverviewOk = z.infer<typeof analyticsOverviewOkSchema>
+
+export const analyticsOverviewResponseSchema = z.union([
+  analyticsOverviewOkSchema,
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export type AnalyticsOverviewResponse = z.infer<typeof analyticsOverviewResponseSchema>
