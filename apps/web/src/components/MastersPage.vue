@@ -132,8 +132,15 @@ async function confirmDelete() {
       return
     }
     // Real failure — keep the dialog open and surface the reason inside it.
-    deleteError.value =
-      result.error === 'unavailable' ? result.message : 'Не удалось удалить мастера'
+    if (result.error === 'conflict') {
+      deleteError.value =
+        result.reason === 'has_bookings'
+          ? 'Нельзя удалить мастера: на него есть записи'
+          : 'Нельзя удалить мастера: есть отработанные часы'
+    } else {
+      deleteError.value =
+        result.error === 'unavailable' ? result.message : 'Не удалось удалить мастера'
+    }
   } catch {
     deleteError.value = 'Не удалось удалить мастера'
   } finally {
