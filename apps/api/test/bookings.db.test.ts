@@ -519,23 +519,28 @@ describe('backfillMasterIds', () => {
     return import('../scripts/backfill-master-ids.js')
   }
 
-  it('issues idempotent statements: ON CONFLICT DO NOTHING junction + WHERE-null responsible update', async () => {
+  it('issues idempotent statements: split normalize + ON CONFLICT DO NOTHING junction + WHERE-null responsible update', async () => {
     const { backfillMasterIds } = await importBackfill()
-    // 4 statements: junction insert, responsible update, 2 unmatched-diagnostic selects.
-    const { tag, calls } = fakeSql([[], [], [], []])
+    // 5 statements: normalize split, junction insert, responsible update, 2 unmatched-diagnostic selects.
+    const { tag, calls } = fakeSql([[], [], [], [], []])
 
     await backfillMasterIds(tag as never)
 
-    expect(calls).toHaveLength(4)
-    expect(calls[0]).toContain('INSERT INTO booking_masters')
-    expect(calls[0]).toContain('ON CONFLICT (booking_id, master_id) DO NOTHING')
-    expect(calls[1]).toContain('UPDATE bookings')
-    expect(calls[1]).toContain('responsible_id IS NULL')
+    expect(calls).toHaveLength(5)
+    // Normalize is first so the junction/enrichment see one name per slot.
+    expect(calls[0]).toContain('UPDATE bookings')
+    expect(calls[0]).toContain('string_to_array')
+    expect(calls[0]).toContain('IS DISTINCT FROM')
+    expect(calls[1]).toContain('INSERT INTO booking_masters')
+    expect(calls[1]).toContain('ON CONFLICT (booking_id, master_id) DO NOTHING')
+    expect(calls[2]).toContain('UPDATE bookings')
+    expect(calls[2]).toContain('responsible_id IS NULL')
   })
 
-  it('reports matched counts and unmatched names', async () => {
+  it('reports normalized/matched counts and unmatched names', async () => {
     const { backfillMasterIds } = await importBackfill()
     const { tag } = fakeSql([
+      [{}, {}], // 2 master arrays normalized
       [{}, {}, {}], // 3 junction links inserted
       [{}], // 1 responsible linked
       [{ name: 'Призрак' }], // unmatched master
@@ -543,6 +548,7 @@ describe('backfillMasterIds', () => {
     ])
 
     const res = await backfillMasterIds(tag as never)
+    expect(res.arraysNormalized).toBe(2)
     expect(res.linksInserted).toBe(3)
     expect(res.responsibleLinked).toBe(1)
     expect(res.unmatchedMasters).toEqual(['Призрак'])
@@ -551,8 +557,8 @@ describe('backfillMasterIds', () => {
 
   it('is idempotent: a second run issues the identical statements', async () => {
     const { backfillMasterIds } = await importBackfill()
-    const first = fakeSql([[], [], [], []])
-    const second = fakeSql([[], [], [], []])
+    const first = fakeSql([[], [], [], [], []])
+    const second = fakeSql([[], [], [], [], []])
 
     await backfillMasterIds(first.tag as never)
     await backfillMasterIds(second.tag as never)
