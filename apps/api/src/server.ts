@@ -9,6 +9,7 @@ import clientsRouter from './routes/clients.js'
 import pricelistRouter from './routes/pricelist.js'
 import mastersRouter from './routes/masters.js'
 import salariesRouter from './routes/salaries.js'
+import analyticsRouter from './routes/analytics.js'
 import { requireAuth, requireAdmin } from './auth/middleware.js'
 
 export function createApp() {
@@ -53,6 +54,8 @@ export function createApp() {
   app.use('/api/clients/*', requireAuth, requireAdmin)
   app.use('/api/pricelist/*', requireAuth, requireAdmin)
   app.use('/api/salaries/*', requireAuth, requireAdmin)
+  // Analytics exposes revenue sums — admin-only, like the other sensitive reads.
+  app.use('/api/analytics/*', requireAuth, requireAdmin)
   // Reading masters (GET) is open to any authenticated role so the bookings
   // filter works for employees; managing them (POST/PATCH/DELETE) stays admin-only.
   app.use('/api/masters/*', requireAuth)
@@ -66,6 +69,7 @@ export function createApp() {
   app.route('/api/pricelist', pricelistRouter)
   app.route('/api/masters', mastersRouter)
   app.route('/api/salaries', salariesRouter)
+  app.route('/api/analytics', analyticsRouter)
 
   app.notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
 
