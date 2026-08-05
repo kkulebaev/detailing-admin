@@ -25,6 +25,7 @@
     "seed:bookings-bulk": "tsx --env-file=.env scripts/seed-bookings-bulk.ts",
     "backfill:master-ids": "tsx --env-file=.env scripts/backfill-master-ids.ts",
     "backfill:car-ids": "tsx --env-file=.env scripts/backfill-car-ids.ts",
+    "backfill:client-cars-sheet": "tsx --env-file=.env scripts/backfill-client-cars-from-sheet.ts",
     "seed": "pnpm seed:dump && pnpm seed:load",
     "user:create": "tsx scripts/user-create.ts",
     "user:reset-password": "tsx scripts/user-reset-password.ts"
