@@ -8174,6 +8174,371 @@
           }
         }
       }
+    },
+    "/api/analytics/overview": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{2}\\.\\d{2}\\.\\d{4}$"
+            },
+            "required": true,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{2}\\.\\d{2}\\.\\d{4}$"
+            },
+            "required": true,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "default": "day"
+            },
+            "required": false,
+            "name": "granularity",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics overview (revenue + clients)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "period": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        },
+                        "granularity": {
+                          "type": "string",
+                          "enum": [
+                            "day",
+                            "week",
+                            "month"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to",
+                        "granularity"
+                      ]
+                    },
+                    "revenue": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "avgCheck": {
+                          "type": "number"
+                        },
+                        "completedCount": {
+                          "type": "number"
+                        },
+                        "bookingsCount": {
+                          "type": "number"
+                        },
+                        "delta": {
+                          "type": "object",
+                          "properties": {
+                            "revenuePct": {
+                              "type": "number",
+                              "nullable": true
+                            },
+                            "prevTotal": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "revenuePct",
+                            "prevTotal"
+                          ]
+                        },
+                        "series": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "bucket": {
+                                "type": "string"
+                              },
+                              "revenue": {
+                                "type": "number"
+                              },
+                              "count": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "bucket",
+                              "revenue",
+                              "count"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "avgCheck",
+                        "completedCount",
+                        "bookingsCount",
+                        "delta",
+                        "series"
+                      ]
+                    },
+                    "clients": {
+                      "type": "object",
+                      "properties": {
+                        "newCount": {
+                          "type": "number"
+                        },
+                        "returningCount": {
+                          "type": "number"
+                        },
+                        "noClientCount": {
+                          "type": "number"
+                        },
+                        "repeatRate": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "topBySum": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "clientId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "phone": {
+                                "type": "string"
+                              },
+                              "sum": {
+                                "type": "number"
+                              },
+                              "visits": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "clientId",
+                              "name",
+                              "phone",
+                              "sum",
+                              "visits"
+                            ]
+                          }
+                        },
+                        "topByVisits": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "clientId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "phone": {
+                                "type": "string"
+                              },
+                              "sum": {
+                                "type": "number"
+                              },
+                              "visits": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "clientId",
+                              "name",
+                              "phone",
+                              "sum",
+                              "visits"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "newCount",
+                        "returningCount",
+                        "noClientCount",
+                        "repeatRate",
+                        "topBySum",
+                        "topByVisits"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "period",
+                    "revenue",
+                    "clients"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            }
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "issues"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
