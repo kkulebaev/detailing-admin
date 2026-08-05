@@ -144,7 +144,6 @@ export const analyticsOverviewOkSchema = z.object({
     // null when there are no attributable clients (empty denominator).
     repeatRate: z.number().nullable(),
     topBySum: z.array(analyticsTopClientSchema),
-    topByVisits: z.array(analyticsTopClientSchema),
   }),
 })
 

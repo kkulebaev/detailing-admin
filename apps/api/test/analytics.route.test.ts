@@ -58,9 +58,6 @@ const RAW: RawAnalytics = {
   topBySum: [
     { clientId: 'c1', name: 'Иван', phone: '+79990000001', sum: '90000', visits: '2' },
   ],
-  topByVisits: [
-    { clientId: 'c1', name: 'Иван', phone: '+79990000001', sum: '90000', visits: '2' },
-  ],
 }
 
 function get(
@@ -176,7 +173,6 @@ describe('GET /api/analytics/overview', () => {
       series: [],
       retention: { newCount: '0', returningCount: '0' },
       topBySum: [],
-      topByVisits: [],
     })
     const res = await get(app, '?from=01.07.2026&to=03.07.2026&granularity=day', { Cookie: cookie })
     expect(res.status).toBe(200)

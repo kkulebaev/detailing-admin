@@ -109,7 +109,7 @@ describe('buildRetentionQuery (AC3)', () => {
 
 describe('buildTopQuery (AC4)', () => {
   it('joins clients, ranks desc, limits 10, restricts the grouping to «Выдана» in WHERE', () => {
-    const { sql: text, params } = buildTopQuery(db, { ...RANGE, order: 'sum' }).toSQL()
+    const { sql: text, params } = buildTopQuery(db, { ...RANGE }).toSQL()
     const low = text.toLowerCase()
 
     expect(low).toContain('"clients"')
@@ -124,13 +124,5 @@ describe('buildTopQuery (AC4)', () => {
     expect(params).toContain('Выдана')
     // limit is 10.
     expect(params).toContain(10)
-  })
-
-  it('orders by the plain visit count when order = visits', () => {
-    const { sql: text } = buildTopQuery(db, { ...RANGE, order: 'visits' }).toSQL()
-    const low = text.toLowerCase()
-    expect(low).toContain('order by')
-    expect(low).toContain('count(*)')
-    expect(low).not.toContain('count(*) filter (where')
   })
 })

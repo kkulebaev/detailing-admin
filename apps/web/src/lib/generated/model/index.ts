@@ -84,7 +84,6 @@ export * from './deleteApiSalariesHoursId503Reason';
 export * from './getApiAnalyticsOverview200';
 export * from './getApiAnalyticsOverview200Clients';
 export * from './getApiAnalyticsOverview200ClientsTopBySumItem';
-export * from './getApiAnalyticsOverview200ClientsTopByVisitsItem';
 export * from './getApiAnalyticsOverview200Period';
 export * from './getApiAnalyticsOverview200PeriodGranularity';
 export * from './getApiAnalyticsOverview200Revenue';

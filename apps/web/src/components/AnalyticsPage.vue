@@ -396,20 +396,7 @@ const repeatRateLabel = computed(() => {
   return r == null ? '—' : `${r}%`
 })
 
-const TOP_TABS = ['sum', 'visits'] as const
-type TopTab = (typeof TOP_TABS)[number]
-const topTab = ref<TopTab>('sum')
-
-function onTopTabChange(v: string | number) {
-  const next = TOP_TABS.find((t) => t === String(v))
-  if (next) topTab.value = next
-}
-
-const topRows = computed<AnalyticsTopClient[]>(() => {
-  const c = clients.value
-  if (!c) return []
-  return topTab.value === 'sum' ? c.topBySum : c.topByVisits
-})
+const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? [])
 </script>
 
 <template>
@@ -671,12 +658,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => {
             </div>
 
             <div>
-              <Tabs :model-value="topTab" class="mb-3" @update:model-value="onTopTabChange">
-                <TabsList aria-label="Сортировка топ-клиентов">
-                  <TabsTrigger value="sum">По сумме</TabsTrigger>
-                  <TabsTrigger value="visits">По визитам</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <p class="mb-3 text-sm font-medium">Топ клиентов по сумме</p>
 
               <Table container-class="rounded-md border border-border">
                 <TableHeader>

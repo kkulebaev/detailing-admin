@@ -8361,37 +8361,6 @@
                               "visits"
                             ]
                           }
-                        },
-                        "topByVisits": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "clientId": {
-                                "type": "string",
-                                "format": "uuid"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "phone": {
-                                "type": "string"
-                              },
-                              "sum": {
-                                "type": "number"
-                              },
-                              "visits": {
-                                "type": "number"
-                              }
-                            },
-                            "required": [
-                              "clientId",
-                              "name",
-                              "phone",
-                              "sum",
-                              "visits"
-                            ]
-                          }
                         }
                       },
                       "required": [
@@ -8399,8 +8368,7 @@
                         "returningCount",
                         "noClientCount",
                         "repeatRate",
-                        "topBySum",
-                        "topByVisits"
+                        "topBySum"
                       ]
                     }
                   },

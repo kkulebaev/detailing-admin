@@ -134,16 +134,12 @@ export function buildRetentionQuery(db: Db, p: RangeParams) {
     .innerJoin(firstSeen, eq(firstSeen.clientId, active.clientId))
 }
 
-export interface TopParams extends RangeParams {
-  order: 'sum' | 'visits'
-}
-
-// Top clients by delivered revenue or delivered visits. The «Выдана» filter lives in
-// the WHERE, not in a per-metric FILTER — so a client with no delivered booking in the
-// period is dropped from the grouping entirely (rather than surfacing as a sum=0/visits=0
-// row and eating a LIMIT-10 slot when fewer than 10 clients delivered). A period with no
+// Top clients by delivered revenue. The «Выдана» filter lives in the WHERE, not
+// in a FILTER — so a client with no delivered booking in the period is dropped
+// from the grouping entirely (rather than surfacing as a sum=0 row and eating a
+// LIMIT-10 slot when fewer than 10 clients delivered). A period with no
 // deliveries yields an empty top. INNER JOIN on clients drops null-client records.
-export function buildTopQuery(db: Db, p: TopParams) {
+export function buildTopQuery(db: Db, p: RangeParams) {
   const sumExpr = sql<string>`coalesce(sum(${bookings.amount}), 0)`
   const visitsExpr = sql<string>`count(*)`
   return db
@@ -158,9 +154,9 @@ export function buildTopQuery(db: Db, p: TopParams) {
     .innerJoin(clients, eq(clients.id, bookings.clientId))
     .where(and(dateRange(p.fromIso, p.toIso), revenueCond))
     .groupBy(bookings.clientId, clients.name, clients.phone)
-    // Secondary key breaks ties deterministically — without it, equal sum/visits
-    // leave the LIMIT 10 cutoff up to Postgres' arbitrary row order.
-    .orderBy(p.order === 'sum' ? desc(sumExpr) : desc(visitsExpr), asc(bookings.clientId))
+    // Secondary key breaks ties deterministically — without it, equal sums leave
+    // the LIMIT 10 cutoff up to Postgres' arbitrary row order.
+    .orderBy(desc(sumExpr), asc(bookings.clientId))
     .limit(10)
 }
 
@@ -188,7 +184,6 @@ export interface RawAnalytics {
   series: { bucket: string; revenue: string; count: string }[]
   retention: { newCount: string; returningCount: string }
   topBySum: RawTopClient[]
-  topByVisits: RawTopClient[]
 }
 
 export async function getAnalyticsOverview(p: AnalyticsParams): Promise<RawAnalytics> {
@@ -198,12 +193,7 @@ export async function getAnalyticsOverview(p: AnalyticsParams): Promise<RawAnaly
   const [prevRow] = await buildTotalsQuery(db, { fromIso: p.prevFromIso, toIso: p.prevToIso })
   const series = await buildSeriesQuery(db, p)
   const [retentionRow] = await buildRetentionQuery(db, { fromIso: p.fromIso, toIso: p.toIso })
-  const topBySum = await buildTopQuery(db, { fromIso: p.fromIso, toIso: p.toIso, order: 'sum' })
-  const topByVisits = await buildTopQuery(db, {
-    fromIso: p.fromIso,
-    toIso: p.toIso,
-    order: 'visits',
-  })
+  const topBySum = await buildTopQuery(db, { fromIso: p.fromIso, toIso: p.toIso })
 
   return {
     // An aggregate with no matching rows still returns one row (with COALESCE'd 0s).
@@ -212,6 +202,5 @@ export async function getAnalyticsOverview(p: AnalyticsParams): Promise<RawAnaly
     series,
     retention: retentionRow ?? { newCount: '0', returningCount: '0' },
     topBySum,
-    topByVisits,
   }
 }

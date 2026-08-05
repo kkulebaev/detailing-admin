@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { GetApiAnalyticsOverview200ClientsTopBySumItem } from './getApiAnalyticsOverview200ClientsTopBySumItem';
-import type { GetApiAnalyticsOverview200ClientsTopByVisitsItem } from './getApiAnalyticsOverview200ClientsTopByVisitsItem';
 
 export type GetApiAnalyticsOverview200Clients = {
   newCount: number;
@@ -15,5 +14,4 @@ export type GetApiAnalyticsOverview200Clients = {
   /** @nullable */
   repeatRate: number | null;
   topBySum: GetApiAnalyticsOverview200ClientsTopBySumItem[];
-  topByVisits: GetApiAnalyticsOverview200ClientsTopByVisitsItem[];
 };

@@ -217,7 +217,6 @@ router.openapi(
             noClientCount,
             repeatRate,
             topBySum: raw.topBySum.map(mapTop),
-            topByVisits: raw.topByVisits.map(mapTop),
           },
         },
         StatusCodes.OK,
