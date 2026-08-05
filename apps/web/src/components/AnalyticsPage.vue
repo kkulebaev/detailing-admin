@@ -203,12 +203,11 @@ const overview = computed(() => {
 })
 
 // ── KPI row ──────────────────────────────────────────────────────────────
-// «Записей» (bookingsCount, all statuses) and «Средний чек» (completedCount,
-// only «Выдана») are deliberately different denominators — kept apart with
-// their own subtitle so volume never reads as revenue.
+// «Выручка», «Средний чек» and «Кол-во выдач» all share the «Выдана»-only
+// denominator (completedCount) — revenue and volume stay on the same basis.
 const revenueTotal = computed(() => overview.value?.revenue.total ?? 0)
 const avgCheck = computed(() => overview.value?.revenue.avgCheck ?? 0)
-const bookingsCount = computed(() => overview.value?.revenue.bookingsCount ?? 0)
+const completedCount = computed(() => overview.value?.revenue.completedCount ?? 0)
 const revenuePct = computed(() => overview.value?.revenue.delta.revenuePct ?? null)
 const prevTotal = computed(() => overview.value?.revenue.delta.prevTotal ?? 0)
 
@@ -519,13 +518,11 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
 
           <Card>
             <CardHeader>
-              <CardDescription>Записей за период</CardDescription>
-              <CardTitle class="text-2xl tabular-nums">{{ bookingsCount }}</CardTitle>
+              <CardDescription>Количество выдач</CardDescription>
+              <CardTitle class="text-2xl tabular-nums">{{ completedCount }}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p class="text-xs text-muted-foreground">
-                Учитывает все статусы
-              </p>
+              <p class="text-xs text-muted-foreground">По записям со статусом «Выдана»</p>
             </CardContent>
           </Card>
 
