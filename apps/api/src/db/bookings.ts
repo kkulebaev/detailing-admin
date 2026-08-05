@@ -252,6 +252,12 @@ export async function listBookings(
   // junction, so records still surface after the master was renamed. Fall back
   // to snapshot membership (`= ANY(master)`) for legacy rows that never got an
   // id-link (and as the sole branch when the name resolves to no id).
+  // TODO: validate master/responsible against the live roster at write time
+  // (reject unknown names) so every booking always resolves to an id — then this
+  // `= ANY(master)` fallback and the per-slot snapshot fallback in
+  // withLiveMasterNames become dead and can be dropped for a pure id filter.
+  // Prereq: give the cancellation marker (currently "Отмена" stuffed into
+  // `responsible`) its own field/status first, or masters-only validation rejects it.
   if (p.master) {
     const masterId = (await resolveMasterIds([p.master])).get(p.master.trim())
     const snapshotMatch = sql`${p.master} = ANY(${bookings.master})`
