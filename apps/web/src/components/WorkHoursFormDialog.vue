@@ -10,6 +10,7 @@ import {
   minutesToHours,
   type WorkHours,
 } from '@detailing-admin/shared'
+import { calToDdmmyyyy } from '@/lib/date'
 import {
   createWorkHours,
   updateWorkHours,
@@ -90,12 +91,6 @@ function calToIso(d: DateValue): string {
   const mm = String(d.month).padStart(2, '0')
   const dd = String(d.day).padStart(2, '0')
   return `${d.year}-${mm}-${dd}`
-}
-
-function calToDdmmyyyy(d: DateValue): string {
-  const dd = String(d.day).padStart(2, '0')
-  const mm = String(d.month).padStart(2, '0')
-  return `${dd}.${mm}.${d.year}`
 }
 
 watch(

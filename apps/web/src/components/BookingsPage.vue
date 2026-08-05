@@ -6,6 +6,7 @@ import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
 import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/shared'
 import { buildMonthOptions } from '@/lib/month-options'
+import { calToDdmmyyyy } from '@/lib/date'
 import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from '@/lib/bookings-api'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
@@ -201,12 +202,6 @@ const masterOptions = computed(() =>
     () => true,
   ),
 )
-
-function calToDdmmyyyy(d: DateValue): string {
-  const dd = String(d.day).padStart(2, '0')
-  const mm = String(d.month).padStart(2, '0')
-  return `${dd}.${mm}.${d.year}`
-}
 
 // ── Month quick-filter ──────────────────────────────────────────────────────
 // A convenience over the two date pickers: picking a month sets the range to its

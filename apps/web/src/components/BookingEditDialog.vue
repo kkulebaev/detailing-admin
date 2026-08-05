@@ -12,6 +12,7 @@ import {
   type BookingRow,
 } from '@detailing-admin/shared'
 import { updateBooking, type PatchApiBookingsIdBody } from '@/lib/bookings-api'
+import { calToDdmmyyyy } from '@/lib/date'
 import { useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { formatPastedPhone, usePhoneInput } from '@/composables/use-phone-input'
@@ -123,12 +124,6 @@ function isoToCal(iso: string): DateValue | undefined {
   } catch {
     return undefined
   }
-}
-
-function calToDdmmyyyy(d: DateValue): string {
-  const dd = String(d.day).padStart(2, '0')
-  const mm = String(d.month).padStart(2, '0')
-  return `${dd}.${mm}.${d.year}`
 }
 
 function maskTimeText(raw: string): string {
