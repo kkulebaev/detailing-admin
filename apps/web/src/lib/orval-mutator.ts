@@ -1,4 +1,5 @@
 import { StatusCodes } from '@detailing-admin/shared'
+import { getApiBase } from './api-base'
 
 // Custom `fetch` shim that orval calls in place of the inline `fetch()` in
 // every generated endpoint. Jobs:
@@ -12,16 +13,8 @@ import { StatusCodes } from '@detailing-admin/shared'
 //      api-client.ts performs no runtime validation, so correctness depends on
 //      the OpenAPI spec and the route's response actually matching the types.
 
-// Prod reverse-proxies /api through the web origin so the auth cookie stays
-// first-party (SameSite=Lax) — see .omc/plans/auth-rbac-plan.md §3-bis. The
-// relative default below is therefore correct in both dev and prod;
-// VITE_API_BASE_URL remains an explicit override for pointing at a different
-// backend. This used to fall back to a hardcoded Railway origin in prod
-// builds (guarding against Railway building the bundle before the env var
-// was set) — that fallback is gone: a cross-origin API base makes the cookie
-// third-party, and Safari/Chrome silently drop those.
-const envBase = import.meta.env.VITE_API_BASE_URL
-const apiBase = typeof envBase === 'string' && envBase.length > 0 ? envBase : ''
+// Resolved once at module load; see getApiBase for the dev/prod rationale.
+const apiBase = getApiBase()
 
 export interface OrvalEnvelope<T> {
   data: T

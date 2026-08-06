@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { Calendar as CalendarIcon, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
+import { Calendar as CalendarIcon, Download, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
@@ -8,7 +8,13 @@ import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/sha
 import { buildMonthOptions } from '@/lib/month-options'
 import { calToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
-import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from '@/lib/bookings-api'
+import {
+  bookingsExportUrl,
+  deleteBooking,
+  updateBookingReadiness,
+  type GetApiBookingsParams,
+} from '@/lib/bookings-api'
+import { downloadFile, exportFilename } from '@/lib/download'
 import { readinessRowClass } from '@/lib/readiness'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
@@ -305,6 +311,21 @@ const error = computed<string | null>(() => {
   return 'Не удалось загрузить список записей'
 })
 
+// ── CSV export ──────────────────────────────────────────────────────────────
+const exporting = ref(false)
+
+async function onExport() {
+  if (exporting.value || total.value === 0) return
+  exporting.value = true
+  try {
+    await downloadFile(bookingsExportUrl(params.value), exportFilename('bookings'))
+  } catch {
+    toast.error('Не удалось выгрузить CSV')
+  } finally {
+    exporting.value = false
+  }
+}
+
 
 // ── Filter reset ──────────────────────────────────────────────────────────────
 // Drives the full-height empty state: stretch the table so the placeholder
@@ -523,6 +544,16 @@ function formatCreatedAt(iso: string): string {
           @click="resetFilters"
         >
           <X class="size-4" /> Сбросить
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          class="gap-1"
+          :disabled="exporting || loading || total === 0"
+          @click="onExport"
+        >
+          <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
         </Button>
       </div>
 

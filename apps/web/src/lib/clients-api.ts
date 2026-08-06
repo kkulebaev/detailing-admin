@@ -62,3 +62,20 @@ export function deleteClient(id: string): Promise<ClientDeleteResult> {
 export function fetchClientDetail(id: string): Promise<ClientDetailResult> {
   return unwrap<ClientDetailResult>(() => getApiClientsId(id))
 }
+
+// Paging keys are dropped: export returns the whole filtered set, not a page.
+const EXPORT_OMIT = new Set(['limit', 'offset'])
+
+// Builds the CSV export URL from the SAME filter/sort params the list uses, so
+// the download mirrors what's on screen. Serialized like orval's generated URL
+// builder (URLSearchParams, skip undefined). This route lives outside
+// OpenAPI/orval (CSV, not JSON) and is fetched by URL via downloadFile.
+export function clientsExportUrl(params: GetApiClientsParams): string {
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (EXPORT_OMIT.has(key) || value === undefined || value === null) continue
+    qs.append(key, String(value))
+  }
+  const s = qs.toString()
+  return s ? `/api/clients/export?${s}` : '/api/clients/export'
+}

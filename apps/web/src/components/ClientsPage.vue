@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ChevronUp,
+  Download,
   Inbox,
   Pencil,
   Plus,
@@ -16,11 +17,13 @@ import {
 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
+  clientsExportUrl,
   deleteClient as apiDeleteClient,
   type Car,
   type Client,
   type GetApiClientsParams,
 } from '@/lib/clients-api'
+import { downloadFile, exportFilename } from '@/lib/download'
 import { formatPhone } from '@/lib/phone'
 import { useClientsQuery, useInvalidateClients } from '@/lib/queries'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
@@ -198,6 +201,21 @@ function resetFilters() {
   searchDebounced.value = ''
 }
 
+// ── CSV export ──────────────────────────────────────────────────────────────
+const exporting = ref(false)
+
+async function onExport() {
+  if (exporting.value || total.value === 0) return
+  exporting.value = true
+  try {
+    await downloadFile(clientsExportUrl(params.value), exportFilename('clients'))
+  } catch {
+    toast.error('Не удалось выгрузить CSV')
+  } finally {
+    exporting.value = false
+  }
+}
+
 // ── Row actions / dialogs ───────────────────────────────────────────────────
 const dialogOpen = ref(false)
 const editing = ref<Client | null>(null)
@@ -334,6 +352,16 @@ async function confirmDelete() {
           @click="resetFilters"
         >
           <X class="size-4" /> Сбросить
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          class="gap-1"
+          :disabled="exporting || loading || total === 0"
+          @click="onExport"
+        >
+          <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
         </Button>
 
         <Button variant="outline" size="sm" @click="openCreate">
