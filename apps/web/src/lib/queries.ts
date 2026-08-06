@@ -1,7 +1,13 @@
 import type { Ref } from 'vue'
 import { useQuery, useQueryCache } from '@pinia/colada'
 import { fetchAnalyticsOverview, type GetApiAnalyticsOverviewParams } from './analytics-api'
-import { fetchClientDetail, fetchClients, type GetApiClientsParams } from './clients-api'
+import {
+  fetchClientDetail,
+  fetchClients,
+  lookupClientByPhone,
+  type Client,
+  type GetApiClientsParams,
+} from './clients-api'
 import { fetchPricelist } from './pricelist-api'
 import { fetchMasters } from './masters-api'
 import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
@@ -46,6 +52,21 @@ export function useClientDetailQuery(id: Ref<string | null>) {
     // enabled gates this on id != null, so the ?? '' fallback never runs.
     query: () => fetchClientDetail(id.value ?? ''),
     enabled: () => id.value != null,
+  })
+}
+
+// Autofill lookup on the booking form: resolve a client from a full E.164
+// phone. `e164` is a computed on the form side (null while the typed phone is
+// incomplete) — the `enabled` guard keeps the query idle until it's a full
+// number, and colada dedups/caches by the phone key so repeated matches are
+// free. The exact phone guard lives in `lookupClientByPhone`, so `data` is
+// already `Client | null` here.
+export function useClientLookupByPhoneQuery(e164: Ref<string | null>) {
+  return useQuery<Client | null>({
+    key: () => [...CLIENTS_KEY, 'lookup', e164.value ?? ''],
+    // enabled gates this on e164 != null, so the ! assertion never runs on null.
+    query: () => lookupClientByPhone(e164.value!),
+    enabled: () => !!e164.value,
   })
 }
 

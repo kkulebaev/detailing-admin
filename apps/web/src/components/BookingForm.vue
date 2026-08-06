@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, onMounted, provide } from 'vue'
+import { ref, shallowRef, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { onKeyStroke } from '@vueuse/core'
 import { z } from 'zod'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { v4 as uuid } from 'uuid'
 import { toast } from 'vue-sonner'
-import { Calendar as CalendarIcon, Pencil } from '@lucide/vue'
+import { Calendar as CalendarIcon, Pencil, User } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
 import {
@@ -23,6 +23,8 @@ import { maskThousands } from '@/lib/number-mask'
 import { maskLicensePlate, PLATE_LETTERS } from '@/lib/license-plate'
 import { formatServiceCell, formatAmountFormula, type ServiceBreakdownRow } from '@/lib/service-breakdown'
 import { usePhoneInput, formatPastedPhone } from '@/composables/use-phone-input'
+import { useClientLookup } from '@/composables/use-client-lookup'
+import type { Car } from '@/lib/clients-api'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -248,6 +250,22 @@ const {
   onClickPastePhone,
   resetPhone,
 } = usePhoneInput()
+// ── Client autofill (lookup by full phone) ───────────────────────────────────
+// Reads Postgres via the reused clients list endpoint; strictly additive and
+// silent on failure — never gates the booking submit.
+const { matchedClient, isLoading: clientLookupLoading } = useClientLookup(phoneRaw)
+
+// Delay the spinner so a fast/cached lookup (resolves in <200ms) never flashes
+// it — only a genuinely slow round-trip shows the "searching" state.
+const showLookupSpinner = ref(false)
+let lookupSpinnerTimer: ReturnType<typeof setTimeout> | undefined
+watch(clientLookupLoading, (loading) => {
+  clearTimeout(lookupSpinnerTimer)
+  if (loading) lookupSpinnerTimer = setTimeout(() => (showLookupSpinner.value = true), 200)
+  else showLookupSpinner.value = false
+})
+onUnmounted(() => clearTimeout(lookupSpinnerTimer))
+
 // ── License plate — sent as a separate `plate` field; the server joins it
 // with `car` (joinCar) for the sheet column and the bookings mirror. ────────
 const licensePlate = ref('')
@@ -444,6 +462,27 @@ watch(canNotifyMaster, (ok) => {
 watch(phoneRaw, () => {
   setFieldValue('phone', effectivePhone())
 })
+
+// On a match, overwrite name + the client's first car with the stored values
+// (whatever the operator typed or a draft restored is replaced). Guarded only
+// against wiping with a blank: skip the name when the client has none, skip the
+// car when the client has none. With several cars the rest stay available as
+// chips (see template) to switch «Марка и модель».
+watch(matchedClient, (c) => {
+  if (!c) return
+  if (c.name.trim()) setFieldValue('name', c.name)
+  const first = c.cars[0]
+  if (first) selectClientCar(first)
+})
+
+// Pick one of the matched client's cars: fill «Марка и модель» and the plate.
+// `plate` is not a vee-validate field (it's the separate `licensePlate` ref,
+// assembled into the payload on submit), so it's set on the ref directly and
+// re-masked to canonicalise a possibly non-canonical stored value.
+function selectClientCar(car: Car) {
+  setFieldValue('car', car.makeModel)
+  licensePlate.value = maskLicensePlate(car.plate)
+}
 
 // ── Quick date chips ─────────────────────────────────────────────────────────
 function shiftedDate(days: number): DateValue {
@@ -1264,25 +1303,16 @@ watch(
           </CardHeader>
           <CardContent class="px-4">
           <div class="space-y-4">
-            <FormField v-slot="{ componentField }" name="name">
-              <FormItem>
-                <FormLabel>Имя</FormLabel>
-                <FormControl>
-                  <Input
-                    type="text"
-                    class="h-11"
-                    placeholder="Иван"
-                    v-bind="componentField"
-                    @input="onNameInput"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
-
+            <!-- Phone first: a matched number auto-fills the name below (feature
+                 5.1), so the phone leads the client section. -->
             <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
             <div>
-              <Label class="mb-2 block">Номер телефона</Label>
+              <div class="mb-2 flex items-center gap-2">
+                <Label>Номер телефона</Label>
+                <!-- Spinner while an exact-match lookup is in flight, so the gap
+                     before a chip appears (or doesn't) reads as "searching", not silence. -->
+                <Spinner v-if="showLookupSpinner" class="size-4 text-muted-foreground" />
+              </div>
               <div class="relative">
                 <Input
                   type="tel"
@@ -1307,7 +1337,37 @@ watch(
               <p v-if="submitAttempted && errors.phone" class="text-sm font-medium text-destructive mt-1">
                 {{ errors.phone }}
               </p>
+
+              <!-- Подсказка распознанного клиента и его авто. Отдельная
+                   поверхность под телефоном (не в поповере «Марка и модель»):
+                   имя подставляется автоматически, авто — по тапу. -->
+              <div v-if="matchedClient" class="mt-2">
+                <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                  <User class="size-3.5 shrink-0" />
+                  <span>
+                    {{ matchedClient.name
+                      ? `Найден клиент с именем: ${matchedClient.name}`
+                      : 'Найден клиент без имени' }}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            <FormField v-slot="{ componentField }" name="name">
+              <FormItem>
+                <FormLabel>Имя</FormLabel>
+                <FormControl>
+                  <Input
+                    type="text"
+                    class="h-11"
+                    placeholder="Иван"
+                    v-bind="componentField"
+                    @input="onNameInput"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
             <FormField v-slot="{ componentField }" name="car">
               <FormItem>
@@ -1353,6 +1413,24 @@ watch(
                 <FormMessage />
               </FormItem>
             </FormField>
+
+            <!-- Client's cars as chips right under «Марка и модель» — the first is
+                 auto-filled; chips appear only with several, to switch to another. -->
+            <div
+              v-if="matchedClient && matchedClient.cars.length > 1"
+              class="-mt-2 flex flex-wrap gap-1.5"
+            >
+              <button
+                v-for="car in matchedClient.cars"
+                :key="car.id"
+                type="button"
+                :aria-label="`Заполнить авто ${car.makeModel}${car.plate ? ' ' + car.plate : ''}`"
+                class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
+                @click="selectClientCar(car)"
+              >
+                {{ car.makeModel }}{{ car.plate ? ' · ' + car.plate : '' }}
+              </button>
+            </div>
 
             <div>
               <Label class="mb-2 block">

@@ -34,6 +34,16 @@ export function fetchClients(params: GetApiClientsParams): Promise<ClientsApiRes
   return unwrap<ClientsApiResult>(() => getApiClients(params))
 }
 
+// Point-lookup of a client by a full E.164 phone, reusing the list endpoint.
+// `q` runs through an `ilike` over both name and phone, so a partial or name
+// match could slip in — the exact `phone === e164` guard lives HERE (and only
+// here) so callers get a clean `Client | null`. Any failure (503, network) is
+// surfaced as a thrown error by `unwrap`; an `ok: false` body maps to `null`.
+export async function lookupClientByPhone(e164: string): Promise<Client | null> {
+  const r = await fetchClients({ q: e164, limit: 1 })
+  return r.ok && r.clients[0]?.phone === e164 ? r.clients[0] : null
+}
+
 export function createClient(payload: ClientInputPayload): Promise<ClientMutationResult> {
   return unwrap<ClientMutationResult>(() => postApiClients(payload))
 }
