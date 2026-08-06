@@ -371,6 +371,21 @@ function formatAmount(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 }
 
+// createdAt — момент вставки строки в зеркало bookings (≈ время создания брони:
+// вставка идёт только после успешного append в Sheets). Показываем подсказкой на
+// порядковом номере, чтобы не занимать отдельную колонку.
+function formatCreatedAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 // Заливка строки по статусу готовности — как в исходной таблице. Прочие статусы
 // (Готова к выдаче, Оплачено, Не оплачено) пока без заливки. hover намеренно
 // отключён: базовый цвет помечен важным (`!`), поэтому он выигрывает и в hover-
@@ -622,7 +637,10 @@ function readinessRowClass(readiness: BookingRow['readiness']): string {
             >
               <!-- Сквозной порядковый номер на убывание: верхняя строка = total,
                    консистентно между страницами (учитывает offset). -->
-              <TableCell class="px-4 align-top text-right tabular-nums text-muted-foreground">
+              <TableCell
+                class="px-4 align-top text-right tabular-nums text-muted-foreground"
+                :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
+              >
                 {{ total - offset - index }}
               </TableCell>
               <TableCell class="px-4 align-top tabular-nums whitespace-normal">
