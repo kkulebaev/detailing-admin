@@ -52,6 +52,16 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Клиенты', requiresAuth: true, roles: ['admin'] },
   },
   {
+    // Flat, not nested: ClientsPage has no inner <router-view>. Both /clients
+    // and /clients/:id resolve to the SAME component, so vue-router reuses the
+    // mounted instance — the list stays alive (filters/page preserved) while the
+    // detail Sheet slides over it and deep links open it directly.
+    path: '/clients/:id',
+    name: 'client-detail',
+    component: () => import('@/components/ClientsPage.vue'),
+    meta: { title: 'Клиенты', requiresAuth: true, roles: ['admin'] },
+  },
+  {
     path: '/pricelist',
     name: 'pricelist',
     component: () => import('@/components/PricelistPage.vue'),

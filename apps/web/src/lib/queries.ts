@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 import { useQuery, useQueryCache } from '@pinia/colada'
 import { fetchAnalyticsOverview, type GetApiAnalyticsOverviewParams } from './analytics-api'
-import { fetchClients, type GetApiClientsParams } from './clients-api'
+import { fetchClientDetail, fetchClients, type GetApiClientsParams } from './clients-api'
 import { fetchPricelist } from './pricelist-api'
 import { fetchMasters } from './masters-api'
 import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
@@ -33,6 +33,19 @@ export function usePricelistQuery() {
   return useQuery({
     key: PRICELIST_KEY,
     query: fetchPricelist,
+  })
+}
+
+// Client card detail. `id` is null while no client is selected (the Sheet is
+// closed) — the `enabled` guard keeps the query idle until the route carries an
+// id. The `'detail'` key segment leaves room to split the booking history into
+// its own paginated query later (follow-up) without moving this key.
+export function useClientDetailQuery(id: Ref<string | null>) {
+  return useQuery({
+    key: () => [...CLIENTS_KEY, 'detail', id.value ?? ''],
+    // enabled gates this on id != null, so the ?? '' fallback never runs.
+    query: () => fetchClientDetail(id.value ?? ''),
+    enabled: () => id.value != null,
   })
 }
 

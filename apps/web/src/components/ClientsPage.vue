@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '@vueuse/core'
 import {
   ChevronDown,
@@ -24,6 +25,7 @@ import { formatPhone } from '@/lib/phone'
 import { useClientsQuery, useInvalidateClients } from '@/lib/queries'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
 import ClientFormDialog from './ClientFormDialog.vue'
+import ClientDetailDialog from './ClientDetailDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -94,6 +96,26 @@ watch([searchDebounced, sort, dir], () => {
 
 const { data: queryData, error: queryError, asyncStatus } = useClientsQuery(params)
 const invalidateClients = useInvalidateClients()
+
+// ── Detail card (route-driven Sheet) ────────────────────────────────────────
+// `/clients` and `/clients/:id` render this same component, so the list stays
+// mounted (filters/page preserved) while the Sheet slides over it. `detailId`
+// mirrors the route param so a direct deep link to /clients/:id opens the Sheet.
+const route = useRoute()
+const router = useRouter()
+const detailId = ref<string | null>(null)
+const detailOpen = computed(() => detailId.value != null)
+watch(
+  () => route.params.id,
+  (id) => {
+    detailId.value = typeof id === 'string' ? id : null
+  },
+  { immediate: true },
+)
+
+function openDetail(id: string) {
+  router.push({ name: 'client-detail', params: { id } })
+}
 
 const data = computed<Client[]>(() => {
   const r = queryData.value
@@ -422,7 +444,18 @@ async function confirmDelete() {
               </EmptyContent>
             </Empty>
           </TableEmpty>
-          <TableRow v-else v-for="(row, idx) in data" :key="row.id">
+          <TableRow
+            v-else
+            v-for="(row, idx) in data"
+            :key="row.id"
+            class="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            tabindex="0"
+            role="button"
+            :aria-label="`Открыть карточку клиента ${row.name || formatPhone(row.phone)}`"
+            @click="openDetail(row.id)"
+            @keydown.enter="openDetail(row.id)"
+            @keydown.space.prevent="openDetail(row.id)"
+          >
             <TableCell class="px-4 text-muted-foreground tabular-nums">
               {{ offset + idx + 1 }}
             </TableCell>
@@ -432,7 +465,7 @@ async function confirmDelete() {
                 type="button"
                 class="rounded px-1 py-0.5 text-left whitespace-nowrap hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 :title="`Скопировать ${formatPhone(row.phone)}`"
-                @click="copyPhone(row.phone)"
+                @click.stop="copyPhone(row.phone)"
               >
                 {{ formatPhone(row.phone) }}
               </button>
@@ -450,6 +483,7 @@ async function confirmDelete() {
                   <button
                     type="button"
                     class="inline-flex max-w-full items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    @click.stop
                   >
                     <span class="truncate">{{ formatCar(row.cars[0]!) }}</span>
                     <span class="shrink-0 text-muted-foreground">+{{ row.cars.length - 1 }}</span>
@@ -468,7 +502,7 @@ async function confirmDelete() {
                   variant="ghost"
                   size="icon-sm"
                   :aria-label="`Редактировать клиента ${row.name || row.phone}`"
-                  @click="openEdit(row)"
+                  @click.stop="openEdit(row)"
                 >
                   <Pencil class="size-3.5" />
                 </Button>
@@ -476,7 +510,7 @@ async function confirmDelete() {
                   variant="ghost"
                   size="icon-sm"
                   :aria-label="`Удалить клиента ${row.name || row.phone}`"
-                  @click="askDelete(row)"
+                  @click.stop="askDelete(row)"
                 >
                   <Trash2 class="size-3.5" />
                 </Button>
@@ -500,6 +534,8 @@ async function confirmDelete() {
       :client="editing"
       @saved="invalidateClients"
     />
+
+    <ClientDetailDialog :open="detailOpen" :client-id="detailId" />
 
     <AlertDialog
       :open="deleteDialogOpen"
