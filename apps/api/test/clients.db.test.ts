@@ -21,7 +21,13 @@ vi.mock('../src/db/client-cars.js', () => ({
 }))
 
 import { _setDbForTest, type Db } from '../src/db/client.js'
-import { deleteClient, createClient, updateClient, ClientError } from '../src/db/clients.js'
+import {
+  deleteClient,
+  createClient,
+  updateClient,
+  getClientStats,
+  ClientError,
+} from '../src/db/clients.js'
 import { syncClientCars, listCarsByClient } from '../src/db/client-cars.js'
 
 // Minimal thenable query-builder fake. `deleteClient` runs a `select` (the
@@ -141,6 +147,43 @@ describe('createClient', () => {
     expect(vi.mocked(syncClientCars)).toHaveBeenCalledWith(CLIENT_ID, [
       { makeModel: 'Toyota Camry', plate: 'А123АА77' },
     ])
+  })
+})
+
+describe('getClientStats', () => {
+  it('maps a client with no «Выдана» rows to zero/nulls', async () => {
+    // The «Выдана» predicate yields no rows → the aggregate is 0/0/null/null.
+    _setDbForTest(
+      makeFakeDb({
+        selectResults: [[{ totalSpent: '0', visitCount: '0', lastVisit: null, firstVisit: null }]],
+        deleteResults: [],
+      }),
+    )
+
+    await expect(getClientStats(CLIENT_ID)).resolves.toEqual({
+      totalSpent: 0,
+      visitCount: 0,
+      lastVisit: null,
+      firstVisit: null,
+    })
+  })
+
+  it('coerces postgres string aggregates to numbers, dates pass through', async () => {
+    _setDbForTest(
+      makeFakeDb({
+        selectResults: [
+          [{ totalSpent: '15000', visitCount: '3', lastVisit: '2026-06-10', firstVisit: '2026-01-05' }],
+        ],
+        deleteResults: [],
+      }),
+    )
+
+    await expect(getClientStats(CLIENT_ID)).resolves.toEqual({
+      totalSpent: 15000,
+      visitCount: 3,
+      lastVisit: '2026-06-10',
+      firstVisit: '2026-01-05',
+    })
   })
 })
 

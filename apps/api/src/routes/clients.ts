@@ -3,6 +3,7 @@ import type { Context } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
+  clientDetailOkSchema,
   clientInputSchema,
   clientSchema,
   dbUnavailableErrorSchema,
@@ -15,10 +16,13 @@ import {
   ClientError,
   createClient,
   deleteClient,
+  getClientById,
+  getClientStats,
   listClients,
   updateClient,
 } from '../db/clients.js'
-import { listCarsByClientIds } from '../db/client-cars.js'
+import { listCarsByClient, listCarsByClientIds } from '../db/client-cars.js'
+import { listBookingsByClientId, toBookingRow } from '../db/bookings.js'
 import type { Car } from '@detailing-admin/shared'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
@@ -119,6 +123,27 @@ const respConflictHasBookings = {
   content: { 'application/json': { schema: conflictHasBookingsSchema } },
 }
 
+// Hard cap on the history a card returns; one client's mirror is small in
+// practice, so this only guards against an anomaly. Fetch cap+1 to flag truncation.
+const CLIENT_HISTORY_CAP = 500
+
+const getClientRoute = createRoute({
+  method: 'get',
+  path: '/{id}',
+  tags: ['clients'],
+  request: { params: idParamSchema },
+  responses: {
+    200: {
+      description: 'Client detail',
+      content: { 'application/json': { schema: clientDetailOkSchema } },
+    },
+    400: respValidation,
+    404: respNotFound,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
 const listClientsRoute = createRoute({
   method: 'get',
   path: '/',
@@ -193,6 +218,56 @@ const deleteClientRoute = createRoute({
 })
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
+  .openapi(getClientRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { id } = c.req.valid('param')
+    try {
+      const client = await getClientById(id)
+      if (!client) {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      // One client's card: cars, lifetime «Выдана» stats, and the capped history
+      // (all statuses) in parallel — no N+1 across the three reads.
+      const [cars, stats, historyRows] = await Promise.all([
+        listCarsByClient(id),
+        getClientStats(id),
+        listBookingsByClientId(id, CLIENT_HISTORY_CAP),
+      ])
+      const bookingsTruncated = historyRows.length > CLIENT_HISTORY_CAP
+      const bookings = (
+        bookingsTruncated ? historyRows.slice(0, CLIENT_HISTORY_CAP) : historyRows
+      ).map((r) => toBookingRow(r, { includeAmount: true }))
+      baseLogger.info(
+        {
+          event: 'clients.detail',
+          request_id: requestId,
+          client_id: id,
+          bookings: bookings.length,
+          status: 200,
+        },
+        'Client detail',
+      )
+      return c.json(
+        { ok: true as const, client: toWireClient(client, cars), stats, bookings, bookingsTruncated },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      baseLogger.error(
+        {
+          event: 'clients.detail.error',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+          status: 500,
+        },
+        'Client detail query failed',
+      )
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    }
+  })
   .openapi(listClientsRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)

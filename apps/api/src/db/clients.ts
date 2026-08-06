@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm'
 import { normalizePhone } from '@detailing-admin/shared/phone'
-import type { Car, CarInput } from '@detailing-admin/shared/client'
+import type { Car, CarInput, ClientStats } from '@detailing-admin/shared/client'
 import { getDb } from './client.js'
 import { listCarsByClient, syncClientCars } from './client-cars.js'
+import { REVENUE_READINESS } from './analytics.js'
 import { bookings, clients, type Client } from './schema.js'
 
 export type UpsertOutcome = 'inserted' | 'updated' | 'unchanged' | 'skipped'
@@ -160,6 +161,39 @@ export async function updateClient(
   if (!row) throw new ClientError('not_found')
   await syncClientCars(row.id, cars)
   return { client: row, cars: await listCarsByClient(row.id) }
+}
+
+export async function getClientById(id: string): Promise<Client | null> {
+  const db = getDb()
+  const [row] = await db.select().from(clients).where(eq(clients.id, id)).limit(1)
+  return row ?? null
+}
+
+// Lifetime «Выдана»-only aggregates for the client card. Same REVENUE_READINESS
+// predicate as analytics (not the literal hardcoded twice), but no period window.
+// postgres-js returns SUM/COUNT as strings → Number(); MAX/MIN(date_from) come
+// back as 'YYYY-MM-DD' (or null). Caveat: date_from is the planned service date,
+// not the delivery fact, so MAX among «Выдана» can land on a future/multi-day
+// start date — the same approximation analytics accepts when bucketing by date_from.
+export async function getClientStats(clientId: string): Promise<ClientStats> {
+  const db = getDb()
+  const [row] = await db
+    .select({
+      totalSpent: sql<string>`coalesce(sum(${bookings.amount}), 0)`,
+      visitCount: sql<string>`count(*)`,
+      lastVisit: sql<string | null>`max(${bookings.dateFrom})`,
+      firstVisit: sql<string | null>`min(${bookings.dateFrom})`,
+    })
+    .from(bookings)
+    .where(
+      and(eq(bookings.clientId, clientId), inArray(bookings.readiness, [...REVENUE_READINESS])),
+    )
+  return {
+    totalSpent: Number(row?.totalSpent ?? 0),
+    visitCount: Number(row?.visitCount ?? 0),
+    lastVisit: row?.lastVisit ?? null,
+    firstVisit: row?.firstVisit ?? null,
+  }
 }
 
 export async function deleteClient(id: string): Promise<void> {

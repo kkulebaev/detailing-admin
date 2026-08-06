@@ -49,13 +49,20 @@ vi.mock('../src/db/client-cars.js', () => ({
   selectCarId: vi.fn(),
 }))
 
-vi.mock('../src/db/bookings.js', () => ({
-  insertBooking: vi.fn(),
-  listBookings: vi.fn(),
-  updateBooking: vi.fn(),
-  updateBookingReadiness: vi.fn(),
-  deleteBooking: vi.fn(),
-}))
+// Partial mock: the DB-hitting functions are stubbed, but the pure toBookingRow
+// mapper stays real — the GET list regression assertions (id-links dropped,
+// amount hidden for non-admin) exercise the extracted mapper through the route.
+vi.mock('../src/db/bookings.js', async (importActual) => {
+  const actual = await importActual<typeof import('../src/db/bookings.js')>()
+  return {
+    ...actual,
+    insertBooking: vi.fn(),
+    listBookings: vi.fn(),
+    updateBooking: vi.fn(),
+    updateBookingReadiness: vi.fn(),
+    deleteBooking: vi.fn(),
+  }
+})
 
 vi.mock('../src/notify.js', () => ({
   notifyMaster: vi.fn(),

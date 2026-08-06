@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm'
 import type { Booking as WireBooking } from '@detailing-admin/shared/booking'
+import type { BookingRow } from '@detailing-admin/shared/booking-row'
 import { joinCar } from '@detailing-admin/shared/car'
 import { ddmmyyyyToIso } from '@detailing-admin/shared/date'
 import { normalizePhone } from '@detailing-admin/shared/phone'
@@ -139,6 +140,45 @@ async function withLiveMasterNames(rows: Booking[]): Promise<Booking[]> {
       (r.responsibleId != null ? respNames.get(r.responsibleId) : undefined) ?? r.responsible
     return { ...r, master, responsible }
   })
+}
+
+/** Maps a stored `bookings` row to its wire shape. Drops all three internal
+ * id-links (`idempotencyKey`, `responsibleId`, `carId` — never part of the wire
+ * response) and serializes `createdAt`. `amount`/`amountFormula` are admin-only:
+ * included only when `includeAmount` — a non-admin caller must pass `false` so the
+ * money fields stay omitted (undefined) in the response. */
+export function toBookingRow(row: Booking, opts: { includeAmount: boolean }): BookingRow {
+  const {
+    idempotencyKey: _idempotencyKey,
+    responsibleId: _responsibleId,
+    carId: _carId,
+    createdAt,
+    amount,
+    amountFormula,
+    ...rest
+  } = row
+  return {
+    ...rest,
+    createdAt: createdAt.toISOString(),
+    ...(opts.includeAmount ? { amount, amountFormula } : {}),
+  }
+}
+
+/** Full booking history for one client, newest first. Fetches `limit + 1` rows so
+ * the caller can flag truncation without a second COUNT; `bookings_client_id_idx`
+ * keeps it cheap. Live master names are overlaid as on every read path. */
+export async function listBookingsByClientId(
+  clientId: string,
+  limit: number,
+): Promise<Booking[]> {
+  const db = getDb()
+  const rows = await db
+    .select()
+    .from(bookings)
+    .where(eq(bookings.clientId, clientId))
+    .orderBy(desc(bookings.dateFrom), desc(bookings.createdAt))
+    .limit(limit + 1)
+  return withLiveMasterNames(rows)
 }
 
 /** Best-effort mirror insert. Idempotent on `idempotencyKey`: a duplicate key is

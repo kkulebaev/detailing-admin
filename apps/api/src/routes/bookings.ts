@@ -32,6 +32,7 @@ import {
   deleteBooking,
   insertBooking,
   listBookings,
+  toBookingRow,
   updateBooking,
   updateBookingReadiness,
 } from '../db/bookings.js'
@@ -526,28 +527,11 @@ router.openapi(
         readiness: query.readiness,
         q: query.q,
       })
-      // Drop the internal idempotency key, serialize the timestamp, and hide the
-      // amount from non-admin roles — amounts are admin-only (the GET list is
-      // otherwise available to any authenticated role).
+      // Amounts are admin-only (the GET list is otherwise available to any
+      // authenticated role); toBookingRow drops the internal id-links and
+      // serializes the timestamp.
       const isAdmin = c.get('user')?.role === 'admin'
-      const items = rows.map(
-        ({
-          idempotencyKey: _idempotencyKey,
-          // Internal derived id-links — never part of the wire response (the
-          // snapshot `responsible` name and `car` string are what the UI/Sheets
-          // use).
-          responsibleId: _responsibleId,
-          carId: _carId,
-          createdAt,
-          amount,
-          amountFormula,
-          ...rest
-        }) => ({
-          ...rest,
-          createdAt: createdAt.toISOString(),
-          ...(isAdmin ? { amount, amountFormula } : {}),
-        }),
-      )
+      const items = rows.map((row) => toBookingRow(row, { includeAmount: isAdmin }))
       baseLogger.info(
         { event: 'bookings.list', request_id: requestId, count: items.length, total, status: 200 },
         'Bookings listed',
