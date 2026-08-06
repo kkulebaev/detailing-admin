@@ -9,6 +9,7 @@ import { buildMonthOptions } from '@/lib/month-options'
 import { calToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
 import { deleteBooking, updateBookingReadiness, type GetApiBookingsParams } from '@/lib/bookings-api'
+import { readinessRowClass } from '@/lib/readiness'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
@@ -386,29 +387,10 @@ function formatCreatedAt(iso: string): string {
   })
 }
 
-// Заливка строки по статусу готовности — как в исходной таблице. Прочие статусы
-// (Готова к выдаче, Оплачено, Не оплачено) пока без заливки. hover намеренно
-// отключён: базовый цвет помечен важным (`!`), поэтому он выигрывает и в hover-
-// состоянии над вшитым в TableRow `hover:bg-muted/50` — hover-класс каждому
-// статусу не нужен. Некрашеным строкам гасим тот же hover одной общей строкой.
-// Ключ — конкретный Readiness (не string): опечатка в статусе теперь ошибка
-// компиляции. Partial — красим не все статусы. `readiness` из BookingRow сужен
-// до `Readiness | ''` (контракт), '' и незакрашенные статусы дают fallback.
-const READINESS_ROW_CLASS: Partial<Record<Readiness, string>> = {
-  'В работе': 'bg-orange-100!',
-  Перенос: 'bg-violet-100!',
-  // «Выдана» — отработанные записи: приглушаем (почти белый фон + серый текст),
-  // чтобы взгляд цеплялся за активные статусы, а не за завершённые.
-  Выдана: 'bg-zinc-50! text-muted-foreground',
-  'Не ответил': 'bg-rose-100!',
-  Подтвердил: 'bg-green-100!',
-  'Не приехал': 'bg-red-200!',
-  Отмена: 'bg-amber-100!',
-}
-function readinessRowClass(readiness: BookingRow['readiness']): string {
-  if (!readiness) return 'hover:bg-transparent'
-  return READINESS_ROW_CLASS[readiness] ?? 'hover:bg-transparent'
-}
+// Заливка строки по статусу готовности живёт в lib/readiness.ts (общая с бейджем
+// карточки клиента) — перекрас статуса правится в одном месте. hover намеренно
+// отключён: базовый цвет помечен важным (`!`) и выигрывает над вшитым в TableRow
+// `hover:bg-muted/50`; некрашеным строкам гасим тот же hover общей строкой.
 </script>
 
 <template>
