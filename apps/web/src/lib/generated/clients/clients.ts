@@ -16,6 +16,11 @@ import type {
   GetApiClients400,
   GetApiClients500,
   GetApiClients503,
+  GetApiClientsId200,
+  GetApiClientsId400,
+  GetApiClientsId404,
+  GetApiClientsId500,
+  GetApiClientsId503,
   GetApiClientsParams,
   PatchApiClientsId200,
   PatchApiClientsId400,
@@ -35,117 +40,56 @@ import type {
 
 import { orvalFetch } from '../../orval-mutator';
 
-export type getApiClientsResponse200 = {
-  data: GetApiClients200
+export type getApiClientsIdResponse200 = {
+  data: GetApiClientsId200
   status: 200
 }
 
-export type getApiClientsResponse400 = {
-  data: GetApiClients400
+export type getApiClientsIdResponse400 = {
+  data: GetApiClientsId400
   status: 400
 }
 
-export type getApiClientsResponse500 = {
-  data: GetApiClients500
+export type getApiClientsIdResponse404 = {
+  data: GetApiClientsId404
+  status: 404
+}
+
+export type getApiClientsIdResponse500 = {
+  data: GetApiClientsId500
   status: 500
 }
 
-export type getApiClientsResponse503 = {
-  data: GetApiClients503
+export type getApiClientsIdResponse503 = {
+  data: GetApiClientsId503
   status: 503
 }
 
-export type getApiClientsResponseSuccess = (getApiClientsResponse200) & {
+export type getApiClientsIdResponseSuccess = (getApiClientsIdResponse200) & {
   headers: Headers;
 };
-export type getApiClientsResponseError = (getApiClientsResponse400 | getApiClientsResponse500 | getApiClientsResponse503) & {
+export type getApiClientsIdResponseError = (getApiClientsIdResponse400 | getApiClientsIdResponse404 | getApiClientsIdResponse500 | getApiClientsIdResponse503) & {
   headers: Headers;
 };
 
-export type getApiClientsResponse = (getApiClientsResponseSuccess | getApiClientsResponseError)
+export type getApiClientsIdResponse = (getApiClientsIdResponseSuccess | getApiClientsIdResponseError)
 
-export const getGetApiClientsUrl = (params?: GetApiClientsParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getGetApiClientsIdUrl = (id: string,) => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/clients?${stringifiedParams}` : `/api/clients`
+  return `/api/clients/${id}`
 }
 
-export const getApiClients = async (params?: GetApiClientsParams, options?: RequestInit): Promise<getApiClientsResponse> => {
+export const getApiClientsId = async (id: string, options?: RequestInit): Promise<getApiClientsIdResponse> => {
 
-  return orvalFetch<getApiClientsResponse>(getGetApiClientsUrl(params),
+  return orvalFetch<getApiClientsIdResponse>(getGetApiClientsIdUrl(id),
   {
     ...options,
     method: 'GET'
 
 
-  }
-);}
-
-
-export type postApiClientsResponse201 = {
-  data: PostApiClients201
-  status: 201
-}
-
-export type postApiClientsResponse400 = {
-  data: PostApiClients400
-  status: 400
-}
-
-export type postApiClientsResponse404 = {
-  data: PostApiClients404
-  status: 404
-}
-
-export type postApiClientsResponse409 = {
-  data: PostApiClients409
-  status: 409
-}
-
-export type postApiClientsResponse500 = {
-  data: PostApiClients500
-  status: 500
-}
-
-export type postApiClientsResponse503 = {
-  data: PostApiClients503
-  status: 503
-}
-
-export type postApiClientsResponseSuccess = (postApiClientsResponse201) & {
-  headers: Headers;
-};
-export type postApiClientsResponseError = (postApiClientsResponse400 | postApiClientsResponse404 | postApiClientsResponse409 | postApiClientsResponse500 | postApiClientsResponse503) & {
-  headers: Headers;
-};
-
-export type postApiClientsResponse = (postApiClientsResponseSuccess | postApiClientsResponseError)
-
-export const getPostApiClientsUrl = () => {
-
-
-
-
-  return `/api/clients`
-}
-
-export const postApiClients = async (postApiClientsBody?: PostApiClientsBody, options?: RequestInit): Promise<postApiClientsResponse> => {
-
-  return orvalFetch<postApiClientsResponse>(getPostApiClientsUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(postApiClientsBody)
   }
 );}
 
@@ -265,6 +209,121 @@ export const deleteApiClientsId = async (id: string, options?: RequestInit): Pro
     method: 'DELETE'
 
 
+  }
+);}
+
+
+export type getApiClientsResponse200 = {
+  data: GetApiClients200
+  status: 200
+}
+
+export type getApiClientsResponse400 = {
+  data: GetApiClients400
+  status: 400
+}
+
+export type getApiClientsResponse500 = {
+  data: GetApiClients500
+  status: 500
+}
+
+export type getApiClientsResponse503 = {
+  data: GetApiClients503
+  status: 503
+}
+
+export type getApiClientsResponseSuccess = (getApiClientsResponse200) & {
+  headers: Headers;
+};
+export type getApiClientsResponseError = (getApiClientsResponse400 | getApiClientsResponse500 | getApiClientsResponse503) & {
+  headers: Headers;
+};
+
+export type getApiClientsResponse = (getApiClientsResponseSuccess | getApiClientsResponseError)
+
+export const getGetApiClientsUrl = (params?: GetApiClientsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/clients?${stringifiedParams}` : `/api/clients`
+}
+
+export const getApiClients = async (params?: GetApiClientsParams, options?: RequestInit): Promise<getApiClientsResponse> => {
+
+  return orvalFetch<getApiClientsResponse>(getGetApiClientsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type postApiClientsResponse201 = {
+  data: PostApiClients201
+  status: 201
+}
+
+export type postApiClientsResponse400 = {
+  data: PostApiClients400
+  status: 400
+}
+
+export type postApiClientsResponse404 = {
+  data: PostApiClients404
+  status: 404
+}
+
+export type postApiClientsResponse409 = {
+  data: PostApiClients409
+  status: 409
+}
+
+export type postApiClientsResponse500 = {
+  data: PostApiClients500
+  status: 500
+}
+
+export type postApiClientsResponse503 = {
+  data: PostApiClients503
+  status: 503
+}
+
+export type postApiClientsResponseSuccess = (postApiClientsResponse201) & {
+  headers: Headers;
+};
+export type postApiClientsResponseError = (postApiClientsResponse400 | postApiClientsResponse404 | postApiClientsResponse409 | postApiClientsResponse500 | postApiClientsResponse503) & {
+  headers: Headers;
+};
+
+export type postApiClientsResponse = (postApiClientsResponseSuccess | postApiClientsResponseError)
+
+export const getPostApiClientsUrl = () => {
+
+
+
+
+  return `/api/clients`
+}
+
+export const postApiClients = async (postApiClientsBody?: PostApiClientsBody, options?: RequestInit): Promise<postApiClientsResponse> => {
+
+  return orvalFetch<postApiClientsResponse>(getPostApiClientsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(postApiClientsBody)
   }
 );}
 
