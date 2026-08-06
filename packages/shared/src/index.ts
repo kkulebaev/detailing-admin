@@ -6,6 +6,8 @@ export { normalizePhone } from './phone.js'
 export { bookingSchema, carClassSchema, DEFAULT_CAR_CLASS, MAX_MASTERS } from './booking.js'
 export type { Booking, CarClass } from './booking.js'
 export { EXPECTED_HEADERS, bookingToRow } from './sheet-row.js'
+export { csvField, toCsv } from './csv.js'
+export type { ToCsvOptions } from './csv.js'
 export {
   bookingRowSchema,
   bookingsListOkSchema,
