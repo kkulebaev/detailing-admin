@@ -96,8 +96,19 @@ export {
   clientsListResponseSchema,
   clientMutationResponseSchema,
   clientDeleteResponseSchema,
+  clientStatsSchema,
+  clientDetailOkSchema,
+  clientDetailResponseSchema,
 } from './client.js'
-export type { ClientInput, Client, Car, CarInput } from './client.js'
+export type {
+  ClientInput,
+  Client,
+  Car,
+  CarInput,
+  ClientStats,
+  ClientDetailOk,
+  ClientDetailResponse,
+} from './client.js'
 export { joinCar, normalizeCarKey } from './car.js'
 export {
   masterSchema,

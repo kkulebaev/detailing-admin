@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { normalizePhone } from './phone.js'
+import { bookingRowSchema } from './booking-row.js'
 import {
   dbUnavailableErrorSchema,
   internalErrorSchema,
@@ -70,6 +71,45 @@ export const clientDeleteResponseSchema = z.union([
   dbUnavailableErrorSchema,
   internalErrorSchema,
 ])
+
+// Lifetime «Выдана»-only aggregates for the client card. `totalSpent`/`visitCount`
+// are the same «Выдана» rule as analytics but with no period window, so the numbers
+// need not match a period-scoped `/analytics` view. `lastVisit`/`firstVisit` are
+// ISO `YYYY-MM-DD` (or null when the client has no delivered bookings). The API
+// coerces postgres-js string aggregates via Number() before building the response.
+export const clientStatsSchema = z.object({
+  totalSpent: z.number(),
+  visitCount: z.number(),
+  lastVisit: z.string().nullable(),
+  firstVisit: z.string().nullable(),
+})
+
+export type ClientStats = z.infer<typeof clientStatsSchema>
+
+// Client card payload: the client (with cars), lifetime stats, and the full
+// booking history (all statuses) reusing the shared `bookingRowSchema`.
+// `bookingsTruncated` flags that the history hit the server-side cap.
+export const clientDetailOkSchema = z.object({
+  ok: z.literal(true),
+  client: clientSchema,
+  stats: clientStatsSchema,
+  bookings: z.array(bookingRowSchema),
+  bookingsTruncated: z.boolean(),
+})
+
+export type ClientDetailOk = z.infer<typeof clientDetailOkSchema>
+
+// `validationErrorSchema` is required: the route returns 400 on a malformed uuid,
+// so the web-side `ClientDetailResult` must be able to represent it.
+export const clientDetailResponseSchema = z.union([
+  clientDetailOkSchema,
+  validationErrorSchema,
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export type ClientDetailResponse = z.infer<typeof clientDetailResponseSchema>
 
 // One car as submitted by the client dialog. Unlike `carSchema` (a persisted
 // row, carries `id`), this is the write shape: no id, plate optional. The db
