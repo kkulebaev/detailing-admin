@@ -667,6 +667,112 @@ describe('GET /api/bookings', () => {
   })
 })
 
+describe('GET /api/bookings/export', () => {
+  let app: ReturnType<typeof createApp>
+  let cookie = ''
+
+  const SAMPLE_ROW: Booking = {
+    id: '11111111-1111-1111-1111-111111111111',
+    idempotencyKey: 'key-1',
+    clientId: null,
+    name: 'Иван',
+    phone: '+79991234567',
+    car: 'Toyota Camry',
+    service: 'Полировка',
+    note: '',
+    amount: 5000,
+    amountFormula: null,
+    dateFrom: '2026-06-04',
+    dateTo: null,
+    timeFrom: '10:00',
+    timeTo: null,
+    readiness: '',
+    master: ['Иван Содель'],
+    responsible: 'Иван Содель',
+    responsibleId: 7,
+    carId: 'car-uuid-1',
+    carClass: 3,
+    sheetRow: 5,
+    sheetRange: 'Запись 2026!A5',
+    createdAt: new Date('2026-06-01T12:00:00.000Z'),
+  }
+
+  beforeEach(async () => {
+    app = createApp()
+    cookie = await adminCookie()
+    vi.mocked(isDbReady).mockReturnValue(true)
+    vi.mocked(listBookings).mockResolvedValue({ items: [SAMPLE_ROW], total: 1 })
+  })
+
+  const getExport = (query = '', headers: Record<string, string> = { Cookie: cookie }) =>
+    app.request(`/api/bookings/export${query}`, { method: 'GET', headers })
+
+  it('returns 200 text/csv with BOM and Content-Disposition for admin', async () => {
+    const res = await getExport()
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toContain('text/csv')
+    expect(res.headers.get('Content-Disposition')).toMatch(
+      /attachment; filename="bookings-\d{4}-\d{2}-\d{2}\.csv"/,
+    )
+    // Read the raw bytes: res.text() decodes UTF-8 and strips a leading BOM, so
+    // the BOM must be asserted on the wire bytes (EF BB BF).
+    const buf = new Uint8Array(await res.arrayBuffer())
+    expect(Array.from(buf.slice(0, 3))).toEqual([0xef, 0xbb, 0xbf])
+    const text = new TextDecoder('utf-8').decode(buf)
+    // Admin sees the money column; the phone is injection-neutralized ('+7…).
+    expect(text).toContain('Сумма')
+    expect(text).toContain('Иван')
+    expect(text).toContain("'+79991234567")
+  })
+
+  it('omits the Сумма column for a non-admin role', async () => {
+    const res = await getExport('', { Cookie: await employeeCookie() })
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).not.toContain('Сумма')
+    expect(text).toContain('Иван')
+  })
+
+  it('forwards filters to listBookings with the export cap and no paging', async () => {
+    const qs = new URLSearchParams({
+      dateFrom: '04.06.2026',
+      dateTo: '05.06.2026',
+      master: 'Иван Содель',
+      readiness: 'В работе',
+      q: 'Toyota',
+    })
+    await getExport(`?${qs.toString()}`)
+    expect(vi.mocked(listBookings)).toHaveBeenCalledWith({
+      limit: 10000,
+      offset: 0,
+      dateFrom: '2026-06-04',
+      dateTo: '2026-06-05',
+      master: 'Иван Содель',
+      readiness: 'В работе',
+      q: 'Toyota',
+    })
+  })
+
+  it('returns 503 when DB is not ready, without querying', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await getExport()
+    expect(res.status).toBe(503)
+    expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 for a malformed date filter', async () => {
+    const res = await getExport('?dateFrom=2026-06-04')
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('validation')
+    expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 without an auth cookie', async () => {
+    const res = await getExport('', {})
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('PATCH & DELETE /api/bookings/{id}', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''

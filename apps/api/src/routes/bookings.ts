@@ -11,12 +11,15 @@ import {
   bookingsListOkSchema,
   dbUnavailableErrorSchema,
   ddmmyyyyToIso,
+  formatDdmmyyyy,
   internalErrorSchema,
   notFoundErrorSchema,
   sheetsErrorSchema,
+  toCsv,
   unavailableErrorSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
+import type { BookingRow } from '@detailing-admin/shared'
 import {
   getBootState,
   getBootHeadersMismatch,
@@ -39,6 +42,7 @@ import {
 import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
+import { EXPORT_CAP, SHOP_TIMEZONE } from '../export.js'
 
 type Vars = { requestId: string }
 
@@ -729,5 +733,136 @@ router.openapi(
   },
   defaultValidationHook,
 )
+
+/** ISO `YYYY-MM-DD` → `DD.MM.YYYY` for a report cell. */
+function isoDateCell(iso: string): string {
+  return formatDdmmyyyy(new Date(iso))
+}
+
+/** ISO datetime → `DD.MM.YYYY HH:mm` in the shop's timezone for the «Создано»
+ * column — matches the local time staff see, not raw UTC. */
+function isoDateTimeCell(iso: string): string {
+  const parts = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: SHOP_TIMEZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(iso))
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+  return `${get('day')}.${get('month')}.${get('year')} ${get('hour')}:${get('minute')}`
+}
+
+/** One CSV row from a wire booking. `amount` is present only when `includeAmount`
+ * (admin) — the column set must match the header built with the same flag. */
+function bookingCsvRow(r: BookingRow, includeAmount: boolean): string[] {
+  const date = r.dateTo ? `${isoDateCell(r.dateFrom)}-${isoDateCell(r.dateTo)}` : isoDateCell(r.dateFrom)
+  const time = r.timeTo ? `${r.timeFrom}-${r.timeTo}` : r.timeFrom
+  return [
+    date,
+    time,
+    r.name,
+    r.phone,
+    r.car,
+    r.service,
+    ...(includeAmount ? [r.amount != null ? String(r.amount) : ''] : []),
+    r.readiness,
+    r.master.join(', '),
+    r.responsible,
+    isoDateTimeCell(r.createdAt),
+  ]
+}
+
+// CSV export of the current filtered selection. Plain `router.get` (not
+// `.openapi()`): CSV is not JSON, so it stays out of `/openapi.json` and the
+// orval client by design. Registered as a separate statement after the chain so
+// it doesn't narrow the OpenAPIHono type. No OpenAPI query validation here → the
+// list query schema is parsed by hand (400 on a bad filter).
+router.get('/export', async (c) => {
+  const requestId = uuidv4()
+  c.header('X-Request-Id', requestId)
+
+  if (!isDbReady()) {
+    return c.json(
+      {
+        ok: false as const,
+        error: 'unavailable' as const,
+        reason: 'not_configured' as const,
+        message: 'Database not configured or migrations failed',
+      },
+      StatusCodes.SERVICE_UNAVAILABLE,
+    )
+  }
+
+  const parsed = listQuerySchema.omit({ limit: true, offset: true }).safeParse(c.req.query())
+  if (!parsed.success) {
+    return c.json(
+      {
+        ok: false as const,
+        error: 'validation' as const,
+        issues: parsed.error.issues.map((i) => ({
+          path: i.path.map((p) => (typeof p === 'symbol' ? String(p) : p)),
+          message: i.message,
+        })),
+      },
+      StatusCodes.BAD_REQUEST,
+    )
+  }
+  const query = parsed.data
+
+  try {
+    // Amounts are admin-only, same gating as the GET list.
+    const includeAmount = c.get('user')?.role === 'admin'
+    const { items } = await listBookings({
+      limit: EXPORT_CAP,
+      offset: 0,
+      dateFrom: query.dateFrom ? ddmmyyyyToIso(query.dateFrom) : undefined,
+      dateTo: query.dateTo ? ddmmyyyyToIso(query.dateTo) : undefined,
+      master: query.master,
+      readiness: query.readiness,
+      q: query.q,
+    })
+    const header = [
+      'Дата',
+      'Время',
+      'Имя',
+      'Телефон',
+      'Авто',
+      'Услуга',
+      ...(includeAmount ? ['Сумма'] : []),
+      'Готовность',
+      'Мастера',
+      'Ответственный',
+      'Создано',
+    ]
+    const rows = items.map((row) => bookingCsvRow(toBookingRow(row, { includeAmount }), includeAmount))
+    const csv = toCsv([header, ...rows], { delimiter: ';', bom: true })
+
+    const truncated = items.length >= EXPORT_CAP
+    baseLogger[truncated ? 'warn' : 'info'](
+      { event: 'bookings.export', request_id: requestId, count: items.length, truncated, status: 200 },
+      truncated ? 'Bookings export truncated at cap' : 'Bookings exported',
+    )
+
+    const filename = `bookings-${new Date().toISOString().slice(0, 10)}.csv`
+    return c.body(csv, StatusCodes.OK, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    })
+  } catch (err) {
+    baseLogger.error(
+      {
+        event: 'bookings.export.error',
+        request_id: requestId,
+        message: err instanceof Error ? err.message : String(err),
+        status: 500,
+      },
+      'Bookings export failed',
+    )
+    return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  }
+})
 
 export default router

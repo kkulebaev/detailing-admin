@@ -7,8 +7,11 @@ import {
   clientInputSchema,
   clientSchema,
   dbUnavailableErrorSchema,
+  formatDdmmyyyy,
   internalErrorSchema,
+  joinCar,
   notFoundErrorSchema,
+  toCsv,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
@@ -26,6 +29,7 @@ import { listBookingsByClientId, toBookingRow } from '../db/bookings.js'
 import type { Car } from '@detailing-admin/shared'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
+import { EXPORT_CAP } from '../export.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -218,6 +222,15 @@ const deleteClientRoute = createRoute({
 })
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
+
+// Register /export BEFORE the /{id} route below: Hono runs every matching
+// handler in registration order, and GET /{id}'s UUID param validation would
+// otherwise reject `/export` with a 400 before this handler ran. A separate
+// statement (not spliced into the .openapi() chain) keeps the OpenAPIHono type
+// intact for the chained links.
+router.get('/export', clientsExportHandler)
+
+router
   .openapi(getClientRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
@@ -389,5 +402,76 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return clientErrorFallback(c, err)
     }
   })
+
+// CSV export of the current filtered selection. Plain handler (not `.openapi()`):
+// CSV is not JSON → deliberately out of `/openapi.json` and the orval client. The
+// `/api/clients/*` admin guard already covers this subpath. Registered above the
+// `/{id}` route (see there) so it isn't shadowed. No OpenAPI query validation on a
+// plain route → the list query is parsed by hand (400 on a bad filter).
+async function clientsExportHandler(c: Context) {
+  const requestId = uuidv4()
+  c.header('X-Request-Id', requestId)
+
+  if (!isDbReady()) return unavailable(c)
+
+  const parsed = listQuerySchema.omit({ limit: true, offset: true }).safeParse(c.req.query())
+  if (!parsed.success) {
+    return c.json(
+      {
+        ok: false as const,
+        error: 'validation' as const,
+        issues: parsed.error.issues.map((i) => ({
+          path: i.path.map((p) => (typeof p === 'symbol' ? String(p) : p)),
+          message: i.message,
+        })),
+      },
+      StatusCodes.BAD_REQUEST,
+    )
+  }
+  const query = parsed.data
+
+  try {
+    const { items } = await listClients({
+      limit: EXPORT_CAP,
+      offset: 0,
+      q: query.q,
+      sort: query.sort,
+      dir: query.dir,
+    })
+    const carsByClient = await listCarsByClientIds(items.map((r) => r.id))
+    const header = ['Имя', 'Телефон', 'Добавлен', 'Машины']
+    const rows = items.map((r) => {
+      // Multiple cars are joined with ` / `; each car itself is «make, plate».
+      const cars = (carsByClient.get(r.id) ?? [])
+        .map((car) => joinCar(car.makeModel, car.plate))
+        .join(' / ')
+      return [r.name, r.phone, formatDdmmyyyy(r.createdAt), cars]
+    })
+    const csv = toCsv([header, ...rows], { delimiter: ';', bom: true })
+
+    const truncated = items.length >= EXPORT_CAP
+    baseLogger[truncated ? 'warn' : 'info'](
+      { event: 'clients.export', request_id: requestId, count: items.length, truncated, status: 200 },
+      truncated ? 'Clients export truncated at cap' : 'Clients exported',
+    )
+
+    const filename = `clients-${new Date().toISOString().slice(0, 10)}.csv`
+    return c.body(csv, StatusCodes.OK, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    })
+  } catch (err) {
+    baseLogger.error(
+      {
+        event: 'clients.export.error',
+        request_id: requestId,
+        message: err instanceof Error ? err.message : String(err),
+        status: 500,
+      },
+      'Clients export failed',
+    )
+    return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  }
+}
 
 export default router
