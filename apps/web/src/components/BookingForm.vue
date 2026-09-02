@@ -208,6 +208,14 @@ function maskCar(raw: string): string {
   return capitalizeWords(raw)
 }
 
+// Gboard держит набираемое слово в композиции до пробела/коммита, и правка
+// value/каретки в этот момент сбивает сессию ввода: символы теряются, курсор
+// прыгает. Пока композиция активна, маска не применяется — в форму уходит сырой
+// текст, а закрывающий `input` (он приходит уже без флага) домаскирует его.
+function isComposingInput(e: Event): boolean {
+  return e instanceof InputEvent && e.isComposing
+}
+
 function parseDateText(text: string): DateValue | null {
   const m = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
   if (!m) return null
@@ -534,6 +542,7 @@ function pickTimeTo(t: string) {
 const carPopoverOpen = ref(false)
 const carActiveIndex = ref(0)
 const carListEl = ref<HTMLElement | null>(null)
+const carInputEl = ref<HTMLInputElement | null>(null)
 const MAX_CAR_SUGGESTIONS = 30
 const filteredCars = computed<readonly string[]>(() => {
   const q = (values.car ?? '').trim().toLowerCase()
@@ -545,8 +554,26 @@ const filteredCars = computed<readonly string[]>(() => {
 watch(filteredCars, () => { carActiveIndex.value = 0 })
 
 function selectCar(car: string) {
+  const el = carInputEl.value
+  // Vue's v-model не трогает DOM, пока на элементе активна IME-композиция, а
+  // Gboard держит слово в композиции до пробела/коммита. Без явного коммита
+  // выбранная подсказка оседала только в состоянии формы: поле продолжало
+  // показывать набранный префикс, и следующий же символ затирал выбор.
+  if (el) {
+    el.value = car
+    el.setSelectionRange(car.length, car.length)
+    el.dispatchEvent(new CompositionEvent('compositionend', { data: car }))
+  }
   setFieldValue('car', car)
   carPopoverOpen.value = false
+}
+
+// Повторный тап по уже сфокусированному полю не даёт `focus`, поэтому список
+// открывается ещё и по клику — иначе после закрытия его нельзя было вернуть,
+// не набрав новый символ.
+function openCarSuggestions(e: Event) {
+  if (e.target instanceof HTMLInputElement) carInputEl.value = e.target
+  carPopoverOpen.value = true
 }
 
 function scrollActiveCarIntoView() {
@@ -637,6 +664,10 @@ function onTimeToTextInput(e: Event) {
 function onNameInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
+  if (isComposingInput(e)) {
+    setFieldValue('name', target.value)
+    return
+  }
   const masked = maskName(target.value)
   if (target.value !== masked) {
     target.value = masked
@@ -649,6 +680,11 @@ function onCarInput(e: Event) {
   carPopoverOpen.value = true
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
+  carInputEl.value = target
+  if (isComposingInput(e)) {
+    setFieldValue('car', target.value)
+    return
+  }
   const masked = maskCar(target.value)
   if (target.value !== masked) {
     target.value = masked
@@ -660,6 +696,10 @@ function onCarInput(e: Event) {
 function onLicensePlateInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
+  if (isComposingInput(e)) {
+    licensePlate.value = target.value
+    return
+  }
   const masked = maskLicensePlate(target.value)
   if (target.value !== masked) {
     licensePlate.value = masked
@@ -1381,7 +1421,8 @@ watch(
                         placeholder="Toyota Camry"
                         autocomplete="off"
                         v-bind="componentField"
-                        @focus="carPopoverOpen = true"
+                        @focus="openCarSuggestions"
+                        @click="openCarSuggestions"
                         @input="onCarInput"
                         @blur="carPopoverOpen = false"
                         @keydown="onCarKeydown"
@@ -1402,6 +1443,7 @@ watch(
                           :data-active="i === carActiveIndex"
                           class="w-full text-left px-3 py-2 text-sm outline-none data-[active=true]:bg-accent"
                           @mousedown.prevent="selectCar(car)"
+                          @click="selectCar(car)"
                           @mousemove="carActiveIndex = i"
                         >
                           {{ car }}

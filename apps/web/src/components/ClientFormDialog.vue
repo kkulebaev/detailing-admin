@@ -88,6 +88,13 @@ function removeCar(index: number) {
 function onPlateInput(index: number, e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
+  // Gboard держит набираемое слово в композиции до пробела/коммита; правка
+  // value/каретки в этот момент сбивает сессию ввода. Маскируем только уже
+  // закоммиченный текст — закрывающий `input` приходит без флага композиции.
+  if (e instanceof InputEvent && e.isComposing) {
+    cars.value[index]!.plate = target.value
+    return
+  }
   const masked = maskLicensePlate(target.value)
   if (target.value !== masked) {
     target.value = masked
