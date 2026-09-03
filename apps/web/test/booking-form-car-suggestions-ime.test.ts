@@ -4,12 +4,13 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { ref } from 'vue'
 import type { Client } from '@/lib/clients-api'
 
-// Regression guard for the Android/Gboard bug in «Марка и модель»: Gboard keeps
-// a word in composition until a space/commit, and Vue's v-model refuses to
-// touch the DOM while `el.composing` is set. Picking a suggestion therefore
-// updated the form state but left the field showing the typed prefix — and the
-// next keystroke overwrote the pick. Reproduced only on Android, where an IME
-// composition is active for plain latin typing too.
+// «Марка и модель» suggests as you type. The first cut of this was built on
+// `blur` + an emulated `mousedown` inside a scrollable list, and Android never
+// delivered the pick: Chrome withholds emulated mouse events on a pan-capable
+// container, `blur` tore the popover down before the tap landed, and Vue's
+// v-model refuses to write the DOM while Gboard keeps a word in composition.
+// These tests pin all three: a plain `click` selects, `blur` alone does not
+// close the list, and the mask leaves an in-flight composition alone.
 
 vi.mock('@/composables/use-client-lookup', async () => {
   const { ref: r } = await vi.importActual<typeof import('vue')>('vue')
@@ -43,14 +44,14 @@ function carInput(w: VueWrapper): HTMLInputElement {
 // The popover content is teleported out of the component tree, and reka-ui's
 // Presence keeps the closed node around until the exit animation ends — which
 // never fires without a layout engine. Read the state attribute instead.
-function suggestions(): HTMLElement[] {
+function options(): HTMLElement[] {
   return Array.from(
-    document.querySelectorAll<HTMLElement>('[data-slot="popover-content"][data-state="open"] li button'),
+    document.querySelectorAll<HTMLElement>('[data-slot="popover-content"][data-state="open"] li[role="option"]'),
   )
 }
 
-function suggestion(label: string): HTMLElement | undefined {
-  return suggestions().find((el) => el.textContent?.trim() === label)
+function option(label: string): HTMLElement | undefined {
+  return options().find((el) => el.textContent?.trim() === label)
 }
 
 // Gboard: composition opens on the first keystroke and stays open — no
@@ -63,45 +64,108 @@ async function composeInto(w: VueWrapper, el: HTMLInputElement, text: string) {
   await w.vm.$nextTick()
 }
 
-describe('BookingForm — «Марка и модель» под IME (Android/Gboard)', () => {
+describe('BookingForm — «Марка и модель»', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
     document.body.innerHTML = ''
   })
 
+  it('показывает подсказки прямо при наборе', async () => {
+    const w = mountForm()
+    await w.find('input[placeholder="Toyota Camry"]').trigger('focus')
+    await composeInto(w, carInput(w), 'bel')
+
+    expect(options().map((el) => el.textContent?.trim())).toEqual([
+      'Belgee S50',
+      'Belgee X50',
+      'Belgee X70',
+    ])
+    w.unmount()
+  })
+
+  it('подставляет подсказку по клику, не дожидаясь коммита композиции', async () => {
+    const w = mountForm()
+    const el = carInput(w)
+    await w.find('input[placeholder="Toyota Camry"]').trigger('focus')
+    await composeInto(w, el, 'bel')
+
+    option('Belgee X50')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await w.vm.$nextTick()
+
+    expect(el.value).toBe('Belgee X50')
+    expect(options()).toHaveLength(0)
+    w.unmount()
+  })
+
+  it('оставляет фокус в поле после выбора', async () => {
+    const w = mountForm()
+    const el = carInput(w)
+    await w.find('input[placeholder="Toyota Camry"]').trigger('focus')
+    await composeInto(w, el, 'bel')
+
+    option('Belgee X70')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await w.vm.$nextTick()
+
+    // Уехавший на поповер фокус гасит мобильную клавиатуру.
+    expect(document.activeElement).toBe(el)
+    w.unmount()
+  })
+
+  it('пункты списка не перехватывают фокус у поля', async () => {
+    const w = mountForm()
+    await w.find('input[placeholder="Toyota Camry"]').trigger('focus')
+    await composeInto(w, carInput(w), 'bel')
+
+    // `<button>` здесь уводил бы фокус на touchend — раньше именно это давало
+    // `blur`, который сносил список до того, как тап успевал выбрать пункт.
+    for (const el of options()) {
+      expect(el.tagName).toBe('LI')
+      expect(el.hasAttribute('tabindex')).toBe(false)
+    }
+    w.unmount()
+  })
+
+  it('не закрывает список по одному только blur поля', async () => {
+    const w = mountForm()
+    const field = w.find('input[placeholder="Toyota Camry"]')
+    await field.trigger('focus')
+    await composeInto(w, carInput(w), 'bel')
+
+    await field.trigger('blur')
+
+    expect(options().length).toBeGreaterThan(0)
+    w.unmount()
+  })
+
+  it('возвращает список повторным тапом по уже сфокусированному полю', async () => {
+    const w = mountForm()
+    const field = w.find('input[placeholder="Toyota Camry"]')
+    await field.trigger('focus')
+    await composeInto(w, carInput(w), 'bel')
+
+    option('Belgee S50')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await w.vm.$nextTick()
+    expect(options()).toHaveLength(0)
+
+    await field.trigger('click')
+    expect(options().length).toBeGreaterThan(0)
+    w.unmount()
+  })
+
   it('оставляет набранный текст нетронутым, пока композиция активна', async () => {
     const w = mountForm()
     const el = carInput(w)
     await w.find('input[placeholder="Toyota Camry"]').trigger('focus')
-
     await composeInto(w, el, 'bel')
 
     // Маска капитализирует, но переписывать value во время композиции нельзя —
     // это сбивает сессию ввода Gboard.
     expect(el.value).toBe('bel')
-    expect(suggestion('Belgee S50')).toBeTruthy()
     w.unmount()
   })
 
-  it('подставляет выбранную подсказку в поле, а не только в состояние формы', async () => {
-    const w = mountForm()
-    const el = carInput(w)
-    await w.find('input[placeholder="Toyota Camry"]').trigger('focus')
-    await composeInto(w, el, 'bel')
-
-    const item = suggestion('Belgee X50')
-    expect(item).toBeTruthy()
-    // Android доставляет эмулированный mousedown после touchend.
-    item!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
-    await w.vm.$nextTick()
-
-    expect(el.value).toBe('Belgee X50')
-    expect(suggestions()).toHaveLength(0)
-    w.unmount()
-  })
-
-  it('маскирует текст после коммита композиции', async () => {
+  it('маскирует свободный ввод после коммита композиции', async () => {
     const w = mountForm()
     const el = carInput(w)
     await w.find('input[placeholder="Toyota Camry"]').trigger('focus')
@@ -111,25 +175,6 @@ describe('BookingForm — «Марка и модель» под IME (Android/Gbo
     await w.vm.$nextTick()
 
     expect(el.value).toBe('Kia Rio')
-    w.unmount()
-  })
-
-  it('открывает список повторным тапом по уже сфокусированному полю', async () => {
-    const w = mountForm()
-    const field = w.find('input[placeholder="Toyota Camry"]')
-    const el = carInput(w)
-    await field.trigger('focus')
-    await composeInto(w, el, 'bel')
-
-    const item = suggestion('Belgee S50')!
-    item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
-    await w.vm.$nextTick()
-    expect(suggestions()).toHaveLength(0)
-
-    // Поле не теряло фокус (mousedown.prevent), поэтому `focus` больше не
-    // придёт — список должен возвращаться по клику.
-    await field.trigger('click')
-    expect(suggestions().length).toBeGreaterThan(0)
     w.unmount()
   })
 })

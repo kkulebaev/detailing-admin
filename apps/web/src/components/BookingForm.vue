@@ -8,7 +8,7 @@ import { v4 as uuid } from 'uuid'
 import { toast } from 'vue-sonner'
 import { Calendar as CalendarIcon, Pencil, User } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
-import type { DateValue } from 'reka-ui'
+import type { DateValue, PointerDownOutsideEvent } from 'reka-ui'
 import {
   bookingSchema,
   DEFAULT_CAR_CLASS,
@@ -538,7 +538,17 @@ function pickTimeTo(t: string) {
   setFieldValue('timeTo', t)
 }
 
-// ── Car suggestions (autocomplete combobox) ──────────────────────────────────
+// ── Car suggestions (autocomplete) ───────────────────────────────────────────
+// Подсказки всплывают прямо при наборе, но три вещи в этой связке ломали тап на
+// Android и должны остаться как есть:
+//   • пункты — не `<button>`, а `<li role="option">`: тап по неинтерактивному
+//     элементу не уводит фокус, поле не теряет каретку и клавиатуру;
+//   • выбор висит и на `mousedown` (держит фокус на десктопе), и на `click` —
+//     эмулированные mouse-события Chrome придерживает внутри прокручиваемого
+//     списка и часто не шлёт вовсе, так что одного `mousedown` не хватает;
+//   • список не закрывается по `blur`: он прилетал раньше выбора и сносил
+//     поповер до того, как тап успевал сработать. Закрытие — по выбору, Escape
+//     и тапу мимо поля.
 const carPopoverOpen = ref(false)
 const carActiveIndex = ref(0)
 const carListEl = ref<HTMLElement | null>(null)
@@ -555,11 +565,13 @@ watch(filteredCars, () => { carActiveIndex.value = 0 })
 
 function selectCar(car: string) {
   const el = carInputEl.value
-  // Vue's v-model не трогает DOM, пока на элементе активна IME-композиция, а
-  // Gboard держит слово в композиции до пробела/коммита. Без явного коммита
-  // выбранная подсказка оседала только в состоянии формы: поле продолжало
-  // показывать набранный префикс, и следующий же символ затирал выбор.
   if (el) {
+    // У PopoverContent есть `tabindex="-1"`, поэтому тап мимо `mousedown.prevent`
+    // мог увести на него фокус — на мобильном это гасит клавиатуру.
+    el.focus()
+    // Фокус в поле означает, что Gboard может держать слово в композиции, а
+    // Vue's v-model не трогает DOM, пока выставлен `el.composing`. Коммитим
+    // композицию сами, иначе подсказка осядет только в состоянии формы.
     el.value = car
     el.setSelectionRange(car.length, car.length)
     el.dispatchEvent(new CompositionEvent('compositionend', { data: car }))
@@ -568,12 +580,19 @@ function selectCar(car: string) {
   carPopoverOpen.value = false
 }
 
-// Повторный тап по уже сфокусированному полю не даёт `focus`, поэтому список
-// открывается ещё и по клику — иначе после закрытия его нельзя было вернуть,
-// не набрав новый символ.
+// Тап по уже сфокусированному полю не даёт `focus`, поэтому список открывается и
+// по клику — иначе вернуть его после выбора можно было бы только новым символом.
 function openCarSuggestions(e: Event) {
   if (e.target instanceof HTMLInputElement) carInputEl.value = e.target
   carPopoverOpen.value = true
+}
+
+// Само поле — якорь поповера, тап по нему список не гасит (его переоткрывает
+// `openCarSuggestions`). Всё остальное закрывает.
+function onCarPointerDownOutside(e: PointerDownOutsideEvent) {
+  const target = e.detail.originalEvent.target
+  if (target instanceof Element && target.closest('[data-car-input]')) return
+  carPopoverOpen.value = false
 }
 
 function scrollActiveCarIntoView() {
@@ -1420,11 +1439,14 @@ watch(
                         class="h-11"
                         placeholder="Toyota Camry"
                         autocomplete="off"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        :aria-expanded="carPopoverOpen && filteredCars.length > 0"
+                        data-car-input
                         v-bind="componentField"
                         @focus="openCarSuggestions"
                         @click="openCarSuggestions"
                         @input="onCarInput"
-                        @blur="carPopoverOpen = false"
                         @keydown="onCarKeydown"
                       />
                     </FormControl>
@@ -1434,20 +1456,22 @@ watch(
                     align="start"
                     :side-offset="4"
                     @open-auto-focus.prevent
-                    @pointer-down-outside.prevent
+                    @close-auto-focus.prevent
+                    @pointer-down-outside="onCarPointerDownOutside"
                   >
-                    <ul ref="carListEl" class="py-1">
-                      <li v-for="(car, i) in filteredCars" :key="car">
-                        <button
-                          type="button"
-                          :data-active="i === carActiveIndex"
-                          class="w-full text-left px-3 py-2 text-sm outline-none data-[active=true]:bg-accent"
-                          @mousedown.prevent="selectCar(car)"
-                          @click="selectCar(car)"
-                          @mousemove="carActiveIndex = i"
-                        >
-                          {{ car }}
-                        </button>
+                    <ul ref="carListEl" class="py-1" role="listbox">
+                      <li
+                        v-for="(car, i) in filteredCars"
+                        :key="car"
+                        role="option"
+                        :aria-selected="i === carActiveIndex"
+                        :data-active="i === carActiveIndex"
+                        class="cursor-pointer px-3 py-2 text-sm data-[active=true]:bg-accent"
+                        @mousedown.prevent="selectCar(car)"
+                        @click="selectCar(car)"
+                        @mouseenter="carActiveIndex = i"
+                      >
+                        {{ car }}
                       </li>
                     </ul>
                   </PopoverContent>
