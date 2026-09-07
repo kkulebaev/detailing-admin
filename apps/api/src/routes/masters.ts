@@ -38,13 +38,18 @@ const masterConflictSchema = z.object({
 })
 
 // Delete-only conflict: the master still has history that pins it — recorded
-// work_hours, or bookings linked by id (junction / responsible_id). Kept
-// separate from duplicate_name (the shared mapper pins one reason per route) and
-// handled inline in the delete handler — same pattern as clients' has_bookings.
+// work_hours, one-off payouts, or bookings linked by id (junction /
+// responsible_id). Kept separate from duplicate_name (the shared mapper pins one
+// reason per route) and handled inline in the delete handler — same pattern as
+// clients' has_bookings.
 const masterDeleteConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
-  reason: z.union([z.literal('has_work_hours'), z.literal('has_bookings')]),
+  reason: z.union([
+    z.literal('has_work_hours'),
+    z.literal('has_payouts'),
+    z.literal('has_bookings'),
+  ]),
 })
 
 const masterInvalidOrderSchema = z.object({
@@ -310,11 +315,12 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       // Handled inline (not via the shared masterErrorResponse): delete's only
-      // conflicts are has_work_hours / has_bookings, and the shared mapper would
-      // widen the union with a duplicate_name 409 this route never emits nor declares.
+      // conflicts are has_work_hours / has_payouts / has_bookings, and the shared
+      // mapper would widen the union with a duplicate_name 409 this route never
+      // emits nor declares.
       if (
         err instanceof MasterError &&
-        (err.code === 'has_work_hours' || err.code === 'has_bookings')
+        (err.code === 'has_work_hours' || err.code === 'has_payouts' || err.code === 'has_bookings')
       ) {
         return c.json(
           { ok: false as const, error: 'conflict' as const, reason: err.code },

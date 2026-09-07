@@ -1,12 +1,13 @@
 import { eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
-import { bookingMasters, bookings, masters, workHours, type Master } from './schema.js'
+import { bookingMasters, bookings, masters, payouts, workHours, type Master } from './schema.js'
 
 export type MasterMutationError =
   | 'duplicate_name'
   | 'not_found'
   | 'invalid_order'
   | 'has_work_hours'
+  | 'has_payouts'
   | 'has_bookings'
 
 export class MasterError extends Error {
@@ -119,6 +120,14 @@ export async function deleteMaster(id: number): Promise<void> {
     .where(eq(workHours.masterId, id))
     .limit(1)
   if (linkedWork) throw new MasterError('has_work_hours')
+  // Payouts are payment history too, and reference the master with the same
+  // `restrict` — probed here, right after hours and ahead of bookings.
+  const [linkedPayout] = await db
+    .select({ id: payouts.id })
+    .from(payouts)
+    .where(eq(payouts.masterId, id))
+    .limit(1)
+  if (linkedPayout) throw new MasterError('has_payouts')
   // Booking history references this master by id-link (junction and/or the
   // responsible_id FK). Both would `cascade`/`set null` silently, orphaning the
   // history from its master; refuse instead so a rename is the only path and the

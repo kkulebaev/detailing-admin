@@ -15,10 +15,14 @@ vi.mock('../src/env.js', () => ({
 import { _setDbForTest, type Db } from '../src/db/client.js'
 import {
   SalaryError,
+  createPayout,
   createWorkHours,
+  deletePayout,
   deleteWorkHours,
+  listMasterEntries,
   listSalaries,
   setMasterRate,
+  updatePayout,
   updateWorkHours,
 } from '../src/db/salaries.js'
 
@@ -99,6 +103,7 @@ describe('listSalaries — mapping and single rounding', () => {
             hourlyRate: 100,
             totalMinutes: '50',
             minutesRateSum: '5000',
+            payoutsSum: null,
           },
         ],
       ],
@@ -107,7 +112,15 @@ describe('listSalaries — mapping and single rounding', () => {
 
     return listSalaries('2026-07').then((rows) => {
       expect(rows).toEqual([
-        { masterId: 1, masterName: 'Иван', hourlyRate: 100, totalMinutes: 50, salary: 83 },
+        {
+          masterId: 1,
+          masterName: 'Иван',
+          hourlyRate: 100,
+          totalMinutes: 50,
+          hoursSalary: 83,
+          payoutsTotal: 0,
+          total: 83,
+        },
       ])
     })
   })
@@ -124,6 +137,7 @@ describe('listSalaries — mapping and single rounding', () => {
             hourlyRate: 200,
             totalMinutes: '120',
             minutesRateSum: '18000',
+            payoutsSum: null,
           },
         ],
       ],
@@ -131,7 +145,7 @@ describe('listSalaries — mapping and single rounding', () => {
     _setDbForTest(db)
 
     const rows = await listSalaries('2026-07')
-    expect(rows[0]).toMatchObject({ totalMinutes: 120, salary: 300 })
+    expect(rows[0]).toMatchObject({ totalMinutes: 120, hoursSalary: 300, payoutsTotal: 0, total: 300 })
   })
 
   it('keeps a master with no rate (null) and no hours (null agg) at 0 salary', async () => {
@@ -144,6 +158,7 @@ describe('listSalaries — mapping and single rounding', () => {
             hourlyRate: null,
             totalMinutes: null,
             minutesRateSum: null,
+            payoutsSum: null,
           },
         ],
       ],
@@ -156,8 +171,32 @@ describe('listSalaries — mapping and single rounding', () => {
       masterName: 'Пётр',
       hourlyRate: null,
       totalMinutes: 0,
-      salary: 0,
+      hoursSalary: 0,
+      payoutsTotal: 0,
+      total: 0,
     })
+  })
+
+  it('adds the payout aggregate to the hourly part (negative sum subtracts)', async () => {
+    // SUM(amount) over the month arrives as a string, like the other aggregates.
+    const { db } = makeFakeDb({
+      selectResults: [
+        [
+          {
+            masterId: 1,
+            masterName: 'Иван',
+            hourlyRate: 100,
+            totalMinutes: '60',
+            minutesRateSum: '6000',
+            payoutsSum: '-2000',
+          },
+        ],
+      ],
+    })
+    _setDbForTest(db)
+
+    const rows = await listSalaries('2026-07')
+    expect(rows[0]).toMatchObject({ hoursSalary: 100, payoutsTotal: -2000, total: -1900 })
   })
 })
 
@@ -241,5 +280,83 @@ describe('updateWorkHours / deleteWorkHours', () => {
     const { db } = makeFakeDb({ deleteResults: [[]] })
     _setDbForTest(db)
     await expect(deleteWorkHours(999)).rejects.toMatchObject({ code: 'not_found' })
+  })
+})
+
+describe('listMasterEntries', () => {
+  it('returns hours and payouts separately, in one call', async () => {
+    const hoursRow = { id: 5, masterId: 1, workDate: '2026-07-10', minutes: 480, rateSnapshot: 150, note: '', createdAt: new Date() }
+    const payoutRow = { id: 3, masterId: 1, payoutDate: '2026-07-12', amount: -2000, note: '', createdAt: new Date() }
+    const { db } = makeFakeDb({ selectResults: [[hoursRow], [payoutRow]] })
+    _setDbForTest(db)
+
+    const entries = await listMasterEntries(1, '2026-07')
+    expect(entries.hours).toEqual([hoursRow])
+    expect(entries.payouts).toEqual([payoutRow])
+  })
+})
+
+describe('createPayout — no rate required', () => {
+  it('inserts for a master with no rate row (master_rates is never read)', async () => {
+    // A single seeded select: the master probe. A stray master_rates lookup
+    // would dequeue undefined and blow up, so passing proves it isn't made.
+    const { db, capture } = makeFakeDb({
+      selectResults: [[{ id: 1 }]],
+      insertResults: [
+        [{ id: 3, masterId: 1, payoutDate: '2026-07-12', amount: -2000, note: 'штраф', createdAt: new Date() }],
+      ],
+    })
+    _setDbForTest(db)
+
+    const row = await createPayout({ masterId: 1, payoutDate: '2026-07-12', amount: -2000, note: 'штраф' })
+    expect(row.amount).toBe(-2000)
+    expect(capture.values[0]).toMatchObject({ masterId: 1, payoutDate: '2026-07-12', amount: -2000 })
+  })
+
+  it('throws master_not_found for an unknown master and never inserts', async () => {
+    const { db, capture } = makeFakeDb({ selectResults: [[]] })
+    _setDbForTest(db)
+
+    await expect(
+      createPayout({ masterId: 999, payoutDate: '2026-07-12', amount: 500, note: '' }),
+    ).rejects.toMatchObject({ constructor: SalaryError, code: 'master_not_found' })
+    expect(capture.values).toHaveLength(0)
+  })
+})
+
+describe('updatePayout / deletePayout', () => {
+  it('updates only the supplied fields', async () => {
+    const { db, capture } = makeFakeDb({
+      updateResults: [
+        [{ id: 3, masterId: 1, payoutDate: '2026-07-13', amount: 700, note: 'fix', createdAt: new Date() }],
+      ],
+    })
+    _setDbForTest(db)
+
+    await updatePayout(3, { amount: 700, note: 'fix' })
+    expect(capture.sets[0]).toEqual({ amount: 700, note: 'fix' })
+  })
+
+  it('returns the current row for an empty patch (no .set({}))', async () => {
+    const { db, capture } = makeFakeDb({
+      selectResults: [[{ id: 3, masterId: 1, payoutDate: '2026-07-12', amount: 500, note: '', createdAt: new Date() }]],
+    })
+    _setDbForTest(db)
+
+    const row = await updatePayout(3, {})
+    expect(row.id).toBe(3)
+    expect(capture.sets).toHaveLength(0)
+  })
+
+  it('throws not_found when updating a missing row', async () => {
+    const { db } = makeFakeDb({ updateResults: [[]] })
+    _setDbForTest(db)
+    await expect(updatePayout(999, { amount: 100 })).rejects.toMatchObject({ code: 'not_found' })
+  })
+
+  it('throws not_found when deleting a missing row', async () => {
+    const { db } = makeFakeDb({ deleteResults: [[]] })
+    _setDbForTest(db)
+    await expect(deletePayout(999)).rejects.toMatchObject({ code: 'not_found' })
   })
 })

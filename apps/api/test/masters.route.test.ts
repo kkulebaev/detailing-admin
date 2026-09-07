@@ -263,6 +263,15 @@ describe('/api/masters', () => {
     expect(body.reason).toBe('has_work_hours')
   })
 
+  it('DELETE /{id} with recorded payouts → 409 has_payouts', async () => {
+    vi.mocked(deleteMaster).mockRejectedValue(new MasterError('has_payouts'))
+    const res = await req(app, '/1', 'DELETE')
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toBe('conflict')
+    expect(body.reason).toBe('has_payouts')
+  })
+
   it('DELETE /{id} with linked bookings → 409 has_bookings', async () => {
     vi.mocked(deleteMaster).mockRejectedValue(new MasterError('has_bookings'))
     const res = await req(app, '/1', 'DELETE')

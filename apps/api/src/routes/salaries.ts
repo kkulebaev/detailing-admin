@@ -6,9 +6,14 @@ import {
   dbUnavailableErrorSchema,
   hoursToMinutes,
   internalErrorSchema,
+  mergeSalaryEntries,
   monthSchema,
   notFoundErrorSchema,
+  payoutInputSchema,
+  payoutSchema,
+  payoutUpdateSchema,
   rateInputSchema,
+  salaryEntrySchema,
   salaryRowSchema,
   validationErrorSchema,
   workHoursInputSchema,
@@ -19,15 +24,19 @@ import {
 import { isDbReady } from '../boot.js'
 import {
   SalaryError,
+  createPayout,
   createWorkHours,
+  deletePayout,
   deleteWorkHours,
+  listMasterEntries,
   listSalaries,
-  listWorkHours,
   setMasterRate,
+  updatePayout,
   updateWorkHours,
+  type PayoutPatch,
   type WorkHoursPatch,
 } from '../db/salaries.js'
-import type { WorkHoursRow } from '../db/schema.js'
+import type { PayoutRow, WorkHoursRow } from '../db/schema.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
@@ -40,7 +49,7 @@ const idParamSchema = z.object({
 })
 
 const monthQuerySchema = z.object({ month: monthSchema })
-const hoursQuerySchema = z.object({
+const entriesQuerySchema = z.object({
   masterId: z
     .string()
     .regex(/^[1-9]\d*$/)
@@ -53,9 +62,10 @@ const salariesListOk = z.object({
   month: z.string(),
   rows: z.array(salaryRowSchema),
 })
-const workHoursListOk = z.object({ ok: z.literal(true), hours: z.array(workHoursSchema) })
+const salaryEntriesListOk = z.object({ ok: z.literal(true), entries: z.array(salaryEntrySchema) })
 const rateMutationOk = z.object({ ok: z.literal(true) })
 const workHoursMutationOk = z.object({ ok: z.literal(true), hours: workHoursSchema })
+const payoutMutationOk = z.object({ ok: z.literal(true), payout: payoutSchema })
 const deleteOk = z.object({ ok: z.literal(true) })
 
 function unavailable(c: Context) {
@@ -84,9 +94,40 @@ function salaryErrorFallback(c: Context, err: unknown) {
   return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
 }
 
+// not_found → 404; anything else is unexpected → 500. Separate from
+// salaryErrorFallback so the payout events carry payout_id and their own tag.
+// The amount and the note are never logged.
+function payoutErrorFallback(
+  c: Context,
+  err: unknown,
+  event: string,
+  requestId: string,
+  payoutId: number,
+) {
+  if (err instanceof SalaryError && err.code === 'not_found') {
+    return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+  }
+  baseLogger.error(
+    {
+      event,
+      request_id: requestId,
+      payout_id: payoutId,
+      message: err instanceof Error ? err.message : String(err),
+      status: 500,
+    },
+    'Payout mutation failed',
+  )
+  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+}
+
 // createdAt is a Date off Drizzle; serialize to an ISO string for the wire
 // (workDate is already a YYYY-MM-DD string).
 function toWire(row: WorkHoursRow) {
+  return { ...row, createdAt: row.createdAt.toISOString() }
+}
+
+// Same serialization for the payouts half of the feed (payoutDate is a string).
+function payoutToWire(row: PayoutRow) {
   return { ...row, createdAt: row.createdAt.toISOString() }
 }
 
@@ -139,13 +180,15 @@ const setRateRoute = createRoute({
   },
 })
 
-const listWorkHoursRoute = createRoute({
+// One feed per master/month: hours and payouts already merged and sorted, so an
+// expanded row costs a single request and has a single loading state.
+const listEntriesRoute = createRoute({
   method: 'get',
-  path: '/hours',
+  path: '/entries',
   tags: ['salaries'],
-  request: { query: hoursQuerySchema },
+  request: { query: entriesQuerySchema },
   responses: {
-    200: { description: 'Work hours for a master/month', content: { 'application/json': { schema: workHoursListOk } } },
+    200: { description: 'Salary entries for a master/month', content: { 'application/json': { schema: salaryEntriesListOk } } },
     400: respValidation,
     500: respInternal,
     503: respDbUnavailable,
@@ -192,6 +235,53 @@ const deleteWorkHoursRoute = createRoute({
   request: { params: idParamSchema },
   responses: {
     200: { description: 'Work hours deleted', content: { 'application/json': { schema: deleteOk } } },
+    400: respValidation,
+    404: respNotFound,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+// 404 here means the master is unknown — a payout needs no rate, so there is no
+// no_rate precondition to declare (unlike POST /hours).
+const createPayoutRoute = createRoute({
+  method: 'post',
+  path: '/payouts',
+  tags: ['salaries'],
+  request: { body: { content: { 'application/json': { schema: payoutInputSchema } } } },
+  responses: {
+    201: { description: 'Payout added', content: { 'application/json': { schema: payoutMutationOk } } },
+    400: respValidation,
+    404: respNotFound,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const updatePayoutRoute = createRoute({
+  method: 'patch',
+  path: '/payouts/{id}',
+  tags: ['salaries'],
+  request: {
+    params: idParamSchema,
+    body: { content: { 'application/json': { schema: payoutUpdateSchema } } },
+  },
+  responses: {
+    200: { description: 'Payout updated', content: { 'application/json': { schema: payoutMutationOk } } },
+    400: respValidation,
+    404: respNotFound,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const deletePayoutRoute = createRoute({
+  method: 'delete',
+  path: '/payouts/{id}',
+  tags: ['salaries'],
+  request: { params: idParamSchema },
+  responses: {
+    200: { description: 'Payout deleted', content: { 'application/json': { schema: deleteOk } } },
     400: respValidation,
     404: respNotFound,
     500: respInternal,
@@ -248,7 +338,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return salaryErrorFallback(c, err)
     }
   })
-  .openapi(listWorkHoursRoute, async (c) => {
+  .openapi(listEntriesRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
@@ -256,21 +346,23 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
     const { masterId, month } = c.req.valid('query')
     try {
-      const rows = await listWorkHours(masterId, month)
+      const { hours, payouts } = await listMasterEntries(masterId, month)
+      const entries = mergeSalaryEntries(hours.map(toWire), payouts.map(payoutToWire))
       baseLogger.info(
-        { event: 'salaries.hours.list', request_id: requestId, master_id: masterId, month, count: rows.length, status: 200 },
-        'Work hours listed',
+        { event: 'salaries.entries.list', request_id: requestId, master_id: masterId, month, count: entries.length, status: 200 },
+        'Salary entries listed',
       )
-      return c.json({ ok: true as const, hours: rows.map(toWire) }, StatusCodes.OK)
+      return c.json({ ok: true as const, entries }, StatusCodes.OK)
     } catch (err) {
       baseLogger.error(
         {
-          event: 'salaries.hours.list.error',
+          event: 'salaries.entries.list.error',
           request_id: requestId,
+          master_id: masterId,
           message: err instanceof Error ? err.message : String(err),
           status: 500,
         },
-        'Work hours query failed',
+        'Salary entries query failed',
       )
       return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
     }
@@ -353,6 +445,82 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       return salaryErrorFallback(c, err)
+    }
+  })
+  .openapi(createPayoutRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { masterId, payoutDate, amount, note } = c.req.valid('json')
+    try {
+      const row = await createPayout({ masterId, payoutDate, amount, note: note ?? '' })
+      baseLogger.info(
+        { event: 'salaries.payout.create', request_id: requestId, payout_id: row.id, master_id: masterId, status: 201 },
+        'Payout created',
+      )
+      return c.json({ ok: true as const, payout: payoutToWire(row) }, StatusCodes.CREATED)
+    } catch (err) {
+      // create's only domain error is master_not_found (404); the row does not
+      // exist yet, so there is no payout_id to tag the failure with.
+      if (err instanceof SalaryError && err.code === 'master_not_found') {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      baseLogger.error(
+        {
+          event: 'salaries.payout.create.error',
+          request_id: requestId,
+          master_id: masterId,
+          message: err instanceof Error ? err.message : String(err),
+          status: 500,
+        },
+        'Payout create failed',
+      )
+      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    }
+  })
+  .openapi(updatePayoutRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    // The master is never re-assigned on edit — only day/amount/note change.
+    const patch: PayoutPatch = {}
+    if (body.payoutDate !== undefined) patch.payoutDate = body.payoutDate
+    if (body.amount !== undefined) patch.amount = body.amount
+    if (body.note !== undefined) patch.note = body.note
+
+    try {
+      const row = await updatePayout(id, patch)
+      baseLogger.info(
+        { event: 'salaries.payout.update', request_id: requestId, payout_id: id, status: 200 },
+        'Payout updated',
+      )
+      return c.json({ ok: true as const, payout: payoutToWire(row) }, StatusCodes.OK)
+    } catch (err) {
+      return payoutErrorFallback(c, err, 'salaries.payout.update.error', requestId, id)
+    }
+  })
+  .openapi(deletePayoutRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { id } = c.req.valid('param')
+    try {
+      await deletePayout(id)
+      baseLogger.info(
+        { event: 'salaries.payout.delete', request_id: requestId, payout_id: id, status: 200 },
+        'Payout deleted',
+      )
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      return payoutErrorFallback(c, err, 'salaries.payout.delete.error', requestId, id)
     }
   })
 
