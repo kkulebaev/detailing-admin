@@ -6,12 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiSalariesHours200HoursItem = {
-  id: number;
-  masterId: number;
-  workDate: string;
-  minutes: number;
-  rateSnapshot: number;
-  note: string;
-  createdAt: string;
-};
+export type PatchApiSalariesPayoutsId503Error = 'unavailable';

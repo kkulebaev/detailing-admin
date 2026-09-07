@@ -6,4 +6,11 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiSalariesHours503Error = 'unavailable';
+export type PostApiSalariesPayouts201Payout = {
+  id: number;
+  masterId: number;
+  payoutDate: string;
+  amount: number;
+  note: string;
+  createdAt: string;
+};

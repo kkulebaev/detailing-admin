@@ -5,9 +5,9 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
-import type { GetApiSalariesHours500Error } from './getApiSalariesHours500Error';
+import type { DeleteApiSalariesPayoutsId500Error } from './deleteApiSalariesPayoutsId500Error';
 
-export type GetApiSalariesHours500 = {
+export type DeleteApiSalariesPayoutsId500 = {
   ok: false;
-  error: GetApiSalariesHours500Error;
+  error: DeleteApiSalariesPayoutsId500Error;
 };

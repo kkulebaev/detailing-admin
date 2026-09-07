@@ -6,7 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiSalariesHours400IssuesItem = {
-  path: (string | number)[];
-  message: string;
-};
+export type PatchApiSalariesPayoutsId404Error = 'not_found';

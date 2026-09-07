@@ -12,5 +12,7 @@ export type GetApiSalaries200RowsItem = {
   /** @nullable */
   hourlyRate: number | null;
   totalMinutes: number;
-  salary: number;
+  hoursSalary: number;
+  payoutsTotal: number;
+  total: number;
 };

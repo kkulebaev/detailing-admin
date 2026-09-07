@@ -5,9 +5,7 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
-import type { GetApiSalariesHours200HoursItem } from './getApiSalariesHours200HoursItem';
 
-export type GetApiSalariesHours200 = {
+export type DeleteApiSalariesPayoutsId200 = {
   ok: true;
-  hours: GetApiSalariesHours200HoursItem[];
 };

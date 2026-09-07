@@ -6,4 +6,11 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiSalariesHours503Reason = 'not_configured';
+export type PatchApiSalariesPayoutsId200Payout = {
+  id: number;
+  masterId: number;
+  payoutDate: string;
+  amount: number;
+  note: string;
+  createdAt: string;
+};

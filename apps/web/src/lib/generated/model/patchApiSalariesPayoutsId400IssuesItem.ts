@@ -6,4 +6,7 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiSalariesHours500Error = 'internal';
+export type PatchApiSalariesPayoutsId400IssuesItem = {
+  path: (string | number)[];
+  message: string;
+};

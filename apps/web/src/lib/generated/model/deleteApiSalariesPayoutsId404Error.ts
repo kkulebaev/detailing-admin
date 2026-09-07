@@ -6,13 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiSalariesHoursParams = {
-/**
- * @pattern ^[1-9]\d*$
- */
-masterId: string;
-/**
- * @pattern ^\d{4}-(0[1-9]|1[0-2])$
- */
-month: string;
-};
+export type DeleteApiSalariesPayoutsId404Error = 'not_found';

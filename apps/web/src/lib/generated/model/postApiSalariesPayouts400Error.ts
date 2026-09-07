@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiSalariesHours400Error = 'validation';
+export type PostApiSalariesPayouts400Error = 'validation';

@@ -11,15 +11,20 @@ import type {
   DeleteApiSalariesHoursId404,
   DeleteApiSalariesHoursId500,
   DeleteApiSalariesHoursId503,
+  DeleteApiSalariesPayoutsId200,
+  DeleteApiSalariesPayoutsId400,
+  DeleteApiSalariesPayoutsId404,
+  DeleteApiSalariesPayoutsId500,
+  DeleteApiSalariesPayoutsId503,
   GetApiSalaries200,
   GetApiSalaries400,
   GetApiSalaries500,
   GetApiSalaries503,
-  GetApiSalariesHours200,
-  GetApiSalariesHours400,
-  GetApiSalariesHours500,
-  GetApiSalariesHours503,
-  GetApiSalariesHoursParams,
+  GetApiSalariesEntries200,
+  GetApiSalariesEntries400,
+  GetApiSalariesEntries500,
+  GetApiSalariesEntries503,
+  GetApiSalariesEntriesParams,
   GetApiSalariesParams,
   PatchApiSalariesHoursId200,
   PatchApiSalariesHoursId400,
@@ -27,6 +32,12 @@ import type {
   PatchApiSalariesHoursId500,
   PatchApiSalariesHoursId503,
   PatchApiSalariesHoursIdBody,
+  PatchApiSalariesPayoutsId200,
+  PatchApiSalariesPayoutsId400,
+  PatchApiSalariesPayoutsId404,
+  PatchApiSalariesPayoutsId500,
+  PatchApiSalariesPayoutsId503,
+  PatchApiSalariesPayoutsIdBody,
   PatchApiSalariesRates200,
   PatchApiSalariesRates400,
   PatchApiSalariesRates404,
@@ -37,7 +48,13 @@ import type {
   PostApiSalariesHours400,
   PostApiSalariesHours500,
   PostApiSalariesHours503,
-  PostApiSalariesHoursBody
+  PostApiSalariesHoursBody,
+  PostApiSalariesPayouts201,
+  PostApiSalariesPayouts400,
+  PostApiSalariesPayouts404,
+  PostApiSalariesPayouts500,
+  PostApiSalariesPayouts503,
+  PostApiSalariesPayoutsBody
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
@@ -152,36 +169,36 @@ export const patchApiSalariesRates = async (patchApiSalariesRatesBody?: PatchApi
 );}
 
 
-export type getApiSalariesHoursResponse200 = {
-  data: GetApiSalariesHours200
+export type getApiSalariesEntriesResponse200 = {
+  data: GetApiSalariesEntries200
   status: 200
 }
 
-export type getApiSalariesHoursResponse400 = {
-  data: GetApiSalariesHours400
+export type getApiSalariesEntriesResponse400 = {
+  data: GetApiSalariesEntries400
   status: 400
 }
 
-export type getApiSalariesHoursResponse500 = {
-  data: GetApiSalariesHours500
+export type getApiSalariesEntriesResponse500 = {
+  data: GetApiSalariesEntries500
   status: 500
 }
 
-export type getApiSalariesHoursResponse503 = {
-  data: GetApiSalariesHours503
+export type getApiSalariesEntriesResponse503 = {
+  data: GetApiSalariesEntries503
   status: 503
 }
 
-export type getApiSalariesHoursResponseSuccess = (getApiSalariesHoursResponse200) & {
+export type getApiSalariesEntriesResponseSuccess = (getApiSalariesEntriesResponse200) & {
   headers: Headers;
 };
-export type getApiSalariesHoursResponseError = (getApiSalariesHoursResponse400 | getApiSalariesHoursResponse500 | getApiSalariesHoursResponse503) & {
+export type getApiSalariesEntriesResponseError = (getApiSalariesEntriesResponse400 | getApiSalariesEntriesResponse500 | getApiSalariesEntriesResponse503) & {
   headers: Headers;
 };
 
-export type getApiSalariesHoursResponse = (getApiSalariesHoursResponseSuccess | getApiSalariesHoursResponseError)
+export type getApiSalariesEntriesResponse = (getApiSalariesEntriesResponseSuccess | getApiSalariesEntriesResponseError)
 
-export const getGetApiSalariesHoursUrl = (params: GetApiSalariesHoursParams,) => {
+export const getGetApiSalariesEntriesUrl = (params: GetApiSalariesEntriesParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -193,12 +210,12 @@ export const getGetApiSalariesHoursUrl = (params: GetApiSalariesHoursParams,) =>
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/salaries/hours?${stringifiedParams}` : `/api/salaries/hours`
+  return stringifiedParams.length > 0 ? `/api/salaries/entries?${stringifiedParams}` : `/api/salaries/entries`
 }
 
-export const getApiSalariesHours = async (params: GetApiSalariesHoursParams, options?: RequestInit): Promise<getApiSalariesHoursResponse> => {
+export const getApiSalariesEntries = async (params: GetApiSalariesEntriesParams, options?: RequestInit): Promise<getApiSalariesEntriesResponse> => {
 
-  return orvalFetch<getApiSalariesHoursResponse>(getGetApiSalariesHoursUrl(params),
+  return orvalFetch<getApiSalariesEntriesResponse>(getGetApiSalariesEntriesUrl(params),
   {
     ...options,
     method: 'GET'
@@ -357,6 +374,169 @@ export const getDeleteApiSalariesHoursIdUrl = (id: string,) => {
 export const deleteApiSalariesHoursId = async (id: string, options?: RequestInit): Promise<deleteApiSalariesHoursIdResponse> => {
 
   return orvalFetch<deleteApiSalariesHoursIdResponse>(getDeleteApiSalariesHoursIdUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+export type postApiSalariesPayoutsResponse201 = {
+  data: PostApiSalariesPayouts201
+  status: 201
+}
+
+export type postApiSalariesPayoutsResponse400 = {
+  data: PostApiSalariesPayouts400
+  status: 400
+}
+
+export type postApiSalariesPayoutsResponse404 = {
+  data: PostApiSalariesPayouts404
+  status: 404
+}
+
+export type postApiSalariesPayoutsResponse500 = {
+  data: PostApiSalariesPayouts500
+  status: 500
+}
+
+export type postApiSalariesPayoutsResponse503 = {
+  data: PostApiSalariesPayouts503
+  status: 503
+}
+
+export type postApiSalariesPayoutsResponseSuccess = (postApiSalariesPayoutsResponse201) & {
+  headers: Headers;
+};
+export type postApiSalariesPayoutsResponseError = (postApiSalariesPayoutsResponse400 | postApiSalariesPayoutsResponse404 | postApiSalariesPayoutsResponse500 | postApiSalariesPayoutsResponse503) & {
+  headers: Headers;
+};
+
+export type postApiSalariesPayoutsResponse = (postApiSalariesPayoutsResponseSuccess | postApiSalariesPayoutsResponseError)
+
+export const getPostApiSalariesPayoutsUrl = () => {
+
+
+
+
+  return `/api/salaries/payouts`
+}
+
+export const postApiSalariesPayouts = async (postApiSalariesPayoutsBody?: PostApiSalariesPayoutsBody, options?: RequestInit): Promise<postApiSalariesPayoutsResponse> => {
+
+  return orvalFetch<postApiSalariesPayoutsResponse>(getPostApiSalariesPayoutsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(postApiSalariesPayoutsBody)
+  }
+);}
+
+
+export type patchApiSalariesPayoutsIdResponse200 = {
+  data: PatchApiSalariesPayoutsId200
+  status: 200
+}
+
+export type patchApiSalariesPayoutsIdResponse400 = {
+  data: PatchApiSalariesPayoutsId400
+  status: 400
+}
+
+export type patchApiSalariesPayoutsIdResponse404 = {
+  data: PatchApiSalariesPayoutsId404
+  status: 404
+}
+
+export type patchApiSalariesPayoutsIdResponse500 = {
+  data: PatchApiSalariesPayoutsId500
+  status: 500
+}
+
+export type patchApiSalariesPayoutsIdResponse503 = {
+  data: PatchApiSalariesPayoutsId503
+  status: 503
+}
+
+export type patchApiSalariesPayoutsIdResponseSuccess = (patchApiSalariesPayoutsIdResponse200) & {
+  headers: Headers;
+};
+export type patchApiSalariesPayoutsIdResponseError = (patchApiSalariesPayoutsIdResponse400 | patchApiSalariesPayoutsIdResponse404 | patchApiSalariesPayoutsIdResponse500 | patchApiSalariesPayoutsIdResponse503) & {
+  headers: Headers;
+};
+
+export type patchApiSalariesPayoutsIdResponse = (patchApiSalariesPayoutsIdResponseSuccess | patchApiSalariesPayoutsIdResponseError)
+
+export const getPatchApiSalariesPayoutsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/salaries/payouts/${id}`
+}
+
+export const patchApiSalariesPayoutsId = async (id: string,
+    patchApiSalariesPayoutsIdBody?: PatchApiSalariesPayoutsIdBody, options?: RequestInit): Promise<patchApiSalariesPayoutsIdResponse> => {
+
+  return orvalFetch<patchApiSalariesPayoutsIdResponse>(getPatchApiSalariesPayoutsIdUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(patchApiSalariesPayoutsIdBody)
+  }
+);}
+
+
+export type deleteApiSalariesPayoutsIdResponse200 = {
+  data: DeleteApiSalariesPayoutsId200
+  status: 200
+}
+
+export type deleteApiSalariesPayoutsIdResponse400 = {
+  data: DeleteApiSalariesPayoutsId400
+  status: 400
+}
+
+export type deleteApiSalariesPayoutsIdResponse404 = {
+  data: DeleteApiSalariesPayoutsId404
+  status: 404
+}
+
+export type deleteApiSalariesPayoutsIdResponse500 = {
+  data: DeleteApiSalariesPayoutsId500
+  status: 500
+}
+
+export type deleteApiSalariesPayoutsIdResponse503 = {
+  data: DeleteApiSalariesPayoutsId503
+  status: 503
+}
+
+export type deleteApiSalariesPayoutsIdResponseSuccess = (deleteApiSalariesPayoutsIdResponse200) & {
+  headers: Headers;
+};
+export type deleteApiSalariesPayoutsIdResponseError = (deleteApiSalariesPayoutsIdResponse400 | deleteApiSalariesPayoutsIdResponse404 | deleteApiSalariesPayoutsIdResponse500 | deleteApiSalariesPayoutsIdResponse503) & {
+  headers: Headers;
+};
+
+export type deleteApiSalariesPayoutsIdResponse = (deleteApiSalariesPayoutsIdResponseSuccess | deleteApiSalariesPayoutsIdResponseError)
+
+export const getDeleteApiSalariesPayoutsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/salaries/payouts/${id}`
+}
+
+export const deleteApiSalariesPayoutsId = async (id: string, options?: RequestInit): Promise<deleteApiSalariesPayoutsIdResponse> => {
+
+  return orvalFetch<deleteApiSalariesPayoutsIdResponse>(getDeleteApiSalariesPayoutsIdUrl(id),
   {
     ...options,
     method: 'DELETE'
