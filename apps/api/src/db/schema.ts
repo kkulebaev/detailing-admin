@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -249,3 +251,29 @@ export const workHours = pgTable(
 
 export type WorkHoursRow = typeof workHours.$inferSelect
 export type NewWorkHours = typeof workHours.$inferInsert
+
+// One-off amounts unrelated to hours worked: bonuses, reimbursements and
+// (negative) deductions. There is no rate snapshot by construction — the amount
+// is self-contained. `restrict` like work_hours: this is payment history.
+export const payouts = pgTable(
+  'payouts',
+  {
+    id: serial('id').primaryKey(),
+    masterId: integer('master_id')
+      .notNull()
+      .references(() => masters.id, { onDelete: 'restrict' }),
+    payoutDate: date('payout_date').notNull(),
+    // Whole rubles; negative means a deduction. Zero is refused by the DB too:
+    // Zod only covers HTTP, while backfills and seed scripts go around it.
+    amount: integer('amount').notNull(),
+    note: text('note').notNull().default(''),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('payouts_master_date_idx').on(t.masterId, t.payoutDate),
+    check('payouts_amount_nonzero', sql`${t.amount} <> 0`),
+  ],
+)
+
+export type PayoutRow = typeof payouts.$inferSelect
+export type NewPayout = typeof payouts.$inferInsert

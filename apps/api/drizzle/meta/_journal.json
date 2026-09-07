@@ -127,6 +127,13 @@
       "when": 1785925637972,
       "tag": "0017_curvy_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788777016575,
+      "tag": "0018_bumpy_night_thrasher",
+      "breakpoints": true
     }
   ]
 }
