@@ -2,13 +2,19 @@ import { describe, it, expect } from 'vitest'
 import {
   computeSalary,
   hoursToMinutes,
+  mergeSalaryEntries,
   minutesToHours,
   monthRange,
   monthSchema,
+  payoutInputSchema,
+  payoutUpdateSchema,
   rateInputSchema,
+  salaryEntryDate,
   salaryFromMinutesRateSum,
   workHoursInputSchema,
   workHoursUpdateSchema,
+  type Payout,
+  type WorkHours,
 } from '../src/salaries.js'
 
 describe('hoursToMinutes', () => {
@@ -143,5 +149,99 @@ describe('monthRange', () => {
 
   it('rolls December over to next January', () => {
     expect(monthRange('2026-12')).toEqual({ start: '2026-12-01', end: '2027-01-01' })
+  })
+})
+
+describe('payoutInputSchema', () => {
+  const base = { masterId: 1, payoutDate: '2026-07-15' }
+
+  it('accepts a positive and a negative whole amount', () => {
+    expect(payoutInputSchema.safeParse({ ...base, amount: 5000 }).success).toBe(true)
+    expect(payoutInputSchema.safeParse({ ...base, amount: -2000, note: 'штраф' }).success).toBe(true)
+  })
+
+  it('rejects a zero amount with the domain message', () => {
+    const r = payoutInputSchema.safeParse({ ...base, amount: 0 })
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.error.issues[0]!.message).toBe('Сумма не может быть нулевой')
+  })
+
+  it('rejects a fractional amount (money is whole rubles)', () => {
+    expect(payoutInputSchema.safeParse({ ...base, amount: 1.5 }).success).toBe(false)
+  })
+
+  it('rejects an amount past the ±10 000 000 guard', () => {
+    expect(payoutInputSchema.safeParse({ ...base, amount: 10_000_001 }).success).toBe(false)
+    expect(payoutInputSchema.safeParse({ ...base, amount: -10_000_001 }).success).toBe(false)
+  })
+
+  it('rejects a malformed or impossible ISO date', () => {
+    expect(payoutInputSchema.safeParse({ masterId: 1, payoutDate: '2026-02-31', amount: 100 }).success).toBe(false)
+    expect(payoutInputSchema.safeParse({ masterId: 1, payoutDate: '15.07.2026', amount: 100 }).success).toBe(false)
+  })
+})
+
+describe('payoutUpdateSchema', () => {
+  it('accepts a partial patch (all fields optional)', () => {
+    expect(payoutUpdateSchema.safeParse({}).success).toBe(true)
+    expect(payoutUpdateSchema.safeParse({ amount: -500 }).success).toBe(true)
+    expect(payoutUpdateSchema.safeParse({ note: 'fix' }).success).toBe(true)
+  })
+
+  it('still refuses a zero amount when the field is present', () => {
+    expect(payoutUpdateSchema.safeParse({ amount: 0 }).success).toBe(false)
+  })
+
+  it('has no masterId — the master never changes on edit', () => {
+    const r = payoutUpdateSchema.safeParse({ masterId: 9, amount: 100 })
+    expect(r.success).toBe(true)
+    if (r.success) expect('masterId' in r.data).toBe(false)
+  })
+})
+
+describe('mergeSalaryEntries', () => {
+  const hours = (id: number, workDate: string): WorkHours => ({
+    id,
+    masterId: 1,
+    workDate,
+    minutes: 480,
+    rateSnapshot: 100,
+    note: '',
+    createdAt: '2026-07-01T00:00:00.000Z',
+  })
+  const payout = (id: number, payoutDate: string): Payout => ({
+    id,
+    masterId: 1,
+    payoutDate,
+    amount: 1000,
+    note: '',
+    createdAt: '2026-07-01T00:00:00.000Z',
+  })
+
+  it('returns an empty feed for empty inputs', () => {
+    expect(mergeSalaryEntries([], [])).toEqual([])
+  })
+
+  it('orders by date ascending across both kinds', () => {
+    const feed = mergeSalaryEntries([hours(1, '2026-07-20')], [payout(2, '2026-07-05')])
+    expect(feed.map(salaryEntryDate)).toEqual(['2026-07-05', '2026-07-20'])
+    expect(feed.map((e) => e.kind)).toEqual(['payout', 'hours'])
+  })
+
+  it('puts hours before payouts on the same day', () => {
+    const feed = mergeSalaryEntries([hours(7, '2026-07-10')], [payout(3, '2026-07-10')])
+    expect(feed.map((e) => e.kind)).toEqual(['hours', 'payout'])
+  })
+
+  it('breaks a same-day, same-kind tie by id', () => {
+    const feed = mergeSalaryEntries([hours(9, '2026-07-10'), hours(2, '2026-07-10')], [])
+    expect(feed.map((e) => e.id)).toEqual([2, 9])
+  })
+
+  it('tags every entry with its kind and keeps the source field names', () => {
+    const feed = mergeSalaryEntries([hours(1, '2026-07-01')], [payout(1, '2026-07-02')])
+    const [first, second] = feed
+    expect(first!.kind === 'hours' && first.workDate).toBe('2026-07-01')
+    expect(second!.kind === 'payout' && second.payoutDate).toBe('2026-07-02')
   })
 })

@@ -28,6 +28,17 @@ const workHoursNote = z.string().max(500)
 // 15-minute granularity keeps the minutes↔hours round-trip exact in the UI.
 const workHours = z.number().positive().max(24).multipleOf(0.25)
 
+const payoutNote = z.string().max(500)
+// Whole signed rubles. min/max are emitted into OpenAPI as minimum/maximum and
+// double as a guard against an extra digit slipping in. The non-zero rule lives
+// in a refine (which never reaches the spec) and is mirrored by a DB CHECK.
+const payoutAmount = z
+  .number()
+  .int('Сумма должна быть целым числом рублей')
+  .min(-10_000_000, 'Слишком большая сумма')
+  .max(10_000_000, 'Слишком большая сумма')
+  .refine((v) => v !== 0, 'Сумма не может быть нулевой')
+
 export const rateInputSchema = z.object({
   masterId: z.number().int().positive(),
   // min(1): a 0 rate would silently zero out salary via a 0 snapshot; the
@@ -56,6 +67,26 @@ export const workHoursUpdateSchema = z.object({
 
 export type WorkHoursUpdate = z.infer<typeof workHoursUpdateSchema>
 
+// One-off payments unrelated to hours worked: bonuses, reimbursements and
+// (negative) deductions. No rate is involved — the amount stands on its own.
+export const payoutInputSchema = z.object({
+  masterId: z.number().int().positive(),
+  payoutDate: isoDate,
+  amount: payoutAmount,
+  note: payoutNote.optional(),
+})
+
+export type PayoutInput = z.infer<typeof payoutInputSchema>
+
+// The master never changes on edit — same contract as work hours.
+export const payoutUpdateSchema = z.object({
+  payoutDate: isoDate.optional(),
+  amount: payoutAmount.optional(),
+  note: payoutNote.optional(),
+})
+
+export type PayoutUpdate = z.infer<typeof payoutUpdateSchema>
+
 // ---- Response object schemas ----
 
 export const salaryRowSchema = z.object({
@@ -64,7 +95,14 @@ export const salaryRowSchema = z.object({
   // null when the master has no rate row yet — distinct from a 0 rate.
   hourlyRate: z.number().int().nullable(),
   totalMinutes: z.number().int(),
-  salary: z.number().int(),
+  // Pay for hours: round(Σ(minutes × rate_snapshot) / 60), one rounding per
+  // month. Named `hoursSalary`, not `salary`, because it is no longer the whole
+  // salary — only its hourly part.
+  hoursSalary: z.number().int(),
+  // Sum of the month's one-off payments; 0 means "no rows" as well as "rows
+  // cancelled each other out" — the single "no rows for the period" convention.
+  payoutsTotal: z.number().int(),
+  total: z.number().int(),
 })
 
 export type SalaryRow = z.infer<typeof salaryRowSchema>
@@ -83,6 +121,32 @@ export const workHoursSchema = z.object({
 
 export type WorkHours = z.infer<typeof workHoursSchema>
 
+// A stored payouts record. No rate snapshot by construction.
+export const payoutSchema = z.object({
+  id: z.number().int(),
+  masterId: z.number().int(),
+  payoutDate: z.string(),
+  amount: z.number().int(),
+  note: z.string(),
+  createdAt: z.string(),
+})
+
+export type Payout = z.infer<typeof payoutSchema>
+
+// ---- Detail feed ----
+
+// Hours and payouts are stored and written separately, but read as one sorted
+// feed: the master's detail view shouldn't know how many tables it came from.
+// Feed entries keep the field names of their source entity (workDate /
+// payoutDate) rather than gaining a third name.
+export const hoursEntrySchema = workHoursSchema.extend({ kind: z.literal('hours') })
+export const payoutEntrySchema = payoutSchema.extend({ kind: z.literal('payout') })
+export const salaryEntrySchema = z.discriminatedUnion('kind', [hoursEntrySchema, payoutEntrySchema])
+
+export type HoursEntry = z.infer<typeof hoursEntrySchema>
+export type PayoutEntry = z.infer<typeof payoutEntrySchema>
+export type SalaryEntry = z.infer<typeof salaryEntrySchema>
+
 // POST /hours precondition: adding hours to a master with no rate yet. A domain
 // error surfaced as a validation-flavoured response with a `reason` literal —
 // same shape as masters' invalid_order (not a zod issue list).
@@ -98,8 +162,8 @@ export const salariesListResponseSchema = z.union([
   internalErrorSchema,
 ])
 
-export const workHoursListResponseSchema = z.union([
-  z.object({ ok: z.literal(true), hours: z.array(workHoursSchema) }),
+export const salaryEntriesListResponseSchema = z.union([
+  z.object({ ok: z.literal(true), entries: z.array(salaryEntrySchema) }),
   validationErrorSchema,
   dbUnavailableErrorSchema,
   internalErrorSchema,
@@ -123,6 +187,22 @@ export const workHoursMutationResponseSchema = z.union([
 ])
 
 export const workHoursDeleteResponseSchema = z.union([
+  z.object({ ok: z.literal(true) }),
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+// No no_rate variant: a payout needs no rate (§0.3).
+export const payoutMutationResponseSchema = z.union([
+  z.object({ ok: z.literal(true), payout: payoutSchema }),
+  validationErrorSchema,
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export const payoutDeleteResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
   notFoundErrorSchema,
   dbUnavailableErrorSchema,
@@ -155,6 +235,28 @@ export function salaryFromMinutesRateSum(minutesRateSum: number): number {
 export function computeSalary(entries: Array<{ minutes: number; rate: number }>): number {
   const minutesRateSum = entries.reduce((acc, e) => acc + e.minutes * e.rate, 0)
   return salaryFromMinutesRateSum(minutesRateSum)
+}
+
+// A feed entry's date: workDate for hours, payoutDate for payouts.
+export function salaryEntryDate(e: SalaryEntry): string {
+  return e.kind === 'hours' ? e.workDate : e.payoutDate
+}
+
+// Chronological within the month; on the same day hours come before payouts,
+// then by id — the order is deterministic, so rows don't jump on a refetch.
+// Merging happens here rather than in SQL: a UNION ALL would need brittle column
+// casts to force both shapes into one.
+export function mergeSalaryEntries(hours: WorkHours[], payouts: Payout[]): SalaryEntry[] {
+  const entries: SalaryEntry[] = [
+    ...hours.map((h) => ({ ...h, kind: 'hours' as const })),
+    ...payouts.map((p) => ({ ...p, kind: 'payout' as const })),
+  ]
+  return entries.sort((a, b) => {
+    const byDate = salaryEntryDate(a).localeCompare(salaryEntryDate(b))
+    if (byDate !== 0) return byDate
+    if (a.kind !== b.kind) return a.kind === 'hours' ? -1 : 1
+    return a.id - b.id
+  })
 }
 
 // Month "YYYY-MM" → half-open ISO date range [first day, first day of next
