@@ -4,11 +4,18 @@
 //
 // `env.ts` validates required env vars at module load. The route tree imports
 // it transitively, so we stamp safe placeholders BEFORE the dynamic imports;
-// this script never instantiates clients, so the placeholders are inert.
+// this script never instantiates clients, so the placeholders are inert. The
+// stamp is harmless under vitest too — test/setup.ts already sets the same vars.
+//
+// buildOpenApiDocument() is exported so openapi-drift.test.ts can build the
+// document in memory and diff it against the committed openapi.json. The write
+// therefore sits behind a main guard: without it, importing this module from the
+// test would rewrite the very file the test is about to compare against, and a
+// forgotten regeneration would never go red.
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64 ??= Buffer.from('{}').toString('base64')
 process.env.DATABASE_URL ??= 'postgres://placeholder@localhost:5432/placeholder'
@@ -30,27 +37,36 @@ const { default: salariesRouter } = await import('../src/routes/salaries.js')
 const { default: analyticsRouter } = await import('../src/routes/analytics.js')
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const OUT_PATH = resolve(__dirname, '../../web/openapi.json')
 
-const app = new OpenAPIHono()
-  .route('/healthz', healthzRouter)
-  .route('/api/auth', authRouter)
-  .route('/api/bookings', bookingsRouter)
-  .route('/api/clients', clientsRouter)
-  .route('/api/pricelist', pricelistRouter)
-  .route('/api/masters', mastersRouter)
-  .route('/api/salaries', salariesRouter)
-  .route('/api/analytics', analyticsRouter)
+export const OUT_PATH = resolve(__dirname, '../../web/openapi.json')
 
-const doc = app.getOpenAPIDocument({
-  openapi: '3.0.0',
-  info: {
-    version: '0.0.1',
-    title: 'Detailing Admin API',
-    description: 'Internal API for the detailing booking form and admin panel.',
-  },
-})
+// The router registry is deliberately duplicated with server.ts — a new route
+// must be mounted in both. Collapsing them into one source is a follow-up.
+export function buildOpenApiDocument() {
+  const app = new OpenAPIHono()
+    .route('/healthz', healthzRouter)
+    .route('/api/auth', authRouter)
+    .route('/api/bookings', bookingsRouter)
+    .route('/api/clients', clientsRouter)
+    .route('/api/pricelist', pricelistRouter)
+    .route('/api/masters', mastersRouter)
+    .route('/api/salaries', salariesRouter)
+    .route('/api/analytics', analyticsRouter)
 
-mkdirSync(dirname(OUT_PATH), { recursive: true })
-writeFileSync(OUT_PATH, JSON.stringify(doc, null, 2))
-console.log(`OpenAPI document written: ${OUT_PATH}`)
+  return app.getOpenAPIDocument({
+    openapi: '3.0.0',
+    info: {
+      version: '0.0.1',
+      title: 'Detailing Admin API',
+      description: 'Internal API for the detailing booking form and admin panel.',
+    },
+  })
+}
+
+// argv[1] is absent under `node --eval` and some embedded runners; guard it
+// before pathToFileURL, which throws on undefined.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  mkdirSync(dirname(OUT_PATH), { recursive: true })
+  writeFileSync(OUT_PATH, JSON.stringify(buildOpenApiDocument(), null, 2))
+  console.log(`OpenAPI document written: ${OUT_PATH}`)
+}
