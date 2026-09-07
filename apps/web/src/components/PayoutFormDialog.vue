@@ -4,18 +4,9 @@ import { Calendar as CalendarIcon } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
-import {
-  workHoursInputSchema,
-  workHoursUpdateSchema,
-  minutesToHours,
-  type WorkHours,
-} from '@detailing-admin/shared'
+import { payoutInputSchema, payoutUpdateSchema, type Payout } from '@detailing-admin/shared'
 import { calToDdmmyyyy } from '@/lib/date'
-import {
-  createWorkHours,
-  updateWorkHours,
-  type WorkHoursMutationResult,
-} from '@/lib/salaries-api'
+import { createPayout, updatePayout, type PayoutMutationResult } from '@/lib/salaries-api'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -41,18 +32,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+
+type Direction = 'accrual' | 'deduction'
 
 const props = defineProps<{
   open: boolean
-  // When set the dialog edits that record; otherwise it creates a new one.
-  editing: WorkHours | null
-  // Target master. Fixed when adding from a row or editing (edit never re-assigns
-  // the master or re-snapshots its rate). Null in the "add from the toolbar" flow,
-  // where the master is picked from `masters` below.
+  // When set the dialog edits that payout; otherwise it creates a new one.
+  editing: Payout | null
+  // Target master. Fixed when adding from a row or editing (edit never
+  // re-assigns the master). Null in the "add from the toolbar" flow, where the
+  // master is picked from `masters` below.
   masterId: number | null
   masterName: string
-  // Selectable masters for the toolbar flow — only those with a rate set, since
-  // hours can't be logged without one. Ignored when masterId is fixed.
+  // Selectable masters for the toolbar flow — every row of the sheet, not only
+  // those with a rate: a payout needs no rate.
   masters?: { id: number; name: string }[]
 }>()
 
@@ -72,7 +66,11 @@ const effectiveMasterId = computed(() => props.masterId ?? selectedMasterId.valu
 // shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
 const dateCal = shallowRef<DateValue | undefined>(undefined)
 const dateOpen = ref(false)
-const hours = ref('')
+// The sign is carried by this toggle, never typed: `inputmode="numeric"` gives
+// no minus key on Android, and dropping inputmode would open the IME
+// composition path the input masks fight elsewhere.
+const direction = ref<Direction>('accrual')
+const amount = ref('')
 const note = ref('')
 
 const submitting = ref(false)
@@ -103,8 +101,11 @@ watch(
     error.value = null
     fieldErrors.value = {}
     selectedMasterId.value = null
-    dateCal.value = e ? isoToCal(e.workDate) : undefined
-    hours.value = e ? String(minutesToHours(e.minutes)) : ''
+    dateCal.value = e ? isoToCal(e.payoutDate) : undefined
+    // The stored amount is signed; the form splits it back into direction +
+    // magnitude so the field only ever holds a positive number.
+    direction.value = e && e.amount < 0 ? 'deduction' : 'accrual'
+    amount.value = e ? String(Math.abs(e.amount)) : ''
     note.value = e?.note ?? ''
   },
 )
@@ -112,6 +113,12 @@ watch(
 function onDateSelect(d: DateValue | undefined) {
   if (d) dateCal.value = d
   dateOpen.value = false
+}
+
+// reka-ui clears a single-select ToggleGroup when the active item is clicked
+// again — ignore the empty value instead of falling into an unset direction.
+function onDirectionChange(v: unknown) {
+  if (v === 'accrual' || v === 'deduction') direction.value = v
 }
 
 function close() {
@@ -123,21 +130,29 @@ async function submit() {
   fieldErrors.value = {}
   error.value = null
 
-  // Picked from a calendar, never typed — an empty field means "not picked yet",
-  // so answer that instead of letting the schema complain about a ГГГГ-ММ-ДД
-  // format the user never enters (the trigger shows ДД.ММ.ГГГГ).
+  // The date comes from a calendar, never from typing, so an empty field means
+  // "not picked yet". Letting the schema answer would surface its ГГГГ-ММ-ДД
+  // format message about a format the user never enters — the trigger shows
+  // ДД.ММ.ГГГГ.
   if (!dateCal.value) {
-    fieldErrors.value = { workDate: 'Укажите дату' }
+    fieldErrors.value = { payoutDate: 'Укажите дату' }
     return
   }
-  const workDate = calToIso(dateCal.value)
-  const hoursNum = Number(hours.value)
+  const payoutDate = calToIso(dateCal.value)
   const trimmedNote = note.value.trim()
+  // An empty field reads as 0 here, which the same guard rejects — the sign
+  // never comes from this number, only its magnitude does.
+  const magnitude = Number(amount.value)
+  if (!Number.isFinite(magnitude) || magnitude <= 0) {
+    fieldErrors.value = { amount: 'Укажите сумму больше нуля' }
+    return
+  }
+  const signed = direction.value === 'deduction' ? -magnitude : magnitude
 
   if (isEdit.value) {
-    const parsed = workHoursUpdateSchema.safeParse({
-      workDate,
-      hours: hoursNum,
+    const parsed = payoutUpdateSchema.safeParse({
+      payoutDate,
+      amount: signed,
       note: trimmedNote,
     })
     if (!parsed.success) {
@@ -146,10 +161,10 @@ async function submit() {
     }
     submitting.value = true
     try {
-      const result = await updateWorkHours(props.editing!.id, parsed.data)
-      handleResult(result, 'Запись обновлена')
+      const result = await updatePayout(props.editing!.id, parsed.data)
+      handleResult(result, 'Выплата обновлена')
     } catch {
-      error.value = 'Не удалось сохранить запись'
+      error.value = 'Не удалось сохранить выплату'
     } finally {
       submitting.value = false
     }
@@ -161,10 +176,10 @@ async function submit() {
     error.value = 'Выберите мастера'
     return
   }
-  const parsed = workHoursInputSchema.safeParse({
+  const parsed = payoutInputSchema.safeParse({
     masterId: effectiveMasterId.value,
-    workDate,
-    hours: hoursNum,
+    payoutDate,
+    amount: signed,
     note: trimmedNote,
   })
   if (!parsed.success) {
@@ -173,10 +188,10 @@ async function submit() {
   }
   submitting.value = true
   try {
-    const result = await createWorkHours(parsed.data)
-    handleResult(result, 'Часы добавлены')
+    const result = await createPayout(parsed.data)
+    handleResult(result, 'Выплата добавлена')
   } catch {
-    error.value = 'Не удалось сохранить запись'
+    error.value = 'Не удалось сохранить выплату'
   } finally {
     submitting.value = false
   }
@@ -194,30 +209,29 @@ function applyIssues(
   error.value = issues[0]?.message ?? 'Проверьте заполнение полей'
 }
 
-function handleResult(result: WorkHoursMutationResult, successMsg: string) {
+function handleResult(result: PayoutMutationResult, successMsg: string) {
   if (result.ok) {
     toast.success(successMsg)
-    emit('saved', result.hours.masterId)
+    emit('saved', result.payout.masterId)
     emit('update:open', false)
     return
   }
   if (result.error === 'validation') {
-    // POST /hours surfaces the "no rate set" precondition as a reason literal.
-    if ('reason' in result && result.reason === 'no_rate') {
-      error.value = 'Сначала задайте ставку мастеру'
-      return
-    }
     if ('issues' in result) {
       applyIssues(result.issues)
       return
     }
     error.value = 'Неверные данные'
   } else if (result.error === 'not_found') {
-    error.value = 'Запись не найдена — возможно, была удалена'
+    // POST /payouts 404s only on an unknown master (the payout doesn't exist
+    // yet); PATCH 404s on the payout itself.
+    error.value = isEdit.value
+      ? 'Выплата не найдена — возможно, была удалена'
+      : 'Мастер не найден — возможно, был удалён'
   } else if (result.error === 'unavailable') {
     error.value = result.message ?? 'База данных недоступна'
   } else {
-    error.value = 'Не удалось сохранить запись'
+    error.value = 'Не удалось сохранить выплату'
   }
 }
 </script>
@@ -226,8 +240,10 @@ function handleResult(result: WorkHoursMutationResult, successMsg: string) {
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
     <DialogContent class="max-w-md">
       <DialogHeader>
-        <DialogTitle>{{ isEdit ? 'Редактировать часы' : 'Добавить часы' }}</DialogTitle>
-        <DialogDescription v-if="pickMaster">Выберите мастера и заполните часы</DialogDescription>
+        <DialogTitle>{{ isEdit ? 'Редактировать выплату' : 'Добавить выплату' }}</DialogTitle>
+        <DialogDescription v-if="pickMaster">
+          Выберите мастера и укажите сумму
+        </DialogDescription>
         <DialogDescription v-else>{{ masterName }}</DialogDescription>
       </DialogHeader>
 
@@ -279,38 +295,57 @@ function handleResult(result: WorkHoursMutationResult, successMsg: string) {
               />
             </PopoverContent>
           </Popover>
-          <p v-if="fieldErrors.workDate" class="text-sm text-destructive">
-            {{ fieldErrors.workDate }}
+          <p v-if="fieldErrors.payoutDate" class="text-sm text-destructive">
+            {{ fieldErrors.payoutDate }}
           </p>
         </div>
 
-        <!-- Часы -->
+        <!-- Направление -->
         <div class="grid gap-2">
-          <Label for="work-hours">Часы</Label>
+          <Label>Направление</Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            :model-value="direction"
+            :disabled="submitting"
+            @update:model-value="onDirectionChange"
+          >
+            <ToggleGroupItem value="accrual" aria-label="Начисление">
+              Начисление
+            </ToggleGroupItem>
+            <ToggleGroupItem value="deduction" aria-label="Удержание">
+              Удержание
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p class="text-xs text-muted-foreground">Удержание уменьшает итог за месяц</p>
+        </div>
+
+        <!-- Сумма -->
+        <div class="grid gap-2">
+          <Label for="payout-amount">Сумма ₽</Label>
           <Input
-            id="work-hours"
-            v-model="hours"
+            id="payout-amount"
+            v-model="amount"
             type="number"
-            inputmode="decimal"
-            min="0.25"
-            max="24"
-            step="0.25"
-            placeholder="Например: 7.5"
+            inputmode="numeric"
+            min="1"
+            step="1"
+            placeholder="Например: 2000"
             :disabled="submitting"
             autocomplete="off"
           />
-          <p v-if="fieldErrors.hours" class="text-sm text-destructive">
-            {{ fieldErrors.hours }}
+          <p v-if="fieldErrors.amount" class="text-sm text-destructive">
+            {{ fieldErrors.amount }}
           </p>
         </div>
 
-        <!-- Заметка -->
+        <!-- Комментарий -->
         <div class="grid gap-2">
-          <Label for="work-note">
-            Заметка <span class="text-muted-foreground font-normal">(необязательно)</span>
+          <Label for="payout-note">
+            Комментарий <span class="text-muted-foreground font-normal">(необязательно)</span>
           </Label>
           <Textarea
-            id="work-note"
+            id="payout-note"
             v-model="note"
             rows="2"
             class="[field-sizing:content]"

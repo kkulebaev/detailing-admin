@@ -27,6 +27,15 @@ export function buildMonthOptions(ahead = 1, back = 12): MonthOption[] {
   return opts
 }
 
+// "2026-01" → "январь 2026", for the «за …» phrases. Every Russian month name
+// is masculine, so the accusative is spelled like the nominative and only the
+// capital has to go — mid-sentence it reads as a typo.
+export function formatMonthAccusative(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  if (!y || !m || m < 1 || m > 12) return month
+  return `${MONTH_NAMES[m - 1]!.toLowerCase()} ${y}`
+}
+
 // The current month as `YYYY-MM` — the salaries page's default selection.
 export function currentMonthKey(): string {
   const t = today(getLocalTimeZone())

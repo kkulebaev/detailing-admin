@@ -1,16 +1,25 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { ChevronRight, Inbox, Pencil, Plus } from '@lucide/vue'
+import { ChevronRight, ClockPlus, Coins, Inbox, Pencil } from '@lucide/vue'
 import { toast } from 'vue-sonner'
-import { minutesToHours, type SalaryRow, type WorkHours } from '@detailing-admin/shared'
-import { deleteWorkHours } from '@/lib/salaries-api'
+import {
+  minutesToHours,
+  salaryEntryDate,
+  type Payout,
+  type SalaryEntry,
+  type SalaryRow,
+  type WorkHours,
+} from '@detailing-admin/shared'
+import { deletePayout, deleteWorkHours } from '@/lib/salaries-api'
 import {
   useSalariesQuery,
   useInvalidateSalaries,
-  useInvalidateWorkHours,
+  useInvalidateSalaryEntries,
 } from '@/lib/queries'
-import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
-import MasterHoursRows from './MasterHoursRows.vue'
+import { buildMonthOptions, currentMonthKey, formatMonthAccusative } from '@/lib/month-options'
+import { formatAmount, formatSigned } from '@/lib/money'
+import MasterEntriesRows from './MasterEntriesRows.vue'
+import PayoutFormDialog from './PayoutFormDialog.vue'
 import RateFormDialog from './RateFormDialog.vue'
 import WorkHoursFormDialog from './WorkHoursFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -49,13 +58,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const COLUMN_COUNT = 5
+const COLUMN_COUNT = 7
 
 const monthOptions = buildMonthOptions()
 const month = ref(currentMonthKey())
 
 const invalidateSalaries = useInvalidateSalaries()
-const invalidateWorkHours = useInvalidateWorkHours()
+const invalidateSalaryEntries = useInvalidateSalaryEntries()
 
 const { data: queryData, error: queryError, asyncStatus } = useSalariesQuery(month)
 
@@ -63,6 +72,14 @@ const rows = computed<SalaryRow[]>(() => {
   const r = queryData.value
   return r?.ok ? r.rows : []
 })
+
+// The month the rows on screen actually describe; lags `month` while
+// placeholderData keeps the previous month visible.
+const dataMonth = computed(() => (queryData.value?.ok ? queryData.value.month : ''))
+
+// The column the page exists for, summed into the header: the same number the
+// «Итого» column prints, but without scrolling the table to read it.
+const monthTotal = computed(() => rows.value.reduce((acc, r) => acc + r.total, 0))
 
 // Skeleton only on the very first load — month switches keep the previous rows
 // visible (placeholderData in useSalariesQuery), so `loading` is false then.
@@ -96,14 +113,10 @@ const error = computed<string | null>(() => {
   const r = queryData.value
   if (!r || r.ok) return null
   if (r.error === 'unavailable') return r.message || 'База данных недоступна'
-  return 'Не удалось загрузить зарплаты'
+  return 'Не удалось загрузить список зарплат'
 })
 
 // ── Formatting ────────────────────────────────────────────────────────────────
-function formatAmount(n: number): string {
-  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-}
-
 // Minutes → a compact hours label ("7,5", "8"), ru-RU decimal comma.
 function formatHours(minutes: number): string {
   return minutesToHours(minutes).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
@@ -141,15 +154,17 @@ async function onRateSaved() {
   await invalidateSalaries()
 }
 
-// ── Expandable per-master hours ────────────────────────────────────────────────
-// Each master row expands to reveal its hours entries as sub-rows inline (no
-// dialog). Several can stay open at once; MasterHoursRows owns the per-master
-// query. Salary/hours totals in the master row stay live off `rows`.
+// ── Expandable per-master detail ───────────────────────────────────────────────
+// Each master row expands to reveal its hours and payouts as sub-rows inline (no
+// dialog). Several can stay open at once; MasterEntriesRows owns the per-master
+// query. Totals in the master row stay live off `rows`.
 const expanded = ref<Set<number>>(new Set())
 
-// Auto-open every master that has hours, once per month. Keyed off the response's
-// own `month` (not the selected ref) so the previous month's placeholder data
-// doesn't seed early. Manual collapse/expand persists until the month changes.
+// Auto-open every master that has something this month, once per month. Keyed
+// off the response's own `month` (not the selected ref) so the previous month's
+// placeholder data doesn't seed early. Manual collapse/expand persists until the
+// month changes. A master whose payouts cancelled out (+2000 and −2000) is not
+// auto-opened — payoutsTotal 0 means "nothing this month" by design.
 let seededMonth: string | null = null
 watch(
   queryData,
@@ -157,12 +172,23 @@ watch(
     if (data?.ok && data.month !== seededMonth) {
       seededMonth = data.month
       expanded.value = new Set(
-        data.rows.filter((r) => r.totalMinutes > 0).map((r) => r.masterId),
+        data.rows
+          .filter((r) => r.totalMinutes > 0 || r.payoutsTotal !== 0)
+          .map((r) => r.masterId),
       )
     }
   },
   { immediate: true },
 )
+
+// A row that was collapsed hides the record that was just added: the master
+// row would update its totals while the entry itself stayed out of sight.
+function ensureExpanded(masterId: number) {
+  if (expanded.value.has(masterId)) return
+  const next = new Set(expanded.value)
+  next.add(masterId)
+  expanded.value = next
+}
 
 function toggleExpand(masterId: number) {
   const next = new Set(expanded.value)
@@ -183,6 +209,11 @@ const eligibleMasters = computed(() =>
     .map((r) => ({ id: r.masterId, name: r.masterName })),
 )
 
+// Payouts need no rate, so the toolbar payout dialog offers every row.
+const allMasters = computed(() =>
+  rows.value.map((r) => ({ id: r.masterId, name: r.masterName })),
+)
+
 function openAddHours(row: SalaryRow) {
   hoursEditing.value = null
   hoursMaster.value = { id: row.masterId, name: row.masterName }
@@ -195,24 +226,56 @@ function openAddHoursGeneral() {
   hoursDialogOpen.value = true
 }
 
-function openEditHours(entry: WorkHours) {
-  hoursEditing.value = entry
+async function onHoursSaved(masterId: number) {
+  ensureExpanded(masterId)
+  await Promise.all([invalidateSalaries(), invalidateSalaryEntries()])
+}
+
+// ── Payout create/edit dialog ──────────────────────────────────────────────────
+const payoutDialogOpen = ref(false)
+const payoutEditing = ref<Payout | null>(null)
+const payoutMaster = ref<{ id: number | null; name: string }>({ id: null, name: '' })
+
+function openAddPayout(row: SalaryRow) {
+  payoutEditing.value = null
+  payoutMaster.value = { id: row.masterId, name: row.masterName }
+  payoutDialogOpen.value = true
+}
+
+function openAddPayoutGeneral() {
+  payoutEditing.value = null
+  payoutMaster.value = { id: null, name: '' }
+  payoutDialogOpen.value = true
+}
+
+// Both totals move when a payout changes, so both keys are invalidated.
+async function onPayoutSaved(masterId: number) {
+  ensureExpanded(masterId)
+  await Promise.all([invalidateSalaries(), invalidateSalaryEntries()])
+}
+
+// ── Editing from the detail feed ───────────────────────────────────────────────
+// The feed is one list of both kinds; the page routes each entry to its dialog.
+function openEditEntry(entry: SalaryEntry) {
   const master = rows.value.find((r) => r.masterId === entry.masterId)
-  hoursMaster.value = { id: entry.masterId, name: master?.masterName ?? '' }
-  hoursDialogOpen.value = true
+  if (entry.kind === 'hours') {
+    hoursEditing.value = entry
+    hoursMaster.value = { id: entry.masterId, name: master?.masterName ?? '' }
+    hoursDialogOpen.value = true
+    return
+  }
+  payoutEditing.value = entry
+  payoutMaster.value = { id: entry.masterId, name: master?.masterName ?? '' }
+  payoutDialogOpen.value = true
 }
 
-async function onHoursSaved() {
-  await Promise.all([invalidateSalaries(), invalidateWorkHours()])
-}
-
-// ── Delete a work-hours entry ────────────────────────────────────────────────────
+// ── Delete an entry ────────────────────────────────────────────────────────────
 const deleteDialogOpen = ref(false)
-const deleteTarget = ref<WorkHours | null>(null)
+const deleteTarget = ref<SalaryEntry | null>(null)
 const deleting = ref(false)
 const deleteError = ref<string | null>(null)
 
-function askDelete(entry: WorkHours) {
+function askDelete(entry: SalaryEntry) {
   deleteTarget.value = entry
   deleteError.value = null
   deleteDialogOpen.value = true
@@ -221,20 +284,24 @@ function askDelete(entry: WorkHours) {
 async function confirmDelete() {
   const target = deleteTarget.value
   if (!target || deleting.value) return
+  const isPayout = target.kind === 'payout'
+  const noun = isPayout ? 'выплату' : 'запись'
   deleteError.value = null
   deleting.value = true
   try {
-    const result = await deleteWorkHours(target.id)
+    const result = isPayout ? await deletePayout(target.id) : await deleteWorkHours(target.id)
     if (result.ok || result.error === 'not_found') {
-      toast.success(result.ok ? 'Запись удалена' : 'Запись уже удалена')
+      toast.success(
+        `${isPayout ? 'Выплата' : 'Запись'} ${result.ok ? 'удалена' : 'уже удалена'}`,
+      )
       deleteDialogOpen.value = false
-      await Promise.all([invalidateSalaries(), invalidateWorkHours()])
+      await Promise.all([invalidateSalaries(), invalidateSalaryEntries()])
       return
     }
     deleteError.value =
-      result.error === 'unavailable' ? result.message : 'Не удалось удалить запись'
+      result.error === 'unavailable' ? result.message : `Не удалось удалить ${noun}`
   } catch {
-    deleteError.value = 'Не удалось удалить запись'
+    deleteError.value = `Не удалось удалить ${noun}`
   } finally {
     deleting.value = false
   }
@@ -244,8 +311,26 @@ async function confirmDelete() {
 <template>
   <div class="min-h-svh bg-background text-foreground p-4 sm:p-8 md:flex md:h-svh md:flex-col">
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
-      <header class="mb-6 shrink-0">
+      <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Зарплаты</h1>
+
+        <!-- Named by `dataMonth`, not by `month`: while the previous month is
+             still on screen the caption says which month this figure is. -->
+        <div v-if="!error" class="flex flex-col gap-1 sm:items-end">
+          <span class="text-xs text-muted-foreground">
+            Всего к выплате<template v-if="dataMonth">
+              за {{ formatMonthAccusative(dataMonth) }}</template
+            >
+          </span>
+          <Skeleton v-if="showSkeleton" class="h-8 w-40" />
+          <span
+            v-else
+            class="text-2xl font-semibold tabular-nums"
+            :class="{ 'text-destructive': monthTotal < 0 }"
+          >
+            {{ formatAmount(monthTotal) }} ₽
+          </span>
+        </div>
       </header>
 
       <div class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
@@ -263,15 +348,25 @@ async function confirmDelete() {
           </Select>
         </div>
 
-        <Button
-          v-if="eligibleMasters.length > 0"
-          variant="outline"
-          size="sm"
-          class="ml-auto"
-          @click="openAddHoursGeneral"
-        >
-          <Plus class="size-4" /> Добавить часы
-        </Button>
+        <div class="ml-auto flex flex-wrap items-end gap-2">
+          <Button
+            v-if="eligibleMasters.length > 0"
+            variant="outline"
+            size="sm"
+            @click="openAddHoursGeneral"
+          >
+            <ClockPlus class="size-4" /> Добавить часы
+          </Button>
+          <!-- A payout needs no rate, so this one only needs a row to exist. -->
+          <Button
+            v-if="rows.length > 0"
+            variant="outline"
+            size="sm"
+            @click="openAddPayoutGeneral"
+          >
+            <Coins class="size-4" /> Добавить выплату
+          </Button>
+        </div>
       </div>
 
       <Alert v-if="error" variant="destructive" class="shrink-0">
@@ -282,21 +377,25 @@ async function confirmDelete() {
       <Table
         v-else
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
-        :class="['table-fixed', { 'h-full': isEmpty }]"
+        :class="[{ 'table-fixed min-w-284': !isEmpty, 'h-full': isEmpty }]"
       >
-        <colgroup>
+        <colgroup v-if="!isEmpty">
           <col class="w-56" />
           <col class="w-40" />
+          <col class="w-24" />
+          <col class="w-36" />
           <col class="w-32" />
           <col class="w-36" />
-          <col class="w-40" />
+          <col class="w-60" />
         </colgroup>
         <TableHeader class="sticky top-0 z-10 bg-muted">
           <TableRow>
             <TableHead class="px-4">Мастер</TableHead>
-            <TableHead class="px-4 text-right whitespace-nowrap">Текущая ставка ₽/ч</TableHead>
+            <TableHead class="px-4 text-right whitespace-nowrap">Ставка ₽/ч</TableHead>
             <TableHead class="px-4 text-right">Часы</TableHead>
-            <TableHead class="px-4 text-right whitespace-nowrap">Зарплата ₽</TableHead>
+            <TableHead class="px-4 text-right whitespace-nowrap">За часы ₽</TableHead>
+            <TableHead class="px-4 text-right whitespace-nowrap">Разовые ₽</TableHead>
+            <TableHead class="px-4 text-right whitespace-nowrap">Итого ₽</TableHead>
             <TableHead class="px-4 text-right">Действия</TableHead>
           </TableRow>
         </TableHeader>
@@ -314,9 +413,9 @@ async function confirmDelete() {
                 <EmptyMedia variant="icon">
                   <Inbox />
                 </EmptyMedia>
-                <EmptyTitle>Пока нет мастеров</EmptyTitle>
+                <EmptyTitle>Некому начислять зарплату</EmptyTitle>
                 <EmptyDescription>
-                  Добавьте мастеров, чтобы задавать ставки и учитывать часы
+                  Включите «Начисляется зарплата» в карточке мастера — и он появится здесь
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -327,74 +426,99 @@ async function confirmDelete() {
                 <TableCell class="px-4 align-middle whitespace-normal font-medium">
                   {{ row.masterName }}
                 </TableCell>
-            <TableCell class="px-4 align-middle text-right tabular-nums">
-              <div class="inline-flex items-center justify-end gap-1">
-                <span :class="{ 'text-muted-foreground': row.hourlyRate == null }">
-                  {{ row.hourlyRate != null ? formatAmount(row.hourlyRate) : 'не задана' }}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  :aria-label="`Изменить ставку — ${row.masterName}`"
-                  @click="openRate(row)"
+                <TableCell class="px-4 align-middle text-right tabular-nums">
+                  <div class="inline-flex items-center justify-end gap-1">
+                    <span :class="{ 'text-muted-foreground': row.hourlyRate == null }">
+                      {{ row.hourlyRate != null ? formatAmount(row.hourlyRate) : 'не задана' }}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      :aria-label="`Изменить ставку — ${row.masterName}`"
+                      @click="openRate(row)"
+                    >
+                      <Pencil class="size-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell class="px-4 align-middle text-right tabular-nums">
+                  {{ formatHours(row.totalMinutes) }}
+                </TableCell>
+                <TableCell class="px-4 align-middle text-right tabular-nums">
+                  {{ formatAmount(row.hoursSalary) }}
+                </TableCell>
+                <TableCell
+                  class="px-4 align-middle text-right tabular-nums"
+                  :class="{
+                    'text-muted-foreground': row.payoutsTotal === 0,
+                    'text-destructive': row.payoutsTotal < 0,
+                  }"
                 >
-                  <Pencil class="size-3.5" />
-                </Button>
-              </div>
-            </TableCell>
-            <TableCell class="px-4 align-middle text-right tabular-nums">
-              {{ formatHours(row.totalMinutes) }}
-            </TableCell>
-            <TableCell class="px-4 align-middle text-right tabular-nums">
-              {{ formatAmount(row.salary) }}
-            </TableCell>
-            <TableCell class="px-4 align-middle text-right">
-              <div class="inline-flex gap-1">
-                <!-- No rate yet: hours can't be logged without one, so the row's
-                     only action is to set it — an explicit CTA instead of a dead
-                     disabled "+". Once a rate exists, the add/detail buttons show. -->
-                <Button
-                  v-if="row.hourlyRate == null"
-                  variant="outline"
-                  size="sm"
-                  class="h-7"
-                  :aria-label="`Задать ставку — ${row.masterName}`"
-                  @click="openRate(row)"
+                  {{ row.payoutsTotal === 0 ? '—' : formatSigned(row.payoutsTotal) }}
+                </TableCell>
+                <TableCell
+                  class="px-4 align-middle text-right font-medium tabular-nums"
+                  :class="{ 'text-destructive': row.total < 0 }"
                 >
-                  Задать ставку
-                </Button>
-                <template v-else>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title="Добавить часы"
-                    :aria-label="`Добавить часы — ${row.masterName}`"
-                    @click="openAddHours(row)"
-                  >
-                    <Plus class="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    :title="expanded.has(row.masterId) ? 'Скрыть часы' : 'Показать часы'"
-                    :aria-label="`${expanded.has(row.masterId) ? 'Скрыть' : 'Показать'} часы — ${row.masterName}`"
-                    @click="toggleExpand(row.masterId)"
-                  >
-                    <ChevronRight
-                      class="size-4 transition-transform"
-                      :class="{ 'rotate-90': expanded.has(row.masterId) }"
-                    />
-                  </Button>
-                </template>
-              </div>
-            </TableCell>
-          </TableRow>
-              <MasterHoursRows
+                  {{ formatAmount(row.total) }}
+                </TableCell>
+                <TableCell class="px-4 align-middle text-right">
+                  <div class="inline-flex gap-1">
+                    <!-- No rate yet: hours can't be logged without one, so the
+                         row offers setting it instead of a dead disabled "+".
+                         A payout needs no rate, so its button is always there. -->
+                    <Button
+                      v-if="row.hourlyRate == null"
+                      variant="outline"
+                      size="sm"
+                      class="h-7"
+                      :aria-label="`Задать ставку — ${row.masterName}`"
+                      @click="openRate(row)"
+                    >
+                      Задать ставку
+                    </Button>
+                    <Button
+                      v-else
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Добавить часы"
+                      :aria-label="`Добавить часы — ${row.masterName}`"
+                      @click="openAddHours(row)"
+                    >
+                      <ClockPlus class="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Добавить выплату"
+                      :aria-label="`Добавить выплату — ${row.masterName}`"
+                      @click="openAddPayout(row)"
+                    >
+                      <Coins class="size-3.5" />
+                    </Button>
+                    <!-- Outside the rate branch on purpose: a master with no rate
+                         can still have payouts, and the row must be collapsible. -->
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      :title="expanded.has(row.masterId) ? 'Скрыть часы и выплаты' : 'Показать часы и выплаты'"
+                      :aria-label="`${expanded.has(row.masterId) ? 'Скрыть' : 'Показать'} часы и выплаты — ${row.masterName}`"
+                      @click="toggleExpand(row.masterId)"
+                    >
+                      <ChevronRight
+                        class="size-4 transition-transform"
+                        :class="{ 'rotate-90': expanded.has(row.masterId) }"
+                      />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+              <MasterEntriesRows
                 v-if="expanded.has(row.masterId)"
                 :master-id="row.masterId"
                 :month="month"
                 :column-count="COLUMN_COUNT"
-                @edit="openEditHours"
+                @edit="openEditEntry"
                 @delete="askDelete"
               />
             </template>
@@ -420,13 +544,25 @@ async function confirmDelete() {
       @saved="onHoursSaved"
     />
 
+    <PayoutFormDialog
+      v-model:open="payoutDialogOpen"
+      :editing="payoutEditing"
+      :master-id="payoutMaster.id"
+      :master-name="payoutMaster.name"
+      :masters="allMasters"
+      @saved="onPayoutSaved"
+    />
+
     <AlertDialog :open="deleteDialogOpen" @update:open="(v) => (deleteDialogOpen = v)">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удалить запись?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {{ deleteTarget?.kind === 'payout' ? 'Удалить выплату?' : 'Удалить запись?' }}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget">
-              Запись за {{ formatDate(deleteTarget.workDate) }} будет удалена. Итоги
+              {{ deleteTarget.kind === 'payout' ? 'Выплата' : 'Запись' }} за
+              {{ formatDate(salaryEntryDate(deleteTarget)) }} будет удалена. Итоги
               пересчитаются. Действие нельзя отменить
             </template>
           </AlertDialogDescription>

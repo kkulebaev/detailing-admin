@@ -94,7 +94,7 @@ async function submit() {
 
       <form class="grid gap-4 py-2" @submit.prevent="submit">
         <div class="grid gap-2">
-          <Label for="master-rate">Ставка, ₽/ч</Label>
+          <Label for="master-rate">Ставка ₽/ч</Label>
           <Input
             id="master-rate"
             v-model="rate"

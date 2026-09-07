@@ -11,7 +11,7 @@ import {
 import { fetchPricelist } from './pricelist-api'
 import { fetchMasters } from './masters-api'
 import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
-import { fetchSalaries, fetchWorkHours } from './salaries-api'
+import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 
 // Query keys live next to the composables so callers never have to know the
 // concrete string — they just call `useInvalidate*()` after a mutation.
@@ -20,7 +20,7 @@ export const PRICELIST_KEY = ['pricelist'] as const
 export const MASTERS_KEY = ['masters'] as const
 export const BOOKINGS_KEY = ['bookings'] as const
 export const SALARIES_KEY = ['salaries'] as const
-export const WORK_HOURS_KEY = ['work-hours'] as const
+export const SALARY_ENTRIES_KEY = ['salary-entries'] as const
 export const ANALYTICS_KEY = ['analytics'] as const
 
 // Reactive key so changing the search term, sort, or paging refetches
@@ -126,20 +126,21 @@ export function useInvalidateSalaries() {
   return () => cache.invalidateQueries({ key: SALARIES_KEY })
 }
 
-// Per-master month detail. `masterId` is null while no master is selected — the
-// `enabled` guard keeps the query idle until one is.
-export function useWorkHoursQuery(masterId: Ref<number | null>, month: Ref<string>) {
+// Per-master month detail: hours and payouts as one merged feed. `masterId` is
+// null while no master is selected — the `enabled` guard keeps the query idle
+// until one is.
+export function useSalaryEntriesQuery(masterId: Ref<number | null>, month: Ref<string>) {
   return useQuery({
-    key: () => [...WORK_HOURS_KEY, masterId.value ?? 0, month.value],
+    key: () => [...SALARY_ENTRIES_KEY, masterId.value ?? 0, month.value],
     // enabled gates this on masterId != null, so the ?? 0 fallback never runs.
-    query: () => fetchWorkHours(masterId.value ?? 0, month.value),
+    query: () => fetchSalaryEntries(masterId.value ?? 0, month.value),
     enabled: () => masterId.value != null,
   })
 }
 
-export function useInvalidateWorkHours() {
+export function useInvalidateSalaryEntries() {
   const cache = useQueryCache()
-  return () => cache.invalidateQueries({ key: WORK_HOURS_KEY })
+  return () => cache.invalidateQueries({ key: SALARY_ENTRIES_KEY })
 }
 
 // Reactive key so changing the period or granularity refetches automatically.
