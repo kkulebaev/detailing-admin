@@ -8,7 +8,7 @@ import { v4 as uuid } from 'uuid'
 import { toast } from 'vue-sonner'
 import { Calendar as CalendarIcon, Pencil, User } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
-import type { DateValue, PointerDownOutsideEvent } from 'reka-ui'
+import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
   DEFAULT_CAR_CLASS,
@@ -39,7 +39,6 @@ import ServicePicker from './ServicePicker.vue'
 import MasterMultiSelect from './MasterMultiSelect.vue'
 import {
   Popover,
-  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
@@ -539,16 +538,21 @@ function pickTimeTo(t: string) {
 }
 
 // ── Car suggestions (autocomplete) ───────────────────────────────────────────
-// Подсказки всплывают прямо при наборе, но три вещи в этой связке ломали тап на
-// Android и должны остаться как есть:
-//   • пункты — не `<button>`, а `<li role="option">`: тап по неинтерактивному
-//     элементу не уводит фокус, поле не теряет каретку и клавиатуру;
-//   • выбор висит и на `mousedown` (держит фокус на десктопе), и на `click` —
-//     эмулированные mouse-события Chrome придерживает внутри прокручиваемого
-//     списка и часто не шлёт вовсе, так что одного `mousedown` не хватает;
-//   • список не закрывается по `blur`: он прилетал раньше выбора и сносил
-//     поповер до того, как тап успевал сработать. Закрытие — по выбору, Escape
-//     и тапу мимо поля.
+// Список подсказок сознательно собран на голом DOM, без Popover: на Android
+// выбор тапом не доезжал ни через `mousedown`, ни через `click`. Что здесь
+// принципиально и ломается при «упрощении»:
+//   • список — обычный `absolute`-элемент рядом с полем, а не портал. У
+//     `PopoverContent` есть `tabindex="-1"`, и тап по нему уводил фокус с поля;
+//   • выбор висит на `pointerup`, а не на mouse-событиях: `pointer*` браузер
+//     шлёт всегда, а эмулированные mouse-события Chrome внутри прокручиваемого
+//     контейнера придерживает и часто не шлёт вовсе;
+//   • скролл списка отделяется от тапа порогом сдвига пальца, иначе протяжка
+//     выбирала бы случайный пункт (сам скролл жив: его решает `touch-action`, а
+//     не `preventDefault` на pointerdown — тот лишь удерживает фокус в поле);
+//   • пункты — `<li>`, а не `<button>`: неинтерактивный элемент не забирает
+//     фокус, поле не теряет каретку и клавиатуру;
+//   • список не закрывается по `blur` — тот прилетал раньше тапа. Закрытие: сам
+//     выбор, Escape и `pointerdown` мимо поля и списка.
 const carPopoverOpen = ref(false)
 const carActiveIndex = ref(0)
 const carListEl = ref<HTMLElement | null>(null)
@@ -587,12 +591,33 @@ function openCarSuggestions(e: Event) {
   carPopoverOpen.value = true
 }
 
-// Само поле — якорь поповера, тап по нему список не гасит (его переоткрывает
-// `openCarSuggestions`). Всё остальное закрывает.
-function onCarPointerDownOutside(e: PointerDownOutsideEvent) {
-  const target = e.detail.originalEvent.target
-  if (target instanceof Element && target.closest('[data-car-input]')) return
+// Тап по самому полю или по списку список не гасит, всё остальное — закрывает.
+function onDocumentPointerDown(e: Event) {
+  if (!carPopoverOpen.value) return
+  const target = e.target
+  if (
+    target instanceof Element &&
+    (target.closest('[data-car-input]') || target.closest('[data-car-suggestions]'))
+  ) return
   carPopoverOpen.value = false
+}
+
+// Тап и протяжка приходят одной и той же парой pointer-событий, поэтому выбор
+// засчитывается только если палец практически не сдвинулся.
+const CAR_TAP_SLOP_PX = 12
+let carTapOrigin: { x: number; y: number } | null = null
+
+function onCarItemPointerDown(e: PointerEvent, index: number) {
+  carTapOrigin = { x: e.clientX, y: e.clientY }
+  carActiveIndex.value = index
+}
+
+function onCarItemPointerUp(e: PointerEvent, car: string) {
+  const origin = carTapOrigin
+  carTapOrigin = null
+  if (!origin) return
+  if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > CAR_TAP_SLOP_PX) return
+  selectCar(car)
 }
 
 function scrollActiveCarIntoView() {
@@ -1109,6 +1134,8 @@ if (import.meta.env.DEV) {
 }
 
 onMounted(loadDraft)
+onMounted(() => document.addEventListener('pointerdown', onDocumentPointerDown, true))
+onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerDown, true))
 
 let saveScheduled = false
 function scheduleSave() {
@@ -1431,51 +1458,46 @@ watch(
             <FormField v-slot="{ componentField }" name="car">
               <FormItem>
                 <FormLabel>Марка и модель</FormLabel>
-                <Popover :open="carPopoverOpen && filteredCars.length > 0">
-                  <PopoverAnchor as-child>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        class="h-11"
-                        placeholder="Toyota Camry"
-                        autocomplete="off"
-                        role="combobox"
-                        aria-autocomplete="list"
-                        :aria-expanded="carPopoverOpen && filteredCars.length > 0"
-                        data-car-input
-                        v-bind="componentField"
-                        @focus="openCarSuggestions"
-                        @click="openCarSuggestions"
-                        @input="onCarInput"
-                        @keydown="onCarKeydown"
-                      />
-                    </FormControl>
-                  </PopoverAnchor>
-                  <PopoverContent
-                    class="w-(--reka-popover-trigger-width) p-0 max-h-72 overflow-auto"
-                    align="start"
-                    :side-offset="4"
-                    @open-auto-focus.prevent
-                    @close-auto-focus.prevent
-                    @pointer-down-outside="onCarPointerDownOutside"
+                <div class="relative">
+                  <FormControl>
+                    <Input
+                      type="text"
+                      class="h-11"
+                      placeholder="Toyota Camry"
+                      autocomplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      :aria-expanded="carPopoverOpen && filteredCars.length > 0"
+                      data-car-input
+                      v-bind="componentField"
+                      @focus="openCarSuggestions"
+                      @click="openCarSuggestions"
+                      @input="onCarInput"
+                      @keydown="onCarKeydown"
+                    />
+                  </FormControl>
+                  <ul
+                    v-if="carPopoverOpen && filteredCars.length > 0"
+                    ref="carListEl"
+                    data-car-suggestions
+                    role="listbox"
+                    class="absolute inset-x-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border bg-popover py-1 text-popover-foreground shadow-md"
                   >
-                    <ul ref="carListEl" class="py-1" role="listbox">
-                      <li
-                        v-for="(car, i) in filteredCars"
-                        :key="car"
-                        role="option"
-                        :aria-selected="i === carActiveIndex"
-                        :data-active="i === carActiveIndex"
-                        class="cursor-pointer px-3 py-2 text-sm data-[active=true]:bg-accent"
-                        @mousedown.prevent="selectCar(car)"
-                        @click="selectCar(car)"
-                        @mouseenter="carActiveIndex = i"
-                      >
-                        {{ car }}
-                      </li>
-                    </ul>
-                  </PopoverContent>
-                </Popover>
+                    <li
+                      v-for="(car, i) in filteredCars"
+                      :key="car"
+                      role="option"
+                      :aria-selected="i === carActiveIndex"
+                      :data-active="i === carActiveIndex"
+                      class="cursor-pointer px-3 py-2 text-sm data-[active=true]:bg-accent"
+                      @pointerdown.prevent="onCarItemPointerDown($event, i)"
+                      @pointerup="onCarItemPointerUp($event, car)"
+                      @mouseenter="carActiveIndex = i"
+                    >
+                      {{ car }}
+                    </li>
+                  </ul>
+                </div>
                 <FormMessage />
               </FormItem>
             </FormField>
