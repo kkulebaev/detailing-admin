@@ -14,9 +14,9 @@ import {
 import { toast } from 'vue-sonner'
 import { createReusableTemplate, useLocalStorage } from '@vueuse/core'
 import type { DateValue } from 'reka-ui'
-import { CalendarDate } from '@internationalized/date'
 import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/shared'
-import { buildMonthOptions } from '@/lib/month-options'
+import { getLocalTimeZone, today } from '@internationalized/date'
+import { MONTH_NAMES } from '@/lib/month-options'
 import { calToDdmmyyyy, isoToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
 import {
@@ -248,11 +248,14 @@ async function confirmDelete() {
 }
 
 // ── Filter state ──────────────────────────────────────────────────────────────
+// Период — одно из трёх: все записи, месяц целиком или конкретный день. Месяц и
+// день взаимоисключающи: выбор одного гасит другой.
+const monthKey = ref<string>(ALL)
 // shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
-const dateFromCal = shallowRef<DateValue | undefined>(undefined)
-const dateToCal = shallowRef<DateValue | undefined>(undefined)
-const dateFromOpen = ref(false)
-const dateToOpen = ref(false)
+const dayCal = shallowRef<DateValue | undefined>(undefined)
+const periodOpen = ref(false)
+// Месяц, открытый в календаре. Он же решает, какой месяц заберёт «Весь месяц».
+const periodPlaceholder = shallowRef<DateValue>(today(getLocalTimeZone()))
 const masterFilter = ref<string>(ALL)
 const readinessFilter = ref<Readiness | typeof ALL>(ALL)
 const searchInput = ref('')
@@ -277,51 +280,44 @@ const masterOptions = computed(() =>
   ),
 )
 
-// ── Month quick-filter ──────────────────────────────────────────────────────
-// A convenience over the two date pickers: picking a month sets the range to its
-// first…last day; the pickers stay the single source of truth (manually tweaking
-// them shows «Свой период» in the month select).
-const MONTH_CUSTOM = '__custom__'
-
-// Rolling window: 1 month ahead down to 12 back, newest first.
-const monthOptions = buildMonthOptions()
-
+// ── Period filter ───────────────────────────────────────────────────────────
+// Один календарь на три режима: клик по дню фильтрует по дню, «Весь месяц»
+// берёт открытый в шапке месяц, «Все записи» снимает фильтр. Селекты месяца и
+// года в шапке (layout="month-and-year") заменяют прежний выпадающий список —
+// иначе до месяца годичной давности пришлось бы долистывать стрелками.
 function lastDayOfMonth(year: number, month1: number): number {
   return new Date(year, month1, 0).getDate()
 }
 
-// Returns the `YYYY-MM` key when the current range spans exactly one whole month.
-function monthKeyOf(from?: DateValue, to?: DateValue): string | null {
-  if (!from || !to) return null
-  if (from.day !== 1 || from.year !== to.year || from.month !== to.month) return null
-  if (to.day !== lastDayOfMonth(to.year, to.month)) return null
-  return `${from.year}-${String(from.month).padStart(2, '0')}`
+function monthKeyOf(d: DateValue): string {
+  return `${d.year}-${String(d.month).padStart(2, '0')}`
 }
 
-const monthValue = computed<string>({
-  get() {
-    const key = monthKeyOf(dateFromCal.value, dateToCal.value)
-    if (key) return key
-    return dateFromCal.value || dateToCal.value ? MONTH_CUSTOM : ALL
-  },
-  set(value) {
-    if (value === MONTH_CUSTOM) return
-    if (value === ALL) {
-      dateFromCal.value = undefined
-      dateToCal.value = undefined
-      return
-    }
-    const [y, m] = value.split('-').map(Number)
-    dateFromCal.value = new CalendarDate(y, m, 1)
-    dateToCal.value = new CalendarDate(y, m, lastDayOfMonth(y, m))
-  },
+const periodLabel = computed(() => {
+  if (dayCal.value) return calToDdmmyyyy(dayCal.value)
+  if (monthKey.value === ALL) return 'Все записи'
+  const [y, m] = monthKey.value.split('-').map(Number)
+  return `${MONTH_NAMES[m - 1]} ${y}`
+})
+
+// Оба конца диапазона совпадают для дня и охватывают месяц целиком для месяца.
+const periodRange = computed<{ from: string, to: string } | null>(() => {
+  const day = dayCal.value
+  if (day) {
+    const d = calToDdmmyyyy(day)
+    return { from: d, to: d }
+  }
+  if (monthKey.value === ALL) return null
+  const [y, m] = monthKey.value.split('-').map(Number)
+  const mm = String(m).padStart(2, '0')
+  return { from: `01.${mm}.${y}`, to: `${lastDayOfMonth(y, m)}.${mm}.${y}` }
 })
 
 const params = computed<GetApiBookingsParams>(() => ({
   limit: LIMIT,
   offset: offset.value,
-  dateFrom: dateFromCal.value ? calToDdmmyyyy(dateFromCal.value) : undefined,
-  dateTo: dateToCal.value ? calToDdmmyyyy(dateToCal.value) : undefined,
+  dateFrom: periodRange.value?.from,
+  dateTo: periodRange.value?.to,
   master: masterFilter.value === ALL ? undefined : masterFilter.value,
   readiness: readinessFilter.value === ALL ? undefined : readinessFilter.value,
   q: searchDebounced.value.trim() || undefined,
@@ -330,7 +326,7 @@ const params = computed<GetApiBookingsParams>(() => ({
 // Any filter change returns to the first page; paging itself moves `offset`
 // directly and is intentionally excluded here.
 watch(
-  [dateFromCal, dateToCal, masterFilter, readinessFilter, searchDebounced],
+  [monthKey, dayCal, masterFilter, readinessFilter, searchDebounced],
   () => {
     resetToFirstPage()
   },
@@ -411,7 +407,7 @@ const filtersSheetOpen = ref(false)
 // Месяц не считаем отдельно: он производный от пары дат.
 const activeFilterCount = computed(() => {
   let n = 0
-  if (dateFromCal.value || dateToCal.value) n += 1
+  if (periodRange.value) n += 1
   if (masterFilter.value !== ALL) n += 1
   if (readinessFilter.value !== ALL) n += 1
   return n
@@ -424,16 +420,15 @@ const [DefineSearch, ReuseSearch] = createReusableTemplate()
 
 const hasActiveFilters = computed(
   () =>
-    !!dateFromCal.value ||
-    !!dateToCal.value ||
+    !!periodRange.value ||
     masterFilter.value !== ALL ||
     readinessFilter.value !== ALL ||
     searchInput.value.trim() !== '',
 )
 
 function resetFilters() {
-  dateFromCal.value = undefined
-  dateToCal.value = undefined
+  monthKey.value = ALL
+  dayCal.value = undefined
   masterFilter.value = ALL
   readinessFilter.value = ALL
   searchInput.value = ''
@@ -443,14 +438,26 @@ function resetFilters() {
   searchDebounced.value = ''
 }
 
-function onDateFromSelect(d: DateValue | undefined) {
-  dateFromCal.value = d ?? undefined
-  dateFromOpen.value = false
+// Три режима взаимоисключающи: каждый выбор гасит два других.
+function onDaySelect(d: DateValue | undefined) {
+  dayCal.value = d ?? undefined
+  if (d) {
+    monthKey.value = ALL
+    periodPlaceholder.value = d
+  }
+  periodOpen.value = false
 }
 
-function onDateToSelect(d: DateValue | undefined) {
-  dateToCal.value = d ?? undefined
-  dateToOpen.value = false
+function selectVisibleMonth() {
+  monthKey.value = monthKeyOf(periodPlaceholder.value)
+  dayCal.value = undefined
+  periodOpen.value = false
+}
+
+function resetPeriod() {
+  monthKey.value = ALL
+  dayCal.value = undefined
+  periodOpen.value = false
 }
 
 // ── Cell formatting ───────────────────────────────────────────────────────────
@@ -535,58 +542,29 @@ function formatCreatedAt(iso: string): string {
            полном режиме и шторка снизу в компактном. -->
       <DefineFilters>
         <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Месяц</span>
-          <Select v-model="monthValue">
-            <SelectTrigger size="sm" class="w-44">
-              <SelectValue placeholder="Свой период" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="ALL">Все месяцы</SelectItem>
-              <SelectItem v-for="mo in monthOptions" :key="mo.value" :value="mo.value">
-                {{ mo.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">С даты</span>
-          <Popover v-model:open="dateFromOpen">
+          <span class="text-xs text-muted-foreground">Период</span>
+          <Popover v-model:open="periodOpen">
             <PopoverTrigger as-child>
-              <Button variant="outline" size="sm" class="justify-start gap-2 font-normal">
+              <Button variant="outline" size="sm" class="w-44 justify-start gap-2 font-normal">
                 <CalendarIcon class="size-4" />
-                <span :class="{ 'text-muted-foreground': !dateFromCal }">
-                  {{ dateFromCal ? calToDdmmyyyy(dateFromCal) : 'Любая' }}
+                <span :class="{ 'text-muted-foreground': !dayCal && monthKey === ALL }">
+                  {{ periodLabel }}
                 </span>
               </Button>
             </PopoverTrigger>
             <PopoverContent class="w-auto p-0" align="start">
               <Calendar
+                v-model:placeholder="periodPlaceholder"
                 locale="ru-RU"
-                :model-value="dateFromCal"
-                @update:model-value="onDateFromSelect"
+                :model-value="dayCal"
+                @update:model-value="onDaySelect"
               />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">По дату</span>
-          <Popover v-model:open="dateToOpen">
-            <PopoverTrigger as-child>
-              <Button variant="outline" size="sm" class="justify-start gap-2 font-normal">
-                <CalendarIcon class="size-4" />
-                <span :class="{ 'text-muted-foreground': !dateToCal }">
-                  {{ dateToCal ? calToDdmmyyyy(dateToCal) : 'Любая' }}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-auto p-0" align="start">
-              <Calendar
-                locale="ru-RU"
-                :model-value="dateToCal"
-                @update:model-value="onDateToSelect"
-              />
+              <div class="flex items-center justify-between gap-2 border-t border-border p-2">
+                <Button variant="ghost" size="sm" @click="resetPeriod">Все записи</Button>
+                <Button variant="ghost" size="sm" @click="selectVisibleMonth">
+                  Весь месяц
+                </Button>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
