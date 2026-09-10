@@ -2,6 +2,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { ChevronRight, ClockPlus, Coins, Inbox, Pencil } from '@lucide/vue'
 import { toast } from 'vue-sonner'
+import { useMediaQuery } from '@vueuse/core'
 import {
   minutesToHours,
   salaryEntryDate,
@@ -18,7 +19,7 @@ import {
 } from '@/lib/queries'
 import { buildMonthOptions, currentMonthKey, formatMonthAccusative } from '@/lib/month-options'
 import { formatAmount, formatSigned } from '@/lib/money'
-import MasterEntriesRows from './MasterEntriesRows.vue'
+import MasterEntries from './MasterEntries.vue'
 import PayoutFormDialog from './PayoutFormDialog.vue'
 import RateFormDialog from './RateFormDialog.vue'
 import WorkHoursFormDialog from './WorkHoursFormDialog.vue'
@@ -59,6 +60,11 @@ import {
 } from '@/components/ui/table'
 
 const COLUMN_COUNT = 7
+
+// Семь колонок таблицы не помещаются в телефон, поэтому ниже 640px та же строка
+// мастера собирается в карточку. Решает только ширина экрана — данные и
+// обработчики у обеих раскладок общие.
+const isWideScreen = useMediaQuery('(min-width: 640px)')
 
 const monthOptions = buildMonthOptions()
 const month = ref(currentMonthKey())
@@ -156,7 +162,7 @@ async function onRateSaved() {
 
 // ── Expandable per-master detail ───────────────────────────────────────────────
 // Each master row expands to reveal its hours and payouts as sub-rows inline (no
-// dialog). Several can stay open at once; MasterEntriesRows owns the per-master
+// dialog). Several can stay open at once; MasterEntries owns the per-master
 // query. Totals in the master row stay live off `rows`.
 const expanded = ref<Set<number>>(new Set())
 
@@ -316,7 +322,7 @@ async function confirmDelete() {
 
         <!-- Named by `dataMonth`, not by `month`: while the previous month is
              still on screen the caption says which month this figure is. -->
-        <div v-if="!error" class="flex flex-col gap-1 sm:items-end">
+        <div v-if="!error" class="flex flex-col items-end gap-1">
           <span class="text-xs text-muted-foreground">
             Всего к выплате<template v-if="dataMonth">
               за {{ formatMonthAccusative(dataMonth) }}</template
@@ -334,10 +340,12 @@ async function confirmDelete() {
       </header>
 
       <div class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
-        <div class="flex flex-col gap-1">
+        <!-- На узком экране селектор занимает строку целиком, а кнопки делят
+             следующую пополам: фиксированная w-44 оставляла полстроки пустой. -->
+        <div class="flex w-full flex-col gap-1 sm:w-auto">
           <span class="text-xs text-muted-foreground">Месяц</span>
           <Select v-model="month">
-            <SelectTrigger size="sm" class="w-44">
+            <SelectTrigger size="sm" class="w-full sm:w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -348,11 +356,12 @@ async function confirmDelete() {
           </Select>
         </div>
 
-        <div class="ml-auto flex flex-wrap items-end gap-2">
+        <div class="ml-auto flex w-full items-end gap-2 sm:w-auto">
           <Button
             v-if="eligibleMasters.length > 0"
             variant="outline"
             size="sm"
+            class="flex-1 sm:flex-none"
             @click="openAddHoursGeneral"
           >
             <ClockPlus class="size-4" /> Добавить часы
@@ -362,6 +371,7 @@ async function confirmDelete() {
             v-if="rows.length > 0"
             variant="outline"
             size="sm"
+            class="flex-1 sm:flex-none"
             @click="openAddPayoutGeneral"
           >
             <Coins class="size-4" /> Добавить выплату
@@ -375,7 +385,7 @@ async function confirmDelete() {
       </Alert>
 
       <Table
-        v-else
+        v-else-if="isWideScreen"
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
         :class="[{ 'table-fixed min-w-284': !isEmpty, 'h-full': isEmpty }]"
       >
@@ -513,7 +523,7 @@ async function confirmDelete() {
                   </div>
                 </TableCell>
               </TableRow>
-              <MasterEntriesRows
+              <MasterEntries
                 v-if="expanded.has(row.masterId)"
                 :master-id="row.masterId"
                 :month="month"
@@ -525,6 +535,142 @@ async function confirmDelete() {
           </template>
         </TableBody>
       </Table>
+
+      <!-- Компактная раскладка: одна карточка на мастера. Имя и «Итого» —
+           первая строка, остальные колонки уходят в подпись под именем, а
+           колонка действий превращается в иконки справа от суммы. -->
+      <div v-else class="overflow-hidden rounded-md border border-border">
+        <template v-if="showSkeleton">
+          <div
+            v-for="i in 6"
+            :key="i"
+            class="flex items-center gap-3 border-b border-border px-3 py-3 last:border-b-0"
+          >
+            <Skeleton class="h-4 flex-1" />
+            <Skeleton class="h-4 w-16" />
+          </div>
+        </template>
+
+        <Empty v-else-if="isEmpty" class="gap-4 p-6 md:p-6">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Inbox />
+            </EmptyMedia>
+            <EmptyTitle>Некому начислять зарплату</EmptyTitle>
+            <EmptyDescription>
+              Включите «Начисляется зарплата» в карточке мастера — и он появится здесь
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+
+        <template v-else>
+          <div
+            v-for="row in rows"
+            :key="row.masterId"
+            class="border-b border-border last:border-b-0"
+          >
+            <div class="flex items-start gap-3 px-3 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="font-medium">{{ row.masterName }}</div>
+                <div
+                  class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground"
+                >
+                  <!-- Карандаш и есть кнопка «задать ставку»: отдельная текстовая
+                       кнопка из таблицы в карточку уже не влезает. -->
+                  <span class="inline-flex items-center gap-1">
+                    Ставка
+                    <span
+                      class="tabular-nums"
+                      :class="row.hourlyRate != null ? 'text-foreground' : ''"
+                    >
+                      {{
+                        row.hourlyRate != null
+                          ? `${formatAmount(row.hourlyRate)} ₽/ч`
+                          : 'не задана'
+                      }}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      class="size-6"
+                      :aria-label="`Изменить ставку — ${row.masterName}`"
+                      @click="openRate(row)"
+                    >
+                      <Pencil class="size-3.5" />
+                    </Button>
+                  </span>
+                  <!-- Нули и прочерки в карточке — шум: показываем только то,
+                       из чего действительно сложилось «Итого». -->
+                  <span v-if="row.totalMinutes > 0" class="tabular-nums">
+                    Часы <span class="text-foreground">{{ formatHours(row.totalMinutes) }}</span>
+                  </span>
+                  <span v-if="row.hoursSalary !== 0" class="tabular-nums">
+                    За часы
+                    <span class="text-foreground">{{ formatAmount(row.hoursSalary) }} ₽</span>
+                  </span>
+                  <span v-if="row.payoutsTotal !== 0" class="tabular-nums">
+                    Разовые
+                    <span
+                      :class="row.payoutsTotal < 0 ? 'text-destructive' : 'text-foreground'"
+                    >
+                      {{ formatSigned(row.payoutsTotal) }} ₽
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 flex-col items-end gap-1">
+                <span
+                  class="font-semibold tabular-nums"
+                  :class="{ 'text-destructive': row.total < 0 }"
+                >
+                  {{ formatAmount(row.total) }} ₽
+                </span>
+                <div class="inline-flex">
+                  <Button
+                    v-if="row.hourlyRate != null"
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Добавить часы — ${row.masterName}`"
+                    @click="openAddHours(row)"
+                  >
+                    <ClockPlus class="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Добавить выплату — ${row.masterName}`"
+                    @click="openAddPayout(row)"
+                  >
+                    <Coins class="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`${expanded.has(row.masterId) ? 'Скрыть' : 'Показать'} часы и выплаты — ${row.masterName}`"
+                    @click="toggleExpand(row.masterId)"
+                  >
+                    <ChevronRight
+                      class="size-4 transition-transform"
+                      :class="{ 'rotate-90': expanded.has(row.masterId) }"
+                    />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <MasterEntries
+              v-if="expanded.has(row.masterId)"
+              layout="list"
+              :master-id="row.masterId"
+              :month="month"
+              :column-count="COLUMN_COUNT"
+              @edit="openEditEntry"
+              @delete="askDelete"
+            />
+          </div>
+        </template>
+      </div>
     </div>
 
     <RateFormDialog
