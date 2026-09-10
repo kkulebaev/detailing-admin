@@ -700,41 +700,45 @@ function formatCreatedAt(iso: string): string {
       <div v-else class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
         <ReuseFilters />
 
-        <div class="flex flex-1 flex-col gap-1">
+        <div class="flex w-full flex-col gap-1 sm:w-auto sm:flex-1">
           <span class="text-xs text-muted-foreground">Поиск</span>
           <ReuseSearch />
         </div>
 
-        <div class="flex h-8 items-center gap-2">
-          <Checkbox
-            id="bookings-compact-wide"
-            :model-value="compact"
-            @update:model-value="(v) => (compact = v === true)"
-          />
-          <Label for="bookings-compact-wide" class="font-normal text-muted-foreground">
-            Компактный режим
-          </Label>
+        <!-- На узком экране переключатель и кнопки уезжают под поиск целиком:
+             деля с ними строку, поле поиска ужималось до пары символов. -->
+        <div class="flex w-full items-center gap-3 sm:w-auto">
+          <div class="flex h-8 items-center gap-2">
+            <Checkbox
+              id="bookings-compact-wide"
+              :model-value="compact"
+              @update:model-value="(v) => (compact = v === true)"
+            />
+            <Label for="bookings-compact-wide" class="font-normal text-muted-foreground">
+              Компактный режим
+            </Label>
+          </div>
+
+          <Button
+            v-if="hasActiveFilters"
+            variant="ghost"
+            size="sm"
+            class="gap-1 text-muted-foreground"
+            @click="resetFilters"
+          >
+            <X class="size-4" /> Сбросить
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            class="gap-1"
+            :disabled="exporting || loading || total === 0"
+            @click="onExport"
+          >
+            <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
+          </Button>
         </div>
-
-        <Button
-          v-if="hasActiveFilters"
-          variant="ghost"
-          size="sm"
-          class="gap-1 text-muted-foreground"
-          @click="resetFilters"
-        >
-          <X class="size-4" /> Сбросить
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          class="gap-1"
-          :disabled="exporting || loading || total === 0"
-          @click="onExport"
-        >
-          <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
-        </Button>
       </div>
 
       <Sheet v-model:open="filtersSheetOpen">
