@@ -12,7 +12,7 @@ import {
   X,
 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
-import { createReusableTemplate, useLocalStorage } from '@vueuse/core'
+import { createReusableTemplate, useLocalStorage, useMediaQuery } from '@vueuse/core'
 import type { DateValue } from 'reka-ui'
 import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/shared'
 import { getLocalTimeZone, today } from '@internationalized/date'
@@ -400,8 +400,12 @@ const isEmpty = computed(
     items.value.length === 0,
 )
 
-// Панель фильтров занимает половину мобильного экрана, поэтому в компактном
-// режиме она уезжает в шторку, а снаружи остаётся поиск и кнопка со счётчиком.
+// Панель фильтров занимает половину мобильного экрана, поэтому она уезжает в
+// шторку, а снаружи остаётся поиск и кнопка со счётчиком. Так и в компактном
+// режиме, и на узком экране: в строку четыре контрола там всё равно не встают.
+const isWideScreen = useMediaQuery('(min-width: 640px)')
+const collapsedToolbar = computed(() => compact.value || !isWideScreen.value)
+
 const filtersSheetOpen = ref(false)
 
 // Месяц не считаем отдельно: он производный от пары дат.
@@ -621,7 +625,7 @@ function formatCreatedAt(iso: string): string {
         </div>
       </DefineSearch>
 
-      <div v-if="compact" class="mb-3 shrink-0 flex flex-col gap-2">
+      <div v-if="collapsedToolbar" class="mb-3 shrink-0 flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <div class="flex-1">
             <ReuseSearch />
@@ -644,7 +648,7 @@ function formatCreatedAt(iso: string): string {
           <Button
             variant="outline"
             size="icon-sm"
-            class="size-9"
+            class="hidden size-9 sm:inline-flex"
             aria-label="Экспорт"
             :disabled="exporting || loading || total === 0"
             @click="onExport"
@@ -678,45 +682,41 @@ function formatCreatedAt(iso: string): string {
       <div v-else class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
         <ReuseFilters />
 
-        <div class="flex w-full flex-col gap-1 sm:w-auto sm:flex-1">
+        <div class="flex flex-1 flex-col gap-1">
           <span class="text-xs text-muted-foreground">Поиск</span>
           <ReuseSearch />
         </div>
 
-        <!-- На узком экране переключатель и кнопки уезжают под поиск целиком:
-             деля с ними строку, поле поиска ужималось до пары символов. -->
-        <div class="flex w-full items-center gap-3 sm:w-auto">
-          <div class="flex h-8 items-center gap-2">
-            <Checkbox
-              id="bookings-compact-wide"
-              :model-value="compact"
-              @update:model-value="(v) => (compact = v === true)"
-            />
-            <Label for="bookings-compact-wide" class="font-normal text-muted-foreground">
-              Компактный режим
-            </Label>
-          </div>
-
-          <Button
-            v-if="hasActiveFilters"
-            variant="ghost"
-            size="sm"
-            class="gap-1 text-muted-foreground"
-            @click="resetFilters"
-          >
-            <X class="size-4" /> Сбросить
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            class="gap-1"
-            :disabled="exporting || loading || total === 0"
-            @click="onExport"
-          >
-            <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
-          </Button>
+        <div class="flex h-8 items-center gap-2">
+          <Checkbox
+            id="bookings-compact-wide"
+            :model-value="compact"
+            @update:model-value="(v) => (compact = v === true)"
+          />
+          <Label for="bookings-compact-wide" class="font-normal text-muted-foreground">
+            Компактный режим
+          </Label>
         </div>
+
+        <Button
+          v-if="hasActiveFilters"
+          variant="ghost"
+          size="sm"
+          class="gap-1 text-muted-foreground"
+          @click="resetFilters"
+        >
+          <X class="size-4" /> Сбросить
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          class="gap-1"
+          :disabled="exporting || loading || total === 0"
+          @click="onExport"
+        >
+          <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
+        </Button>
       </div>
 
       <Sheet v-model:open="filtersSheetOpen">
@@ -724,7 +724,11 @@ function formatCreatedAt(iso: string): string {
           <SheetHeader class="p-0">
             <SheetTitle>Фильтры</SheetTitle>
           </SheetHeader>
-          <div class="flex flex-wrap gap-3">
+          <!-- В шторке контролы тянутся на всю ширину: фиксированная w-44 из
+               строки над таблицей оставляла половину узкого экрана пустой.
+               `[&_button]:w-full` достаёт и триггеры селектов, и кнопку
+               календаря; содержимое их попапов лежит в портале и не задето. -->
+          <div class="grid gap-3 sm:grid-cols-3 [&_button]:w-full">
             <ReuseFilters />
           </div>
           <Button
