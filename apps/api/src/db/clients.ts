@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm'
+import { normalizeCarKey } from '@detailing-admin/shared/car'
 import { normalizePhone } from '@detailing-admin/shared/phone'
 import type { Car, CarInput, ClientStats } from '@detailing-admin/shared/client'
 import { getDb } from './client.js'
 import { listCarsByClient, syncClientCars } from './client-cars.js'
 import { REVENUE_READINESS } from './analytics.js'
-import { bookings, clients, type Client } from './schema.js'
+import { bookings, clientCars, clients, type Client } from './schema.js'
 
 export type UpsertOutcome = 'inserted' | 'updated' | 'unchanged' | 'skipped'
 
@@ -25,8 +26,9 @@ export class ClientError extends Error {
 export interface ListClientsParams {
   limit: number
   offset: number
-  /** Free-text search across name/phone. A phone-looking term is normalized to
-   * E.164 before matching the stored (E.164) phone. */
+  /** Free-text search across name/phone/car. A phone-looking term is normalized
+   * to E.164 before matching the stored (E.164) phone; the car branch matches
+   * make/model and plate in `client_cars`. */
   q?: string
   /** Sort column. Defaults to name. */
   sort?: 'name' | 'phone' | 'createdAt'
@@ -52,7 +54,16 @@ export async function listClients(
     } catch {
       // Not a phone — keep the text pattern.
     }
-    where = or(ilike(clients.name, textLike), ilike(clients.phone, phoneLike))
+    // Cars live in a child table holding the *normalized* key, so the term gets
+    // the same normalization before matching — a plate is stored space-stripped,
+    // so raw «А 123 АА 77» would never find «А123АА77».
+    const carLike = `%${normalizeCarKey(q)}%`
+    const plateLike = `%${normalizeCarKey(q, true)}%`
+    where = or(
+      ilike(clients.name, textLike),
+      ilike(clients.phone, phoneLike),
+      sql`EXISTS (SELECT 1 FROM ${clientCars} WHERE ${clientCars.clientId} = ${clients.id} AND (${clientCars.makeModel} ILIKE ${carLike} OR ${clientCars.plate} ILIKE ${plateLike}))`,
+    )
   }
 
   const direction = p.dir === 'desc' ? desc : asc

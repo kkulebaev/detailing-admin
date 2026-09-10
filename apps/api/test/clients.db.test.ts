@@ -20,12 +20,14 @@ vi.mock('../src/db/client-cars.js', () => ({
   listCarsByClient: vi.fn().mockResolvedValue([]),
 }))
 
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { _setDbForTest, type Db } from '../src/db/client.js'
 import {
   deleteClient,
   createClient,
   updateClient,
   getClientStats,
+  listClients,
   ClientError,
 } from '../src/db/clients.js'
 import { syncClientCars, listCarsByClient } from '../src/db/client-cars.js'
@@ -216,5 +218,68 @@ describe('updateClient', () => {
     expect(vi.mocked(syncClientCars)).toHaveBeenCalledWith(CLIENT_ID, [
       { makeModel: 'Toyota Camry', plate: 'А123АА77' },
     ])
+  })
+})
+
+// Read-path chain fake: every verb returns `this`, each awaited terminal
+// dequeues the next result, and `.where()` records its condition. Query order
+// for a list is items, then count — both get the same condition.
+function makeListDb(selectResults: unknown[], captured: unknown[]): Db {
+  const q = [...selectResults]
+  const chain: Record<string, unknown> = {
+    select: () => chain,
+    from: () => chain,
+    where: (w: unknown) => {
+      captured.push(w)
+      return chain
+    },
+    orderBy: () => chain,
+    limit: () => chain,
+    offset: () => chain,
+    then: (res: (v: unknown) => unknown) => res(q.shift() ?? []),
+  }
+  return chain as unknown as Db
+}
+
+// The search branch is a where-clause shape, so assert on the emitted SQL
+// rather than on rows a fake db would have to invent.
+const renderWhere = (captured: unknown[]) =>
+  captured.filter((c) => c !== undefined).map((c) => new PgDialect().sqlToQuery(c as never))
+
+describe('listClients search', () => {
+  it('matches make/model and plate in client_cars alongside name and phone', async () => {
+    const captured: unknown[] = []
+    _setDbForTest(makeListDb([[], [{ count: 0 }]], captured))
+
+    await listClients({ limit: 10, offset: 0, q: 'Camry' })
+
+    const [where] = renderWhere(captured)
+    expect(where.sql).toMatch(/exists/i)
+    expect(where.sql).toContain('client_cars')
+    expect(where.sql).toContain('"make_model"')
+    expect(where.sql).toContain('"plate"')
+    expect(where.params).toContain('%Camry%')
+  })
+
+  it('normalizes a plate-looking term the way client_cars stores it', async () => {
+    const captured: unknown[] = []
+    _setDbForTest(makeListDb([[], [{ count: 0 }]], captured))
+
+    await listClients({ limit: 10, offset: 0, q: 'а 123 аа 77' })
+
+    const [where] = renderWhere(captured)
+    // Plates are stored upper-cased and space-stripped; make/model keeps the
+    // spaces (only collapsed), so both patterns must be present.
+    expect(where.params).toContain('%А123АА77%')
+    expect(where.params).toContain('%а 123 аа 77%')
+  })
+
+  it('builds no where clause without a search term', async () => {
+    const captured: unknown[] = []
+    _setDbForTest(makeListDb([[], [{ count: 0 }]], captured))
+
+    await listClients({ limit: 10, offset: 0 })
+
+    expect(captured[0]).toBeUndefined()
   })
 })

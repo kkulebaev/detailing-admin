@@ -343,7 +343,7 @@ async function confirmDelete() {
               v-model="searchInput"
               type="search"
               class="h-9 pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
-              placeholder="Имя или телефон"
+              placeholder="Машина, имя или телефон"
             />
             <button
               v-if="searchInput"
