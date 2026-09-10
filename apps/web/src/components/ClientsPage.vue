@@ -312,7 +312,7 @@ async function confirmDelete() {
 <template>
   <!-- Mobile: normal page flow (few rows fit — let the whole page scroll).
        md+: fixed-height flex column so only the rows scroll internally. -->
-  <div class="min-h-svh bg-background text-foreground p-4 sm:p-8 md:flex md:h-svh md:flex-col">
+  <div class="min-h-svh bg-background text-foreground p-2 sm:p-8 md:flex md:h-svh md:flex-col">
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0">
         <h1 class="text-2xl font-semibold">Клиенты</h1>

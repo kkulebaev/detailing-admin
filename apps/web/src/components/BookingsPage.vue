@@ -535,10 +535,7 @@ function formatCreatedAt(iso: string): string {
 <template>
   <!-- Mobile: normal page flow (few rows fit — let the whole page scroll).
        md+: fixed-height flex column so only the rows scroll internally. -->
-  <div
-    class="min-h-svh bg-background text-foreground sm:p-8 md:flex md:h-svh md:flex-col"
-    :class="compact ? 'p-2' : 'p-4'"
-  >
+  <div class="min-h-svh bg-background text-foreground p-2 sm:p-8 md:flex md:h-svh md:flex-col">
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Записи</h1>
