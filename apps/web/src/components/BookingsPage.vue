@@ -1,12 +1,23 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { Calendar as CalendarIcon, Download, Inbox, Pencil, Search, SearchX, Trash2, X } from '@lucide/vue'
+import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
+import {
+  Calendar as CalendarIcon,
+  Download,
+  Inbox,
+  Pencil,
+  Search,
+  SearchX,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from '@lucide/vue'
 import { toast } from 'vue-sonner'
+import { createReusableTemplate, useLocalStorage } from '@vueuse/core'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
 import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/shared'
 import { buildMonthOptions } from '@/lib/month-options'
-import { calToDdmmyyyy } from '@/lib/date'
+import { calToDdmmyyyy, isoToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
 import {
   bookingsExportUrl,
@@ -20,6 +31,8 @@ import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
+import BookingDetailsDialog from './BookingDetailsDialog.vue'
+import ReadinessPicker from './ReadinessPicker.vue'
 import BookingEditDialog from './BookingEditDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -42,7 +55,9 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Calendar } from '@/components/ui/calendar'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Popover,
   PopoverContent,
@@ -55,6 +70,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -73,8 +94,19 @@ const ALL = '__all__'
 // The «Сумма» column is admin-only; the API also omits `amount` for non-admins.
 const auth = useAuthStore()
 const isAdmin = computed(() => auth.user?.role === 'admin')
-// «#» + employee base of 10; admin adds «Сумма» +«Действия».
-const columnCount = computed(() => (isAdmin.value ? 13 : 11))
+// Плотный вид: одна запись занимает две строки таблицы (шапка записи + услуга,
+// готовность и действия под ней) вместо тринадцати колонок, живущих только за
+// счёт горизонтального скролла. Переключатель ручной и переживает перезагрузку —
+// ширина экрана его не переопределяет, потому что на планшете осмысленны обе
+// раскладки, а угаданный за пользователя вид сбивает привычку.
+const compact = useLocalStorage('bookings:compact', false)
+
+// «#» + employee base of 10; admin adds «Сумма» +«Действия». Компактная запись —
+// это одна ячейка на всё (дата, имя, машина, услуга) плюс админская «₽».
+const columnCount = computed(() => {
+  if (compact.value) return 1
+  return isAdmin.value ? 13 : 11
+})
 
 const invalidateBookings = useInvalidateBookings()
 
@@ -83,7 +115,7 @@ const invalidateBookings = useInvalidateBookings()
 const READINESS_NONE = '__none__'
 // Optimistic per-row state: the picked value shows immediately while the PATCH
 // is in flight, and reverts to the server value on failure.
-const readinessOverride = ref<Record<string, string>>({})
+const readinessOverride = ref<Record<string, Readiness | ''>>({})
 const savingReadiness = ref<Record<string, boolean>>({})
 
 function readinessSelectValue(row: BookingRow): string {
@@ -126,6 +158,40 @@ async function onReadinessChange(row: BookingRow, selected: string) {
 
 const editDialogOpen = ref(false)
 const editTarget = ref<BookingRow | null>(null)
+
+// Компактная строка показывает пять полей из тринадцати, остальные живут здесь.
+const detailsOpen = ref(false)
+// Держим id, а не саму строку: после смены готовности список перезапрашивается,
+// и снимок строки в диалоге показывал бы старый статус.
+const detailsId = ref<string | null>(null)
+
+const detailsBooking = computed<BookingRow | null>(() => {
+  const id = detailsId.value
+  if (!id) return null
+  const row = items.value.find((r) => r.id === id)
+  if (!row) return null
+  const pending = readinessOverride.value[id]
+  return pending === undefined ? row : { ...row, readiness: pending }
+})
+
+function openDetails(row: BookingRow) {
+  detailsId.value = row.id
+  detailsOpen.value = true
+}
+
+// Диалог поверх диалога reka-ui переживает плохо (focus scope второго встаёт до
+// того, как первый снял свой), поэтому следующий открываем на следующем тике.
+async function onDetailsEdit(row: BookingRow) {
+  detailsOpen.value = false
+  await nextTick()
+  openEdit(row)
+}
+
+async function onDetailsDelete(row: BookingRow) {
+  detailsOpen.value = false
+  await nextTick()
+  askDelete(row)
+}
 
 const deleteDialogOpen = ref(false)
 const deleteTarget = ref<BookingRow | null>(null)
@@ -338,6 +404,24 @@ const isEmpty = computed(
     items.value.length === 0,
 )
 
+// Панель фильтров занимает половину мобильного экрана, поэтому в компактном
+// режиме она уезжает в шторку, а снаружи остаётся поиск и кнопка со счётчиком.
+const filtersSheetOpen = ref(false)
+
+// Месяц не считаем отдельно: он производный от пары дат.
+const activeFilterCount = computed(() => {
+  let n = 0
+  if (dateFromCal.value || dateToCal.value) n += 1
+  if (masterFilter.value !== ALL) n += 1
+  if (readinessFilter.value !== ALL) n += 1
+  return n
+})
+
+// Один набор разметки фильтров на две раскладки — строка на десктопе и шторка на
+// мобиле; иначе пять контролов пришлось бы держать в двух местах синхронно.
+const [DefineFilters, ReuseFilters] = createReusableTemplate()
+const [DefineSearch, ReuseSearch] = createReusableTemplate()
+
 const hasActiveFilters = computed(
   () =>
     !!dateFromCal.value ||
@@ -370,18 +454,39 @@ function onDateToSelect(d: DateValue | undefined) {
 }
 
 // ── Cell formatting ───────────────────────────────────────────────────────────
-// DB dates arrive as ISO `YYYY-MM-DD`; the sheet-facing display is DD.MM.YYYY.
-function isoToDdmmyyyy(iso: string): string {
-  const [y, m, d] = iso.split('-')
-  if (!y || !m || !d) return iso
-  return `${d}.${m}.${y}`
-}
-
 // Пробелы вокруг тире дают точку переноса: иначе диапазон — неразрывный токен,
 // который вылезает из фиксированной колонки и налезает на соседнюю (Время/Имя).
 function formatDateCell(row: BookingRow): string {
   const from = isoToDdmmyyyy(row.dateFrom)
   return row.dateTo ? `${from} – ${isoToDdmmyyyy(row.dateTo)}` : from
+}
+
+// Компактный вид роняет год: колонка иначе не влезает в узкий экран, а год почти
+// всегда задан фильтром месяца. Полная дата остаётся в `title` ячейки.
+function isoToDdmm(iso: string): string {
+  const [, m, d] = iso.split('-')
+  if (!m || !d) return iso
+  return `${d}.${m}`
+}
+
+function formatDateCompact(row: BookingRow): string {
+  const from = isoToDdmm(row.dateFrom)
+  return row.dateTo ? `${from}–${isoToDdmm(row.dateTo)}` : from
+}
+
+// Время без пробелов вокруг тире и без прочерка: в компактной строке дата и
+// время делят одну строку с именем, каждый лишний символ сдвигает имя.
+function formatTimeCompact(row: BookingRow): string {
+  if (!row.timeFrom) return ''
+  return row.timeTo ? `${row.timeFrom}–${row.timeTo}` : row.timeFrom
+}
+
+// Вторая строка компактной записи. `service` многострочный (строка на секцию
+// прайса) — в один усечённый рядок он склеивается через « · ». Машина живёт
+// строкой выше: по ней запись узнают в первую очередь, имя вторично.
+function formatSummaryLine(row: BookingRow): string {
+  const service = row.service.split('\n').filter(Boolean).join(' · ')
+  return [row.name, service].filter(Boolean).join(' · ') || '—'
 }
 
 function formatTimeCell(row: BookingRow): string {
@@ -417,14 +522,18 @@ function formatCreatedAt(iso: string): string {
 <template>
   <!-- Mobile: normal page flow (few rows fit — let the whole page scroll).
        md+: fixed-height flex column so only the rows scroll internally. -->
-  <div class="min-h-svh bg-background text-foreground p-4 sm:p-8 md:flex md:h-svh md:flex-col">
+  <div
+    class="min-h-svh bg-background text-foreground sm:p-8 md:flex md:h-svh md:flex-col"
+    :class="compact ? 'p-2' : 'p-4'"
+  >
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Записи</h1>
       </header>
 
-      <!-- Filters -->
-      <div class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
+      <!-- Filters. Один набор контролов, две раскладки: строка над таблицей в
+           полном режиме и шторка снизу в компактном. -->
+      <DefineFilters>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">Месяц</span>
           <Select v-model="monthValue">
@@ -511,29 +620,100 @@ function formatCreatedAt(iso: string): string {
             </SelectContent>
           </Select>
         </div>
+      </DefineFilters>
+
+      <DefineSearch>
+        <div class="relative">
+          <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            v-model="searchInput"
+            type="search"
+            class="h-9 pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
+            placeholder="Имя, телефон или машина"
+          />
+          <button
+            v-if="searchInput"
+            type="button"
+            aria-label="Очистить поиск"
+            class="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
+            @click="searchInput = ''"
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+      </DefineSearch>
+
+      <div v-if="compact" class="mb-3 shrink-0 flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <div class="flex-1">
+            <ReuseSearch />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            class="h-9 gap-1"
+            @click="filtersSheetOpen = true"
+          >
+            <SlidersHorizontal class="size-4" />
+            Фильтры
+            <span
+              v-if="activeFilterCount"
+              class="rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums"
+            >
+              {{ activeFilterCount }}
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            class="size-9"
+            aria-label="Экспорт"
+            :disabled="exporting || loading || total === 0"
+            @click="onExport"
+          >
+            <Download class="size-4" />
+          </Button>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <Checkbox
+              id="bookings-compact"
+              :model-value="compact"
+              @update:model-value="(v) => (compact = v === true)"
+            />
+            <Label for="bookings-compact" class="text-xs font-normal text-muted-foreground">
+              Компактный режим
+            </Label>
+          </div>
+          <Button
+            v-if="hasActiveFilters"
+            variant="ghost"
+            size="sm"
+            class="h-7 gap-1 text-xs text-muted-foreground"
+            @click="resetFilters"
+          >
+            <X class="size-3.5" /> Сбросить
+          </Button>
+        </div>
+      </div>
+
+      <div v-else class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
+        <ReuseFilters />
 
         <div class="flex flex-1 flex-col gap-1">
           <span class="text-xs text-muted-foreground">Поиск</span>
-          <div class="relative">
-            <Search
-              class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              v-model="searchInput"
-              type="search"
-              class="h-9 pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
-              placeholder="Имя, телефон или машина"
-            />
-            <button
-              v-if="searchInput"
-              type="button"
-              aria-label="Очистить поиск"
-              class="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
-              @click="searchInput = ''"
-            >
-              <X class="size-4" />
-            </button>
-          </div>
+          <ReuseSearch />
+        </div>
+
+        <div class="flex h-8 items-center gap-2">
+          <Checkbox
+            id="bookings-compact-wide"
+            :model-value="compact"
+            @update:model-value="(v) => (compact = v === true)"
+          />
+          <Label for="bookings-compact-wide" class="font-normal text-muted-foreground">
+            Компактный режим
+          </Label>
         </div>
 
         <Button
@@ -557,6 +737,26 @@ function formatCreatedAt(iso: string): string {
         </Button>
       </div>
 
+      <Sheet v-model:open="filtersSheetOpen">
+        <SheetContent side="bottom" class="max-h-svh gap-4 overflow-y-auto rounded-t-lg p-4">
+          <SheetHeader class="p-0">
+            <SheetTitle>Фильтры</SheetTitle>
+          </SheetHeader>
+          <div class="flex flex-wrap gap-3">
+            <ReuseFilters />
+          </div>
+          <Button
+            v-if="hasActiveFilters"
+            variant="outline"
+            size="sm"
+            class="gap-1 self-start"
+            @click="resetFilters"
+          >
+            <X class="size-4" /> Сбросить фильтры
+          </Button>
+        </SheetContent>
+      </Sheet>
+
       <Alert v-if="error" variant="destructive" class="shrink-0">
         <AlertTitle>Не удалось загрузить записи</AlertTitle>
         <AlertDescription>{{ error }}</AlertDescription>
@@ -565,14 +765,17 @@ function formatCreatedAt(iso: string): string {
       <Table
         v-else
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
-        :class="[{ 'table-fixed': !isEmpty, 'h-full': isEmpty }]"
+        :class="[{ 'table-fixed': !isEmpty, 'h-full': isEmpty, 'text-xs': compact }]"
       >
         <!-- Fixed column widths so they don't jump between pages (table-fixed
              sizes columns from these, not from each page's content). Dropped when
              empty: the fixed widths force the table far wider than the viewport,
              which would leave the placeholder behind a horizontal scrollbar with
              nothing to scroll to. -->
-        <colgroup v-if="!isEmpty">
+        <colgroup v-if="!isEmpty && compact">
+          <col />
+        </colgroup>
+        <colgroup v-else-if="!isEmpty">
           <col class="w-14" />
           <col class="w-40" />
           <col class="w-24" />
@@ -587,7 +790,7 @@ function formatCreatedAt(iso: string): string {
           <col class="w-48" />
           <col v-if="isAdmin" class="w-24" />
         </colgroup>
-        <TableHeader v-if="!isEmpty" class="sticky top-0 z-10 bg-muted">
+        <TableHeader v-if="!isEmpty && !compact" class="sticky top-0 z-10 bg-muted">
             <TableRow>
               <TableHead class="px-4 text-right">#</TableHead>
               <TableHead class="px-4">Дата</TableHead>
@@ -642,6 +845,57 @@ function formatCreatedAt(iso: string): string {
                 </EmptyContent>
               </Empty>
             </TableEmpty>
+            <template v-else-if="compact">
+              <!-- Две строки на запись: дата, время и имя сверху, машина и услуга
+                   одной усечённой строкой снизу. Остальные восемь полей — в
+                   диалоге по тапу; готовность читается заливкой строки. -->
+              <TableRow
+                v-for="row in items"
+                :key="row.id"
+                tabindex="0"
+                :class="[readinessRowClass(row.readiness), 'cursor-pointer']"
+                :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
+                @click="openDetails(row)"
+                @keydown.enter="openDetails(row)"
+              >
+                <TableCell class="px-3 py-2 whitespace-normal">
+                  <!-- Дата, сумма и статус занимают свою ширину, машина и услуга
+                       забирают весь остаток: фиксированная колонка справа
+                       оставляла пустоту при коротком статусе. -->
+                  <div class="flex items-baseline gap-2">
+                    <span class="shrink-0 tabular-nums text-muted-foreground">
+                      {{ formatDateCompact(row) }}
+                      {{ formatTimeCompact(row) }}
+                    </span>
+                    <span class="min-w-0 flex-1 truncate text-sm font-medium">
+                      {{ row.car || '—' }}
+                    </span>
+                    <span
+                      v-if="isAdmin"
+                      class="shrink-0 text-sm font-medium tabular-nums"
+                      :title="row.amountFormula ?? ''"
+                    >
+                      <template v-if="row.amount != null">{{ formatAmount(row.amount) }} ₽</template>
+                      <template v-else>—</template>
+                    </span>
+                  </div>
+                  <div class="mt-0.5 flex items-baseline gap-2">
+                    <span class="min-w-0 flex-1 truncate text-muted-foreground">
+                      {{ formatSummaryLine(row) }}
+                    </span>
+                    <div class="shrink-0">
+                      <ReadinessPicker
+                        variant="plain"
+                        :readiness="readinessOverride[row.id] ?? row.readiness"
+                        :readonly="!isAdmin"
+                        :disabled="savingReadiness[row.id]"
+                        @update="(v) => onReadinessChange(row, v)"
+                      />
+                    </div>
+                  </div>
+                </TableCell>
+              </TableRow>
+            </template>
             <TableRow
               v-else
               v-for="(row, index) in items"
@@ -752,6 +1006,16 @@ function formatCreatedAt(iso: string): string {
         :disabled="loading"
       />
     </div>
+
+    <BookingDetailsDialog
+      v-model:open="detailsOpen"
+      :booking="detailsBooking"
+      :can-edit="isAdmin"
+      :readiness-saving="detailsId ? savingReadiness[detailsId] : false"
+      @edit="onDetailsEdit"
+      @delete="onDetailsDelete"
+      @readiness="(v) => detailsBooking && onReadinessChange(detailsBooking, v)"
+    />
 
     <BookingEditDialog
       v-model:open="editDialogOpen"
