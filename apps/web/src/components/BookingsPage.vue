@@ -400,11 +400,10 @@ const isEmpty = computed(
     items.value.length === 0,
 )
 
-// Панель фильтров занимает половину мобильного экрана, поэтому она уезжает в
-// шторку, а снаружи остаётся поиск и кнопка со счётчиком. Так и в компактном
-// режиме, и на узком экране: в строку четыре контрола там всё равно не встают.
+// Панель фильтров занимает половину мобильного экрана, поэтому на узком экране
+// она уезжает в шторку, а снаружи остаётся поиск и кнопка со счётчиком. Решает
+// только ширина: компактный режим меняет таблицу, а не панель.
 const isWideScreen = useMediaQuery('(min-width: 640px)')
-const collapsedToolbar = computed(() => compact.value || !isWideScreen.value)
 
 const filtersSheetOpen = ref(false)
 
@@ -625,7 +624,7 @@ function formatCreatedAt(iso: string): string {
         </div>
       </DefineSearch>
 
-      <div v-if="collapsedToolbar" class="mb-3 shrink-0 flex flex-col gap-2">
+      <div v-if="!isWideScreen" class="mb-3 shrink-0 flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <div class="flex-1">
             <ReuseSearch />
@@ -644,16 +643,6 @@ function formatCreatedAt(iso: string): string {
             >
               {{ activeFilterCount }}
             </span>
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            class="hidden size-9 sm:inline-flex"
-            aria-label="Экспорт"
-            :disabled="exporting || loading || total === 0"
-            @click="onExport"
-          >
-            <Download class="size-4" />
           </Button>
         </div>
         <div class="flex items-center gap-3">
@@ -728,7 +717,7 @@ function formatCreatedAt(iso: string): string {
                строки над таблицей оставляла половину узкого экрана пустой.
                `[&_button]:w-full` достаёт и триггеры селектов, и кнопку
                календаря; содержимое их попапов лежит в портале и не задето. -->
-          <div class="grid gap-3 sm:grid-cols-3 [&_button]:w-full">
+          <div class="grid gap-3 [&_button]:w-full">
             <ReuseFilters />
           </div>
           <Button
