@@ -68,7 +68,7 @@ function focusDialogItself(e: Event) {
       @open-auto-focus="focusDialogItself"
     >
       <DialogHeader>
-        <DialogTitle>{{ props.booking.name || 'Без имени' }}</DialogTitle>
+        <DialogTitle>{{ props.booking.car || 'Без машины' }}</DialogTitle>
         <DialogDescription>{{ dateText }} · {{ timeText }}</DialogDescription>
       </DialogHeader>
 
@@ -76,6 +76,9 @@ function focusDialogItself(e: Event) {
            переносится. Пустые поля показываем прочерком, а не прячем — иначе
            список полей прыгает от записи к записи. -->
       <dl class="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+        <dt class="text-muted-foreground">Имя</dt>
+        <dd class="col-span-2 break-words">{{ props.booking.name || '—' }}</dd>
+
         <dt class="text-muted-foreground">Телефон</dt>
         <dd class="col-span-2">
           <a
@@ -87,9 +90,6 @@ function focusDialogItself(e: Event) {
           </a>
           <span v-else>—</span>
         </dd>
-
-        <dt class="text-muted-foreground">Машина</dt>
-        <dd class="col-span-2 break-words">{{ props.booking.car || '—' }}</dd>
 
         <dt class="text-muted-foreground">Услуга</dt>
         <dd class="col-span-2 break-words whitespace-pre-line">{{ props.booking.service || '—' }}</dd>
