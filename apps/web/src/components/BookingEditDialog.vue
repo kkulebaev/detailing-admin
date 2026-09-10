@@ -308,7 +308,7 @@ async function submit() {
 
 <template>
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="max-w-lg max-h-svh overflow-y-auto">
+    <DialogContent class="max-h-svh overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Редактировать запись</DialogTitle>
       </DialogHeader>

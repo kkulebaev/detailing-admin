@@ -86,7 +86,7 @@ async function submit() {
 
 <template>
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="max-w-sm">
+    <DialogContent class="sm:max-w-sm">
       <DialogHeader>
         <DialogTitle>Ставка мастера</DialogTitle>
         <DialogDescription>{{ masterName }}</DialogDescription>

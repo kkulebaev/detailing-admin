@@ -212,7 +212,7 @@ async function submit() {
 
 <template>
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
+    <DialogContent class="max-h-[calc(100dvh-2rem)] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать услугу' : 'Новая услуга' }}</DialogTitle>
         <DialogDescription>
@@ -225,7 +225,7 @@ async function submit() {
           <Label for="service-section">Раздел</Label>
           <Select v-model="sectionId" :disabled="submitting">
             <!-- Section names run long; without min-w-0 the nowrap trigger sets the
-                 grid track's min-content width and drags the dialog past max-w-lg. -->
+                 grid track's min-content width and drags the dialog past its max width. -->
             <SelectTrigger
               id="service-section"
               class="w-full min-w-0 text-left *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate"

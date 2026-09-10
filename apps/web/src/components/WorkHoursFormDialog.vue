@@ -224,7 +224,7 @@ function handleResult(result: WorkHoursMutationResult, successMsg: string) {
 
 <template>
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="max-w-md">
+    <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать часы' : 'Добавить часы' }}</DialogTitle>
         <DialogDescription v-if="pickMaster">Выберите мастера и заполните часы</DialogDescription>
