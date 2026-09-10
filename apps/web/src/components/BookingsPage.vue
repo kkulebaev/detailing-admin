@@ -610,7 +610,7 @@ function formatCreatedAt(iso: string): string {
             v-model="searchInput"
             type="search"
             class="h-9 pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
-            placeholder="Имя, телефон или машина"
+            placeholder="Машина, имя или телефон"
           />
           <button
             v-if="searchInput"
