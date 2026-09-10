@@ -8,3 +8,11 @@ export function calToDdmmyyyy(d: DateValue): string {
   const mm = String(d.month).padStart(2, '0')
   return `${dd}.${mm}.${d.year}`
 }
+
+// DB dates arrive as ISO `YYYY-MM-DD`; every sheet-facing surface shows
+// DD.MM.YYYY. Shared by the bookings table and its details dialog.
+export function isoToDdmmyyyy(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  if (!y || !m || !d) return iso
+  return `${d}.${m}.${y}`
+}
