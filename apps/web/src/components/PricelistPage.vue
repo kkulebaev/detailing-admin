@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Info, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { ChevronRight, Info, Pencil, Plus, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
+import { useMediaQuery } from '@vueuse/core'
 import {
   deleteSection as apiDeleteSection,
   deleteService as apiDeleteService,
@@ -37,6 +38,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+
+// Таблица прайса — семь колонок и почти тысяча пикселей ширины, поэтому ниже
+// 640px услуги показываются карточками. Данные и диалоги у раскладок общие.
+const isWideScreen = useMediaQuery('(min-width: 640px)')
 
 const { data: queryData, error: queryError, asyncStatus } = usePricelistQuery()
 const invalidatePricelist = useInvalidatePricelist()
@@ -79,7 +84,11 @@ const totalServices = computed(() =>
 )
 
 const CLASS_COLUMNS: readonly CarClass[] = [1, 2, 3, 4]
-const CLASS_LABELS: Record<CarClass, string> = { 1: 'I кл.', 2: 'II кл.', 3: 'III кл.', 4: 'IV кл.' }
+const CLASS_NUMERALS: Record<CarClass, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
+
+function classLabel(cls: CarClass): string {
+  return `${CLASS_NUMERALS[cls]} кл.`
+}
 
 const priceFormatter = new Intl.NumberFormat('ru-RU')
 
@@ -87,6 +96,42 @@ function formatClassPrice(svc: PricelistService, cls: CarClass): string {
   const { min, max } = servicePriceForClass(svc, cls)
   if (max === null) return `${priceFormatter.format(min)} ₽`
   return `${priceFormatter.format(min)} – ${priceFormatter.format(max)} ₽`
+}
+
+// Соседние классы с одинаковой ценой сливаются в одну строку: почти треть услуг
+// стоит одинаково во всех четырёх классах, ещё у трети совпадают I–II и III–IV,
+// и в карточке сетка из четырёх одинаковых чисел только мешает читать.
+// Сравниваем готовые строки — одинаковая пара min/max даёт одинаковый текст.
+function priceGroups(svc: PricelistService): { label: string; price: string }[] {
+  const groups: { classes: CarClass[]; price: string }[] = []
+  for (const cls of CLASS_COLUMNS) {
+    const price = formatClassPrice(svc, cls)
+    const last = groups[groups.length - 1]
+    if (last && last.price === price) last.classes.push(cls)
+    else groups.push({ classes: [cls], price })
+  }
+  return groups.map(({ classes, price }) => {
+    const first = classes[0]
+    const last = classes[classes.length - 1]
+    if (classes.length === CLASS_COLUMNS.length) return { label: 'Все классы', price }
+    const label =
+      classes.length === 1
+        ? classLabel(first)
+        : `${CLASS_NUMERALS[first]}–${CLASS_NUMERALS[last]} кл.`
+    return { label, price }
+  })
+}
+
+// Девять разделов и почти сотня услуг — на телефоне это бесконечная лента,
+// поэтому в компактной раскладке разделы свёрнуты и работают как оглавление.
+// На широком экране состояние не используется: таблица всегда развёрнута.
+const openSections = ref<Set<number>>(new Set())
+
+function toggleSection(sectionId: number) {
+  const next = new Set(openSections.value)
+  if (next.has(sectionId)) next.delete(sectionId)
+  else next.add(sectionId)
+  openSections.value = next
 }
 
 function openCreateSection() {
@@ -103,6 +148,11 @@ function openCreateService(defaultSectionId: number | null) {
   serviceEditing.value = null
   serviceDefaultSectionId.value = defaultSectionId
   serviceDialogOpen.value = true
+  // Иначе в компактной раскладке новая услуга уедет в свёрнутый раздел и
+  // сохранение будет выглядеть как «ничего не произошло».
+  if (defaultSectionId != null && !openSections.value.has(defaultSectionId)) {
+    toggleSection(defaultSectionId)
+  }
 }
 
 function openEditService(svc: PricelistService) {
@@ -204,7 +254,7 @@ async function confirmDelete() {
         <AlertDescription>{{ error }}</AlertDescription>
       </Alert>
 
-      <div v-else class="overflow-hidden rounded-md border border-border">
+      <div v-else-if="isWideScreen" class="overflow-hidden rounded-md border border-border">
         <Table>
           <colgroup>
             <col class="w-72" />
@@ -216,7 +266,7 @@ async function confirmDelete() {
             <TableRow>
               <TableHead class="px-4">Услуга</TableHead>
               <TableHead v-for="c in CLASS_COLUMNS" :key="c" class="px-4 text-right">
-                {{ CLASS_LABELS[c] }}
+                {{ classLabel(c) }}
               </TableHead>
               <TableHead class="px-4 text-center md:text-left">
                 <span class="hidden md:inline">Примечание</span>
@@ -346,6 +396,156 @@ async function confirmDelete() {
             </template>
           </TableBody>
         </Table>
+      </div>
+
+      <!-- Компактная раскладка: раздел — сворачиваемая группа, услуга — карточка
+           с ценами по классам сеткой 2×2 под названием. Примечание остаётся под
+           кнопкой: у большинства услуг это несколько строк текста. -->
+      <div v-else class="overflow-hidden rounded-md border border-border">
+        <template v-if="loading">
+          <div
+            v-for="i in 6"
+            :key="i"
+            class="flex items-center gap-3 border-b border-border px-3 py-3 last:border-b-0"
+          >
+            <Skeleton class="h-4 flex-1" />
+            <Skeleton class="h-4 w-16" />
+          </div>
+        </template>
+
+        <p v-else-if="sections.length === 0" class="px-4 py-8 text-center text-sm text-muted-foreground">
+          Прайс-лист пуст.
+        </p>
+
+        <div
+          v-else
+          v-for="section in sections"
+          :key="section.id"
+          class="border-b border-border last:border-b-0"
+        >
+          <div class="flex items-center gap-1 bg-muted/50 py-1.5 pr-1 pl-2">
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+              :aria-expanded="openSections.has(section.id)"
+              @click="toggleSection(section.id)"
+            >
+              <ChevronRight
+                class="size-4 shrink-0 text-muted-foreground transition-transform"
+                :class="{ 'rotate-90': openSections.has(section.id) }"
+              />
+              <span class="min-w-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {{ section.name }}
+              </span>
+              <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {{ section.services.length }}
+              </span>
+            </button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="`Добавить услугу в раздел ${section.name}`"
+              @click="openCreateService(section.id)"
+            >
+              <Plus class="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="`Редактировать раздел ${section.name}`"
+              @click="openEditSection(section)"
+            >
+              <Pencil class="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="`Удалить раздел ${section.name}`"
+              @click="askDeleteSection(section)"
+            >
+              <Trash2 class="size-3.5" />
+            </Button>
+          </div>
+
+          <template v-if="openSections.has(section.id)">
+            <p
+              v-if="section.services.length === 0"
+              class="border-t border-border px-3 py-3 text-sm text-muted-foreground"
+            >
+              В разделе нет услуг
+            </p>
+            <div
+              v-for="svc in section.services"
+              :key="svc.id"
+              class="border-t border-border px-3 py-2.5"
+            >
+              <div class="flex items-start gap-1">
+                <div class="min-w-0 flex-1 pt-1 font-medium">
+                  {{ svc.name }}
+                  <Badge
+                    v-if="svc.countable"
+                    variant="secondary"
+                    class="ml-1.5 align-middle font-normal tabular-nums"
+                    title="Можно указать количество в записи"
+                  >
+                    ×N
+                  </Badge>
+                </div>
+                <div class="inline-flex shrink-0">
+                  <Popover v-if="svc.description">
+                    <PopoverTrigger as-child>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        :aria-label="`Примечание к услуге ${svc.name}`"
+                      >
+                        <Info class="size-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      class="w-72 text-xs text-muted-foreground whitespace-pre-line"
+                    >
+                      {{ svc.description }}
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Редактировать услугу ${svc.name}`"
+                    @click="openEditService(svc)"
+                  >
+                    <Pencil class="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="`Удалить услугу ${svc.name}`"
+                    @click="askDeleteService(svc)"
+                  >
+                    <Trash2 class="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              <!-- Одна цена на все классы занимает строку целиком, две и больше
+                   встают в две колонки. -->
+              <div
+                class="mt-1 grid gap-x-4"
+                :class="priceGroups(svc).length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
+              >
+                <div
+                  v-for="group in priceGroups(svc)"
+                  :key="group.label"
+                  class="flex items-baseline justify-between gap-2 text-sm"
+                >
+                  <span class="text-xs text-muted-foreground">{{ group.label }}</span>
+                  <span class="tabular-nums">{{ group.price }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
 
