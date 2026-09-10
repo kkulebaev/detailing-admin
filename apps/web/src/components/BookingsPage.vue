@@ -407,17 +407,20 @@ const isWideScreen = useMediaQuery('(min-width: 640px)')
 
 const filtersSheetOpen = ref(false)
 
-// Месяц не считаем отдельно: он производный от пары дат.
+// Считаем только то, что спрятано в шторке: период на узком экране виден на
+// собственной кнопке и в счётчике был бы шумом.
 const activeFilterCount = computed(() => {
   let n = 0
-  if (periodRange.value) n += 1
   if (masterFilter.value !== ALL) n += 1
   if (readinessFilter.value !== ALL) n += 1
+  if (searchInput.value.trim()) n += 1
   return n
 })
 
-// Один набор разметки фильтров на две раскладки — строка на десктопе и шторка на
-// мобиле; иначе пять контролов пришлось бы держать в двух местах синхронно.
+// Один набор разметки на две раскладки — строка на десктопе и шторка на мобиле;
+// иначе контролы пришлось бы держать в двух местах синхронно. Период отдельным
+// шаблоном: на узком экране он остаётся снаружи, а поиск уходит в шторку.
+const [DefinePeriod, ReusePeriod] = createReusableTemplate()
 const [DefineFilters, ReuseFilters] = createReusableTemplate()
 const [DefineSearch, ReuseSearch] = createReusableTemplate()
 
@@ -543,35 +546,34 @@ function formatCreatedAt(iso: string): string {
 
       <!-- Filters. Один набор контролов, две раскладки: строка над таблицей в
            полном режиме и шторка снизу в компактном. -->
-      <DefineFilters>
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Период</span>
-          <Popover v-model:open="periodOpen">
-            <PopoverTrigger as-child>
-              <Button variant="outline" size="sm" class="w-44 justify-start gap-2 font-normal">
-                <CalendarIcon class="size-4" />
-                <span :class="{ 'text-muted-foreground': !dayCal && monthKey === ALL }">
-                  {{ periodLabel }}
-                </span>
+      <DefinePeriod>
+        <Popover v-model:open="periodOpen">
+          <PopoverTrigger as-child>
+            <Button variant="outline" size="sm" class="w-44 justify-start gap-2 font-normal">
+              <CalendarIcon class="size-4" />
+              <span :class="{ 'text-muted-foreground': !dayCal && monthKey === ALL }">
+                {{ periodLabel }}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent class="w-auto p-0" align="start">
+            <Calendar
+              v-model:placeholder="periodPlaceholder"
+              locale="ru-RU"
+              :model-value="dayCal"
+              @update:model-value="onDaySelect"
+            />
+            <div class="flex items-center justify-between gap-2 border-t border-border p-2">
+              <Button variant="ghost" size="sm" @click="resetPeriod">Все записи</Button>
+              <Button variant="ghost" size="sm" @click="selectVisibleMonth">
+                Весь месяц
               </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-auto p-0" align="start">
-              <Calendar
-                v-model:placeholder="periodPlaceholder"
-                locale="ru-RU"
-                :model-value="dayCal"
-                @update:model-value="onDaySelect"
-              />
-              <div class="flex items-center justify-between gap-2 border-t border-border p-2">
-                <Button variant="ghost" size="sm" @click="resetPeriod">Все записи</Button>
-                <Button variant="ghost" size="sm" @click="selectVisibleMonth">
-                  Весь месяц
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </DefinePeriod>
 
+      <DefineFilters>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">Мастер</span>
           <Select v-model="masterFilter">
@@ -626,8 +628,10 @@ function formatCreatedAt(iso: string): string {
 
       <div v-if="!isWideScreen" class="mb-3 shrink-0 flex flex-col gap-2">
         <div class="flex items-center gap-2">
-          <div class="flex-1">
-            <ReuseSearch />
+          <!-- Период чаще всего и есть то, ради чего открывают фильтры, поэтому
+               он остаётся снаружи; текст поиска уехал в шторку. -->
+          <div class="flex-1 [&_button]:w-full">
+            <ReusePeriod />
           </div>
           <Button
             variant="outline"
@@ -669,6 +673,11 @@ function formatCreatedAt(iso: string): string {
       </div>
 
       <div v-else class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
+        <div class="flex flex-col gap-1">
+          <span class="text-xs text-muted-foreground">Период</span>
+          <ReusePeriod />
+        </div>
+
         <ReuseFilters />
 
         <div class="flex flex-1 flex-col gap-1">
@@ -713,11 +722,16 @@ function formatCreatedAt(iso: string): string {
           <SheetHeader class="p-0">
             <SheetTitle>Фильтры</SheetTitle>
           </SheetHeader>
-          <!-- В шторке контролы тянутся на всю ширину: фиксированная w-44 из
-               строки над таблицей оставляла половину узкого экрана пустой.
-               `[&_button]:w-full` достаёт и триггеры селектов, и кнопку
-               календаря; содержимое их попапов лежит в портале и не задето. -->
-          <div class="grid gap-3 [&_button]:w-full">
+          <!-- Контролы тянутся на всю ширину: фиксированная w-44 из строки над
+               таблицей оставляла половину узкого экрана пустой. Целимся в
+               триггеры селектов, а не во все кнопки — иначе крестик очистки
+               поиска растянулся бы на всю строку. -->
+          <div class="grid gap-3 [&_[data-slot=select-trigger]]:w-full">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">Поиск</span>
+              <ReuseSearch />
+            </div>
+
             <ReuseFilters />
           </div>
           <Button
