@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useClipboard } from '@vueuse/core'
+import { useClipboard, useMediaQuery } from '@vueuse/core'
 import {
   ChevronDown,
   ChevronsUpDown,
@@ -64,6 +64,10 @@ import {
 
 const COLUMN_COUNT = 6
 
+// Шесть колонок таблицы не помещаются в телефон, поэтому ниже 640px клиент
+// показывается карточкой. Данные, фильтры и диалоги у раскладок общие.
+const isWideScreen = useMediaQuery('(min-width: 640px)')
+
 // ── Filter / sort / paging state ────────────────────────────────────────────
 const searchInput = ref('')
 // Manual debounce (instead of refDebounced) so `resetFilters` can flush it
@@ -80,6 +84,15 @@ onUnmounted(() => clearTimeout(searchTimer))
 type SortColumn = 'name' | 'phone' | 'createdAt'
 const sort = ref<SortColumn>('name')
 const dir = ref<'asc' | 'desc'>('asc')
+
+// Один список на две раскладки: шапка таблицы на десктопе и полоска чипов над
+// карточками на телефоне — иначе подписи колонок пришлось бы держать в двух
+// местах синхронно.
+const SORT_COLUMNS: readonly { key: SortColumn; label: string }[] = [
+  { key: 'name', label: 'Имя' },
+  { key: 'phone', label: 'Телефон' },
+  { key: 'createdAt', label: 'Добавлен' },
+]
 
 const { limit: LIMIT, offset, page, resetToFirstPage } = useOffsetPagination()
 
@@ -344,17 +357,14 @@ async function confirmDelete() {
           </div>
         </div>
 
-        <Button
-          v-if="hasActiveFilters"
-          variant="ghost"
-          size="sm"
-          class="gap-1 text-muted-foreground"
-          @click="resetFilters"
-        >
-          <X class="size-4" /> Сбросить
-        </Button>
+        <!-- Кнопки сброса в панели нет намеренно (в отличие от «Записей», где
+             фильтров несколько): поиск здесь единственный фильтр, и крестик
+             внутри поля уже его очищает.
 
+             Выгрузка CSV на телефоне бесполезна и занимает место в панели, так
+             что кнопка живёт только на широком экране — как на «Записях». -->
         <Button
+          v-if="isWideScreen"
           variant="outline"
           size="sm"
           class="gap-1"
@@ -364,6 +374,8 @@ async function confirmDelete() {
           <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
         </Button>
 
+        <!-- Единственная кнопка, которая остаётся на узком экране, поэтому она
+             умещается в строку с поиском: поле растягивается на остаток. -->
         <Button variant="outline" size="sm" @click="openCreate">
           <Plus class="size-4" /> Клиент
         </Button>
@@ -375,7 +387,7 @@ async function confirmDelete() {
       </Alert>
 
       <Table
-        v-else
+        v-else-if="isWideScreen"
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
         :class="[{ 'table-fixed min-w-228': !isEmpty, 'h-full': isEmpty }]"
       >
@@ -390,42 +402,21 @@ async function confirmDelete() {
         <TableHeader v-if="!isEmpty" class="sticky top-0 z-10 bg-muted">
           <TableRow>
             <TableHead class="px-4">#</TableHead>
-            <TableHead class="px-4" :aria-sort="ariaSortFor(sortState('name'))">
+            <TableHead
+              v-for="col in SORT_COLUMNS"
+              :key="col.key"
+              class="px-4"
+              :aria-sort="ariaSortFor(sortState(col.key))"
+            >
               <button
                 type="button"
                 class="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                :class="{ 'text-foreground': sortState('name') }"
-                @click="toggleSort('name')"
+                :class="{ 'text-foreground': sortState(col.key) }"
+                @click="toggleSort(col.key)"
               >
-                Имя
-                <ChevronUp v-if="sortState('name') === 'asc'" class="size-3.5" />
-                <ChevronDown v-else-if="sortState('name') === 'desc'" class="size-3.5" />
-                <ChevronsUpDown v-else class="size-3.5 opacity-50" />
-              </button>
-            </TableHead>
-            <TableHead class="px-4" :aria-sort="ariaSortFor(sortState('phone'))">
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                :class="{ 'text-foreground': sortState('phone') }"
-                @click="toggleSort('phone')"
-              >
-                Телефон
-                <ChevronUp v-if="sortState('phone') === 'asc'" class="size-3.5" />
-                <ChevronDown v-else-if="sortState('phone') === 'desc'" class="size-3.5" />
-                <ChevronsUpDown v-else class="size-3.5 opacity-50" />
-              </button>
-            </TableHead>
-            <TableHead class="px-4" :aria-sort="ariaSortFor(sortState('createdAt'))">
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                :class="{ 'text-foreground': sortState('createdAt') }"
-                @click="toggleSort('createdAt')"
-              >
-                Добавлен
-                <ChevronUp v-if="sortState('createdAt') === 'asc'" class="size-3.5" />
-                <ChevronDown v-else-if="sortState('createdAt') === 'desc'" class="size-3.5" />
+                {{ col.label }}
+                <ChevronUp v-if="sortState(col.key) === 'asc'" class="size-3.5" />
+                <ChevronDown v-else-if="sortState(col.key) === 'desc'" class="size-3.5" />
                 <ChevronsUpDown v-else class="size-3.5 opacity-50" />
               </button>
             </TableHead>
@@ -547,6 +538,120 @@ async function confirmDelete() {
           </TableRow>
         </TableBody>
       </Table>
+
+      <!-- Компактная раскладка: клиент — карточка, шапка таблицы сжимается в
+           полоску чипов сортировки над списком. -->
+      <div v-else class="overflow-hidden rounded-md border border-border">
+        <div
+          v-if="!isEmpty"
+          class="flex items-center gap-1 border-b border-border bg-muted px-2 py-1.5 text-xs text-muted-foreground"
+        >
+          <button
+            v-for="col in SORT_COLUMNS"
+            :key="col.key"
+            type="button"
+            class="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            :class="{ 'text-foreground': sortState(col.key) }"
+            :aria-label="`Сортировать по «${col.label}»`"
+            @click="toggleSort(col.key)"
+          >
+            {{ col.label }}
+            <ChevronUp v-if="sortState(col.key) === 'asc'" class="size-3.5" />
+            <ChevronDown v-else-if="sortState(col.key) === 'desc'" class="size-3.5" />
+            <ChevronsUpDown v-else class="size-3.5 opacity-50" />
+          </button>
+        </div>
+
+        <template v-if="showSkeleton">
+          <div
+            v-for="i in 8"
+            :key="i"
+            class="flex flex-col gap-2 border-b border-border px-3 py-3 last:border-b-0"
+          >
+            <Skeleton class="h-4 w-40" />
+            <Skeleton class="h-3.5 w-32" />
+          </div>
+        </template>
+
+        <Empty v-else-if="isEmpty" class="gap-4 p-6 md:p-6">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <component :is="hasActiveFilters ? SearchX : Inbox" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {{ hasActiveFilters ? 'Ничего не найдено' : 'Пока нет клиентов' }}
+            </EmptyTitle>
+            <EmptyDescription>
+              {{
+                hasActiveFilters
+                  ? 'Попробуйте изменить условия или сбросить фильтры'
+                  : 'Клиенты появятся здесь после первой записи'
+              }}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent v-if="hasActiveFilters">
+            <Button variant="outline" size="sm" class="gap-1" @click="resetFilters">
+              <X class="size-4" /> Сбросить фильтры
+            </Button>
+          </EmptyContent>
+        </Empty>
+
+        <!-- Вся карточка — одна тап-зона: на тач вложенные цели (копирование
+             телефона, поповер машин) срабатывают вместо открытия карточки,
+             поэтому копирование живёт в самой карточке клиента, а список машин
+             просто перечислен и обрезан по ширине. Кнопки правки и удаления
+             остаются: в карточке клиента их нет. -->
+        <div
+          v-else
+          v-for="row in data"
+          :key="row.id"
+          class="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2.5 last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          tabindex="0"
+          role="button"
+          :aria-label="`Открыть карточку клиента ${row.name || formatPhone(row.phone)}`"
+          @click="openDetail(row.id)"
+          @keydown.enter="openDetail(row.id)"
+          @keydown.space.prevent="openDetail(row.id)"
+        >
+          <!-- Заголовок — имя, а у безымянного клиента телефон: строка «—» на
+               месте имени выглядела как пустая карточка. Поэтому телефон
+               повторяется ниже только тогда, когда имя есть. -->
+          <div class="min-w-0 flex-1">
+            <div class="flex items-baseline gap-2">
+              <span class="truncate font-medium" :class="{ 'tabular-nums': !row.name }">
+                {{ row.name || formatPhone(row.phone) }}
+              </span>
+              <span class="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+                {{ formatCreatedAt(row.createdAt) }}
+              </span>
+            </div>
+            <div v-if="row.name" class="text-sm tabular-nums text-muted-foreground">
+              {{ formatPhone(row.phone) }}
+            </div>
+            <div v-if="row.cars.length > 0" class="truncate text-xs text-muted-foreground">
+              {{ row.cars.map(formatCar).join(', ') }}
+            </div>
+          </div>
+          <div class="inline-flex shrink-0">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="`Редактировать клиента ${row.name || row.phone}`"
+              @click.stop="openEdit(row)"
+            >
+              <Pencil class="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="`Удалить клиента ${row.name || row.phone}`"
+              @click.stop="askDelete(row)"
+            >
+              <Trash2 class="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <TablePagination
         v-if="!error"
