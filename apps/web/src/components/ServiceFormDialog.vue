@@ -221,17 +221,23 @@ async function submit() {
       </DialogHeader>
 
       <form class="grid gap-4 py-2" @submit.prevent="submit">
-        <div class="grid gap-2">
+        <div class="grid min-w-0 gap-2">
           <Label for="service-section">Раздел</Label>
           <Select v-model="sectionId" :disabled="submitting">
-            <SelectTrigger id="service-section" class="w-full">
+            <!-- Section names run long; without min-w-0 the nowrap trigger sets the
+                 grid track's min-content width and drags the dialog past max-w-lg. -->
+            <SelectTrigger
+              id="service-section"
+              class="w-full min-w-0 text-left *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate"
+            >
               <SelectValue placeholder="Выберите раздел" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent class="max-w-(--reka-select-trigger-width)">
               <SelectItem
                 v-for="s in sections"
                 :key="s.id"
                 :value="String(s.id)"
+                class="whitespace-normal"
               >
                 {{ s.name }}
               </SelectItem>
