@@ -6,7 +6,7 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { v4 as uuid } from 'uuid'
 import { toast } from 'vue-sonner'
-import { Calendar as CalendarIcon, Pencil, User } from '@lucide/vue'
+import { Calendar as CalendarIcon, Pencil, TriangleAlert, User } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
 import {
@@ -17,7 +17,7 @@ import {
 import type { BookingApiResult, CarClass } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
 import { usePricelistQuery, useMastersQuery, useClientDetailQuery } from '@/lib/queries'
-import { lastDeliveredService } from '@/lib/client-summary'
+import { lastDeliveredService, missedBookings, type MissedBookings } from '@/lib/client-summary'
 import { isoToDdmmyyyy } from '@/lib/date'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
@@ -30,7 +30,7 @@ import type { Car } from '@/lib/clients-api'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -283,8 +283,19 @@ const { data: matchedClientDetail } = useClientDetailQuery(
 const matchedClientSummary = computed(() => {
   const r = matchedClientDetail.value
   if (!r?.ok || r.client.id !== matchedClient.value?.id) return null
-  return { ...r.stats, lastService: lastDeliveredService(r.bookings) }
+  return {
+    ...r.stats,
+    lastService: lastDeliveredService(r.bookings),
+    missed: missedBookings(r.bookings),
+  }
 })
+
+function formatMissed(m: MissedBookings): string {
+  const parts: string[] = []
+  if (m.cancelled > 0) parts.push(`Отменял запись: ${m.cancelled}`)
+  if (m.noShow > 0) parts.push(`Не приезжал: ${m.noShow}`)
+  return `${parts.join(' · ')}. Последний раз — ${isoToDdmmyyyy(m.lastDate)}`
+}
 
 // ── License plate — sent as a separate `plate` field; the server joins it
 // with `car` (joinCar) for the sheet column and the bookings mirror. ────────
@@ -1477,6 +1488,17 @@ watch(
                     Открыть карточку →
                   </RouterLink>
                 </div>
+                <Alert
+                  v-if="matchedClientSummary?.missed"
+                  variant="destructive"
+                  class="mt-2"
+                >
+                  <TriangleAlert />
+                  <AlertTitle>Записывать только по предоплате</AlertTitle>
+                  <AlertDescription>
+                    {{ formatMissed(matchedClientSummary.missed) }}
+                  </AlertDescription>
+                </Alert>
               </div>
             </div>
 

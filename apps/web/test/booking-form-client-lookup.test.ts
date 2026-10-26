@@ -54,7 +54,11 @@ const client: Client = {
   ],
 }
 
-function delivered(service: string, dateFrom: string): BookingRow {
+function booking(
+  service: string,
+  dateFrom: string,
+  readiness: BookingRow['readiness'] = 'Выдана',
+): BookingRow {
   return {
     id: crypto.randomUUID(),
     clientId: client.id,
@@ -68,7 +72,7 @@ function delivered(service: string, dateFrom: string): BookingRow {
     dateTo: null,
     timeFrom: '10:00',
     timeTo: null,
-    readiness: 'Выдана',
+    readiness,
     master: [],
     responsible: '',
     carClass: 1,
@@ -82,7 +86,7 @@ const clientDetail: ClientDetailOk = {
   ok: true,
   client,
   stats: { totalSpent: 48000, visitCount: 2, lastVisit: '2026-09-12', firstVisit: '2026-05-03' },
-  bookings: [delivered('Полировка: кузов', '2026-09-12'), delivered('Мойка', '2026-05-03')],
+  bookings: [booking('Полировка: кузов', '2026-09-12'), booking('Мойка', '2026-05-03')],
   bookingsTruncated: false,
 }
 
@@ -229,6 +233,35 @@ describe('BookingForm — client autofill', () => {
     detail.value = { ...clientDetail, client: { ...client, id: '22222222-2222-2222-2222-222222222222' } }
     await flushPromises()
     expect(w.text()).not.toContain('Визитов')
+    w.unmount()
+  })
+
+  it('warns to take a prepayment from a client who cancelled or did not show up', async () => {
+    const w = mountForm()
+    await flushPromises()
+    matched.value = client
+    detail.value = {
+      ...clientDetail,
+      bookings: [
+        booking('Мойка', '2026-10-01', 'Не приехал'),
+        ...clientDetail.bookings,
+        booking('Мойка', '2026-04-20', 'Отмена'),
+      ],
+    }
+    await flushPromises()
+    const text = w.text()
+    expect(text).toContain('Записывать только по предоплате')
+    expect(text).toContain('Отменял запись: 1 · Не приезжал: 1. Последний раз — 01.10.2026')
+    w.unmount()
+  })
+
+  it('shows no prepayment warning for a client without cancellations', async () => {
+    const w = mountForm()
+    await flushPromises()
+    matched.value = client
+    detail.value = clientDetail
+    await flushPromises()
+    expect(w.text()).not.toContain('предоплате')
     w.unmount()
   })
 })

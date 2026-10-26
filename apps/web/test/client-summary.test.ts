@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import type { BookingRow } from '@detailing-admin/shared'
-import { lastDeliveredService } from '@/lib/client-summary'
+import { lastDeliveredService, missedBookings } from '@/lib/client-summary'
 
-function row(readiness: BookingRow['readiness'], service: string): BookingRow {
+function row(readiness: BookingRow['readiness'], service: string, dateFrom = '2026-09-12'): BookingRow {
   return {
     id: crypto.randomUUID(),
     clientId: null,
@@ -11,7 +11,7 @@ function row(readiness: BookingRow['readiness'], service: string): BookingRow {
     car: '',
     service,
     note: '',
-    dateFrom: '2026-09-12',
+    dateFrom,
     dateTo: null,
     timeFrom: '10:00',
     timeTo: null,
@@ -43,5 +43,22 @@ describe('lastDeliveredService', () => {
 
   it('treats a blank service as missing', () => {
     expect(lastDeliveredService([row('Выдана', '  ')])).toBeNull()
+  })
+})
+
+describe('missedBookings', () => {
+  it('counts cancellations and no-shows separately, dated by the newest', () => {
+    const history = [
+      row('Подтвердил', 'Мойка', '2026-11-02'),
+      row('Не приехал', 'Химчистка', '2026-10-01'),
+      row('Отмена', 'Мойка', '2026-08-15'),
+      row('Выдана', 'Керамика', '2026-07-01'),
+      row('Отмена', 'Мойка', '2026-03-10'),
+    ]
+    expect(missedBookings(history)).toEqual({ cancelled: 2, noShow: 1, lastDate: '2026-10-01' })
+  })
+
+  it('does not count a rescheduled booking', () => {
+    expect(missedBookings([row('Перенос', 'Мойка'), row('Выдана', 'Мойка')])).toBeNull()
   })
 })
