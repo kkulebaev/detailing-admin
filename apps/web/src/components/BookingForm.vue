@@ -16,7 +16,9 @@ import {
 } from '@detailing-admin/shared'
 import type { BookingApiResult, CarClass } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
-import { usePricelistQuery, useMastersQuery } from '@/lib/queries'
+import { usePricelistQuery, useMastersQuery, useClientDetailQuery } from '@/lib/queries'
+import { lastDeliveredService } from '@/lib/client-summary'
+import { isoToDdmmyyyy } from '@/lib/date'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { maskThousands } from '@/lib/number-mask'
@@ -272,6 +274,17 @@ watch(clientLookupLoading, (loading) => {
   else showLookupSpinner.value = false
 })
 onUnmounted(() => clearTimeout(lookupSpinnerTimer))
+
+// Visit summary for a returning client. Same silent-on-failure contract as the
+// lookup: an error or not-ok result just leaves the summary out.
+const { data: matchedClientDetail } = useClientDetailQuery(
+  computed(() => matchedClient.value?.id ?? null),
+)
+const matchedClientSummary = computed(() => {
+  const r = matchedClientDetail.value
+  if (!r?.ok || r.client.id !== matchedClient.value?.id) return null
+  return { ...r.stats, lastService: lastDeliveredService(r.bookings) }
+})
 
 // ── License plate — sent as a separate `plate` field; the server joins it
 // with `car` (joinCar) for the sheet column and the bookings mirror. ────────
@@ -1435,6 +1448,34 @@ watch(
                       ? `Найден клиент с именем: ${matchedClient.name}`
                       : 'Найден клиент без имени' }}
                   </span>
+                </div>
+                <div
+                  v-if="matchedClientSummary"
+                  class="mt-1 space-y-0.5 pl-5.5 text-xs text-muted-foreground"
+                >
+                  <p v-if="matchedClientSummary.visitCount > 0 && matchedClientSummary.lastVisit">
+                    Визитов: {{ matchedClientSummary.visitCount }} · последний
+                    {{ isoToDdmmyyyy(matchedClientSummary.lastVisit) }}
+                  </p>
+                  <p v-else>Завершённых визитов ещё не было</p>
+                  <p v-if="matchedClientSummary.totalSpent > 0" class="tabular-nums">
+                    Потрачено: {{ formatAmount(String(matchedClientSummary.totalSpent)) }} ₽
+                  </p>
+                  <p
+                    v-if="matchedClientSummary.lastService"
+                    class="line-clamp-3 whitespace-pre-line"
+                  >
+                    Последнее: {{ matchedClientSummary.lastService }}
+                  </p>
+                  <!-- New tab: leaving the form would drop it mid-entry, and the
+                       card's close navigates to /clients, not back here. -->
+                  <RouterLink
+                    :to="{ name: 'client-detail', params: { id: matchedClient.id } }"
+                    target="_blank"
+                    class="inline-block pt-0.5 font-medium text-foreground underline-offset-4 hover:underline"
+                  >
+                    Открыть карточку →
+                  </RouterLink>
                 </div>
               </div>
             </div>

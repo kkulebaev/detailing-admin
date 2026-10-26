@@ -22,6 +22,7 @@ vi.mock('@/composables/use-client-lookup', async () => {
 vi.mock('@/lib/queries', () => ({
   useMastersQuery: () => ({ data: ref({ ok: true, masters: [] }), asyncStatus: ref('idle') }),
   usePricelistQuery: () => ({ data: ref({ ok: true, sections: [] }) }),
+  useClientDetailQuery: () => ({ data: ref(undefined) }),
 }))
 
 vi.mock('@/lib/api', () => ({ submitBooking: vi.fn() }))
