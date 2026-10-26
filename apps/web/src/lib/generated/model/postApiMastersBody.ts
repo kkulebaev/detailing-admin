@@ -19,4 +19,6 @@ export type PostApiMastersBody = {
      * @nullable
      */
   telegramId: string | null;
+  /** @nullable */
+  userId: string | null;
 };

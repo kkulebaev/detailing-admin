@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PostApiMasters409Reason = 'duplicate_name';
+export type PostApiMeHours503Reason = 'not_configured';

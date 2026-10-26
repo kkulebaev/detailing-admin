@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { PatchApiMastersId409Error } from './patchApiMastersId409Error';
-import type { PatchApiMastersId409Reason } from './patchApiMastersId409Reason';
 
 export type PatchApiMastersId409 = {
   ok: false;
   error: PatchApiMastersId409Error;
-  reason: PatchApiMastersId409Reason;
+  reason: 'duplicate_name' | 'duplicate_user';
 };

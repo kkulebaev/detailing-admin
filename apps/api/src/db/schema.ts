@@ -177,6 +177,12 @@ export const masters = pgTable('masters', {
   paidSalary: boolean('paid_salary').notNull().default(true),
   // Reserved for future Telegram notifications; nullable until a master links one.
   telegramId: varchar('telegram_id', { length: 64 }),
+  // Account that logs hours as this master on «Мои часы». UNIQUE: one account
+  // maps to one master. `set null` keeps the master and its pay history if the
+  // account is ever deleted.
+  userId: uuid('user_id')
+    .unique()
+    .references(() => users.id, { onDelete: 'set null' }),
 })
 
 export type Master = typeof masters.$inferSelect

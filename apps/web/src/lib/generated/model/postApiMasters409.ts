@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { PostApiMasters409Error } from './postApiMasters409Error';
-import type { PostApiMasters409Reason } from './postApiMasters409Reason';
 
 export type PostApiMasters409 = {
   ok: false;
   error: PostApiMasters409Error;
-  reason: PostApiMasters409Reason;
+  reason: 'duplicate_name' | 'duplicate_user';
 };

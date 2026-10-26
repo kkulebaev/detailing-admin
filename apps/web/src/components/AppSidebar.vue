@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, type Component } from 'vue'
-import { BarChart3, CalendarPlus, ClipboardList, LogOut, ReceiptText, User, Users, Wallet, Wrench, X } from '@lucide/vue'
+import { BarChart3, CalendarPlus, ClipboardList, Clock, LogOut, ReceiptText, User, Users, Wallet, Wrench, X } from '@lucide/vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { Role } from '@detailing-admin/shared'
 import AppLogo from '@/components/AppLogo.vue'
@@ -26,8 +26,7 @@ interface NavItem {
   roles: readonly Role[]
 }
 
-// All existing sections are admin-only; employee gets the stub home only —
-// see .omc/plans/auth-rbac-plan.md's access matrix (real employee rights land later).
+// Employees see the bookings list and their own hours; everything else is admin-only.
 const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'booking' }, label: 'Новая запись', icon: CalendarPlus, roles: ['admin'] },
   { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin', 'employee'] },
@@ -36,7 +35,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'masters' }, label: 'Мастера', icon: Wrench, roles: ['admin'] },
   { to: { name: 'salaries' }, label: 'Зарплаты', icon: Wallet, roles: ['admin'] },
   { to: { name: 'analytics' }, label: 'Аналитика', icon: BarChart3, roles: ['admin'] },
-  { to: { name: 'employee' }, label: 'Главная', icon: CalendarPlus, roles: ['employee'] },
+  { to: { name: 'employee' }, label: 'Мои часы', icon: Clock, roles: ['employee'] },
 ]
 
 // Shared active look for every sidebar entry (nav + footer profile): the

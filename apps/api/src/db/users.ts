@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm'
-import type { Role } from '@detailing-admin/shared'
+import type { Account, Role } from '@detailing-admin/shared'
 import { getDb } from './client.js'
 import { users, type User } from './schema.js'
 
@@ -83,4 +83,21 @@ export async function resetPasswordByLogin(login: string, newHash: string): Prom
     .where(eq(users.login, login))
     .returning({ id: users.id })
   return updated.length > 0
+}
+
+/** Accounts for the master form's link picker — never selects the password hash. */
+export async function listAccounts(): Promise<Account[]> {
+  const db = getDb()
+  const rows = await db
+    .select({
+      id: users.id,
+      login: users.login,
+      role: users.role,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(users)
+    .orderBy(users.login)
+  // Same fail-closed narrowing as login: anything but 'admin' is an employee.
+  return rows.map((r) => ({ ...r, role: r.role === 'admin' ? 'admin' : 'employee' }))
 }

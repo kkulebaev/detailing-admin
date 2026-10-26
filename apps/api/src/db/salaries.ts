@@ -25,6 +25,16 @@ export async function getMasterRates(): Promise<MasterRate[]> {
   return db.select().from(masterRates)
 }
 
+export async function getMasterRate(masterId: number): Promise<number | null> {
+  const db = getDb()
+  const [row] = await db
+    .select({ hourlyRate: masterRates.hourlyRate })
+    .from(masterRates)
+    .where(eq(masterRates.masterId, masterId))
+    .limit(1)
+  return row?.hourlyRate ?? null
+}
+
 export async function setMasterRate(masterId: number, hourlyRate: number): Promise<void> {
   const db = getDb()
   // Probe the master first: the FK would otherwise reject an unknown masterId
@@ -182,6 +192,12 @@ export async function createWorkHours(input: CreateWorkHoursInput): Promise<Work
       note: input.note,
     })
     .returning()
+  return row
+}
+
+export async function getWorkHoursById(id: number): Promise<WorkHoursRow | undefined> {
+  const db = getDb()
+  const [row] = await db.select().from(workHours).where(eq(workHours.id, id)).limit(1)
   return row
 }
 

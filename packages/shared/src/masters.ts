@@ -16,6 +16,8 @@ export const masterSchema = z.object({
   paidSalary: z.boolean(),
   // Nullable — reserved for future Telegram notifications; the sheet never sees it.
   telegramId: z.string().nullable(),
+  // Login account that logs hours as this master on «Мои часы». Null = none.
+  userId: z.string().uuid().nullable(),
 })
 
 export type Master = z.infer<typeof masterSchema>
@@ -39,6 +41,7 @@ export const masterInputSchema = z.object({
   canBeResponsible: z.boolean(),
   paidSalary: z.boolean(),
   telegramId: z.string().max(64).nullable(),
+  userId: z.string().uuid().nullable(),
 })
 
 export type MasterInput = z.infer<typeof masterInputSchema>
@@ -49,10 +52,12 @@ export const reorderInputSchema = z.object({
 
 export type ReorderInput = z.infer<typeof reorderInputSchema>
 
-const masterConflictSchema = z.object({
+// duplicate_user: the account is already linked to another master — one account
+// logs hours for exactly one master.
+export const masterConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
-  reason: z.literal('duplicate_name'),
+  reason: z.union([z.literal('duplicate_name'), z.literal('duplicate_user')]),
 })
 
 // invalid_order is a validation-flavoured error specific to reorder: the posted

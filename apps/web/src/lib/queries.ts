@@ -9,7 +9,8 @@ import {
   type GetApiClientsParams,
 } from './clients-api'
 import { fetchPricelist } from './pricelist-api'
-import { fetchMasters } from './masters-api'
+import { fetchAccounts, fetchMasters } from './masters-api'
+import { fetchMySalary } from './me-api'
 import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 
@@ -22,6 +23,8 @@ export const BOOKINGS_KEY = ['bookings'] as const
 export const SALARIES_KEY = ['salaries'] as const
 export const SALARY_ENTRIES_KEY = ['salary-entries'] as const
 export const ANALYTICS_KEY = ['analytics'] as const
+export const ACCOUNTS_KEY = ['accounts'] as const
+export const MY_SALARY_KEY = ['my-salary'] as const
 
 // Reactive key so changing the search term, sort, or paging refetches
 // automatically. `params` is a ref the page recomputes from its filter state;
@@ -90,6 +93,31 @@ export function useMastersQuery() {
 export function useInvalidateMasters() {
   const cache = useQueryCache()
   return () => cache.invalidateQueries({ key: MASTERS_KEY })
+}
+
+// `enabled` keeps the admin-only request from firing until the master dialog
+// opens; the Masters page itself needs no accounts.
+export function useAccountsQuery(enabled: Ref<boolean>) {
+  return useQuery({
+    key: ACCOUNTS_KEY,
+    query: fetchAccounts,
+    enabled: () => enabled.value,
+  })
+}
+
+// «Мои часы»: the signed-in account's own month. placeholderData keeps the
+// previous month on screen while the next one loads, as on the salaries page.
+export function useMySalaryQuery(month: Ref<string>) {
+  return useQuery({
+    key: () => [...MY_SALARY_KEY, month.value],
+    query: () => fetchMySalary(month.value),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useInvalidateMySalary() {
+  const cache = useQueryCache()
+  return () => cache.invalidateQueries({ key: MY_SALARY_KEY })
 }
 
 // Reactive key so changing filters (dates, master, readiness, search, paging)

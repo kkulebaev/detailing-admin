@@ -5,6 +5,7 @@ import {
   StatusCodes,
   dbUnavailableErrorSchema,
   internalErrorSchema,
+  masterConflictSchema,
   masterInputSchema,
   masterSchema,
   notFoundErrorSchema,
@@ -29,12 +30,6 @@ const idParamSchema = z.object({
     .string()
     .regex(/^[1-9]\d*$/)
     .transform((v) => Number(v)),
-})
-
-const masterConflictSchema = z.object({
-  ok: z.literal(false),
-  error: z.literal('conflict'),
-  reason: z.literal('duplicate_name'),
 })
 
 // Delete-only conflict: the master still has history that pins it — recorded
@@ -84,7 +79,17 @@ function masterErrorResponse(c: Context, err: unknown) {
     if (err.code === 'not_found') {
       return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
     }
-    if (err.code === 'duplicate_name') {
+    if (err.code === 'unknown_user') {
+      return c.json(
+        {
+          ok: false as const,
+          error: 'validation' as const,
+          issues: [{ path: ['userId'], message: 'Аккаунт не найден' }],
+        },
+        StatusCodes.BAD_REQUEST,
+      )
+    }
+    if (err.code === 'duplicate_name' || err.code === 'duplicate_user') {
       return c.json(
         { ok: false as const, error: 'conflict' as const, reason: err.code },
         StatusCodes.CONFLICT,
@@ -119,7 +124,7 @@ const respNotFound = {
   content: { 'application/json': { schema: notFoundErrorSchema } },
 }
 const respConflict = {
-  description: 'Duplicate name',
+  description: 'Duplicate name, or the account is linked to another master',
   content: { 'application/json': { schema: masterConflictSchema } },
 }
 const respDeleteConflict = {

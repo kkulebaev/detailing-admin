@@ -1,9 +1,19 @@
 import { eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
-import { bookingMasters, bookings, masters, payouts, workHours, type Master } from './schema.js'
+import {
+  bookingMasters,
+  bookings,
+  masters,
+  payouts,
+  users,
+  workHours,
+  type Master,
+} from './schema.js'
 
 export type MasterMutationError =
   | 'duplicate_name'
+  | 'duplicate_user'
+  | 'unknown_user'
   | 'not_found'
   | 'invalid_order'
   | 'has_work_hours'
@@ -22,6 +32,7 @@ export interface MasterInput {
   canBeResponsible: boolean
   paidSalary: boolean
   telegramId: string | null
+  userId: string | null
 }
 
 export async function listMasters(): Promise<Master[]> {
@@ -53,6 +64,23 @@ export async function resolveMasterIds(names: string[]): Promise<Map<string, num
   return new Map(rows.map((r) => [r.name, r.id]))
 }
 
+export async function findMasterByUserId(userId: string): Promise<Master | undefined> {
+  const db = getDb()
+  const [row] = await db.select().from(masters).where(eq(masters.userId, userId)).limit(1)
+  return row
+}
+
+// Probed up front so the route can answer with a field error / 409 instead of the
+// opaque 500 the FK or the UNIQUE constraint would otherwise raise.
+async function assertUserLinkable(userId: string | null | undefined, masterId?: number) {
+  if (userId == null) return
+  const db = getDb()
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) throw new MasterError('unknown_user')
+  const linked = await findMasterByUserId(userId)
+  if (linked && linked.id !== masterId) throw new MasterError('duplicate_user')
+}
+
 // Next slot at the end of the ordered list. -1 + 1 = 0 when the table is empty.
 async function nextPosition(): Promise<number> {
   const db = getDb()
@@ -70,6 +98,7 @@ export async function createMaster(input: MasterInput): Promise<Master> {
     .where(eq(masters.name, input.name))
     .limit(1)
   if (existing) throw new MasterError('duplicate_name')
+  await assertUserLinkable(input.userId)
 
   const position = await nextPosition()
   const [row] = await db
@@ -79,6 +108,7 @@ export async function createMaster(input: MasterInput): Promise<Master> {
       canBeResponsible: input.canBeResponsible,
       paidSalary: input.paidSalary,
       telegramId: input.telegramId,
+      userId: input.userId,
       position,
     })
     .returning()
@@ -90,6 +120,7 @@ export interface MasterPatch {
   canBeResponsible?: boolean
   paidSalary?: boolean
   telegramId?: string | null
+  userId?: string | null
 }
 
 export async function updateMaster(id: number, patch: MasterPatch): Promise<Master> {
@@ -103,6 +134,7 @@ export async function updateMaster(id: number, patch: MasterPatch): Promise<Mast
       .limit(1)
     if (duplicate && duplicate.id !== id) throw new MasterError('duplicate_name')
   }
+  await assertUserLinkable(patch.userId, id)
 
   const [row] = await db.update(masters).set(patch).where(eq(masters.id, id)).returning()
   if (!row) throw new MasterError('not_found')

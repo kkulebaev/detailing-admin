@@ -48,6 +48,7 @@ const MASTER = {
   canBeResponsible: true,
   paidSalary: true,
   telegramId: '55555',
+  userId: null,
 }
 
 describe('formatMasterNotification', () => {

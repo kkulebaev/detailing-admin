@@ -19,6 +19,7 @@ import {
   deleteMaster,
   reorderMasters,
   resolveMasterIds,
+  updateMaster,
   MasterError,
 } from '../src/db/masters.js'
 
@@ -82,7 +83,7 @@ describe('createMaster (T2)', () => {
     _setDbForTest(db)
 
     await expect(
-      createMaster({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null }),
+      createMaster({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }),
     ).rejects.toBeInstanceOf(MasterError)
   })
 
@@ -101,6 +102,7 @@ describe('createMaster (T2)', () => {
       canBeResponsible: true,
       paidSalary: true,
       telegramId: null,
+      userId: null,
     })
 
     expect(row.id).toBe(9)
@@ -117,10 +119,58 @@ describe('createMaster (T2)', () => {
     })
     _setDbForTest(db)
 
-    const row = await createMaster({ name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: '777' })
+    const row = await createMaster({ name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: '777', userId: null })
 
     expect(row.telegramId).toBe('777')
     expect(capture.values[0]).toMatchObject({ telegramId: '777' })
+  })
+})
+
+describe('linking an account', () => {
+  const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
+  const input = { name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: null, userId }
+
+  it('throws unknown_user when the account does not exist', async () => {
+    // name probe → free; user probe → missing.
+    const { db } = makeFakeDb({ selectResults: [[], []] })
+    _setDbForTest(db)
+
+    const err = await createMaster(input).catch((e) => e)
+    expect(err).toBeInstanceOf(MasterError)
+    expect(err.code).toBe('unknown_user')
+  })
+
+  it('throws duplicate_user when another master already holds the account', async () => {
+    // name probe → free; user exists; linked to master 2.
+    const { db } = makeFakeDb({ selectResults: [[], [{ id: userId }], [{ id: 2 }]] })
+    _setDbForTest(db)
+
+    const err = await createMaster(input).catch((e) => e)
+    expect(err).toBeInstanceOf(MasterError)
+    expect(err.code).toBe('duplicate_user')
+  })
+
+  it('lets a master keep its own account on update', async () => {
+    // name probe → itself; user exists; linked to this very master.
+    const { db, capture } = makeFakeDb({
+      selectResults: [[{ id: 1 }], [{ id: userId }], [{ id: 1 }]],
+      updateResults: [[{ id: 1, ...input }]],
+    })
+    _setDbForTest(db)
+
+    await updateMaster(1, input)
+    expect(capture.sets[0]).toMatchObject({ userId })
+  })
+
+  it('skips the probes when unlinking', async () => {
+    const { db, capture } = makeFakeDb({
+      selectResults: [[]],
+      updateResults: [[{ id: 1, ...input, userId: null }]],
+    })
+    _setDbForTest(db)
+
+    await updateMaster(1, { ...input, userId: null })
+    expect(capture.sets[0]).toMatchObject({ userId: null })
   })
 })
 

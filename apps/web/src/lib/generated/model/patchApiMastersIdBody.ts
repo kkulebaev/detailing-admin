@@ -19,4 +19,6 @@ export type PatchApiMastersIdBody = {
      * @nullable
      */
   telegramId: string | null;
+  /** @nullable */
+  userId: string | null;
 };

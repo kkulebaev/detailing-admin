@@ -5,6 +5,7 @@ import { toast } from 'vue-sonner'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
 import {
+  selfWorkHoursInputSchema,
   workHoursInputSchema,
   workHoursUpdateSchema,
   minutesToHours,
@@ -16,6 +17,11 @@ import {
   updateWorkHours,
   type WorkHoursMutationResult,
 } from '@/lib/salaries-api'
+import {
+  createMyWorkHours,
+  updateMyWorkHours,
+  type MyWorkHoursMutationResult,
+} from '@/lib/me-api'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -54,6 +60,9 @@ const props = defineProps<{
   // Selectable masters for the toolbar flow — only those with a rate set, since
   // hours can't be logged without one. Ignored when masterId is fixed.
   masters?: { id: number; name: string }[]
+  // «Мои часы»: the employee's own hours. The server picks the master from the
+  // session, and the calendar is limited to the inclusive ISO edit window.
+  self?: { editableFrom: string; editableTo: string }
 }>()
 
 const emit = defineEmits<{
@@ -65,7 +74,7 @@ const emit = defineEmits<{
 
 const isEdit = computed(() => props.editing !== null)
 // Toolbar flow: no fixed master → show a picker. Edit and row-add keep it fixed.
-const pickMaster = computed(() => !isEdit.value && props.masterId == null)
+const pickMaster = computed(() => !props.self && !isEdit.value && props.masterId == null)
 const selectedMasterId = ref<number | null>(null)
 const effectiveMasterId = computed(() => props.masterId ?? selectedMasterId.value)
 
@@ -109,6 +118,9 @@ watch(
   },
 )
 
+const minDate = computed(() => (props.self ? isoToCal(props.self.editableFrom) : undefined))
+const maxDate = computed(() => (props.self ? isoToCal(props.self.editableTo) : undefined))
+
 function onDateSelect(d: DateValue | undefined) {
   if (d) dateCal.value = d
   dateOpen.value = false
@@ -146,8 +158,27 @@ async function submit() {
     }
     submitting.value = true
     try {
-      const result = await updateWorkHours(props.editing!.id, parsed.data)
+      const result = props.self
+        ? await updateMyWorkHours(props.editing!.id, parsed.data)
+        : await updateWorkHours(props.editing!.id, parsed.data)
       handleResult(result, 'Запись обновлена')
+    } catch {
+      error.value = 'Не удалось сохранить запись'
+    } finally {
+      submitting.value = false
+    }
+    return
+  }
+
+  if (props.self) {
+    const parsed = selfWorkHoursInputSchema.safeParse({ workDate, hours: hoursNum, note: trimmedNote })
+    if (!parsed.success) {
+      applyIssues(parsed.error.issues)
+      return
+    }
+    submitting.value = true
+    try {
+      handleResult(await createMyWorkHours(parsed.data), 'Часы добавлены')
     } catch {
       error.value = 'Не удалось сохранить запись'
     } finally {
@@ -194,7 +225,10 @@ function applyIssues(
   error.value = issues[0]?.message ?? 'Проверьте заполнение полей'
 }
 
-function handleResult(result: WorkHoursMutationResult, successMsg: string) {
+function handleResult(
+  result: WorkHoursMutationResult | MyWorkHoursMutationResult,
+  successMsg: string,
+) {
   if (result.ok) {
     toast.success(successMsg)
     emit('saved', result.hours.masterId)
@@ -203,8 +237,16 @@ function handleResult(result: WorkHoursMutationResult, successMsg: string) {
   }
   if (result.error === 'validation') {
     // POST /hours surfaces the "no rate set" precondition as a reason literal.
-    if ('reason' in result && result.reason === 'no_rate') {
-      error.value = 'Сначала задайте ставку мастеру'
+    if ('reason' in result) {
+      if (result.reason === 'no_rate') {
+        error.value = props.self
+          ? 'Ставка ещё не задана — обратитесь к администратору'
+          : 'Сначала задайте ставку мастеру'
+      } else if (result.reason === 'not_linked') {
+        error.value = 'Аккаунт не привязан к мастеру — обратитесь к администратору'
+      } else {
+        error.value = 'Эту дату уже нельзя изменить'
+      }
       return
     }
     if ('issues' in result) {
@@ -274,6 +316,8 @@ function handleResult(result: WorkHoursMutationResult, successMsg: string) {
             <PopoverContent class="w-auto p-0" align="start">
               <Calendar
                 locale="ru-RU"
+                :min-value="minDate"
+                :max-value="maxDate"
                 :model-value="dateCal"
                 @update:model-value="onDateSelect"
               />

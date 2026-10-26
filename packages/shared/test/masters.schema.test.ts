@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { masterInputSchema, reorderInputSchema } from '../src/masters.js'
 
 describe('masterInputSchema', () => {
-  const base = { canBeResponsible: true, paidSalary: true, telegramId: null }
+  const base = { canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }
 
   it('accepts a known name with the flag and null telegramId', () => {
     const r = masterInputSchema.safeParse({ name: 'Иван Содель', ...base })
@@ -45,6 +45,7 @@ describe('masterInputSchema', () => {
       canBeResponsible: false,
       paidSalary: true,
       telegramId: null,
+      userId: null,
     })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.canBeResponsible).toBe(false)
@@ -56,15 +57,27 @@ describe('masterInputSchema', () => {
       canBeResponsible: true,
       paidSalary: true,
       telegramId: '123456789',
+      userId: null,
     })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.telegramId).toBe('123456789')
   })
 
   it('accepts a null telegramId', () => {
-    const r = masterInputSchema.safeParse({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null })
+    const r = masterInputSchema.safeParse({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.telegramId).toBeNull()
+  })
+
+  it('accepts a linked account id and refuses a non-uuid one', () => {
+    const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
+    expect(masterInputSchema.safeParse({ name: 'Иван', ...base, userId }).success).toBe(true)
+    expect(masterInputSchema.safeParse({ name: 'Иван', ...base, userId: 'emp' }).success).toBe(false)
+  })
+
+  it('requires userId on full-replace, so PATCH cannot silently unlink', () => {
+    const { userId: _omit, ...withoutUser } = base
+    expect(masterInputSchema.safeParse({ name: 'Иван', ...withoutUser }).success).toBe(false)
   })
 })
 

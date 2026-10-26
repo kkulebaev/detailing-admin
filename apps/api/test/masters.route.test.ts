@@ -80,6 +80,7 @@ const master = (over: Partial<Record<string, unknown>> = {}) => ({
   canBeResponsible: true,
   paidSalary: true,
   telegramId: null,
+  userId: null,
   ...over,
 })
 
@@ -161,6 +162,7 @@ describe('/api/masters', () => {
       canBeResponsible: true,
       paidSalary: true,
       telegramId: null,
+      userId: null,
     })
     expect(res.status).toBe(201)
     const body = await res.json()
@@ -175,6 +177,7 @@ describe('/api/masters', () => {
       canBeResponsible: true,
       paidSalary: true,
       telegramId: '123456789',
+      userId: null,
     })
     expect(res.status).toBe(201)
     const body = await res.json()
@@ -184,6 +187,7 @@ describe('/api/masters', () => {
       canBeResponsible: true,
       paidSalary: true,
       telegramId: '123456789',
+      userId: null,
     })
   })
 
@@ -194,11 +198,55 @@ describe('/api/masters', () => {
       canBeResponsible: true,
       paidSalary: true,
       telegramId: null,
+      userId: null,
     })
     expect(res.status).toBe(409)
     const body = await res.json()
     expect(body.error).toBe('conflict')
     expect(body.reason).toBe('duplicate_name')
+  })
+
+  it('POST / links an account → 201, passing userId through', async () => {
+    const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
+    vi.mocked(createMaster).mockResolvedValue(master({ id: 3, userId }))
+    const res = await req(app, '/', 'POST', {
+      name: 'Новый Мастер',
+      canBeResponsible: true,
+      paidSalary: true,
+      telegramId: null,
+      userId,
+    })
+    expect(res.status).toBe(201)
+    expect((await res.json()).master.userId).toBe(userId)
+    expect(vi.mocked(createMaster)).toHaveBeenCalledWith(expect.objectContaining({ userId }))
+  })
+
+  it('POST / with an account linked to another master → 409 duplicate_user', async () => {
+    vi.mocked(createMaster).mockRejectedValue(new MasterError('duplicate_user'))
+    const res = await req(app, '/', 'POST', {
+      name: 'Новый Мастер',
+      canBeResponsible: true,
+      paidSalary: true,
+      telegramId: null,
+      userId: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f',
+    })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ error: 'conflict', reason: 'duplicate_user' })
+  })
+
+  it('PATCH /{id} with an unknown account → 400 with a userId field error', async () => {
+    vi.mocked(updateMaster).mockRejectedValue(new MasterError('unknown_user'))
+    const res = await req(app, '/1', 'PATCH', {
+      name: 'Иван Содель',
+      canBeResponsible: true,
+      paidSalary: true,
+      telegramId: null,
+      userId: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f',
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toBe('validation')
+    expect(body.issues[0].path).toEqual(['userId'])
   })
 
   it('POST / rejects an injection-prefixed name → 400', async () => {
@@ -216,6 +264,7 @@ describe('/api/masters', () => {
       canBeResponsible: false,
       paidSalary: true,
       telegramId: '42',
+      userId: null,
     })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -239,6 +288,7 @@ describe('/api/masters', () => {
       canBeResponsible: true,
       paidSalary: true,
       telegramId: null,
+      userId: null,
     })
     expect(res.status).toBe(404)
     const body = await res.json()
@@ -302,9 +352,9 @@ describe('/api/masters', () => {
 
   it.each([
     ['/', 'GET', undefined],
-    ['/', 'POST', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null }],
+    ['/', 'POST', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }],
     ['/reorder', 'PATCH', { ids: [1] }],
-    ['/1', 'PATCH', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null }],
+    ['/1', 'PATCH', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }],
     ['/1', 'DELETE', undefined],
   ])('%s %s returns 503 when DB is not ready', async (path, method, body) => {
     vi.mocked(isDbReady).mockReturnValue(false)

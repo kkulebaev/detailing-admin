@@ -88,8 +88,8 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/employee',
     name: 'employee',
-    component: () => import('@/pages/EmployeeHome.vue'),
-    meta: { title: 'Главная', requiresAuth: true, roles: ['employee'] },
+    component: () => import('@/pages/MyHoursPage.vue'),
+    meta: { title: 'Мои часы', requiresAuth: true, roles: ['employee'] },
   },
   {
     path: '/profile',

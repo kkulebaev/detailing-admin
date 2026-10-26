@@ -21,6 +21,16 @@ export const userPublicSchema = z.object({
 })
 export type UserPublic = z.infer<typeof userPublicSchema>
 
+// An account as the admin sees it when linking it to a master.
+export const accountSchema = userPublicSchema.extend({ id: z.string().uuid() })
+export type Account = z.infer<typeof accountSchema>
+
+export const accountsListResponseSchema = z.union([
+  z.object({ ok: z.literal(true), accounts: z.array(accountSchema) }),
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
 export const loginRequestSchema = z.object({
   login: z.string().min(1, 'Укажите логин').max(64),
   password: z.string().min(1, 'Укажите пароль').max(200),

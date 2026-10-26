@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiMastersId409Reason = 'duplicate_name';
+export type DeleteApiMeHoursId503Reason = 'not_configured';

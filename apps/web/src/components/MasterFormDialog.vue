@@ -5,8 +5,10 @@ import { toast } from 'vue-sonner'
 import {
   createMaster,
   updateMaster,
+  type Account,
   type Master,
 } from '@/lib/masters-api'
+import { useAccountsQuery } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -18,6 +20,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const props = defineProps<{
   open: boolean
@@ -33,6 +42,20 @@ const name = ref('')
 const canBeResponsible = ref(true)
 const paidSalary = ref(true)
 const telegramId = ref('')
+// reka-ui's Select can't hold an empty value, so «не привязан» is a sentinel.
+const NO_ACCOUNT = 'none'
+const userId = ref(NO_ACCOUNT)
+
+const { data: accountsData } = useAccountsQuery(computed(() => props.open))
+const accounts = computed<Account[]>(() => {
+  const r = accountsData.value
+  return r?.ok ? r.accounts : []
+})
+
+function accountLabel(a: Account): string {
+  const fullName = `${a.firstName} ${a.lastName}`.trim()
+  return fullName ? `${fullName} (${a.login})` : a.login
+}
 
 const submitting = ref(false)
 const error = ref<string | null>(null)
@@ -49,6 +72,7 @@ watch(
     canBeResponsible.value = m?.canBeResponsible ?? true
     paidSalary.value = m?.paidSalary ?? true
     telegramId.value = m?.telegramId ?? ''
+    userId.value = m?.userId ?? NO_ACCOUNT
     error.value = null
     fieldErrors.value = {}
   },
@@ -80,6 +104,7 @@ async function submit() {
     canBeResponsible: canBeResponsible.value,
     paidSalary: paidSalary.value,
     telegramId: trimmedTelegram === '' ? null : trimmedTelegram,
+    userId: userId.value === NO_ACCOUNT ? null : userId.value,
   }
 
   submitting.value = true
@@ -106,6 +131,9 @@ async function submit() {
     } else if (result.error === 'conflict' && result.reason === 'duplicate_name') {
       fieldErrors.value = { name: 'Мастер с таким именем уже существует' }
       error.value = 'Мастер с таким именем уже существует'
+    } else if (result.error === 'conflict' && result.reason === 'duplicate_user') {
+      fieldErrors.value = { userId: 'Этот аккаунт уже привязан к другому мастеру' }
+      error.value = 'Этот аккаунт уже привязан к другому мастеру'
     } else if (result.error === 'not_found') {
       error.value = 'Мастер не найден — возможно, был удалён'
     } else if (result.error === 'unavailable') {
@@ -172,6 +200,30 @@ async function submit() {
           </p>
         </div>
 
+        <div class="grid gap-2">
+          <Label for="master-account">
+            Аккаунт
+            <span class="text-muted-foreground font-normal">(для «Мои часы», необязательно)</span>
+          </Label>
+          <Select v-model="userId" :disabled="submitting">
+            <SelectTrigger id="master-account" class="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem :value="NO_ACCOUNT">Не привязан</SelectItem>
+              <SelectItem v-for="a in accounts" :key="a.id" :value="a.id">
+                {{ accountLabel(a) }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p v-if="fieldErrors.userId" class="text-sm text-destructive">
+            {{ fieldErrors.userId }}
+          </p>
+          <p v-else class="text-xs text-muted-foreground">
+            Сотрудник с этим аккаунтом сможет сам вносить свои часы.
+          </p>
+        </div>
+
         <div class="flex items-center gap-2">
           <Checkbox
             id="master-can-be-responsible"
@@ -198,7 +250,7 @@ async function submit() {
           </Label>
         </div>
 
-        <p v-if="error && !fieldErrors.name" class="text-sm text-destructive">
+        <p v-if="error && !fieldErrors.name && !fieldErrors.userId" class="text-sm text-destructive">
           {{ error }}
         </p>
 

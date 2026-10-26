@@ -6219,6 +6219,11 @@
                           "telegramId": {
                             "type": "string",
                             "nullable": true
+                          },
+                          "userId": {
+                            "type": "string",
+                            "nullable": true,
+                            "format": "uuid"
                           }
                         },
                         "required": [
@@ -6227,7 +6232,8 @@
                           "position",
                           "canBeResponsible",
                           "paidSalary",
-                          "telegramId"
+                          "telegramId",
+                          "userId"
                         ]
                       }
                     }
@@ -6333,13 +6339,19 @@
                     "type": "string",
                     "nullable": true,
                     "maxLength": 64
+                  },
+                  "userId": {
+                    "type": "string",
+                    "nullable": true,
+                    "format": "uuid"
                   }
                 },
                 "required": [
                   "name",
                   "canBeResponsible",
                   "paidSalary",
-                  "telegramId"
+                  "telegramId",
+                  "userId"
                 ]
               }
             }
@@ -6380,6 +6392,11 @@
                         "telegramId": {
                           "type": "string",
                           "nullable": true
+                        },
+                        "userId": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "uuid"
                         }
                       },
                       "required": [
@@ -6388,7 +6405,8 @@
                         "position",
                         "canBeResponsible",
                         "paidSalary",
-                        "telegramId"
+                        "telegramId",
+                        "userId"
                       ]
                     }
                   },
@@ -6486,7 +6504,7 @@
             }
           },
           "409": {
-            "description": "Duplicate name",
+            "description": "Duplicate name, or the account is linked to another master",
             "content": {
               "application/json": {
                 "schema": {
@@ -6505,9 +6523,19 @@
                       ]
                     },
                     "reason": {
-                      "type": "string",
-                      "enum": [
-                        "duplicate_name"
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "duplicate_name"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "duplicate_user"
+                          ]
+                        }
                       ]
                     }
                   },
@@ -6653,6 +6681,11 @@
                           "telegramId": {
                             "type": "string",
                             "nullable": true
+                          },
+                          "userId": {
+                            "type": "string",
+                            "nullable": true,
+                            "format": "uuid"
                           }
                         },
                         "required": [
@@ -6661,7 +6694,8 @@
                           "position",
                           "canBeResponsible",
                           "paidSalary",
-                          "telegramId"
+                          "telegramId",
+                          "userId"
                         ]
                       }
                     }
@@ -6815,13 +6849,19 @@
                     "type": "string",
                     "nullable": true,
                     "maxLength": 64
+                  },
+                  "userId": {
+                    "type": "string",
+                    "nullable": true,
+                    "format": "uuid"
                   }
                 },
                 "required": [
                   "name",
                   "canBeResponsible",
                   "paidSalary",
-                  "telegramId"
+                  "telegramId",
+                  "userId"
                 ]
               }
             }
@@ -6862,6 +6902,11 @@
                         "telegramId": {
                           "type": "string",
                           "nullable": true
+                        },
+                        "userId": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "uuid"
                         }
                       },
                       "required": [
@@ -6870,7 +6915,8 @@
                         "position",
                         "canBeResponsible",
                         "paidSalary",
-                        "telegramId"
+                        "telegramId",
+                        "userId"
                       ]
                     }
                   },
@@ -6968,7 +7014,7 @@
             }
           },
           "409": {
-            "description": "Duplicate name",
+            "description": "Duplicate name, or the account is linked to another master",
             "content": {
               "application/json": {
                 "schema": {
@@ -6987,9 +7033,19 @@
                       ]
                     },
                     "reason": {
-                      "type": "string",
-                      "enum": [
-                        "duplicate_name"
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "duplicate_name"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "duplicate_user"
+                          ]
+                        }
                       ]
                     }
                   },
@@ -9575,6 +9631,1041 @@
                     "ok",
                     "error",
                     "issues"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Login accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "login": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "employee"
+                            ]
+                          },
+                          "firstName": {
+                            "type": "string"
+                          },
+                          "lastName": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "login",
+                          "role",
+                          "firstName",
+                          "lastName",
+                          "id"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "accounts"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/salary": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            },
+            "required": true,
+            "name": "month",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own hours and pay for the month",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hourlyRate": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "totalMinutes": {
+                      "type": "integer"
+                    },
+                    "hoursSalary": {
+                      "type": "integer"
+                    },
+                    "payoutsTotal": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "month": {
+                      "type": "string"
+                    },
+                    "master": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ]
+                    },
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "masterId": {
+                                "type": "integer"
+                              },
+                              "workDate": {
+                                "type": "string"
+                              },
+                              "minutes": {
+                                "type": "integer"
+                              },
+                              "rateSnapshot": {
+                                "type": "integer"
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "hours"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "masterId",
+                              "workDate",
+                              "minutes",
+                              "rateSnapshot",
+                              "note",
+                              "createdAt",
+                              "kind"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "masterId": {
+                                "type": "integer"
+                              },
+                              "payoutDate": {
+                                "type": "string"
+                              },
+                              "amount": {
+                                "type": "integer"
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "payout"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "masterId",
+                              "payoutDate",
+                              "amount",
+                              "note",
+                              "createdAt",
+                              "kind"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "editableFrom": {
+                      "type": "string"
+                    },
+                    "editableTo": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "hourlyRate",
+                    "totalMinutes",
+                    "hoursSalary",
+                    "payoutsTotal",
+                    "total",
+                    "ok",
+                    "month",
+                    "master",
+                    "entries",
+                    "editableFrom",
+                    "editableTo"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            }
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "issues"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/hours": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 24
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "workDate",
+                  "hours"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Work hours added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "hours": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "masterId": {
+                          "type": "integer"
+                        },
+                        "workDate": {
+                          "type": "string"
+                        },
+                        "minutes": {
+                          "type": "integer"
+                        },
+                        "rateSnapshot": {
+                          "type": "integer"
+                        },
+                        "note": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "masterId",
+                        "workDate",
+                        "minutes",
+                        "rateSnapshot",
+                        "note",
+                        "createdAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "hours"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No rate, account not linked to a master, or day outside the edit window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "no_rate",
+                        "not_linked",
+                        "outside_window"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "reason"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/hours/{id}": {
+      "patch": {
+        "tags": [
+          "me"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9]\\d*$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 24
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Work hours updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "hours": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "masterId": {
+                          "type": "integer"
+                        },
+                        "workDate": {
+                          "type": "string"
+                        },
+                        "minutes": {
+                          "type": "integer"
+                        },
+                        "rateSnapshot": {
+                          "type": "integer"
+                        },
+                        "note": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "masterId",
+                        "workDate",
+                        "minutes",
+                        "rateSnapshot",
+                        "note",
+                        "createdAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "hours"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No rate, account not linked to a master, or day outside the edit window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "no_rate",
+                        "not_linked",
+                        "outside_window"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "reason"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "not_found"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "me"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9]\\d*$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Work hours deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No rate, account not linked to a master, or day outside the edit window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "no_rate",
+                        "not_linked",
+                        "outside_window"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "reason"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "not_found"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
                   ]
                 }
               }

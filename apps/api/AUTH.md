@@ -44,6 +44,8 @@ Without this step nobody can log in — a fresh DB has zero users.
 | `GET /me` | cookie | — | 200 `{user}` (stateless, no DB) + sliding refresh; 401 otherwise |
 | `POST /change-password` | session | ✅ | 200; 400 on wrong current password; 409 on lost concurrent-change race; 503 if DB down |
 
-All other `/api/*` routes require `requireAuth` + `requireAdmin` (admin-only MVP).
+All other `/api/*` routes require `requireAuth` + `requireAdmin`, except the
+reads `GET /api/bookings*` and `GET /api/masters*` and the self-service
+`/api/me/*`, which any authenticated role may call (see CLAUDE.md, «Self-service hours»).
 `requireAuth` is stateless (no DB), so the booking flow keeps working for
 logged-in users when Postgres is down.

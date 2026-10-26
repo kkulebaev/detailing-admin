@@ -14,4 +14,6 @@ export type PostApiMasters201Master = {
   paidSalary: boolean;
   /** @nullable */
   telegramId: string | null;
+  /** @nullable */
+  userId: string | null;
 };

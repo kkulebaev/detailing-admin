@@ -14,4 +14,6 @@ export type PatchApiMastersReorder200MastersItem = {
   paidSalary: boolean;
   /** @nullable */
   telegramId: string | null;
+  /** @nullable */
+  userId: string | null;
 };

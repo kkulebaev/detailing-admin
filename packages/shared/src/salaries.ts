@@ -67,6 +67,12 @@ export const workHoursUpdateSchema = z.object({
 
 export type WorkHoursUpdate = z.infer<typeof workHoursUpdateSchema>
 
+// An employee logging their own hours: the master comes from the account's link,
+// never from the body, so one account can't log hours for somebody else.
+export const selfWorkHoursInputSchema = workHoursInputSchema.omit({ masterId: true })
+
+export type SelfWorkHoursInput = z.infer<typeof selfWorkHoursInputSchema>
+
 // One-off payments unrelated to hours worked: bonuses, reimbursements and
 // (negative) deductions. No rate is involved — the amount stands on its own.
 export const payoutInputSchema = z.object({
@@ -209,7 +215,77 @@ export const payoutDeleteResponseSchema = z.union([
   internalErrorSchema,
 ])
 
+// ---- «Мои часы» (an employee's own salary) ----
+
+export const mySalaryOkSchema = salaryRowSchema
+  .omit({ masterId: true, masterName: true })
+  .extend({
+    ok: z.literal(true),
+    month: z.string(),
+    // Null while the account is not linked to a master: the page explains that
+    // instead of showing zeros.
+    master: z.object({ id: z.number().int(), name: z.string() }).nullable(),
+    entries: z.array(salaryEntrySchema),
+    // Inclusive ISO range the employee may add, edit and delete hours in. Sent
+    // by the server so the page never computes «today» in the wrong timezone.
+    editableFrom: z.string(),
+    editableTo: z.string(),
+  })
+
+export type MySalaryOk = z.infer<typeof mySalaryOkSchema>
+
+export const mySalaryResponseSchema = z.union([
+  mySalaryOkSchema,
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+// Domain refusals of a self-service hours change, same validation-with-reason
+// shape as no_rate: the account has no master, or the day is outside the window.
+export const selfWorkHoursErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('validation'),
+  reason: z.enum(['no_rate', 'not_linked', 'outside_window']),
+})
+
+export const myWorkHoursMutationResponseSchema = z.union([
+  z.object({ ok: z.literal(true), hours: workHoursSchema }),
+  validationErrorSchema,
+  selfWorkHoursErrorSchema,
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export const myWorkHoursDeleteResponseSchema = z.union([
+  z.object({ ok: z.literal(true) }),
+  selfWorkHoursErrorSchema,
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
 // ---- Pure helpers (unit-tested) ----
+
+// How far back an employee may touch their own hours, today included. Older
+// days belong to a month the admin may already have paid out.
+export const SELF_EDIT_WINDOW_DAYS = 7
+
+// UTC arithmetic on a date-only value: no DST shift can move it across a day.
+function shiftIsoDate(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y!, m! - 1, d! + days)).toISOString().slice(0, 10)
+}
+
+export function selfEditWindow(today: string): { from: string; to: string } {
+  return { from: shiftIsoDate(today, -(SELF_EDIT_WINDOW_DAYS - 1)), to: today }
+}
+
+export function isInSelfEditWindow(date: string, today: string): boolean {
+  const { from, to } = selfEditWindow(today)
+  return date >= from && date <= to
+}
 
 // Hours (0.25 steps in the UI) → minutes. Math.round guards against float dust
 // on the multiply (e.g. 7.51 → 451, not 450).

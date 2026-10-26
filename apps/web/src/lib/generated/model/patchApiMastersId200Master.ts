@@ -14,4 +14,6 @@ export type PatchApiMastersId200Master = {
   paidSalary: boolean;
   /** @nullable */
   telegramId: string | null;
+  /** @nullable */
+  userId: string | null;
 };

@@ -14,4 +14,6 @@ export type GetApiMasters200MastersItem = {
   paidSalary: boolean;
   /** @nullable */
   telegramId: string | null;
+  /** @nullable */
+  userId: string | null;
 };

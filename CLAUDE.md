@@ -79,19 +79,21 @@ pnpm workspace, three packages:
   - `/api/bookings` — `POST` (booking form), `GET` list, `GET /export` (CSV), `PATCH /{id}`, `DELETE /{id}`, `PATCH /{id}/readiness`.
   - `/api/clients` — list, `GET /{id}` (detail with history), CRUD, `GET /export`.
   - `/api/pricelist` — `GET` plus CRUD for `sections` and `services`.
-  - `/api/masters` — list, CRUD, `PATCH /reorder`.
+  - `/api/masters` — list, CRUD, `PATCH /reorder`. A master may be linked to a login account (`userId`).
   - `/api/salaries` — summary, `PATCH /rates`, `GET /entries`, CRUD for `hours` and `payouts`.
   - `/api/analytics/overview` — revenue totals, series, retention, top clients.
+  - `/api/users` — login accounts, for the master form's account picker.
+  - `/api/me` — the signed-in account's own hours: `GET /salary`, CRUD for `hours` (see «Self-service hours»).
   - `GET /healthz`, `GET /openapi.json`.
 - **`apps/web`** — Vue 3 + Vite + Tailwind v4 + shadcn-vue + vue-router + Pinia (`stores/auth.ts`). SPA wrapped by `AppLayout` + `AppSidebar`. The API client is **orval-generated** from `apps/web/openapi.json` into `src/lib/generated/` (never hand-edit it); `src/lib/*-api.ts` wrap it. Pages (`src/router.ts`):
   - `/` booking form (`BookingForm.vue`, admin) — `vee-validate` + `@vee-validate/zod` with the shared schema via `toTypedSchema(bookingSchema)`; phone lookup autofills the client and their cars (`use-client-lookup`).
   - `/bookings` (`BookingsPage.vue`, admin + employee), `/clients` and `/clients/:id` (`ClientsPage.vue` — both paths mount the same instance so the detail dialog slides over the live list), `/pricelist`, `/masters`, `/salaries`, `/analytics` (admin).
-  - `/employee` (employee home), `/profile`, `/login` in `src/pages/`.
+  - `/employee` («Мои часы», `MyHoursPage.vue`), `/profile`, `/login` in `src/pages/`.
 
 ### Auth and roles
 
 Stateless HS256 JWT in an httpOnly cookie (`apps/api/src/auth/`); `requireAuth` only verifies the token, so it never touches Postgres and the booking flow stays DB-independent. Guards are wired in `server.ts`:
-- Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with two exceptions: `GET /api/bookings*` and `GET /api/masters*` are open to any authenticated role (the bookings handler hides amounts from non-admins).
+- Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with three exceptions open to any authenticated role: `GET /api/bookings*` and `GET /api/masters*` (the bookings handler hides amounts from non-admins), and `/api/me/*`, whose handlers scope everything to the caller's own master.
 - The web router mirrors this with `meta.roles`; `homeRouteFor(role)` sends admins to `/` and employees to `/employee`.
 
 Details, env vars and provisioning: `apps/api/AUTH.md`.
@@ -129,6 +131,10 @@ If the form sets `notify: true`, `notifyMaster()` sends a message to every assig
 ### Salaries
 
 `master_rates` holds the current hourly rate (kept out of `masters`, whose `GET` is open to employees). Each `work_hours` row freezes `rateSnapshot` at insert so a rate change never rewrites past pay; time is stored as integer `minutes`. `payouts` are one-off amounts (negative = deduction, zero rejected by a DB check). Both history tables use `onDelete: 'restrict'`, and `deleteMaster()` refuses a master that has history.
+
+### Self-service hours («Мои часы»)
+
+An account is linked to at most one master via `masters.userId` (UNIQUE, set by the admin in `MasterFormDialog`). `/api/me` resolves that master from the session's `sub` on every request — the body never carries a `masterId`, and another master's record answers 404. The employee sees their own month (hours, rate, payouts, total) and may add, edit and delete **hours** only inside a rolling window of `SELF_EDIT_WINDOW_DAYS` (7) days ending today in `SHOP_TIMEZONE`; both the old and the new date of an edit must be inside it. Older days and payouts stay admin-only, so a month that may already be paid out can't shift. The server sends the window (`editableFrom`/`editableTo`) so the page never computes «today» itself.
 
 ### CSV export
 

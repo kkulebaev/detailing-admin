@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  SELF_EDIT_WINDOW_DAYS,
   computeSalary,
+  isInSelfEditWindow,
+  selfEditWindow,
   hoursToMinutes,
   mergeSalaryEntries,
   minutesToHours,
@@ -243,5 +246,24 @@ describe('mergeSalaryEntries', () => {
     const [first, second] = feed
     expect(first!.kind === 'hours' && first.workDate).toBe('2026-07-01')
     expect(second!.kind === 'payout' && second.payoutDate).toBe('2026-07-02')
+  })
+})
+
+describe('selfEditWindow / isInSelfEditWindow', () => {
+  it('spans the last SELF_EDIT_WINDOW_DAYS days, today included', () => {
+    expect(SELF_EDIT_WINDOW_DAYS).toBe(7)
+    expect(selfEditWindow('2026-10-26')).toEqual({ from: '2026-10-20', to: '2026-10-26' })
+  })
+
+  it('crosses month and year boundaries', () => {
+    expect(selfEditWindow('2026-03-02').from).toBe('2026-02-24')
+    expect(selfEditWindow('2027-01-03').from).toBe('2026-12-28')
+  })
+
+  it('accepts both edges and refuses the day before and the future', () => {
+    expect(isInSelfEditWindow('2026-10-20', '2026-10-26')).toBe(true)
+    expect(isInSelfEditWindow('2026-10-26', '2026-10-26')).toBe(true)
+    expect(isInSelfEditWindow('2026-10-19', '2026-10-26')).toBe(false)
+    expect(isInSelfEditWindow('2026-10-27', '2026-10-26')).toBe(false)
   })
 })
