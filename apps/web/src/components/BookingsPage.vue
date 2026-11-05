@@ -90,6 +90,7 @@ import {
 // reka-ui Select needs a non-empty value, so «Все» rides on a sentinel that the
 // params builder maps back to `undefined` (no filter).
 const ALL = '__all__'
+const FROM_TODAY = '__from_today__'
 
 // The «Сумма» column is admin-only; the API also omits `amount` for non-admins.
 const auth = useAuthStore()
@@ -248,14 +249,15 @@ async function confirmDelete() {
 }
 
 // ── Filter state ──────────────────────────────────────────────────────────────
-// Период — одно из трёх: все записи, месяц целиком или конкретный день. Месяц и
-// день взаимоисключающи: выбор одного гасит другой.
-const monthKey = ref<string>(ALL)
+// Период — одно из четырёх: с сегодняшнего дня (по умолчанию), все записи, месяц
+// целиком или конкретный день. Выбранный день важнее `monthKey`.
+const monthKey = ref<string>(FROM_TODAY)
 // shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
 const dayCal = shallowRef<DateValue | undefined>(undefined)
 const periodOpen = ref(false)
 // Месяц, открытый в календаре. Он же решает, какой месяц заберёт «Весь месяц».
-const periodPlaceholder = shallowRef<DateValue>(today(getLocalTimeZone()))
+const todayCal = today(getLocalTimeZone())
+const periodPlaceholder = shallowRef<DateValue>(todayCal)
 const masterFilter = ref<string>(ALL)
 const readinessFilter = ref<Readiness | typeof ALL>(ALL)
 const searchInput = ref('')
@@ -281,8 +283,8 @@ const masterOptions = computed(() =>
 )
 
 // ── Period filter ───────────────────────────────────────────────────────────
-// Один календарь на три режима: клик по дню фильтрует по дню, «Весь месяц»
-// берёт открытый в шапке месяц, «Все записи» снимает фильтр. Селекты месяца и
+// Один календарь на все режимы: клик по дню фильтрует по дню, «Весь месяц» берёт
+// открытый в шапке месяц, «Все записи» снимает фильтр. Селекты месяца и
 // года в шапке (layout="month-and-year") заменяют прежний выпадающий список —
 // иначе до месяца годичной давности пришлось бы долистывать стрелками.
 function lastDayOfMonth(year: number, month1: number): number {
@@ -293,21 +295,25 @@ function monthKeyOf(d: DateValue): string {
   return `${d.year}-${String(d.month).padStart(2, '0')}`
 }
 
+const isDefaultPeriod = computed(() => !dayCal.value && monthKey.value === FROM_TODAY)
+
 const periodLabel = computed(() => {
   if (dayCal.value) return calToDdmmyyyy(dayCal.value)
   if (monthKey.value === ALL) return 'Все записи'
+  if (monthKey.value === FROM_TODAY) return `С ${calToDdmmyyyy(todayCal)}`
   const [y, m] = monthKey.value.split('-').map(Number)
   return `${MONTH_NAMES[m - 1]} ${y}`
 })
 
 // Оба конца диапазона совпадают для дня и охватывают месяц целиком для месяца.
-const periodRange = computed<{ from: string, to: string } | null>(() => {
+const periodRange = computed<{ from: string, to?: string } | null>(() => {
   const day = dayCal.value
   if (day) {
     const d = calToDdmmyyyy(day)
     return { from: d, to: d }
   }
   if (monthKey.value === ALL) return null
+  if (monthKey.value === FROM_TODAY) return { from: calToDdmmyyyy(todayCal) }
   const [y, m] = monthKey.value.split('-').map(Number)
   const mm = String(m).padStart(2, '0')
   return { from: `01.${mm}.${y}`, to: `${lastDayOfMonth(y, m)}.${mm}.${y}` }
@@ -426,14 +432,14 @@ const [DefineSearch, ReuseSearch] = createReusableTemplate()
 
 const hasActiveFilters = computed(
   () =>
-    !!periodRange.value ||
+    !isDefaultPeriod.value ||
     masterFilter.value !== ALL ||
     readinessFilter.value !== ALL ||
     searchInput.value.trim() !== '',
 )
 
 function resetFilters() {
-  monthKey.value = ALL
+  monthKey.value = FROM_TODAY
   dayCal.value = undefined
   masterFilter.value = ALL
   readinessFilter.value = ALL
@@ -444,13 +450,12 @@ function resetFilters() {
   searchDebounced.value = ''
 }
 
-// Три режима взаимоисключающи: каждый выбор гасит два других.
+// Режимы взаимоисключающи: каждый выбор гасит остальные. Повторный клик по дню
+// снимает выбор, и период возвращается к режиму по умолчанию.
 function onDaySelect(d: DateValue | undefined) {
   dayCal.value = d ?? undefined
-  if (d) {
-    monthKey.value = ALL
-    periodPlaceholder.value = d
-  }
+  monthKey.value = FROM_TODAY
+  if (d) periodPlaceholder.value = d
   periodOpen.value = false
 }
 
@@ -460,7 +465,13 @@ function selectVisibleMonth() {
   periodOpen.value = false
 }
 
-function resetPeriod() {
+function selectFromToday() {
+  monthKey.value = FROM_TODAY
+  dayCal.value = undefined
+  periodOpen.value = false
+}
+
+function selectAllBookings() {
   monthKey.value = ALL
   dayCal.value = undefined
   periodOpen.value = false
@@ -548,9 +559,7 @@ function formatCreatedAt(iso: string): string {
           <PopoverTrigger as-child>
             <Button variant="outline" size="sm" class="w-44 justify-start gap-2 font-normal">
               <CalendarIcon class="size-4" />
-              <span :class="{ 'text-muted-foreground': !dayCal && monthKey === ALL }">
-                {{ periodLabel }}
-              </span>
+              <span>{{ periodLabel }}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent class="w-auto p-0" align="start">
@@ -560,10 +569,15 @@ function formatCreatedAt(iso: string): string {
               :model-value="dayCal"
               @update:model-value="onDaySelect"
             />
-            <div class="flex items-center justify-between gap-2 border-t border-border p-2">
-              <Button variant="ghost" size="sm" @click="resetPeriod">Все записи</Button>
-              <Button variant="ghost" size="sm" @click="selectVisibleMonth">
+            <div class="flex items-center justify-between gap-1 border-t border-border p-2">
+              <Button variant="ghost" size="sm" class="px-2" @click="selectFromToday">
+                С сегодня
+              </Button>
+              <Button variant="ghost" size="sm" class="px-2" @click="selectVisibleMonth">
                 Весь месяц
+              </Button>
+              <Button variant="ghost" size="sm" class="px-2" @click="selectAllBookings">
+                Все записи
               </Button>
             </div>
           </PopoverContent>
@@ -814,19 +828,28 @@ function formatCreatedAt(iso: string): string {
                     <component :is="hasActiveFilters ? SearchX : Inbox" />
                   </EmptyMedia>
                   <EmptyTitle>
-                    {{ hasActiveFilters ? 'Ничего не найдено' : 'Пока нет записей' }}
+                    {{ hasActiveFilters ? 'Ничего не найдено' : 'Нет записей с сегодняшнего дня' }}
                   </EmptyTitle>
                   <EmptyDescription>
                     {{
                       hasActiveFilters
                         ? 'Попробуйте изменить условия или сбросить фильтры'
-                        : 'Новые записи появятся здесь автоматически'
+                        : 'Прошлые записи можно посмотреть за другой период'
                     }}
                   </EmptyDescription>
                 </EmptyHeader>
-                <EmptyContent v-if="hasActiveFilters">
-                  <Button variant="outline" size="sm" class="gap-1" @click="resetFilters">
+                <EmptyContent>
+                  <Button
+                    v-if="hasActiveFilters"
+                    variant="outline"
+                    size="sm"
+                    class="gap-1"
+                    @click="resetFilters"
+                  >
                     <X class="size-4" /> Сбросить фильтры
+                  </Button>
+                  <Button v-else variant="outline" size="sm" @click="selectAllBookings">
+                    Показать все записи
                   </Button>
                 </EmptyContent>
               </Empty>
