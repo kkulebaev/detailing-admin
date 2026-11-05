@@ -29,7 +29,7 @@
 |------|-----------|
 | Frontend | Vue 3, Vite, Pinia, vue-router, shadcn-vue, Tailwind CSS v4, vee-validate |
 | API-клиент | orval — генерируется из OpenAPI-документа бэкенда |
-| Backend | Hono + `@hono/zod-openapi`, `@hono/node-server`, Node 24 |
+| Backend | Hono + `@hono/zod-openapi`, `@hono/node-server`, Node 26 |
 | Validation | Zod — общие схемы в `packages/shared` |
 | Записи | Google Sheets API v4 (service account) — источник истины |
 | База | Postgres + Drizzle ORM (`drizzle-orm`, `postgres`, `drizzle-kit`) |
@@ -76,7 +76,7 @@ detailing-admin/
 
 ## Локальный запуск
 
-**Требования:** Node 24+, pnpm 11+, Docker.
+**Требования:** Node 26+, pnpm 11+, Docker.
 
 ```bash
 # 1. Установить зависимости

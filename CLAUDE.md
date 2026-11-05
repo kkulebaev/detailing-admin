@@ -10,7 +10,7 @@ The `bookings` mirror is **stage 1 of migrating bookings off Sheets**: every boo
 
 ## Commands
 
-Node 24+, pnpm 11+ (`engines` / `packageManager` in the root `package.json`). Run from repo root:
+Node 26+, pnpm 11+ (`engines` / `packageManager` in the root `package.json`). Run from repo root:
 
 ```bash
 pnpm install              # workspace install

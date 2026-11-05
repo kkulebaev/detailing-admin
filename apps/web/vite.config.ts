@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import path from 'node:path'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -64,6 +65,11 @@ export default defineConfig(({ mode, isPreview }) => {
         '@': path.resolve(__dirname, './src'),
         '@detailing-admin/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
       },
+    },
+    test: {
+      // Node 25+ defines a global localStorage that is undefined without
+      // --localstorage-file and shadows the one from happy-dom.
+      execArgv: ['--no-experimental-webstorage'],
     },
   }
 })

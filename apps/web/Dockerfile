@@ -1,7 +1,7 @@
 # ── Stage 1: install all workspace dependencies ──────────────────────────────
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 
-RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
+RUN npm install -g pnpm@11.1.1
 
 WORKDIR /app
 
@@ -35,7 +35,7 @@ RUN pnpm deploy --filter=@detailing-admin/web --legacy /deploy/web
 # NOTE: `vite preview` is documented as not-for-production. It works for this
 # MVP, but when traffic grows, swap this stage for nginx:alpine serving
 # /app/dist and drop the Node runtime entirely.
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 WORKDIR /app
 
@@ -55,6 +55,6 @@ EXPOSE 8080
 
 # Invoke vite directly via node — bypasses pnpm at runtime (its startup
 # deps-status-check tries to `pnpm install` into /app and fails for the
-# non-root user, plus corepack would re-download pnpm on each cold start).
+# non-root user).
 # `exec` makes node PID 1 so SIGTERM from Railway reaches it directly.
 CMD ["sh", "-c", "exec node node_modules/vite/bin/vite.js preview --port ${PORT:-8080} --host 0.0.0.0"]

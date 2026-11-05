@@ -1,7 +1,7 @@
 # ── Stage 1: install all dependencies ────────────────────────────────────────
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 
-RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
+RUN npm install -g pnpm@11.1.1
 
 WORKDIR /app
 
@@ -39,7 +39,7 @@ ENV CI=true
 RUN pnpm deploy --filter=@detailing-admin/api --prod --legacy /deploy/api
 
 # ── Stage 4: minimal runtime image ────────────────────────────────────────────
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 WORKDIR /app
 
