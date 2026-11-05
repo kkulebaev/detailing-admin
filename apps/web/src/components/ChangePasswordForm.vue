@@ -7,9 +7,9 @@ import { changePasswordRequestSchema } from '@detailing-admin/shared'
 import { changePassword } from '@/lib/auth-api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import PasswordInput from '@/components/PasswordInput.vue'
 
 // Its own component so its `useForm` context does not collide with the profile
 // name form's (see ProfileNameForm.vue for the reasoning).
@@ -24,6 +24,9 @@ function isPasswordField(v: unknown): v is PasswordField {
 
 const confirmPassword = ref('')
 const confirmError = ref<string | null>(null)
+// Remounting the inputs after a successful change hides them again, so the next
+// password typed here doesn't appear in the clear.
+const inputsGeneration = ref(0)
 
 const { handleSubmit, resetForm, setFieldError, isSubmitting } = useForm({
   validationSchema: toTypedSchema(changePasswordRequestSchema),
@@ -42,6 +45,7 @@ const onSubmit = handleSubmit(async (values) => {
     toast.success('Пароль изменён')
     resetForm()
     confirmPassword.value = ''
+    inputsGeneration.value++
     return
   }
 
@@ -76,7 +80,11 @@ const onSubmit = handleSubmit(async (values) => {
           <FormItem>
             <FormLabel>Текущий пароль</FormLabel>
             <FormControl>
-              <Input type="password" autocomplete="current-password" v-bind="componentField" />
+              <PasswordInput
+                :key="inputsGeneration"
+                autocomplete="current-password"
+                v-bind="componentField"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -86,7 +94,11 @@ const onSubmit = handleSubmit(async (values) => {
           <FormItem>
             <FormLabel>Новый пароль</FormLabel>
             <FormControl>
-              <Input type="password" autocomplete="new-password" v-bind="componentField" />
+              <PasswordInput
+                :key="inputsGeneration"
+                autocomplete="new-password"
+                v-bind="componentField"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -94,9 +106,9 @@ const onSubmit = handleSubmit(async (values) => {
 
         <div class="grid gap-2">
           <Label for="confirm-password">Повторите новый пароль</Label>
-          <Input
+          <PasswordInput
             id="confirm-password"
-            type="password"
+            :key="inputsGeneration"
             autocomplete="new-password"
             v-model="confirmPassword"
           />

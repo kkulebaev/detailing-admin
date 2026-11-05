@@ -4,7 +4,7 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useRoute, useRouter } from 'vue-router'
 import { loginRequestSchema } from '@detailing-admin/shared'
-import { Eye, EyeOff, LoaderCircle, TriangleAlert } from '@lucide/vue'
+import { LoaderCircle, TriangleAlert } from '@lucide/vue'
 import { homeRouteFor } from '@/router'
 import { isSafeRedirect } from '@/lib/safe-redirect'
 import { useAuthStore } from '@/stores/auth'
@@ -15,15 +15,14 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { FORM_SHOW_ERRORS_KEY } from '@/components/ui/form/injectionKeys'
+import PasswordInput from '@/components/PasswordInput.vue'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
 const loginError = ref<string | null>(null)
-const showPassword = ref(false)
 
 // Field errors stay hidden until the first submit attempt, then update live as
 // the user corrects them — avoids "Укажите логин/пароль" flashing on blur or
@@ -112,27 +111,13 @@ function onSubmit() {
           <FormField v-slot="{ componentField }" name="password">
             <FormItem>
               <FormLabel>Пароль</FormLabel>
-              <InputGroup class="h-11">
-                <FormControl>
-                  <InputGroupInput
-                    :type="showPassword ? 'text' : 'password'"
-                    autocomplete="current-password"
-                    v-bind="componentField"
-                  />
-                </FormControl>
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    type="button"
-                    size="icon-sm"
-                    :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
-                    :aria-pressed="showPassword"
-                    @click="showPassword = !showPassword"
-                  >
-                    <EyeOff v-if="showPassword" class="size-4" />
-                    <Eye v-else class="size-4" />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
+              <FormControl>
+                <PasswordInput
+                  class="h-11"
+                  autocomplete="current-password"
+                  v-bind="componentField"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           </FormField>
