@@ -78,24 +78,46 @@ describe('BookingsPage default period', () => {
     expect(wrapper.text()).toContain('С 05.11.2026')
   })
 
-  it('treats the default period as no active filter', () => {
+  it('keeps the default-period empty state while offering a reset', () => {
     const wrapper = mountPage()
-    expect(wrapper.text()).not.toContain('Сбросить фильтры')
     expect(wrapper.text()).toContain('Нет записей с сегодняшнего дня')
+    expect(wrapper.text()).not.toContain('Ничего не найдено')
+    expect(buttonByText(wrapper, 'Сбросить').exists()).toBe(true)
   })
 
-  it('drops the date filter on «Все записи» and restores the default on reset', async () => {
+  it('switches the default period to «Все записи» on reset', async () => {
+    const wrapper = mountPage()
+
+    await buttonByText(wrapper, 'Сбросить').trigger('click')
+    await flushPromises()
+    expect(captured.params.value.dateFrom).toBeUndefined()
+    expect(captured.params.value.dateTo).toBeUndefined()
+    expect(wrapper.text()).not.toContain('С 05.11.2026')
+  })
+
+  it('switches a chosen month to «Все записи» on reset', async () => {
+    const wrapper = mountPage()
+
+    await buttonByText(wrapper, 'Весь месяц').trigger('click')
+    await flushPromises()
+    expect(captured.params.value.dateFrom).toBe('01.11.2026')
+    expect(wrapper.text()).toContain('Ничего не найдено')
+
+    await buttonByText(wrapper, 'Сбросить').trigger('click')
+    await flushPromises()
+    expect(captured.params.value.dateFrom).toBeUndefined()
+    expect(captured.params.value.dateTo).toBeUndefined()
+  })
+
+  it('hides the reset when «Все записи» has nothing left to clear', async () => {
     const wrapper = mountPage()
 
     await buttonByText(wrapper, 'Все записи').trigger('click')
     await flushPromises()
     expect(captured.params.value.dateFrom).toBeUndefined()
-    expect(captured.params.value.dateTo).toBeUndefined()
-
-    await buttonByText(wrapper, 'Сбросить фильтры').trigger('click')
-    await flushPromises()
-    expect(captured.params.value.dateFrom).toBe('05.11.2026')
-    expect(captured.params.value.dateTo).toBeUndefined()
+    expect(wrapper.text()).not.toContain('Сбросить')
+    expect(wrapper.text()).toContain('Записей пока нет')
+    expect(wrapper.text()).not.toContain('Показать все записи')
   })
 
   it('returns to the default on «С сегодня»', async () => {

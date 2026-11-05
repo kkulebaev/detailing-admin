@@ -430,16 +430,20 @@ const [DefinePeriod, ReusePeriod] = createReusableTemplate()
 const [DefineFilters, ReuseFilters] = createReusableTemplate()
 const [DefineSearch, ReuseSearch] = createReusableTemplate()
 
-const hasActiveFilters = computed(
-  () =>
-    !isDefaultPeriod.value ||
-    masterFilter.value !== ALL ||
-    readinessFilter.value !== ALL ||
-    searchInput.value.trim() !== '',
+const hasCustomPeriod = computed(
+  () => !!dayCal.value || (monthKey.value !== ALL && monthKey.value !== FROM_TODAY),
 )
 
+// Решает только текст пустого состояния: период по умолчанию пользователь не
+// выбирал, поэтому «Ничего не найдено» при нём было бы неправдой.
+const hasActiveFilters = computed(() => hasCustomPeriod.value || activeFilterCount.value > 0)
+
+// Шире, чем hasActiveFilters: период по умолчанию тоже скрывает записи, и сброс
+// их открывает. Гаснет только там, где сброс уже ничего не изменит.
+const canReset = computed(() => hasActiveFilters.value || isDefaultPeriod.value)
+
 function resetFilters() {
-  monthKey.value = FROM_TODAY
+  monthKey.value = ALL
   dayCal.value = undefined
   masterFilter.value = ALL
   readinessFilter.value = ALL
@@ -672,7 +676,7 @@ function formatCreatedAt(iso: string): string {
             </Label>
           </div>
           <Button
-            v-if="hasActiveFilters"
+            v-if="canReset"
             variant="ghost"
             size="sm"
             class="h-7 gap-1 text-xs text-muted-foreground"
@@ -708,7 +712,7 @@ function formatCreatedAt(iso: string): string {
         </div>
 
         <Button
-          v-if="hasActiveFilters"
+          v-if="canReset"
           variant="ghost"
           size="sm"
           class="gap-1 text-muted-foreground"
@@ -746,7 +750,7 @@ function formatCreatedAt(iso: string): string {
             <ReuseFilters />
           </div>
           <Button
-            v-if="hasActiveFilters"
+            v-if="canReset"
             variant="outline"
             size="sm"
             class="gap-1 self-start"
@@ -828,13 +832,21 @@ function formatCreatedAt(iso: string): string {
                     <component :is="hasActiveFilters ? SearchX : Inbox" />
                   </EmptyMedia>
                   <EmptyTitle>
-                    {{ hasActiveFilters ? 'Ничего не найдено' : 'Нет записей с сегодняшнего дня' }}
+                    {{
+                      hasActiveFilters
+                        ? 'Ничего не найдено'
+                        : isDefaultPeriod
+                          ? 'Нет записей с сегодняшнего дня'
+                          : 'Записей пока нет'
+                    }}
                   </EmptyTitle>
                   <EmptyDescription>
                     {{
                       hasActiveFilters
                         ? 'Попробуйте изменить условия или сбросить фильтры'
-                        : 'Прошлые записи можно посмотреть за другой период'
+                        : isDefaultPeriod
+                          ? 'Прошлые записи можно посмотреть за другой период'
+                          : 'Новые записи появятся здесь'
                     }}
                   </EmptyDescription>
                 </EmptyHeader>
@@ -848,7 +860,7 @@ function formatCreatedAt(iso: string): string {
                   >
                     <X class="size-4" /> Сбросить фильтры
                   </Button>
-                  <Button v-else variant="outline" size="sm" @click="selectAllBookings">
+                  <Button v-else-if="isDefaultPeriod" variant="outline" size="sm" @click="selectAllBookings">
                     Показать все записи
                   </Button>
                 </EmptyContent>
