@@ -92,9 +92,10 @@ import {
 const ALL = '__all__'
 const FROM_TODAY = '__from_today__'
 
-// The «Сумма» column is admin-only; the API also omits `amount` for non-admins.
+// «Сумма» depends on the role (the API omits `amount` to match); editing is admin-only.
 const auth = useAuthStore()
 const isAdmin = computed(() => auth.user?.role === 'admin')
+const canSeeAmounts = computed(() => auth.canSeeAmounts)
 // Плотный вид: одна запись занимает две строки таблицы (шапка записи + услуга,
 // готовность и действия под ней) вместо тринадцати колонок, живущих только за
 // счёт горизонтального скролла. Переключатель ручной и переживает перезагрузку —
@@ -102,11 +103,11 @@ const isAdmin = computed(() => auth.user?.role === 'admin')
 // раскладки, а угаданный за пользователя вид сбивает привычку.
 const compact = useLocalStorage('bookings:compact', false)
 
-// «#» + employee base of 10; admin adds «Сумма» +«Действия». Компактная запись —
-// это одна ячейка на всё (дата, имя, машина, услуга) плюс админская «₽».
+// «#» + базовые 10 колонок; «Сумма» и «Действия» зависят от роли. Компактная запись —
+// это одна ячейка на всё (дата, имя, машина, услуга) плюс «₽», если сумма доступна.
 const columnCount = computed(() => {
   if (compact.value) return 1
-  return isAdmin.value ? 13 : 11
+  return 11 + (canSeeAmounts.value ? 1 : 0) + (isAdmin.value ? 1 : 0)
 })
 
 const invalidateBookings = useInvalidateBookings()
@@ -787,7 +788,7 @@ function formatCreatedAt(iso: string): string {
           <col class="w-40" />
           <col class="w-40" />
           <col class="w-64" />
-          <col v-if="isAdmin" class="w-28" />
+          <col v-if="canSeeAmounts" class="w-28" />
           <col class="w-44" />
           <col class="w-40" />
           <col class="w-40" />
@@ -803,7 +804,7 @@ function formatCreatedAt(iso: string): string {
               <TableHead class="px-4">Телефон</TableHead>
               <TableHead class="px-4">Машина</TableHead>
               <TableHead class="px-4">Услуга</TableHead>
-              <TableHead v-if="isAdmin" class="px-4 text-right whitespace-nowrap">
+              <TableHead v-if="canSeeAmounts" class="px-4 text-right whitespace-nowrap">
                 Сумма ₽
               </TableHead>
               <TableHead class="px-4">Готовность</TableHead>
@@ -892,7 +893,7 @@ function formatCreatedAt(iso: string): string {
                       {{ row.car || '—' }}
                     </span>
                     <span
-                      v-if="isAdmin"
+                      v-if="canSeeAmounts"
                       class="shrink-0 text-sm font-medium tabular-nums"
                       :title="row.amountFormula ?? ''"
                     >
@@ -954,7 +955,7 @@ function formatCreatedAt(iso: string): string {
                 </span>
               </TableCell>
               <TableCell
-                v-if="isAdmin"
+                v-if="canSeeAmounts"
                 class="px-4 align-top text-right whitespace-nowrap tabular-nums"
               >
                 <!-- Пунктирное подчёркивание сигналит, что у суммы есть формула,

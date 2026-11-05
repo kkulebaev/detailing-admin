@@ -18,6 +18,7 @@ import {
   toCsv,
   unavailableErrorSchema,
   validationErrorSchema,
+  canSeeAmounts,
 } from '@detailing-admin/shared'
 import type { BookingRow } from '@detailing-admin/shared'
 import {
@@ -531,11 +532,12 @@ router.openapi(
         readiness: query.readiness,
         q: query.q,
       })
-      // Amounts are admin-only (the GET list is otherwise available to any
+      // Amounts depend on the role (the GET list is otherwise available to any
       // authenticated role); toBookingRow drops the internal id-links and
       // serializes the timestamp.
-      const isAdmin = c.get('user')?.role === 'admin'
-      const items = rows.map((row) => toBookingRow(row, { includeAmount: isAdmin }))
+      const role = c.get('user')?.role
+      const includeAmount = role !== undefined && canSeeAmounts(role)
+      const items = rows.map((row) => toBookingRow(row, { includeAmount }))
       baseLogger.info(
         { event: 'bookings.list', request_id: requestId, count: items.length, total, status: 200 },
         'Bookings listed',
@@ -813,8 +815,9 @@ router.get('/export', async (c) => {
   const query = parsed.data
 
   try {
-    // Amounts are admin-only, same gating as the GET list.
-    const includeAmount = c.get('user')?.role === 'admin'
+    // Same gating as the GET list.
+    const role = c.get('user')?.role
+    const includeAmount = role !== undefined && canSeeAmounts(role)
     const { items } = await listBookings({
       limit: EXPORT_CAP,
       offset: 0,

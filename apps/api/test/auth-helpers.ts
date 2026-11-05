@@ -32,6 +32,19 @@ export function adminCookie(over: Partial<AuthTokenClaims> = {}): Promise<string
   })
 }
 
+export function bookerCookie(over: Partial<AuthTokenClaims> = {}): Promise<string> {
+  return cookieFor({
+    sub: 'u-booker',
+    login: 'booker',
+    role: 'booker',
+    firstName: '',
+    lastName: '',
+    pwdChangedAt: 0,
+    remember: false,
+    ...over,
+  })
+}
+
 export function employeeCookie(over: Partial<AuthTokenClaims> = {}): Promise<string> {
   return cookieFor({
     sub: 'u-emp',

@@ -21,6 +21,11 @@ import type {
   GetApiClientsId404,
   GetApiClientsId500,
   GetApiClientsId503,
+  GetApiClientsLookup200,
+  GetApiClientsLookup400,
+  GetApiClientsLookup500,
+  GetApiClientsLookup503,
+  GetApiClientsLookupParams,
   GetApiClientsParams,
   PatchApiClientsId200,
   PatchApiClientsId400,
@@ -39,6 +44,62 @@ import type {
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
+
+export type getApiClientsLookupResponse200 = {
+  data: GetApiClientsLookup200
+  status: 200
+}
+
+export type getApiClientsLookupResponse400 = {
+  data: GetApiClientsLookup400
+  status: 400
+}
+
+export type getApiClientsLookupResponse500 = {
+  data: GetApiClientsLookup500
+  status: 500
+}
+
+export type getApiClientsLookupResponse503 = {
+  data: GetApiClientsLookup503
+  status: 503
+}
+
+export type getApiClientsLookupResponseSuccess = (getApiClientsLookupResponse200) & {
+  headers: Headers;
+};
+export type getApiClientsLookupResponseError = (getApiClientsLookupResponse400 | getApiClientsLookupResponse500 | getApiClientsLookupResponse503) & {
+  headers: Headers;
+};
+
+export type getApiClientsLookupResponse = (getApiClientsLookupResponseSuccess | getApiClientsLookupResponseError)
+
+export const getGetApiClientsLookupUrl = (params: GetApiClientsLookupParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/clients/lookup?${stringifiedParams}` : `/api/clients/lookup`
+}
+
+export const getApiClientsLookup = async (params: GetApiClientsLookupParams, options?: Parameters<typeof orvalFetch>[1]): Promise<getApiClientsLookupResponse> => {
+
+  return orvalFetch<getApiClientsLookupResponse>(getGetApiClientsLookupUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
 
 export type getApiClientsIdResponse200 = {
   data: GetApiClientsId200

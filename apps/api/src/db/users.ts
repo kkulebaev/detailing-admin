@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm'
-import type { Account, Role } from '@detailing-admin/shared'
+import { toRole, type Account, type Role } from '@detailing-admin/shared'
 import { getDb } from './client.js'
 import { users, type User } from './schema.js'
 
@@ -85,6 +85,17 @@ export async function resetPasswordByLogin(login: string, newHash: string): Prom
   return updated.length > 0
 }
 
+/** Change any user's role by login (CLI use). */
+export async function setRoleByLogin(login: string, role: Role): Promise<boolean> {
+  const db = getDb()
+  const updated = await db
+    .update(users)
+    .set({ role })
+    .where(eq(users.login, login))
+    .returning({ id: users.id })
+  return updated.length > 0
+}
+
 /** Accounts for the master form's link picker — never selects the password hash. */
 export async function listAccounts(): Promise<Account[]> {
   const db = getDb()
@@ -98,6 +109,5 @@ export async function listAccounts(): Promise<Account[]> {
     })
     .from(users)
     .orderBy(users.login)
-  // Same fail-closed narrowing as login: anything but 'admin' is an employee.
-  return rows.map((r) => ({ ...r, role: r.role === 'admin' ? 'admin' : 'employee' }))
+  return rows.map((r) => ({ ...r, role: toRole(r.role) }))
 }

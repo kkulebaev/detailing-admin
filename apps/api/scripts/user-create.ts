@@ -1,5 +1,5 @@
 // Creates an auth account. Usage:
-//   pnpm --filter @detailing-admin/api user:create --login <login> --role <admin|employee>
+//   pnpm --filter @detailing-admin/api user:create --login <login> --role <admin|booker|employee>
 //     [--first-name <name>] [--last-name <surname>]
 // Name flags are optional (the user can fill them in later on the profile page).
 // Prompts for the password (hidden). Prod: `railway run pnpm --filter

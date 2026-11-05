@@ -1,6 +1,6 @@
 import { sign, verify } from 'hono/jwt'
 import type { JWTPayload } from 'hono/utils/jwt/types'
-import type { Role } from '@detailing-admin/shared'
+import { roleSchema, type Role } from '@detailing-admin/shared'
 import { env } from '../env.js'
 
 export interface AuthTokenClaims {
@@ -42,10 +42,11 @@ export async function signToken(claims: AuthTokenClaims): Promise<string> {
 export async function verifyToken(token: string): Promise<AuthTokenClaims | null> {
   try {
     const payload = await verify(token, env.JWT_SECRET, 'HS256')
+    const role = roleSchema.safeParse(payload.role)
     if (
       typeof payload.sub !== 'string' ||
       typeof payload.login !== 'string' ||
-      (payload.role !== 'admin' && payload.role !== 'employee') ||
+      !role.success ||
       typeof payload.pwdChangedAt !== 'number'
     ) {
       return null
@@ -53,7 +54,7 @@ export async function verifyToken(token: string): Promise<AuthTokenClaims | null
     return {
       sub: payload.sub,
       login: payload.login,
-      role: payload.role,
+      role: role.data,
       // Tokens minted before name claims existed lack these — default to '' so
       // an in-flight session survives the deploy instead of being force-logged-out.
       firstName: typeof payload.firstName === 'string' ? payload.firstName : '',

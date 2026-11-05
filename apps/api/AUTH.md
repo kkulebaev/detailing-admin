@@ -1,6 +1,6 @@
 # Auth runbook (API)
 
-Stateless JWT (HS256) in an httpOnly cookie. Roles: `admin`, `employee`.
+Stateless JWT (HS256) in an httpOnly cookie. Roles: `admin`, `booker`, `employee`.
 Full design: `.omc/plans/auth-rbac-plan.md`.
 
 ## Env
@@ -21,6 +21,7 @@ present (local dev) and otherwise use the ambient process env (containers).
 # local (loads apps/api/.env)
 pnpm --filter @detailing-admin/api user:create --login admin --role admin
 pnpm --filter @detailing-admin/api user:reset-password --login admin
+pnpm --filter @detailing-admin/api user:set-role --login ivan --role booker
 ```
 
 Password is entered interactively (hidden), min 8 chars.
@@ -47,5 +48,8 @@ Without this step nobody can log in — a fresh DB has zero users.
 All other `/api/*` routes require `requireAuth` + `requireAdmin`, except the
 reads `GET /api/bookings*` and `GET /api/masters*` and the self-service
 `/api/me/*`, which any authenticated role may call (see CLAUDE.md, «Self-service hours»).
+`booker` also gets `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup`.
+A role change reaches a live session only after a fresh login: the role is a JWT
+claim, and the sliding refresh on `GET /me` keeps the old one.
 `requireAuth` is stateless (no DB), so the booking flow keeps working for
 logged-in users when Postgres is down.

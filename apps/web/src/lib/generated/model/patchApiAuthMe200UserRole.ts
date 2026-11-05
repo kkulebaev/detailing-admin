@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type PatchApiAuthMe200UserRole = 'admin' | 'employee';
+export type PatchApiAuthMe200UserRole = 'admin' | 'booker' | 'employee';

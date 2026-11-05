@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from 'hono'
-import { StatusCodes } from '@detailing-admin/shared'
+import { StatusCodes, canCreateBookings, type Role } from '@detailing-admin/shared'
 import { getAuthToken } from './cookie.js'
 import { verifyToken, type AuthTokenClaims } from './jwt.js'
 
@@ -31,8 +31,13 @@ export const requireAuth: MiddlewareHandler = async (c, next) => {
 }
 
 // Must run after `requireAuth` (relies on `c.get('user')`).
-export const requireAdmin: MiddlewareHandler = async (c, next) => {
-  const user = c.get('user')
-  if (!user || user.role !== 'admin') return forbidden(c)
-  await next()
+function requireRole(allowed: (role: Role) => boolean): MiddlewareHandler {
+  return async (c, next) => {
+    const user = c.get('user')
+    if (!user || !allowed(user.role)) return forbidden(c)
+    await next()
+  }
 }
+
+export const requireAdmin = requireRole((role) => role === 'admin')
+export const requireBookingAccess = requireRole(canCreateBookings)

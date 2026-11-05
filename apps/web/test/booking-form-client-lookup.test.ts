@@ -2,7 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
 import { ref } from 'vue'
-import type { BookingRow, ClientDetailOk } from '@detailing-admin/shared'
+import { createPinia, setActivePinia } from 'pinia'
+import type { ClientLookupSummary } from '@detailing-admin/shared'
+import { useAuthStore } from '@/stores/auth'
 import type { Client } from '@/lib/clients-api'
 
 // The matched client is driven directly through a shared ref exposed by the
@@ -11,22 +13,20 @@ import type { Client } from '@/lib/clients-api'
 vi.mock('@/composables/use-client-lookup', async () => {
   const { ref: r } = await vi.importActual<typeof import('vue')>('vue')
   const matchedClient = r<Client | null>(null)
-  return { useClientLookup: () => ({ matchedClient }), __matchedClient: matchedClient }
+  const matchedClientSummary = r<ClientLookupSummary | null>(null)
+  return {
+    useClientLookup: () => ({ matchedClient, matchedClientSummary }),
+    __matchedClient: matchedClient,
+    __summary: matchedClientSummary,
+  }
 })
 
 // Queries that fire on mount — return empty-but-ok data so the master options
-// fall back to the enum and nothing is left in a loading state. The client card
-// detail is driven through a shared ref, like the matched client above.
-vi.mock('@/lib/queries', async () => {
-  const { ref: r } = await vi.importActual<typeof import('vue')>('vue')
-  const clientDetail = r<ClientDetailOk | undefined>(undefined)
-  return {
-    useMastersQuery: () => ({ data: ref({ ok: true, masters: [] }), asyncStatus: ref('idle') }),
-    usePricelistQuery: () => ({ data: ref({ ok: true, sections: [] }) }),
-    useClientDetailQuery: () => ({ data: clientDetail }),
-    __clientDetail: clientDetail,
-  }
-})
+// fall back to the enum and nothing is left in a loading state.
+vi.mock('@/lib/queries', () => ({
+  useMastersQuery: () => ({ data: ref({ ok: true, masters: [] }), asyncStatus: ref('idle') }),
+  usePricelistQuery: () => ({ data: ref({ ok: true, sections: [] }) }),
+}))
 
 vi.mock('@/lib/api', () => ({ submitBooking: vi.fn() }))
 
@@ -36,12 +36,10 @@ vi.mock('vue-sonner', () => ({
 
 import BookingForm from '@/components/BookingForm.vue'
 import * as lookupMock from '@/composables/use-client-lookup'
-import * as queriesMock from '@/lib/queries'
 import { toast } from 'vue-sonner'
 
 const matched = (lookupMock as unknown as { __matchedClient: { value: Client | null } }).__matchedClient
-const detail = (queriesMock as unknown as { __clientDetail: { value: ClientDetailOk | undefined } })
-  .__clientDetail
+const summary = (lookupMock as unknown as { __summary: { value: ClientLookupSummary | null } }).__summary
 
 const client: Client = {
   id: '11111111-1111-1111-1111-111111111111',
@@ -54,40 +52,12 @@ const client: Client = {
   ],
 }
 
-function booking(
-  service: string,
-  dateFrom: string,
-  readiness: BookingRow['readiness'] = 'Выдана',
-): BookingRow {
-  return {
-    id: crypto.randomUUID(),
-    clientId: client.id,
-    name: client.name,
-    phone: client.phone,
-    car: 'Toyota Camry',
-    service,
-    note: '',
-    amount: 24000,
-    dateFrom,
-    dateTo: null,
-    timeFrom: '10:00',
-    timeTo: null,
-    readiness,
-    master: [],
-    responsible: '',
-    carClass: 1,
-    sheetRow: null,
-    sheetRange: null,
-    createdAt: `${dateFrom}T00:00:00.000Z`,
-  }
-}
-
-const clientDetail: ClientDetailOk = {
-  ok: true,
-  client,
-  stats: { totalSpent: 48000, visitCount: 2, lastVisit: '2026-09-12', firstVisit: '2026-05-03' },
-  bookings: [booking('Полировка: кузов', '2026-09-12'), booking('Мойка', '2026-05-03')],
-  bookingsTruncated: false,
+const adminSummary: ClientLookupSummary = {
+  totalSpent: 48000,
+  visitCount: 2,
+  lastVisit: '2026-09-12',
+  lastService: 'Полировка: кузов',
+  missed: null,
 }
 
 const DRAFT_KEY = 'detailing-admin:booking-draft:v5'
@@ -112,8 +82,10 @@ function carChip(w: VueWrapper, makeModel: string) {
 describe('BookingForm — client autofill', () => {
   beforeEach(() => {
     matched.value = null
-    detail.value = undefined
+    summary.value = null
     localStorage.clear()
+    setActivePinia(createPinia())
+    useAuthStore().user = { login: 'admin1', role: 'admin', firstName: '', lastName: '' }
   })
 
   it('autofills the name into an empty field on match', async () => {
@@ -198,7 +170,7 @@ describe('BookingForm — client autofill', () => {
     const w = mountForm()
     await flushPromises()
     matched.value = client
-    detail.value = clientDetail
+    summary.value = adminSummary
     await flushPromises()
     const text = w.text()
     expect(text).toContain('Визитов: 2 · последний 12.09.2026')
@@ -210,28 +182,30 @@ describe('BookingForm — client autofill', () => {
     w.unmount()
   })
 
+  it('shows a booker the summary without money or the card link', async () => {
+    useAuthStore().user = { login: 'booker1', role: 'booker', firstName: '', lastName: '' }
+    const { totalSpent: _hiddenByServer, ...bookerSummary } = adminSummary
+    const w = mountForm()
+    await flushPromises()
+    matched.value = client
+    summary.value = bookerSummary
+    await flushPromises()
+    const text = w.text()
+    expect(text).toContain('Визитов: 2 · последний 12.09.2026')
+    expect(text).toContain('Последнее: Полировка: кузов')
+    expect(text).not.toContain('Потрачено')
+    expect(w.findComponent(RouterLinkStub).exists()).toBe(false)
+    w.unmount()
+  })
+
   it('says so when a known client has no delivered visits yet', async () => {
     const w = mountForm()
     await flushPromises()
     matched.value = client
-    detail.value = {
-      ...clientDetail,
-      stats: { totalSpent: 0, visitCount: 0, lastVisit: null, firstVisit: null },
-      bookings: [],
-    }
+    summary.value = { totalSpent: 0, visitCount: 0, lastVisit: null, lastService: null, missed: null }
     await flushPromises()
     expect(w.text()).toContain('Завершённых визитов ещё не было')
     expect(w.text()).not.toContain('Потрачено')
-    w.unmount()
-  })
-
-  it('ignores a detail that belongs to another client', async () => {
-    const w = mountForm()
-    await flushPromises()
-    matched.value = client
-    detail.value = { ...clientDetail, client: { ...client, id: '22222222-2222-2222-2222-222222222222' } }
-    await flushPromises()
-    expect(w.text()).not.toContain('Визитов')
     w.unmount()
   })
 
@@ -239,13 +213,9 @@ describe('BookingForm — client autofill', () => {
     const w = mountForm()
     await flushPromises()
     matched.value = client
-    detail.value = {
-      ...clientDetail,
-      bookings: [
-        booking('Мойка', '2026-10-01', 'Не приехал'),
-        ...clientDetail.bookings,
-        booking('Мойка', '2026-04-20', 'Отмена'),
-      ],
+    summary.value = {
+      ...adminSummary,
+      missed: { cancelled: 1, noShow: 1, lastDate: '2026-10-01' },
     }
     await flushPromises()
     const text = w.text()
@@ -258,7 +228,7 @@ describe('BookingForm — client autofill', () => {
     const w = mountForm()
     await flushPromises()
     matched.value = client
-    detail.value = clientDetail
+    summary.value = adminSummary
     await flushPromises()
     expect(w.text()).not.toContain('предоплате')
     w.unmount()

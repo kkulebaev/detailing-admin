@@ -12,7 +12,7 @@ import salariesRouter from './routes/salaries.js'
 import analyticsRouter from './routes/analytics.js'
 import meRouter from './routes/me.js'
 import usersRouter from './routes/users.js'
-import { requireAuth, requireAdmin } from './auth/middleware.js'
+import { requireAuth, requireAdmin, requireBookingAccess } from './auth/middleware.js'
 
 export function createApp() {
   // Built imperatively rather than chained so the OpenAPIHono type survives
@@ -47,14 +47,24 @@ export function createApp() {
   // Everything else under /api is admin-only. The `/*` wildcard also covers the
   // bare collection path (POST /api/bookings) under Hono's matching, and the
   // stateless requireAuth keeps the booking flow independent of Postgres.
-  // The bookings list (GET) is available to any authenticated role — amounts are
-  // hidden from non-admins in the handler. Writes (POST) stay admin-only.
+  // The bookings list (GET) is available to any authenticated role — the handler
+  // hides amounts by role. POST is the booking form; editing stays admin-only.
   app.use('/api/bookings/*', requireAuth)
-  app.use('/api/bookings/*', (c, next) =>
-    c.req.method === 'GET' ? next() : requireAdmin(c, next),
+  app.use('/api/bookings/*', (c, next) => {
+    if (c.req.method === 'GET') return next()
+    return c.req.method === 'POST' ? requireBookingAccess(c, next) : requireAdmin(c, next)
+  })
+  // The form's autofill is the only part of the clients API a booker may reach:
+  // the list, the card and the export stay admin-only.
+  app.use('/api/clients/*', requireAuth, (c, next) =>
+    c.req.method === 'GET' && c.req.path === '/api/clients/lookup'
+      ? requireBookingAccess(c, next)
+      : requireAdmin(c, next),
   )
-  app.use('/api/clients/*', requireAuth, requireAdmin)
-  app.use('/api/pricelist/*', requireAuth, requireAdmin)
+  // The form prices services from the pricelist; editing it stays admin-only.
+  app.use('/api/pricelist/*', requireAuth, (c, next) =>
+    c.req.method === 'GET' ? requireBookingAccess(c, next) : requireAdmin(c, next),
+  )
   app.use('/api/salaries/*', requireAuth, requireAdmin)
   // Analytics exposes revenue sums — admin-only, like the other sensitive reads.
   app.use('/api/analytics/*', requireAuth, requireAdmin)

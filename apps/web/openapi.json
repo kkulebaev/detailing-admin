@@ -158,6 +158,7 @@
                           "type": "string",
                           "enum": [
                             "admin",
+                            "booker",
                             "employee"
                           ]
                         },
@@ -397,6 +398,7 @@
                           "type": "string",
                           "enum": [
                             "admin",
+                            "booker",
                             "employee"
                           ]
                         },
@@ -506,6 +508,7 @@
                           "type": "string",
                           "enum": [
                             "admin",
+                            "booker",
                             "employee"
                           ]
                         },
@@ -2634,6 +2637,274 @@
                   "required": [
                     "ok",
                     "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/lookup": {
+      "get": {
+        "tags": [
+          "clients"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\+7\\d{10}$"
+            },
+            "required": true,
+            "name": "phone",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Client matched by exact phone, with a visit summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "match": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "client": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "phone": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "cars": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "makeModel": {
+                                    "type": "string"
+                                  },
+                                  "plate": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "makeModel",
+                                  "plate"
+                                ]
+                              },
+                              "default": []
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "phone",
+                            "name",
+                            "createdAt"
+                          ]
+                        },
+                        "summary": {
+                          "type": "object",
+                          "properties": {
+                            "visitCount": {
+                              "type": "number"
+                            },
+                            "lastVisit": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "totalSpent": {
+                              "type": "number"
+                            },
+                            "lastService": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "missed": {
+                              "type": "object",
+                              "nullable": true,
+                              "properties": {
+                                "cancelled": {
+                                  "type": "number"
+                                },
+                                "noShow": {
+                                  "type": "number"
+                                },
+                                "lastDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "cancelled",
+                                "noShow",
+                                "lastDate"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "visitCount",
+                            "lastVisit",
+                            "lastService",
+                            "missed"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "client",
+                        "summary"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "match"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            }
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "issues"
                   ]
                 }
               }
@@ -9736,6 +10007,7 @@
                             "type": "string",
                             "enum": [
                               "admin",
+                              "booker",
                               "employee"
                             ]
                           },

@@ -26,16 +26,17 @@ interface NavItem {
   roles: readonly Role[]
 }
 
-// Employees see the bookings list and their own hours; everything else is admin-only.
+// Employees see the bookings list and their own hours, a booker also gets the
+// booking form; everything else is admin-only.
 const NAV_ITEMS: readonly NavItem[] = [
-  { to: { name: 'booking' }, label: 'Новая запись', icon: CalendarPlus, roles: ['admin'] },
-  { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin', 'employee'] },
+  { to: { name: 'booking' }, label: 'Новая запись', icon: CalendarPlus, roles: ['admin', 'booker'] },
+  { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin', 'booker', 'employee'] },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users, roles: ['admin'] },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText, roles: ['admin'] },
   { to: { name: 'masters' }, label: 'Мастера', icon: Wrench, roles: ['admin'] },
   { to: { name: 'salaries' }, label: 'Зарплаты', icon: Wallet, roles: ['admin'] },
   { to: { name: 'analytics' }, label: 'Аналитика', icon: BarChart3, roles: ['admin'] },
-  { to: { name: 'employee' }, label: 'Мои часы', icon: Clock, roles: ['employee'] },
+  { to: { name: 'employee' }, label: 'Мои часы', icon: Clock, roles: ['booker', 'employee'] },
 ]
 
 // Shared active look for every sidebar entry (nav + footer profile): the

@@ -5,11 +5,15 @@ import {
   StatusCodes,
   clientDetailOkSchema,
   clientInputSchema,
+  clientLookupOkSchema,
+  clientLookupQuerySchema,
   clientSchema,
   dbUnavailableErrorSchema,
   formatDdmmyyyy,
   internalErrorSchema,
   joinCar,
+  lastDeliveredService,
+  missedBookings,
   notFoundErrorSchema,
   toCsv,
   validationErrorSchema,
@@ -20,6 +24,7 @@ import {
   createClient,
   deleteClient,
   getClientById,
+  getClientByPhone,
   getClientStats,
   listClients,
   updateClient,
@@ -131,6 +136,22 @@ const respConflictHasBookings = {
 // practice, so this only guards against an anomaly. Fetch cap+1 to flag truncation.
 const CLIENT_HISTORY_CAP = 500
 
+const lookupClientRoute = createRoute({
+  method: 'get',
+  path: '/lookup',
+  tags: ['clients'],
+  request: { query: clientLookupQuerySchema },
+  responses: {
+    200: {
+      description: 'Client matched by exact phone, with a visit summary',
+      content: { 'application/json': { schema: clientLookupOkSchema } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
 const getClientRoute = createRoute({
   method: 'get',
   path: '/{id}',
@@ -223,12 +244,61 @@ const deleteClientRoute = createRoute({
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
-// Register /export BEFORE the /{id} route below: Hono runs every matching
+// Register /export and /lookup BEFORE the /{id} route below: Hono runs every matching
 // handler in registration order, and GET /{id}'s UUID param validation would
-// otherwise reject `/export` with a 400 before this handler ran. A separate
+// otherwise reject them with a 400 before these handlers ran. A separate
 // statement (not spliced into the .openapi() chain) keeps the OpenAPIHono type
 // intact for the chained links.
 router.get('/export', clientsExportHandler)
+
+router.openapi(lookupClientRoute, async (c) => {
+  const requestId = uuidv4()
+  c.header('X-Request-Id', requestId)
+
+  if (!isDbReady()) return unavailable(c)
+
+  const { phone } = c.req.valid('query')
+  try {
+    const client = await getClientByPhone(phone)
+    if (!client) return c.json({ ok: true as const, match: null }, StatusCodes.OK)
+
+    const [cars, stats, historyRows] = await Promise.all([
+      listCarsByClient(client.id),
+      getClientStats(client.id),
+      listBookingsByClientId(client.id, CLIENT_HISTORY_CAP),
+    ])
+    // The query over-fetches by one to flag truncation for the card.
+    const history = historyRows.slice(0, CLIENT_HISTORY_CAP)
+    const isAdmin = c.get('user')?.role === 'admin'
+    return c.json(
+      {
+        ok: true as const,
+        match: {
+          client: toWireClient(client, cars),
+          summary: {
+            visitCount: stats.visitCount,
+            lastVisit: stats.lastVisit,
+            ...(isAdmin ? { totalSpent: stats.totalSpent } : {}),
+            lastService: lastDeliveredService(history),
+            missed: missedBookings(history),
+          },
+        },
+      },
+      StatusCodes.OK,
+    )
+  } catch (err) {
+    baseLogger.error(
+      {
+        event: 'clients.lookup.error',
+        request_id: requestId,
+        message: err instanceof Error ? err.message : String(err),
+        status: 500,
+      },
+      'Client lookup failed',
+    )
+    return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  }
+})
 
 router
   .openapi(getClientRoute, async (c) => {

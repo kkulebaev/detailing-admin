@@ -1,28 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import type { BookingRow } from '@detailing-admin/shared'
-import { lastDeliveredService, missedBookings } from '@/lib/client-summary'
+import { lastDeliveredService, missedBookings } from '../src/client-summary.js'
 
-function row(readiness: BookingRow['readiness'], service: string, dateFrom = '2026-09-12'): BookingRow {
-  return {
-    id: crypto.randomUUID(),
-    clientId: null,
-    name: '',
-    phone: '',
-    car: '',
-    service,
-    note: '',
-    dateFrom,
-    dateTo: null,
-    timeFrom: '10:00',
-    timeTo: null,
-    readiness,
-    master: [],
-    responsible: '',
-    carClass: 1,
-    sheetRow: null,
-    sheetRange: null,
-    createdAt: '2026-09-01T00:00:00.000Z',
-  }
+function row(readiness: string, service: string, dateFrom = '2026-09-12') {
+  return { readiness, service, dateFrom }
 }
 
 describe('lastDeliveredService', () => {

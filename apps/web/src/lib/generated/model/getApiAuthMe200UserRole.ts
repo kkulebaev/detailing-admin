@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-export type GetApiAuthMe200UserRole = 'admin' | 'employee';
+export type GetApiAuthMe200UserRole = 'admin' | 'booker' | 'employee';

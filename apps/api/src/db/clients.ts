@@ -180,6 +180,12 @@ export async function getClientById(id: string): Promise<Client | null> {
   return row ?? null
 }
 
+export async function getClientByPhone(phone: string): Promise<Client | null> {
+  const db = getDb()
+  const [row] = await db.select().from(clients).where(eq(clients.phone, phone)).limit(1)
+  return row ?? null
+}
+
 // Lifetime «Выдана»-only aggregates for the client card. Same REVENUE_READINESS
 // predicate as analytics (not the literal hardcoded twice), but no period window.
 // postgres-js returns SUM/COUNT as strings → Number(); MAX/MIN(date_from) come

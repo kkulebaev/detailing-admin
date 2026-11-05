@@ -17,6 +17,9 @@ import { createAppRouter } from '@/router'
 function admin(): UserPublic {
   return { login: 'admin1', role: 'admin' }
 }
+function booker(): UserPublic {
+  return { login: 'booker1', role: 'booker' }
+}
 function employee(): UserPublic {
   return { login: 'emp1', role: 'employee' }
 }
@@ -68,6 +71,37 @@ describe('router auth guard', () => {
     const router = createAppRouter(createMemoryHistory())
     await router.push('/profile')
     expect(router.currentRoute.value.name).toBe('profile')
+  })
+
+  it('sends a booker home to the booking form', async () => {
+    meMock.mockResolvedValue({ ok: true, user: booker() })
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/login')
+    expect(router.currentRoute.value.name).toBe('booking')
+  })
+
+  it.each(['bookings', 'employee', 'profile'])('lets a booker onto /%s', async (path) => {
+    meMock.mockResolvedValue({ ok: true, user: booker() })
+    const router = createAppRouter(createMemoryHistory())
+    await router.push(`/${path}`)
+    expect(router.currentRoute.value.name).toBe(path)
+  })
+
+  it.each(['clients', 'pricelist', 'masters', 'salaries', 'analytics'])(
+    'keeps a booker off /%s',
+    async (path) => {
+      meMock.mockResolvedValue({ ok: true, user: booker() })
+      const router = createAppRouter(createMemoryHistory())
+      await router.push(`/${path}`)
+      expect(router.currentRoute.value.name).toBe('booking')
+    },
+  )
+
+  it('keeps an employee off the booking form', async () => {
+    meMock.mockResolvedValue({ ok: true, user: employee() })
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/')
+    expect(router.currentRoute.value.name).toBe('employee')
   })
 
   it('redirects a logged-in visitor away from /login to their role home', async () => {

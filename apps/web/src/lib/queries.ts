@@ -5,7 +5,7 @@ import {
   fetchClientDetail,
   fetchClients,
   lookupClientByPhone,
-  type Client,
+  type ClientLookupMatch,
   type GetApiClientsParams,
 } from './clients-api'
 import { fetchPricelist } from './pricelist-api'
@@ -62,10 +62,9 @@ export function useClientDetailQuery(id: Ref<string | null>) {
 // phone. `e164` is a computed on the form side (null while the typed phone is
 // incomplete) — the `enabled` guard keeps the query idle until it's a full
 // number, and colada dedups/caches by the phone key so repeated matches are
-// free. The exact phone guard lives in `lookupClientByPhone`, so `data` is
-// already `Client | null` here.
+// free.
 export function useClientLookupByPhoneQuery(e164: Ref<string | null>) {
-  return useQuery<Client | null>({
+  return useQuery<ClientLookupMatch | null>({
     key: () => [...CLIENTS_KEY, 'lookup', e164.value ?? ''],
     // enabled gates this on e164 != null, so the ! assertion never runs on null.
     query: () => lookupClientByPhone(e164.value!),

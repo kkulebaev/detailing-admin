@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Mobile-first admin panel for a detailing shop (UI brand: «Dazzle Detailing»). The core flow is the booking form: one submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`) — Sheets is the source of truth for **new** bookings. Around it the app manages, in Postgres: clients and their cars, the pricelist, masters, salaries (rates, hours, payouts), a structured `bookings` mirror, and revenue analytics. Access is behind login with two roles, `admin` and `employee`.
+Mobile-first admin panel for a detailing shop (UI brand: «Dazzle Detailing»). The core flow is the booking form: one submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`) — Sheets is the source of truth for **new** bookings. Around it the app manages, in Postgres: clients and their cars, the pricelist, masters, salaries (rates, hours, payouts), a structured `bookings` mirror, and revenue analytics. Access is behind login with three roles: `admin` (everything), `booker` (an employee who may also use the booking form) and `employee`.
 
 The `bookings` mirror is **stage 1 of migrating bookings off Sheets**: every booking is dual-written to Postgres best-effort alongside the authoritative Sheets append. Edits, deletes and readiness changes made in the app touch **only** Postgres (see «Bookings DB mirror» below).
 
@@ -57,7 +57,8 @@ pnpm --filter @detailing-admin/api seed:pricelist      # load pricelist from .se
 pnpm --filter @detailing-admin/api seed:bookings-dev   # fake bookings for local dev
 pnpm --filter @detailing-admin/api backfill:master-ids # heal booking_masters / responsibleId links
 pnpm --filter @detailing-admin/api backfill:car-ids    # heal bookings.carId links
-pnpm --filter @detailing-admin/api user:create --login <login> --role admin|employee
+pnpm --filter @detailing-admin/api user:create --login <login> --role admin|booker|employee
+pnpm --filter @detailing-admin/api user:set-role --login <login> --role admin|booker|employee
 pnpm --filter @detailing-admin/api user:reset-password --login <login>
 ```
 
@@ -86,15 +87,18 @@ pnpm workspace, three packages:
   - `/api/me` — the signed-in account's own hours: `GET /salary`, CRUD for `hours` (see «Self-service hours»).
   - `GET /healthz`, `GET /openapi.json`.
 - **`apps/web`** — Vue 3 + Vite + Tailwind v4 + shadcn-vue + vue-router + Pinia (`stores/auth.ts`). SPA wrapped by `AppLayout` + `AppSidebar`. The API client is **orval-generated** from `apps/web/openapi.json` into `src/lib/generated/` (never hand-edit it); `src/lib/*-api.ts` wrap it. Pages (`src/router.ts`):
-  - `/` booking form (`BookingForm.vue`, admin) — `vee-validate` + `@vee-validate/zod` with the shared schema via `toTypedSchema(bookingSchema)`; phone lookup autofills the client and their cars (`use-client-lookup`).
-  - `/bookings` (`BookingsPage.vue`, admin + employee), `/clients` and `/clients/:id` (`ClientsPage.vue` — both paths mount the same instance so the detail dialog slides over the live list), `/pricelist`, `/masters`, `/salaries`, `/analytics` (admin).
+  - `/` booking form (`BookingForm.vue`, admin + booker) — `vee-validate` + `@vee-validate/zod` with the shared schema via `toTypedSchema(bookingSchema)`; phone lookup autofills the client and their cars (`use-client-lookup`).
+  - `/bookings` (`BookingsPage.vue`, all roles), `/clients` and `/clients/:id` (`ClientsPage.vue` — both paths mount the same instance so the detail dialog slides over the live list), `/pricelist`, `/masters`, `/salaries`, `/analytics` (admin).
   - `/employee` («Мои часы», `MyHoursPage.vue`), `/profile`, `/login` in `src/pages/`.
 
 ### Auth and roles
 
 Stateless HS256 JWT in an httpOnly cookie (`apps/api/src/auth/`); `requireAuth` only verifies the token, so it never touches Postgres and the booking flow stays DB-independent. Guards are wired in `server.ts`:
-- Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with three exceptions open to any authenticated role: `GET /api/bookings*` and `GET /api/masters*` (the bookings handler hides amounts from non-admins), and `/api/me/*`, whose handlers scope everything to the caller's own master.
-- The web router mirrors this with `meta.roles`; `homeRouteFor(role)` sends admins to `/` and employees to `/employee`.
+- Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with three exceptions open to any authenticated role: `GET /api/bookings*` and `GET /api/masters*` (the bookings handler hides amounts from `employee`), and `/api/me/*`, whose handlers scope everything to the caller's own master.
+- `booker` additionally gets what the booking form needs: `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup` (exact phone only, no `totalSpent`). The clients list, card and export stay admin-only, and so does editing bookings.
+- The rules live in `canCreateBookings` / `canSeeAmounts` (shared). `toRole` narrows `users.role`, which is a plain varchar, so an unknown value becomes `employee`.
+- The role is a JWT claim and `/me` re-mints it from the old token, so `user:set-role` reaches a live session only after a fresh login.
+- The web router mirrors this with `meta.roles`; `homeRouteFor(role)` sends admins and bookers to `/`, employees to `/employee`.
 
 Details, env vars and provisioning: `apps/api/AUTH.md`.
 

@@ -47,6 +47,7 @@ vi.mock('../src/db/clients.js', () => ({
   updateClient: vi.fn(),
   deleteClient: vi.fn(),
   getClientById: vi.fn(),
+  getClientByPhone: vi.fn(),
   getClientStats: vi.fn(),
 }))
 
@@ -65,10 +66,10 @@ vi.mock('../src/db/bookings.js', async (importActual) => {
 
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
-import { getClientById, getClientStats } from '../src/db/clients.js'
+import { getClientById, getClientByPhone, getClientStats } from '../src/db/clients.js'
 import { listCarsByClient } from '../src/db/client-cars.js'
 import { listBookingsByClientId } from '../src/db/bookings.js'
-import { adminCookie, employeeCookie } from './auth-helpers.js'
+import { adminCookie, bookerCookie, employeeCookie } from './auth-helpers.js'
 
 const CLIENT = {
   id: 'aaaaaaaa-1111-1111-1111-111111111111',
@@ -195,6 +196,114 @@ describe('GET /api/clients/{id}', () => {
 
   it('non-admin → 403', async () => {
     const res = await app.request(`/api/clients/${CLIENT.id}`, {
+      headers: { Cookie: await employeeCookie() },
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('stays closed to a booker, who only gets the lookup', async () => {
+    const res = await app.request(`/api/clients/${CLIENT.id}`, {
+      headers: { Cookie: await bookerCookie() },
+    })
+    expect(res.status).toBe(403)
+  })
+})
+
+describe('GET /api/clients/lookup', () => {
+  const app = createApp()
+  const lookup = async (cookie: string, phone = CLIENT.phone) =>
+    app.request(`/api/clients/lookup?phone=${encodeURIComponent(phone)}`, {
+      headers: { Cookie: cookie },
+    })
+
+  beforeEach(() => {
+    vi.mocked(isDbReady).mockReturnValue(true)
+    vi.mocked(getClientByPhone).mockResolvedValue(CLIENT)
+    vi.mocked(listCarsByClient).mockResolvedValue([CAR])
+    vi.mocked(getClientStats).mockResolvedValue(STATS)
+    vi.mocked(listBookingsByClientId).mockResolvedValue([
+      { ...BOOKING_ROW, readiness: 'Отмена', dateFrom: '2026-07-01', service: 'Химчистка' },
+      BOOKING_ROW,
+    ])
+  })
+
+  it('gives a booker the client and a summary without money', async () => {
+    const res = await lookup(await bookerCookie())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(vi.mocked(getClientByPhone)).toHaveBeenCalledWith(CLIENT.phone)
+    expect(body.match.client.cars).toEqual([CAR])
+    expect(body.match.summary).toEqual({
+      visitCount: 1,
+      lastVisit: '2026-06-10',
+      lastService: 'Мойка',
+      missed: { cancelled: 1, noShow: 0, lastDate: '2026-07-01' },
+    })
+    expect(JSON.stringify(body)).not.toContain('5000')
+  })
+
+  it('adds totalSpent for an admin', async () => {
+    const res = await lookup(await adminCookie())
+    const body = await res.json()
+    expect(body.match.summary.totalSpent).toBe(5000)
+  })
+
+  it('returns a null match for an unknown phone', async () => {
+    vi.mocked(getClientByPhone).mockResolvedValue(null)
+    const res = await lookup(await bookerCookie())
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, match: null })
+  })
+
+  it('rejects anything but a full phone, so it cannot browse clients', async () => {
+    const res = await lookup(await bookerCookie(), '+7916')
+    expect(res.status).toBe(400)
+    expect(vi.mocked(getClientByPhone)).not.toHaveBeenCalledWith('+7916')
+  })
+
+  it('is closed to an employee', async () => {
+    const res = await lookup(await employeeCookie())
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 503 when the DB is down', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await lookup(await bookerCookie())
+    expect(res.status).toBe(503)
+  })
+})
+
+describe('other client routes for a booker', () => {
+  const app = createApp()
+
+  it.each([
+    ['GET', '/api/clients'],
+    ['GET', '/api/clients/export'],
+    ['POST', '/api/clients'],
+    ['DELETE', `/api/clients/${CLIENT.id}`],
+  ])('%s %s → 403', async (method, path) => {
+    const res = await app.request(path, { method, headers: { Cookie: await bookerCookie() } })
+    expect(res.status).toBe(403)
+  })
+})
+
+describe('pricelist access', () => {
+  const app = createApp()
+
+  it('lets a booker past the guard on reads only', async () => {
+    const cookie = await bookerCookie()
+    const read = await app.request('/api/pricelist', { headers: { Cookie: cookie } })
+    expect(read.status).not.toBe(403)
+    const write = await app.request('/api/pricelist/sections', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    expect(write.status).toBe(403)
+  })
+
+  it('keeps reads closed to an employee', async () => {
+    const res = await app.request('/api/pricelist', {
       headers: { Cookie: await employeeCookie() },
     })
     expect(res.status).toBe(403)

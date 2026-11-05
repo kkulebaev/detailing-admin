@@ -2,27 +2,31 @@ import { z } from 'zod'
 import {
   clientDeleteResponseSchema,
   clientDetailResponseSchema,
+  clientLookupResponseSchema,
   clientMutationResponseSchema,
   clientsListResponseSchema,
   type Car,
   type Client,
+  type ClientLookupMatch,
 } from '@detailing-admin/shared'
 import { unwrap } from './api-client'
 import {
   deleteApiClientsId,
   getApiClients,
   getApiClientsId,
+  getApiClientsLookup,
   patchApiClientsId,
   postApiClients,
 } from './generated/clients/clients'
 import type { GetApiClientsParams } from './generated/model'
 
-export type { Car, Client, GetApiClientsParams }
+export type { Car, Client, ClientLookupMatch, GetApiClientsParams }
 
 export type ClientsApiResult = z.infer<typeof clientsListResponseSchema>
 export type ClientMutationResult = z.infer<typeof clientMutationResponseSchema>
 export type ClientDeleteResult = z.infer<typeof clientDeleteResponseSchema>
 export type ClientDetailResult = z.infer<typeof clientDetailResponseSchema>
+export type ClientLookupResult = z.infer<typeof clientLookupResponseSchema>
 
 export interface ClientInputPayload {
   name: string
@@ -34,14 +38,11 @@ export function fetchClients(params: GetApiClientsParams): Promise<ClientsApiRes
   return unwrap<ClientsApiResult>(() => getApiClients(params))
 }
 
-// Point-lookup of a client by a full E.164 phone, reusing the list endpoint.
-// `q` runs through an `ilike` over both name and phone, so a partial or name
-// match could slip in — the exact `phone === e164` guard lives HERE (and only
-// here) so callers get a clean `Client | null`. Any failure (503, network) is
-// surfaced as a thrown error by `unwrap`; an `ok: false` body maps to `null`.
-export async function lookupClientByPhone(e164: string): Promise<Client | null> {
-  const r = await fetchClients({ q: e164, limit: 1 })
-  return r.ok && r.clients[0]?.phone === e164 ? r.clients[0] : null
+// Any failure (503, network) is surfaced as a thrown error by `unwrap`; an
+// `ok: false` body maps to `null`, so the form just shows no match.
+export async function lookupClientByPhone(e164: string): Promise<ClientLookupMatch | null> {
+  const r = await unwrap<ClientLookupResult>(() => getApiClientsLookup({ phone: e164 }))
+  return r.ok ? r.match : null
 }
 
 export function createClient(payload: ClientInputPayload): Promise<ClientMutationResult> {

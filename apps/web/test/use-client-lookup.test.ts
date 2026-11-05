@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, nextTick, type Ref } from 'vue'
-import type { Client } from '@/lib/clients-api'
+import type { Client, ClientLookupMatch } from '@/lib/clients-api'
 
 // Capture the `e164` ref the composable feeds the query and hand back a
 // controllable `data` ref — this exercises the composable's phone gating and
-// passthrough without standing up pinia-colada. The exact phone guard and the
-// silent-failure mapping live in `lookupClientByPhone` (covered separately);
-// here `data` is already `Client | null`.
+// passthrough without standing up pinia-colada. The silent-failure mapping lives
+// in `lookupClientByPhone` (covered separately).
 let capturedE164: Ref<string | null> | null = null
-const data = ref<Client | null>(null)
+const data = ref<ClientLookupMatch | null>(null)
 
 vi.mock('@/lib/queries', () => ({
   useClientLookupByPhoneQuery: (e164: Ref<string | null>) => {
@@ -39,12 +38,14 @@ describe('useClientLookup', () => {
     expect(capturedE164?.value).toBe('+79161234567')
   })
 
-  it('surfaces the matched client from the query data', async () => {
+  it('surfaces the matched client and its summary from the query data', async () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
-    const { matchedClient } = useClientLookup(phoneRaw)
-    data.value = client
+    const { matchedClient, matchedClientSummary } = useClientLookup(phoneRaw)
+    const summary = { visitCount: 1, lastVisit: '2026-09-12', lastService: 'Мойка', missed: null }
+    data.value = { client, summary }
     await nextTick()
     expect(matchedClient.value).toEqual(client)
+    expect(matchedClientSummary.value).toEqual(summary)
   })
 
   it('keeps e164 null for a partial phone (query stays disabled)', () => {

@@ -14,10 +14,10 @@ import {
   DEFAULT_CAR_CLASS,
   MAX_MASTERS,
 } from '@detailing-admin/shared'
-import type { BookingApiResult, CarClass } from '@detailing-admin/shared'
+import type { BookingApiResult, CarClass, MissedBookings } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
-import { usePricelistQuery, useMastersQuery, useClientDetailQuery } from '@/lib/queries'
-import { lastDeliveredService, missedBookings, type MissedBookings } from '@/lib/client-summary'
+import { usePricelistQuery, useMastersQuery } from '@/lib/queries'
+import { useAuthStore } from '@/stores/auth'
 import { isoToDdmmyyyy } from '@/lib/date'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
@@ -260,9 +260,15 @@ const {
   resetPhone,
 } = usePhoneInput()
 // ── Client autofill (lookup by full phone) ───────────────────────────────────
-// Reads Postgres via the reused clients list endpoint; strictly additive and
-// silent on failure — never gates the booking submit.
-const { matchedClient, isLoading: clientLookupLoading } = useClientLookup(phoneRaw)
+// Reads Postgres via the exact-phone lookup; strictly additive and silent on
+// failure — never gates the booking submit. The summary comes with the match, and
+// the server leaves out what the role may not see.
+const {
+  matchedClient,
+  matchedClientSummary,
+  isLoading: clientLookupLoading,
+} = useClientLookup(phoneRaw)
+const auth = useAuthStore()
 
 // Delay the spinner so a fast/cached lookup (resolves in <200ms) never flashes
 // it — only a genuinely slow round-trip shows the "searching" state.
@@ -274,21 +280,6 @@ watch(clientLookupLoading, (loading) => {
   else showLookupSpinner.value = false
 })
 onUnmounted(() => clearTimeout(lookupSpinnerTimer))
-
-// Visit summary for a returning client. Same silent-on-failure contract as the
-// lookup: an error or not-ok result just leaves the summary out.
-const { data: matchedClientDetail } = useClientDetailQuery(
-  computed(() => matchedClient.value?.id ?? null),
-)
-const matchedClientSummary = computed(() => {
-  const r = matchedClientDetail.value
-  if (!r?.ok || r.client.id !== matchedClient.value?.id) return null
-  return {
-    ...r.stats,
-    lastService: lastDeliveredService(r.bookings),
-    missed: missedBookings(r.bookings),
-  }
-})
 
 function formatMissed(m: MissedBookings): string {
   const parts: string[] = []
@@ -1469,7 +1460,7 @@ watch(
                     {{ isoToDdmmyyyy(matchedClientSummary.lastVisit) }}
                   </p>
                   <p v-else>Завершённых визитов ещё не было</p>
-                  <p v-if="matchedClientSummary.totalSpent > 0" class="tabular-nums">
+                  <p v-if="matchedClientSummary.totalSpent" class="tabular-nums">
                     Потрачено: {{ formatAmount(String(matchedClientSummary.totalSpent)) }} ₽
                   </p>
                   <p
@@ -1481,6 +1472,7 @@ watch(
                   <!-- New tab: leaving the form would drop it mid-entry, and the
                        card's close navigates to /clients, not back here. -->
                   <RouterLink
+                    v-if="auth.isAdmin"
                     :to="{ name: 'client-detail', params: { id: matchedClient.id } }"
                     target="_blank"
                     class="inline-block pt-0.5 font-medium text-foreground underline-offset-4 hover:underline"

@@ -6,9 +6,24 @@ import {
   validationErrorSchema,
 } from './api.js'
 
-export const ROLES = ['admin', 'employee'] as const
+export const ROLES = ['admin', 'booker', 'employee'] as const
 export const roleSchema = z.enum(ROLES)
 export type Role = (typeof ROLES)[number]
+
+// `users.role` is a plain varchar, so a stray value must not grant anything:
+// whatever isn't a known role collapses to the least privileged one.
+export function toRole(value: string): Role {
+  const parsed = roleSchema.safeParse(value)
+  return parsed.success ? parsed.data : 'employee'
+}
+
+export function canCreateBookings(role: Role): boolean {
+  return role === 'admin' || role === 'booker'
+}
+
+export function canSeeAmounts(role: Role): boolean {
+  return role === 'admin' || role === 'booker'
+}
 
 // Public projection of a user — never carries the password hash. `firstName`/
 // `lastName` may be empty strings for accounts provisioned before they were

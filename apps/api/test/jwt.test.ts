@@ -53,6 +53,15 @@ describe('jwt', () => {
     expect(decoded?.remember).toBe(false)
   })
 
+  it('round-trips the booker role and rejects an unknown one', async () => {
+    const decoded = await verifyToken(await signToken({ ...CLAIMS, role: 'booker' }))
+    expect(decoded?.role).toBe('booker')
+
+    const now = Math.floor(Date.now() / 1000)
+    const forged = await sign({ ...CLAIMS, role: 'root', iat: now, exp: now + 3600 }, SECRET, 'HS256')
+    expect(await verifyToken(forged)).toBeNull()
+  })
+
   it('rejects a token signed with a different secret', async () => {
     const now = Math.floor(Date.now() / 1000)
     const foreign = await sign(

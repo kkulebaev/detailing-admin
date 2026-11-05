@@ -111,6 +111,39 @@ export const clientDetailResponseSchema = z.union([
 
 export type ClientDetailResponse = z.infer<typeof clientDetailResponseSchema>
 
+// Exact phone only, unlike the list's `q` substring search: this endpoint is open
+// to non-admins, and it must not double as a way to browse the client base.
+export const clientLookupQuerySchema = z.object({
+  phone: z.string().regex(/^\+7\d{10}$/),
+})
+
+export const clientLookupSummarySchema = z.object({
+  visitCount: z.number(),
+  lastVisit: z.string().nullable(),
+  // Sent to admins only; its absence is what keeps it off the booker's form.
+  totalSpent: z.number().optional(),
+  lastService: z.string().nullable(),
+  missed: z
+    .object({ cancelled: z.number(), noShow: z.number(), lastDate: z.string() })
+    .nullable(),
+})
+
+export type ClientLookupSummary = z.infer<typeof clientLookupSummarySchema>
+
+export const clientLookupOkSchema = z.object({
+  ok: z.literal(true),
+  match: z.object({ client: clientSchema, summary: clientLookupSummarySchema }).nullable(),
+})
+
+export type ClientLookupMatch = NonNullable<z.infer<typeof clientLookupOkSchema>['match']>
+
+export const clientLookupResponseSchema = z.union([
+  clientLookupOkSchema,
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
 // One car as submitted by the client dialog. Unlike `carSchema` (a persisted
 // row, carries `id`), this is the write shape: no id, plate optional. The db
 // layer normalizes/dedupes — here we only enforce a non-empty make/model.

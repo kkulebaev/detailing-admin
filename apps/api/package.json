@@ -29,7 +29,8 @@
     "backfill:client-cars-sheet": "tsx --env-file=.env scripts/backfill-client-cars-from-sheet.ts",
     "seed": "pnpm seed:dump && pnpm seed:load",
     "user:create": "tsx scripts/user-create.ts",
-    "user:reset-password": "tsx scripts/user-reset-password.ts"
+    "user:reset-password": "tsx scripts/user-reset-password.ts",
+    "user:set-role": "tsx scripts/user-set-role.ts"
   },
   "dependencies": {
     "@detailing-admin/shared": "workspace:*",

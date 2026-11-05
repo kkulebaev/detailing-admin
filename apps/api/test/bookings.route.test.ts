@@ -89,7 +89,7 @@ import {
 } from '../src/db/bookings.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
-import { adminCookie, employeeCookie } from './auth-helpers.js'
+import { adminCookie, bookerCookie, employeeCookie } from './auth-helpers.js'
 
 const VALID_PAYLOAD = {
   dateFrom: '04.06.2026',
@@ -538,7 +538,16 @@ describe('POST /api/bookings', () => {
     )
   })
 
-  it('rejects a booking write from a non-admin role (writes stay admin-only)', async () => {
+  it('lets a booker submit the booking form', async () => {
+    const res = await post(app, VALID_PAYLOAD, {
+      'Idempotency-Key': 'k-booker-write',
+      Cookie: await bookerCookie(),
+    })
+    expect(res.status).toBe(201)
+    expect(vi.mocked(appendBooking)).toHaveBeenCalled()
+  })
+
+  it('rejects a booking write from a role without booking access', async () => {
     const res = await post(app, VALID_PAYLOAD, {
       'Idempotency-Key': 'k-emp-write',
       Cookie: await employeeCookie(),
@@ -659,6 +668,13 @@ describe('GET /api/bookings', () => {
     expect(body.items[0].amountFormula).toBeUndefined()
   })
 
+  it('shows amounts to a booker', async () => {
+    const res = await getList('', { Cookie: await bookerCookie() })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.items[0].amount).toBe(SAMPLE_ROW.amount)
+  })
+
   it('returns 400 for a malformed date filter', async () => {
     const res = await getList('?dateFrom=2026-06-04')
     expect(res.status).toBe(400)
@@ -731,6 +747,12 @@ describe('GET /api/bookings/export', () => {
     const text = await res.text()
     expect(text).not.toContain('Сумма')
     expect(text).toContain('Иван')
+  })
+
+  it('includes the Сумма column for a booker', async () => {
+    const res = await getExport('', { Cookie: await bookerCookie() })
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('Сумма')
   })
 
   it('forwards filters to listBookings with the export cap and no paging', async () => {
@@ -896,6 +918,8 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   })
 
   it('PATCH from a non-admin role → 403 (writes stay admin-only)', async () => {
+    const booker = await patch(VALID_PAYLOAD, { Cookie: await bookerCookie() })
+    expect(booker.status).toBe(403)
     const res = await patch(VALID_PAYLOAD, { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(updateBooking)).not.toHaveBeenCalled()
@@ -919,6 +943,8 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   })
 
   it('DELETE from a non-admin role → 403', async () => {
+    const booker = await del({ Cookie: await bookerCookie() })
+    expect(booker.status).toBe(403)
     const res = await del({ Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(deleteBooking)).not.toHaveBeenCalled()
@@ -969,6 +995,8 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   })
 
   it('PATCH readiness from a non-admin role → 403', async () => {
+    const booker = await patchReadiness({ readiness: 'В работе' }, { Cookie: await bookerCookie() })
+    expect(booker.status).toBe(403)
     const res = await patchReadiness({ readiness: 'В работе' }, { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(updateBookingReadiness)).not.toHaveBeenCalled()

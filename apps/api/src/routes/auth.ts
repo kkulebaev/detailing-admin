@@ -8,6 +8,7 @@ import {
   internalErrorSchema,
   loginRequestSchema,
   stalePasswordConflictSchema,
+  toRole,
   unauthorizedErrorSchema,
   updateProfileRequestSchema,
   userPublicSchema,
@@ -171,7 +172,7 @@ router
       return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
     }
 
-    const role = user.role === 'admin' ? 'admin' : 'employee'
+    const role = toRole(user.role)
     const token = await signToken({
       sub: user.id,
       login: user.login,

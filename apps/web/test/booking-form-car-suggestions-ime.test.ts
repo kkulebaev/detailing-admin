@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { ref } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
 import type { Client } from '@/lib/clients-api'
 
 // «Марка и модель» suggests as you type. Earlier cuts hung the pick on
@@ -16,13 +17,14 @@ import type { Client } from '@/lib/clients-api'
 
 vi.mock('@/composables/use-client-lookup', async () => {
   const { ref: r } = await vi.importActual<typeof import('vue')>('vue')
-  return { useClientLookup: () => ({ matchedClient: r<Client | null>(null) }) }
+  return {
+    useClientLookup: () => ({ matchedClient: r<Client | null>(null), matchedClientSummary: r(null) }),
+  }
 })
 
 vi.mock('@/lib/queries', () => ({
   useMastersQuery: () => ({ data: ref({ ok: true, masters: [] }), asyncStatus: ref('idle') }),
   usePricelistQuery: () => ({ data: ref({ ok: true, sections: [] }) }),
-  useClientDetailQuery: () => ({ data: ref(undefined) }),
 }))
 
 vi.mock('@/lib/api', () => ({ submitBooking: vi.fn() }))
@@ -73,6 +75,7 @@ async function composeInto(w: VueWrapper, el: HTMLInputElement, text: string) {
 
 describe('BookingForm — «Марка и модель»', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     localStorage.clear()
     document.body.innerHTML = ''
   })

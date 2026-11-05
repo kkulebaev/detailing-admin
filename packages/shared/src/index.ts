@@ -50,6 +50,9 @@ export {
 export type { ApiResult, BookingApiResult, NotificationResult, ValidationIssue } from './api.js'
 export {
   ROLES,
+  toRole,
+  canCreateBookings,
+  canSeeAmounts,
   roleSchema,
   userPublicSchema,
   accountSchema,
@@ -104,10 +107,18 @@ export {
   clientStatsSchema,
   clientDetailOkSchema,
   clientDetailResponseSchema,
+  clientLookupQuerySchema,
+  clientLookupSummarySchema,
+  clientLookupOkSchema,
+  clientLookupResponseSchema,
 } from './client.js'
+export { lastDeliveredService, missedBookings } from './client-summary.js'
+export type { MissedBookings } from './client-summary.js'
 export type {
   ClientInput,
   Client,
+  ClientLookupMatch,
+  ClientLookupSummary,
   Car,
   CarInput,
   ClientStats,

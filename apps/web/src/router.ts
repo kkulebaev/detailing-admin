@@ -5,7 +5,7 @@ import {
   type RouteRecordRaw,
   type RouterHistory,
 } from 'vue-router'
-import type { Role } from '@detailing-admin/shared'
+import { canCreateBookings, type Role } from '@detailing-admin/shared'
 import BookingForm from '@/components/BookingForm.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -23,7 +23,7 @@ declare module 'vue-router' {
 }
 
 export function homeRouteFor(role: Role): { name: string } {
-  return role === 'admin' ? { name: 'booking' } : { name: 'employee' }
+  return canCreateBookings(role) ? { name: 'booking' } : { name: 'employee' }
 }
 
 export const routes: RouteRecordRaw[] = [
@@ -37,13 +37,13 @@ export const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'booking',
     component: BookingForm,
-    meta: { title: 'Запись клиента', requiresAuth: true, roles: ['admin'] },
+    meta: { title: 'Запись клиента', requiresAuth: true, roles: ['admin', 'booker'] },
   },
   {
     path: '/bookings',
     name: 'bookings',
     component: () => import('@/components/BookingsPage.vue'),
-    meta: { title: 'Записи', requiresAuth: true, roles: ['admin', 'employee'] },
+    meta: { title: 'Записи', requiresAuth: true, roles: ['admin', 'booker', 'employee'] },
   },
   {
     path: '/clients',
@@ -89,13 +89,13 @@ export const routes: RouteRecordRaw[] = [
     path: '/employee',
     name: 'employee',
     component: () => import('@/pages/MyHoursPage.vue'),
-    meta: { title: 'Мои часы', requiresAuth: true, roles: ['employee'] },
+    meta: { title: 'Мои часы', requiresAuth: true, roles: ['booker', 'employee'] },
   },
   {
     path: '/profile',
     name: 'profile',
     component: () => import('@/pages/ProfilePage.vue'),
-    meta: { title: 'Профиль', requiresAuth: true, roles: ['admin', 'employee'] },
+    meta: { title: 'Профиль', requiresAuth: true, roles: ['admin', 'booker', 'employee'] },
   },
   { path: '/:pathMatch(.*)*', redirect: { name: 'booking' } },
 ]

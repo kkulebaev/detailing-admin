@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
   ROLES,
+  canCreateBookings,
+  canSeeAmounts,
   changePasswordRequestSchema,
   loginRequestSchema,
   roleSchema,
+  toRole,
 } from '../src/auth.js'
 
 describe('roleSchema', () => {
-  it('accepts the two known roles', () => {
+  it('accepts the known roles', () => {
     expect(roleSchema.parse('admin')).toBe('admin')
+    expect(roleSchema.parse('booker')).toBe('booker')
     expect(roleSchema.parse('employee')).toBe('employee')
   })
 
@@ -17,7 +21,30 @@ describe('roleSchema', () => {
   })
 
   it('ROLES is the single source of the enum', () => {
-    expect([...ROLES]).toEqual(['admin', 'employee'])
+    expect([...ROLES]).toEqual(['admin', 'booker', 'employee'])
+  })
+})
+
+describe('toRole', () => {
+  it('keeps known roles', () => {
+    expect(toRole('admin')).toBe('admin')
+    expect(toRole('booker')).toBe('booker')
+    expect(toRole('employee')).toBe('employee')
+  })
+
+  it('collapses anything else to the least privileged role', () => {
+    expect(toRole('superuser')).toBe('employee')
+    expect(toRole('')).toBe('employee')
+  })
+})
+
+describe('role permissions', () => {
+  it('lets admin and booker create bookings and see amounts, not employee', () => {
+    for (const can of [canCreateBookings, canSeeAmounts]) {
+      expect(can('admin')).toBe(true)
+      expect(can('booker')).toBe(true)
+      expect(can('employee')).toBe(false)
+    }
   })
 })
 
