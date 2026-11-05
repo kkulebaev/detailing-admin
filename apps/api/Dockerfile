@@ -6,7 +6,7 @@ RUN npm install -g pnpm@12.15.0
 WORKDIR /app
 
 # Copy workspace manifests first — layer-cache for pnpm install
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
@@ -32,11 +32,7 @@ RUN pnpm -F @detailing-admin/api build
 FROM builder AS deployer
 
 ENV CI=true
-# --legacy keeps deploy using the symlink layout (vs pnpm 10+'s default
-# injected-workspaces). /.npmrc also sets force-legacy-deploy=true, but pnpm 11+
-# reads only auth and registry settings from .npmrc and ignores that key — keep
-# the explicit flag here.
-RUN pnpm deploy --filter=@detailing-admin/api --prod --legacy /deploy/api
+RUN pnpm deploy --filter=@detailing-admin/api --prod /deploy/api
 
 # ── Stage 4: minimal runtime image ────────────────────────────────────────────
 FROM node:26-alpine AS runtime

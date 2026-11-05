@@ -5,7 +5,7 @@ RUN npm install -g pnpm@12.15.0
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
@@ -28,8 +28,7 @@ RUN pnpm -F @detailing-admin/web build
 FROM builder AS deployer
 
 ENV CI=true
-# --legacy: see the matching comment in apps/api/Dockerfile.
-RUN pnpm deploy --filter=@detailing-admin/web --legacy /deploy/web
+RUN pnpm deploy --filter=@detailing-admin/web /deploy/web
 
 # ── Stage 4: minimal runtime — vite preview ──────────────────────────────────
 # NOTE: `vite preview` is documented as not-for-production. It works for this
