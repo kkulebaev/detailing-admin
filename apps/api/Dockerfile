@@ -1,7 +1,7 @@
 # ── Stage 1: install all dependencies ────────────────────────────────────────
 FROM node:26-alpine AS deps
 
-RUN npm install -g pnpm@11.1.1
+RUN npm install -g pnpm@12.15.0
 
 WORKDIR /app
 
@@ -33,9 +33,9 @@ FROM builder AS deployer
 
 ENV CI=true
 # --legacy keeps deploy using the symlink layout (vs pnpm 10+'s default
-# injected-workspaces). /.npmrc also sets force-legacy-deploy=true as a
-# fallback for when --legacy is eventually removed, but pnpm 11.1.1 does not
-# reliably honor that key — keep the explicit flag here.
+# injected-workspaces). /.npmrc also sets force-legacy-deploy=true, but pnpm 11+
+# reads only auth and registry settings from .npmrc and ignores that key — keep
+# the explicit flag here.
 RUN pnpm deploy --filter=@detailing-admin/api --prod --legacy /deploy/api
 
 # ── Stage 4: minimal runtime image ────────────────────────────────────────────

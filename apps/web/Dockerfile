@@ -1,7 +1,7 @@
 # ── Stage 1: install all workspace dependencies ──────────────────────────────
 FROM node:26-alpine AS deps
 
-RUN npm install -g pnpm@11.1.1
+RUN npm install -g pnpm@12.15.0
 
 WORKDIR /app
 
