@@ -39,7 +39,7 @@ coverage
 
 # Tooling state (not needed inside the image)
 .claude
-.omc
+**/.omc
 .turbo
 .railway
 
