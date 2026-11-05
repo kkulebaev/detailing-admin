@@ -36,7 +36,7 @@
     "@hono/node-server": "^2.1.6",
     "@hono/zod-openapi": "^1.6.3",
     "drizzle-orm": "^0.45.4",
-    "googleapis": "^173.0.0",
+    "googleapis": "^189.0.0",
     "hono": "^4.13.16",
     "pino": "^10.4.0",
     "postgres": "^3.4.9",
