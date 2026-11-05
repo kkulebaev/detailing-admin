@@ -118,7 +118,6 @@ function req(path: string, method: string, body?: unknown, c: string = cookie) {
 
 describe('/api/me', () => {
   beforeEach(async () => {
-    vi.clearAllMocks()
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(NOW)
     cookie = await employeeCookie()
@@ -284,7 +283,6 @@ describe('/api/me', () => {
 
 describe('/api/users', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 

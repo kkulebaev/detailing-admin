@@ -111,7 +111,6 @@ function carChip(w: VueWrapper, makeModel: string) {
 
 describe('BookingForm — client autofill', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
     matched.value = null
     detail.value = undefined
     localStorage.clear()

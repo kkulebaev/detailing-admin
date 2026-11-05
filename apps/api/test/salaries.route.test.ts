@@ -115,7 +115,6 @@ function req(
 
 describe('/api/salaries', () => {
   beforeEach(async () => {
-    vi.clearAllMocks()
     authCookie = await adminCookie()
     vi.mocked(isDbReady).mockReturnValue(true)
   })

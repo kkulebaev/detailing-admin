@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('vue-sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -24,10 +24,6 @@ function makePasteEvent(text: string): ClipboardEvent {
 }
 
 describe('usePhoneInput', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   describe('начальное состояние', () => {
     it('phoneRaw пустой', () => {
       const { phoneRaw } = usePhoneInput()

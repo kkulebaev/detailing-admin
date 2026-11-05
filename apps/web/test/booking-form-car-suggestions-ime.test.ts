@@ -73,7 +73,6 @@ async function composeInto(w: VueWrapper, el: HTMLInputElement, text: string) {
 
 describe('BookingForm — «Марка и модель»', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
     localStorage.clear()
     document.body.innerHTML = ''
   })

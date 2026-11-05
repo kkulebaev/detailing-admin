@@ -119,7 +119,6 @@ describe('POST /api/auth/login', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     app = createApp()
     vi.mocked(isDbReady).mockReturnValue(true)
   })
@@ -194,7 +193,6 @@ describe('GET /api/auth/me', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     app = createApp()
   })
 
@@ -241,7 +239,6 @@ describe('POST /api/auth/change-password', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     app = createApp()
     vi.mocked(isDbReady).mockReturnValue(true)
   })
@@ -306,7 +303,6 @@ describe('PATCH /api/auth/me', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     app = createApp()
     vi.mocked(isDbReady).mockReturnValue(true)
   })
@@ -371,7 +367,6 @@ describe('guards on existing routes', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     app = createApp()
     vi.mocked(isDbReady).mockReturnValue(true)
   })
@@ -445,7 +440,6 @@ describe('ADR consequences (stateless sessions)', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     app = createApp()
     vi.mocked(isDbReady).mockReturnValue(true)
   })

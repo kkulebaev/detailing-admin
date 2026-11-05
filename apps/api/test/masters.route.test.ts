@@ -108,7 +108,6 @@ describe('/api/masters', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(async () => {
-    vi.clearAllMocks()
     app = createApp()
     authCookie = await adminCookie()
     vi.mocked(isDbReady).mockReturnValue(true)

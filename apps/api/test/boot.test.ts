@@ -60,7 +60,6 @@ function eventsOf(spy: ReturnType<typeof vi.fn>): string[] {
 describe('boot.init', () => {
   beforeEach(() => {
     _resetForTest()
-    vi.clearAllMocks()
     // DB init succeeds by default — sheets behavior is what each test varies.
     vi.mocked(runMigrations).mockResolvedValue(undefined)
   })
@@ -138,7 +137,6 @@ describe('boot.init', () => {
 describe('boot.initDb', () => {
   beforeEach(() => {
     _resetForTest()
-    vi.clearAllMocks()
   })
 
   it('marks DB ready and logs boot.db.ready on successful migration', async () => {

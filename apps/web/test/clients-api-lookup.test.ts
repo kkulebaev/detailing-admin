@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { Client } from '@/lib/clients-api'
 
 // Mock the generated transport so `fetchClients` (and thus `lookupClientByPhone`)
@@ -33,10 +33,6 @@ function resolveList(body: unknown) {
 }
 
 describe('lookupClientByPhone', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('returns the client on an exact phone match', async () => {
     const c = client()
     resolveList({ ok: true, clients: [c], total: 1 })
