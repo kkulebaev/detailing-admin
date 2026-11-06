@@ -16,10 +16,6 @@ test-results
 apps/web/src/**/*.vue.d.ts
 apps/web/src/**/*.vue.js
 apps/web/src/**/*.js
-apps/web/vite.config.js
-apps/web/vite.config.d.ts
-apps/web/vitest.config.js
-apps/web/vitest.config.d.ts
 packages/shared/src/**/*.d.ts
 packages/shared/src/**/*.js
 !apps/web/src/vite-env.d.ts
