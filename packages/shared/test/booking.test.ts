@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { assert, describe, it, expect } from 'vitest'
 import { bookingSchema } from '../src/booking.js'
 
 const validBase = {
@@ -37,20 +37,18 @@ describe('bookingSchema', () => {
 
   it('phone transform produces canonical E.164 form', () => {
     const result = bookingSchema.safeParse({ ...validBase, phone: '8 999 123 45 67' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.phone).toBe('+79991234567')
+    assert(result.success)
+    expect(result.data.phone).toBe('+79991234567')
   })
 
   it('phone garbage produces a ZodIssue at path ["phone"]', () => {
     const result = bookingSchema.safeParse({ ...validBase, phone: '123' })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      const phoneIssue = result.error.issues.find(
-        (i) => JSON.stringify(i.path) === JSON.stringify(['phone'])
-      )
-      expect(phoneIssue).toBeDefined()
-      expect(result.error.issues).toHaveLength(1)
-    }
+    assert(!result.success)
+    const phoneIssue = result.error.issues.find(
+      (i) => JSON.stringify(i.path) === JSON.stringify(['phone'])
+    )
+    expect(phoneIssue).toBeDefined()
+    expect(result.error.issues).toHaveLength(1)
   })
 
   it('rejects dateTo < dateFrom across year boundary', () => {
@@ -77,8 +75,8 @@ describe('bookingSchema', () => {
       dateFrom: '04.06.2026',
       dateTo: '04.06.2026',
     })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.dateTo).toBeUndefined()
+    assert(result.success)
+    expect(result.data.dateTo).toBeUndefined()
   })
 
   it('rejects amount as empty string', () => {
@@ -98,26 +96,26 @@ describe('bookingSchema', () => {
 
   it('accepts amount above the previous 10M cap (no silent upper bound)', () => {
     const result = bookingSchema.safeParse({ ...validBase, amount: 25_000_000 })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.amount).toBe(25_000_000)
+    assert(result.success)
+    expect(result.data.amount).toBe(25_000_000)
   })
 
   it('readiness: accepts explicit empty string', () => {
     const result = bookingSchema.safeParse({ ...validBase, readiness: '' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.readiness).toBe('')
+    assert(result.success)
+    expect(result.data.readiness).toBe('')
   })
 
   it('readiness: accepts a valid enum value', () => {
     const result = bookingSchema.safeParse({ ...validBase, readiness: 'Выдана' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.readiness).toBe('Выдана')
+    assert(result.success)
+    expect(result.data.readiness).toBe('Выдана')
   })
 
   it('readiness: defaults to empty string when omitted', () => {
     const result = bookingSchema.safeParse(validBase)
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.readiness).toBe('')
+    assert(result.success)
+    expect(result.data.readiness).toBe('')
   })
 
   it('accepts an arbitrary master name outside the former enum', () => {
@@ -131,14 +129,14 @@ describe('bookingSchema', () => {
 
   it('accepts multiple masters', () => {
     const result = bookingSchema.safeParse({ ...validBase, master: ['Иван', 'Пётр'] })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.master).toEqual(['Иван', 'Пётр'])
+    assert(result.success)
+    expect(result.data.master).toEqual(['Иван', 'Пётр'])
   })
 
   it('dedups repeated masters, preserving first-occurrence order', () => {
     const result = bookingSchema.safeParse({ ...validBase, master: ['Пётр', 'Иван', 'Пётр'] })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.master).toEqual(['Пётр', 'Иван'])
+    assert(result.success)
+    expect(result.data.master).toEqual(['Пётр', 'Иван'])
   })
 
   it('rejects more than MAX_MASTERS masters', () => {

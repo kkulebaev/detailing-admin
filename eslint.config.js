@@ -6,12 +6,14 @@
 //
 // Ignored on purpose:
 //   - `apps/web/src/components/ui/**` — vendored shadcn-vue, third-party patterns
-//   - `**/test/**`, `**/*.test.ts` — mock casts are part of the testing toolkit
 //   - `apps/api/scripts/**` — CLI seed scripts read JSON files into schemas
 //   - `apps/api/src/sheets.ts` — googleapis error shapes have no clean Zod story
 import tseslint from 'typescript-eslint'
+import vitest from '@vitest/eslint-plugin'
 import vue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
+
+const TEST_FILES = ['**/test/**/*.{ts,vue}']
 
 const NO_TYPE_ASSERTIONS = {
   '@typescript-eslint/consistent-type-assertions': [
@@ -30,8 +32,6 @@ export default tseslint.config(
       'apps/web/src/components/ui/**',
       'apps/web/src/lib/generated/**',
       'apps/api/scripts/**',
-      '**/test/**',
-      '**/*.test.ts',
       '**/*.config.{ts,js,cjs,mjs}',
       '**/vite-env.d.ts',
     ],
@@ -60,5 +60,17 @@ export default tseslint.config(
       },
     },
     rules: NO_TYPE_ASSERTIONS,
+  },
+  {
+    ...vitest.configs.recommended,
+    files: TEST_FILES,
+    rules: {
+      ...vitest.configs.recommended.rules,
+      // Mock casts are part of the testing toolkit.
+      '@typescript-eslint/consistent-type-assertions': 'off',
+      // The preset only warns, and a warning doesn't fail `pnpm lint`: with no CI a
+      // forgotten `it.skip` would stay switched off without anyone noticing.
+      'vitest/no-disabled-tests': 'error',
+    },
   },
 )

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { assert, describe, expect, it } from 'vitest'
 import {
   ROLES,
   canCreateBookings,
@@ -95,9 +95,7 @@ describe('changePasswordRequestSchema', () => {
       currentPassword: 'same-secret',
       newPassword: 'same-secret',
     })
-    expect(r.success).toBe(false)
-    if (!r.success) {
-      expect(r.error.issues.some((i) => i.path[0] === 'newPassword')).toBe(true)
-    }
+    assert(!r.success)
+    expect(r.error.issues.some((i) => i.path[0] === 'newPassword')).toBe(true)
   })
 })

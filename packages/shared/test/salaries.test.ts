@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { assert, describe, it, expect } from 'vitest'
 import {
   SELF_EDIT_WINDOW_DAYS,
   computeSalary,
@@ -125,8 +125,8 @@ describe('workHoursUpdateSchema', () => {
 
   it('has no masterId — a stray masterId is ignored, not accepted as a field', () => {
     const r = workHoursUpdateSchema.safeParse({ masterId: 9, hours: 6 })
-    expect(r.success).toBe(true)
-    if (r.success) expect('masterId' in r.data).toBe(false)
+    assert(r.success)
+    expect('masterId' in r.data).toBe(false)
   })
 })
 
@@ -165,8 +165,8 @@ describe('payoutInputSchema', () => {
 
   it('rejects a zero amount with the domain message', () => {
     const r = payoutInputSchema.safeParse({ ...base, amount: 0 })
-    expect(r.success).toBe(false)
-    if (!r.success) expect(r.error.issues[0]!.message).toBe('Сумма не может быть нулевой')
+    assert(!r.success)
+    expect(r.error.issues[0]!.message).toBe('Сумма не может быть нулевой')
   })
 
   it('rejects a fractional amount (money is whole rubles)', () => {
@@ -197,8 +197,8 @@ describe('payoutUpdateSchema', () => {
 
   it('has no masterId — the master never changes on edit', () => {
     const r = payoutUpdateSchema.safeParse({ masterId: 9, amount: 100 })
-    expect(r.success).toBe(true)
-    if (r.success) expect('masterId' in r.data).toBe(false)
+    assert(r.success)
+    expect('masterId' in r.data).toBe(false)
   })
 })
 

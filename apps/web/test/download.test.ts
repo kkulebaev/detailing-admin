@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { downloadFile } from '@/lib/download'
 
 function okBlobResponse(): Response {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return {
     ok: true,
     status: 200,
@@ -11,20 +10,19 @@ function okBlobResponse(): Response {
 }
 
 function errorResponse(status: number): Response {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return { ok: false, status, blob: () => Promise.resolve(new Blob()) } as Response
 }
 
 describe('downloadFile', () => {
   let fetchMock: ReturnType<typeof vi.fn>
-  let createObjectURL: ReturnType<typeof vi.fn>
-  let revokeObjectURL: ReturnType<typeof vi.fn>
+  let createObjectURL: Mock<typeof URL.createObjectURL>
+  let revokeObjectURL: Mock<typeof URL.revokeObjectURL>
 
   beforeEach(() => {
     fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    createObjectURL = vi.fn(() => 'blob:mock')
-    revokeObjectURL = vi.fn()
+    createObjectURL = vi.fn<typeof URL.createObjectURL>(() => 'blob:mock')
+    revokeObjectURL = vi.fn<typeof URL.revokeObjectURL>()
     URL.createObjectURL = createObjectURL
     URL.revokeObjectURL = revokeObjectURL
   })

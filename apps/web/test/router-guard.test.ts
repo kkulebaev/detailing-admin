@@ -14,13 +14,13 @@ vi.mock('@/lib/auth-api', () => ({
 import { createAppRouter } from '@/router'
 
 function admin(): UserPublic {
-  return { login: 'admin1', role: 'admin' }
+  return { login: 'admin1', role: 'admin', firstName: '', lastName: '' }
 }
 function booker(): UserPublic {
-  return { login: 'booker1', role: 'booker' }
+  return { login: 'booker1', role: 'booker', firstName: '', lastName: '' }
 }
 function employee(): UserPublic {
-  return { login: 'emp1', role: 'employee' }
+  return { login: 'emp1', role: 'employee', firstName: '', lastName: '' }
 }
 
 beforeEach(() => {

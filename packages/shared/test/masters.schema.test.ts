@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { assert, describe, it, expect } from 'vitest'
 import { masterInputSchema, reorderInputSchema } from '../src/masters.js'
 
 describe('masterInputSchema', () => {
@@ -26,8 +26,8 @@ describe('masterInputSchema', () => {
 
   it('trims surrounding whitespace', () => {
     const r = masterInputSchema.safeParse({ name: '  Иван Содель  ', ...base })
-    expect(r.success).toBe(true)
-    if (r.success) expect(r.data.name).toBe('Иван Содель')
+    assert(r.success)
+    expect(r.data.name).toBe('Иван Содель')
   })
 
   it('rejects an empty name', () => {
@@ -47,8 +47,8 @@ describe('masterInputSchema', () => {
       telegramId: null,
       userId: null,
     })
-    expect(r.success).toBe(true)
-    if (r.success) expect(r.data.canBeResponsible).toBe(false)
+    assert(r.success)
+    expect(r.data.canBeResponsible).toBe(false)
   })
 
   it('accepts a string telegramId', () => {
@@ -59,14 +59,14 @@ describe('masterInputSchema', () => {
       telegramId: '123456789',
       userId: null,
     })
-    expect(r.success).toBe(true)
-    if (r.success) expect(r.data.telegramId).toBe('123456789')
+    assert(r.success)
+    expect(r.data.telegramId).toBe('123456789')
   })
 
   it('accepts a null telegramId', () => {
     const r = masterInputSchema.safeParse({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null })
-    expect(r.success).toBe(true)
-    if (r.success) expect(r.data.telegramId).toBeNull()
+    assert(r.success)
+    expect(r.data.telegramId).toBeNull()
   })
 
   it('accepts a linked account id and refuses a non-uuid one', () => {

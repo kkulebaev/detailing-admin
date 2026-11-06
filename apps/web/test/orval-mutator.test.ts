@@ -3,7 +3,6 @@ import { StatusCodes } from '@detailing-admin/shared'
 import type { OrvalEnvelope } from '@/lib/orval-mutator'
 
 function jsonResponse(status: number, body: unknown): Response {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return {
     status,
     headers: new Headers(),

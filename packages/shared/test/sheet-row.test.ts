@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { assert, describe, it, expect } from 'vitest'
 import { bookingToRow, EXPECTED_HEADERS } from '../src/sheet-row.js'
 import { bookingSchema } from '../src/booking.js'
 import type { Booking } from '../src/booking.js'
@@ -117,7 +117,7 @@ describe('bookingToRow', () => {
 
   it('bookingSchema accepts plate', () => {
     const result = bookingSchema.safeParse({ ...baseInput, plate: 'А123АА77' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.plate).toBe('А123АА77')
+    assert(result.success)
+    expect(result.data.plate).toBe('А123АА77')
   })
 })

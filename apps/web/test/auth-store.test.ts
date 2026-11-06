@@ -15,7 +15,7 @@ vi.mock('@/lib/auth-api', () => ({
 import { useAuthStore } from '@/stores/auth'
 
 function adminUser(): UserPublic {
-  return { login: 'admin1', role: 'admin' }
+  return { login: 'admin1', role: 'admin', firstName: '', lastName: '' }
 }
 
 beforeEach(() => {

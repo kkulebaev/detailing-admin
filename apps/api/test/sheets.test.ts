@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { assert, describe, it, expect, vi, beforeEach } from 'vitest'
 import type { sheets_v4 } from 'googleapis'
 import { EXPECTED_HEADERS } from '@detailing-admin/shared/sheet-row'
 
@@ -61,12 +61,10 @@ describe('verifyHeaders', () => {
       status: 200,
     })
     const result = await verifyHeaders()
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.column_index).toBe(8)
-      expect(result.expected).toBe('Готовность')
-      expect(result.observed).toBe('Готовнсть')
-    }
+    assert(!result.ok)
+    expect(result.column_index).toBe(8)
+    expect(result.expected).toBe('Готовность')
+    expect(result.observed).toBe('Готовнсть')
   })
 
   it('returns ok:false when row is empty (all headers missing)', async () => {
@@ -75,10 +73,8 @@ describe('verifyHeaders', () => {
       status: 200,
     })
     const result = await verifyHeaders()
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.column_index).toBe(0)
-    }
+    assert(!result.ok)
+    expect(result.column_index).toBe(0)
   })
 })
 
@@ -96,12 +92,10 @@ describe('appendBooking', () => {
       status: 200,
     })
     const result = await appendBooking(['04.06.2026', '10:00', '', '', '', '', '', '', '', '', ''])
-    expect(result.ok).toBe(true)
-    if (result.ok) {
-      expect(result.updatedRange).toBe('Запись 2026!A5')
-      expect(result.updatedRow).toBe(5)
-      expect(typeof result.latencyMs).toBe('number')
-    }
+    assert(result.ok)
+    expect(result.updatedRange).toBe('Запись 2026!A5')
+    expect(result.updatedRow).toBe(5)
+    expect(typeof result.latencyMs).toBe('number')
   })
 
   it('parses updatedRow from a range like Запись 2026!A12:K12', async () => {
@@ -110,8 +104,8 @@ describe('appendBooking', () => {
       status: 200,
     })
     const result = await appendBooking(['04.06.2026', '10:00', '', '', '', '', '', '', '', '', ''])
-    expect(result.ok).toBe(true)
-    if (result.ok) expect(result.updatedRow).toBe(12)
+    assert(result.ok)
+    expect(result.updatedRow).toBe(12)
   })
 
   it('URI-encodes Запись 2026 in the range argument passed to the API', async () => {
@@ -136,10 +130,8 @@ describe('appendBooking', () => {
       message: 'The caller does not have permission',
     })
     const result = await appendBooking(['04.06.2026', '10:00', '', '', '', '', '', '', '', '', ''])
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.statusCode).toBe(403)
-      expect(result.errorCode).toBe('forbidden')
-    }
+    assert(!result.ok)
+    expect(result.statusCode).toBe(403)
+    expect(result.errorCode).toBe('forbidden')
   })
 })
