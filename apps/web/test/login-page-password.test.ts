@@ -1,5 +1,6 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
 import LoginPage from '../src/pages/LoginPage.vue'
 
 vi.mock('vue-router', () => ({
@@ -11,38 +12,43 @@ vi.mock('../src/stores/auth', () => ({
   useAuthStore: () => ({ login: vi.fn() }),
 }))
 
-function passwordInput(wrapper: ReturnType<typeof mount>) {
-  return wrapper.find('input[autocomplete="current-password"]')
+const passwordInput = () => page.getByLabelText('Пароль')
+const inputGroup = () => passwordInput().element().closest<HTMLElement>('[data-slot="input-group"]')!
+
+function mountPage() {
+  mount(LoginPage, { attachTo: document.body })
 }
+
+enableAutoUnmount(afterEach)
 
 describe('LoginPage password field', () => {
   it('toggles visibility without losing the typed value', async () => {
-    const wrapper = mount(LoginPage)
-    const toggle = wrapper.find('button[aria-pressed]')
-    await passwordInput(wrapper).setValue('secret-123')
+    mountPage()
+    await passwordInput().fill('secret-123')
+    await expect.element(passwordInput()).toHaveAttribute('type', 'password')
 
-    expect(passwordInput(wrapper).attributes('type')).toBe('password')
-    await toggle.trigger('click')
+    await page.getByRole('button', { name: 'Показать пароль' }).click()
 
-    expect(passwordInput(wrapper).attributes('type')).toBe('text')
-    expect((passwordInput(wrapper).element as HTMLInputElement).value).toBe('secret-123')
-    expect(toggle.attributes('aria-label')).toBe('Скрыть пароль')
+    await expect.element(passwordInput()).toHaveAttribute('type', 'text')
+    await expect.element(passwordInput()).toHaveValue('secret-123')
+    await expect.element(page.getByRole('button', { name: 'Скрыть пароль' })).toBeVisible()
   })
 
-  it('keeps the label pointing at the input and the height on the group', () => {
-    const wrapper = mount(LoginPage)
-    const input = passwordInput(wrapper)
-    const group = wrapper.find('[data-slot="input-group"]')
+  it('renders the field at the height of the login field beside it', async () => {
+    mountPage()
+    await expect.element(passwordInput()).toBeVisible()
 
-    const label = wrapper.findAll('label').find((l) => l.text() === 'Пароль')
-    expect(input.attributes('id')).toBe(label!.attributes('for'))
-    expect(group.classes()).toContain('h-11')
-    expect(input.classes()).not.toContain('h-11')
+    const login = page.getByLabelText('Логин').element()
+    expect(inputGroup().getBoundingClientRect().height).toBe(login.getBoundingClientRect().height)
   })
 
-  it('keeps the focus ring selector matching the input', () => {
-    const wrapper = mount(LoginPage)
+  it('moves the focus ring onto the group when the input gets focus', async () => {
+    mountPage()
+    await expect.element(passwordInput()).toBeVisible()
+    const shadowAtRest = getComputedStyle(inputGroup()).boxShadow
 
-    expect(passwordInput(wrapper).attributes('data-slot')).toBe('input-group-control')
+    await passwordInput().click()
+
+    await expect.poll(() => getComputedStyle(inputGroup()).boxShadow).not.toBe(shadowAtRest)
   })
 })

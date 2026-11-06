@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
+import { enableAutoUnmount, mount, RouterLinkStub } from '@vue/test-utils'
+import { page } from 'vitest/browser'
 import { ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import type { ClientLookupSummary } from '@detailing-admin/shared'
@@ -68,13 +69,22 @@ function mountForm() {
   })
 }
 
-function inputByPlaceholder(w: VueWrapper, placeholder: string): HTMLInputElement {
-  return w.find(`input[placeholder="${placeholder}"]`).element as HTMLInputElement
+const nameField = () => page.getByLabelText('Имя')
+const carField = () => page.getByLabelText('Марка и модель')
+const plateField = () => page.getByPlaceholder('А123АА777')
+const carChip = (makeModel: string) =>
+  page.getByRole('button', { name: new RegExp(`^Заполнить авто ${makeModel}`) })
+const submit = () => page.getByRole('button', { name: 'Сохранить запись' })
+
+// Resolves once the draft restore and field watchers settled, so a later
+// `matched.value = …` is seen as a change.
+async function mountReadyForm() {
+  const w = mountForm()
+  await expect.element(submit()).toBeVisible()
+  return w
 }
 
-function carChip(w: VueWrapper, makeModel: string) {
-  return w.findAll('button').find((b) => b.text().includes(makeModel))
-}
+enableAutoUnmount(afterEach)
 
 describe('BookingForm — client autofill', () => {
   beforeEach(() => {
@@ -86,148 +96,109 @@ describe('BookingForm — client autofill', () => {
   })
 
   it('autofills the name into an empty field on match', async () => {
-    const w = mountForm()
-    await flushPromises()
+    await mountReadyForm()
     matched.value = client
-    await flushPromises()
-    expect(inputByPlaceholder(w, 'Иван').value).toBe('Иван')
-    expect(w.text()).toContain('Найден клиент с именем: Иван')
-    w.unmount()
+    await expect.element(nameField()).toHaveValue('Иван')
+    await expect.element(page.getByText('Найден клиент с именем: Иван')).toBeVisible()
   })
 
   it('overwrites a name the operator already typed on match', async () => {
-    const w = mountForm()
-    await flushPromises()
-    await w.find('input[placeholder="Иван"]').setValue('Пётр')
+    await mountReadyForm()
+    await nameField().fill('Пётр')
     matched.value = client
-    await flushPromises()
-    expect(inputByPlaceholder(w, 'Иван').value).toBe('Иван')
-    w.unmount()
+    await expect.element(nameField()).toHaveValue('Иван')
   })
 
   it('autofills the first car and masked plate into empty fields on match', async () => {
-    const w = mountForm()
-    await flushPromises()
+    await mountReadyForm()
     matched.value = client
-    await flushPromises()
-    expect(inputByPlaceholder(w, 'Toyota Camry').value).toBe('Toyota Camry')
-    expect(inputByPlaceholder(w, 'А123АА777').value).toBe('А123АА777')
-    w.unmount()
+    await expect.element(carField()).toHaveValue('Toyota Camry')
+    await expect.element(plateField()).toHaveValue('А123АА777')
   })
 
   it('switches «Марка и модель» to another car when its chip is tapped', async () => {
-    const w = mountForm()
-    await flushPromises()
+    await mountReadyForm()
     matched.value = client
-    await flushPromises()
     // First car (Toyota) is auto-filled; tap the second car's chip to switch.
-    const chip = carChip(w, 'Kia Rio')
-    expect(chip).toBeTruthy()
-    await chip!.trigger('click')
-    await flushPromises()
-    expect(inputByPlaceholder(w, 'Toyota Camry').value).toBe('Kia Rio')
-    expect(inputByPlaceholder(w, 'А123АА777').value).toBe('')
-    w.unmount()
+    await carChip('Kia Rio').click()
+    await expect.element(carField()).toHaveValue('Kia Rio')
+    await expect.element(plateField()).toHaveValue('')
   })
 
   it('shows no chips for a single-car client (the one car is auto-filled)', async () => {
-    const w = mountForm()
-    await flushPromises()
+    await mountReadyForm()
     matched.value = { ...client, cars: [{ id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА777' }] }
-    await flushPromises()
-    expect(inputByPlaceholder(w, 'Toyota Camry').value).toBe('Toyota Camry')
-    expect(carChip(w, 'Toyota Camry')).toBeUndefined()
-    w.unmount()
+    await expect.element(carField()).toHaveValue('Toyota Camry')
+    await expect.element(carChip('Toyota Camry')).not.toBeInTheDocument()
   })
 
   it('shows no hint or chips without a match, and submit stays available', async () => {
-    const w = mountForm()
-    await flushPromises()
-    expect(w.text()).not.toContain('Найден клиент')
-    expect(carChip(w, 'Toyota Camry')).toBeUndefined()
-    const submit = w.findAll('button').find((b) => b.text().includes('Сохранить запись'))
-    expect(submit?.attributes('disabled')).toBeUndefined()
+    await mountReadyForm()
+    await expect.element(page.getByText(/Найден клиент/)).not.toBeInTheDocument()
+    await expect.element(carChip('Toyota Camry')).not.toBeInTheDocument()
+    await expect.element(submit()).toBeEnabled()
     expect(toast.error).not.toHaveBeenCalled()
-    w.unmount()
   })
 
   it('overwrites a restored draft name on match and shows the chips', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ phoneRaw: '+7 (916) 123-45-67', name: 'Пётр' }))
-    const w = mountForm()
-    await flushPromises()
-    expect(inputByPlaceholder(w, 'Иван').value).toBe('Пётр')
+    await mountReadyForm()
+    await expect.element(nameField()).toHaveValue('Пётр')
     matched.value = client
-    await flushPromises()
-    expect(inputByPlaceholder(w, 'Иван').value).toBe('Иван')
-    expect(carChip(w, 'Toyota Camry')).toBeTruthy()
-    w.unmount()
+    await expect.element(nameField()).toHaveValue('Иван')
+    await expect.element(carChip('Toyota Camry')).toBeVisible()
   })
 
   it('summarises past visits of a returning client', async () => {
-    const w = mountForm()
-    await flushPromises()
+    const w = await mountReadyForm()
     matched.value = client
     summary.value = adminSummary
-    await flushPromises()
-    const text = w.text()
-    expect(text).toContain('Визитов: 2 · последний 12.09.2026')
-    expect(text).toContain('Потрачено: 48 000 ₽')
-    expect(text).toContain('Последнее: Полировка: кузов')
+    await expect.element(page.getByText('Визитов: 2 · последний 12.09.2026')).toBeVisible()
+    await expect.element(page.getByText('Потрачено: 48 000 ₽')).toBeVisible()
+    await expect.element(page.getByText('Последнее: Полировка: кузов')).toBeVisible()
     const link = w.findComponent(RouterLinkStub)
     expect(link.props('to')).toEqual({ name: 'client-detail', params: { id: client.id } })
     expect(link.attributes('target')).toBe('_blank')
-    w.unmount()
   })
 
   it('shows a booker the summary without money or the card link', async () => {
     useAuthStore().user = { login: 'booker1', role: 'booker', firstName: '', lastName: '' }
     const { totalSpent: _hiddenByServer, ...bookerSummary } = adminSummary
-    const w = mountForm()
-    await flushPromises()
+    const w = await mountReadyForm()
     matched.value = client
     summary.value = bookerSummary
-    await flushPromises()
-    const text = w.text()
-    expect(text).toContain('Визитов: 2 · последний 12.09.2026')
-    expect(text).toContain('Последнее: Полировка: кузов')
-    expect(text).not.toContain('Потрачено')
+    await expect.element(page.getByText('Визитов: 2 · последний 12.09.2026')).toBeVisible()
+    await expect.element(page.getByText('Последнее: Полировка: кузов')).toBeVisible()
+    await expect.element(page.getByText(/Потрачено/)).not.toBeInTheDocument()
     expect(w.findComponent(RouterLinkStub).exists()).toBe(false)
-    w.unmount()
   })
 
   it('says so when a known client has no delivered visits yet', async () => {
-    const w = mountForm()
-    await flushPromises()
+    await mountReadyForm()
     matched.value = client
     summary.value = { totalSpent: 0, visitCount: 0, lastVisit: null, lastService: null, missed: null }
-    await flushPromises()
-    expect(w.text()).toContain('Завершённых визитов ещё не было')
-    expect(w.text()).not.toContain('Потрачено')
-    w.unmount()
+    await expect.element(page.getByText('Завершённых визитов ещё не было')).toBeVisible()
+    await expect.element(page.getByText(/Потрачено/)).not.toBeInTheDocument()
   })
 
   it('warns to take a prepayment from a client who cancelled or did not show up', async () => {
-    const w = mountForm()
-    await flushPromises()
+    await mountReadyForm()
     matched.value = client
     summary.value = {
       ...adminSummary,
       missed: { cancelled: 1, noShow: 1, lastDate: '2026-10-01' },
     }
-    await flushPromises()
-    const text = w.text()
-    expect(text).toContain('Записывать только по предоплате')
-    expect(text).toContain('Отменял запись: 1 · Не приезжал: 1. Последний раз — 01.10.2026')
-    w.unmount()
+    await expect.element(page.getByText('Записывать только по предоплате')).toBeVisible()
+    await expect
+      .element(page.getByText('Отменял запись: 1 · Не приезжал: 1. Последний раз — 01.10.2026'))
+      .toBeVisible()
   })
 
   it('shows no prepayment warning for a client without cancellations', async () => {
-    const w = mountForm()
-    await flushPromises()
+    await mountReadyForm()
     matched.value = client
     summary.value = adminSummary
-    await flushPromises()
-    expect(w.text()).not.toContain('предоплате')
-    w.unmount()
+    await expect.element(page.getByText('Визитов: 2 · последний 12.09.2026')).toBeVisible()
+    await expect.element(page.getByText(/предоплате/)).not.toBeInTheDocument()
   })
 })

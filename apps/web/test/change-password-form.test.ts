@@ -1,5 +1,6 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
 import ChangePasswordForm from '../src/components/ChangePasswordForm.vue'
 import { changePassword } from '../src/lib/auth-api'
 
@@ -8,13 +9,21 @@ vi.mock('vue-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const NEW_PASSWORD = 'new-password-123'
 
-function inputs(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findAll('input')
+const current = () => page.getByLabelText('Текущий пароль')
+const next = () => page.getByLabelText('Новый пароль')
+const confirm = () => page.getByLabelText('Повторите новый пароль')
+const fields = () => [current(), next(), confirm()]
+
+// By position: a toggle's name flips with its state, and all three share it.
+const toggle = (index: number) =>
+  page.getByRole('button', { name: /^(Показать|Скрыть) пароль$/ }).nth(index)
+const submit = () => page.getByRole('button', { name: 'Сменить пароль' })
+
+function mountForm() {
+  mount(ChangePasswordForm, { attachTo: document.body })
 }
 
-function toggles(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findAll('button[aria-pressed]')
-}
+enableAutoUnmount(afterEach)
 
 describe('ChangePasswordForm', () => {
   beforeEach(() => {
@@ -22,88 +31,82 @@ describe('ChangePasswordForm', () => {
   })
 
   it('toggles each field on its own and keeps the typed value', async () => {
-    const wrapper = mount(ChangePasswordForm)
-    await inputs(wrapper)[1]!.setValue(NEW_PASSWORD)
+    mountForm()
+    await next().fill(NEW_PASSWORD)
 
-    await toggles(wrapper)[1]!.trigger('click')
+    await toggle(1).click()
 
-    expect(inputs(wrapper).map((i) => i.attributes('type'))).toEqual([
-      'password',
-      'text',
-      'password',
-    ])
-    expect(inputs(wrapper)[1]!.element.value).toBe(NEW_PASSWORD)
-    expect(toggles(wrapper)[1]!.attributes('aria-label')).toBe('Скрыть пароль')
+    await expect.element(current()).toHaveAttribute('type', 'password')
+    await expect.element(next()).toHaveAttribute('type', 'text')
+    await expect.element(confirm()).toHaveAttribute('type', 'password')
+    await expect.element(next()).toHaveValue(NEW_PASSWORD)
+    await expect.element(toggle(1)).toHaveAccessibleName('Скрыть пароль')
 
-    await toggles(wrapper)[1]!.trigger('click')
+    await toggle(1).click()
 
-    expect(inputs(wrapper)[1]!.attributes('type')).toBe('password')
+    await expect.element(next()).toHaveAttribute('type', 'password')
   })
 
   it('does not submit the form when the toggle is clicked', async () => {
-    const wrapper = mount(ChangePasswordForm)
+    vi.mocked(changePassword).mockResolvedValue({ ok: true } as never)
+    mountForm()
+    // A valid form, or a submitting toggle would be stopped by validation anyway.
+    await current().fill('old-password-123')
+    await next().fill(NEW_PASSWORD)
+    await confirm().fill(NEW_PASSWORD)
 
-    await toggles(wrapper)[0]!.trigger('click')
-    await flushPromises()
+    await toggle(0).click()
 
-    expect(toggles(wrapper)[0]!.attributes('type')).toBe('button')
+    await expect.element(toggle(0)).toHaveAttribute('aria-pressed', 'true')
+    await expect.element(toggle(0)).toHaveAttribute('type', 'button')
     expect(changePassword).not.toHaveBeenCalled()
   })
 
-  it('wires form attributes to the input, not the wrapper', () => {
-    const wrapper = mount(ChangePasswordForm)
-    const [current, , confirm] = inputs(wrapper)
+  it('wires form attributes to the input, not the wrapper', async () => {
+    mountForm()
 
-    expect(current!.attributes('autocomplete')).toBe('current-password')
-    expect(confirm!.attributes('id')).toBe('confirm-password')
-    for (const input of inputs(wrapper)) {
-      expect(input.attributes('data-slot')).toBe('input-group-control')
+    await expect.element(current()).toHaveAttribute('autocomplete', 'current-password')
+    await expect.element(confirm()).toHaveAttribute('id', 'confirm-password')
+    for (const field of fields()) {
+      await expect.element(field).toHaveAttribute('data-slot', 'input-group-control')
     }
-    expect(wrapper.find('[role="group"][autocomplete]').exists()).toBe(false)
+    expect(document.querySelector('[role="group"][autocomplete]')).toBeNull()
   })
 
   it('submits the typed passwords and hides every field after success', async () => {
     vi.mocked(changePassword).mockResolvedValue({ ok: true } as never)
-    const wrapper = mount(ChangePasswordForm)
-    const [current, next, confirm] = inputs(wrapper)
-    await current!.setValue('old-password-123')
-    await next!.setValue(NEW_PASSWORD)
-    await confirm!.setValue(NEW_PASSWORD)
-    for (const toggle of toggles(wrapper)) await toggle.trigger('click')
+    mountForm()
+    await current().fill('old-password-123')
+    await next().fill(NEW_PASSWORD)
+    await confirm().fill(NEW_PASSWORD)
+    for (const index of [0, 1, 2]) await toggle(index).click()
 
-    await wrapper.find('form').trigger('submit')
+    await submit().click()
 
     await vi.waitFor(() => {
-      expect(inputs(wrapper).map((i) => i.attributes('type'))).toEqual([
-        'password',
-        'password',
-        'password',
-      ])
+      expect(changePassword).toHaveBeenCalledWith({
+        currentPassword: 'old-password-123',
+        newPassword: NEW_PASSWORD,
+      })
     })
-    expect(changePassword).toHaveBeenCalledWith({
-      currentPassword: 'old-password-123',
-      newPassword: NEW_PASSWORD,
-    })
-    for (const input of inputs(wrapper)) {
-      expect(input.element.value).toBe('')
+    for (const field of fields()) {
+      await expect.element(field).toHaveAttribute('type', 'password')
+      await expect.element(field).toHaveValue('')
     }
   })
 
   it('stays visible and keeps values when the passwords do not match', async () => {
-    const wrapper = mount(ChangePasswordForm)
-    const [current, next, confirm] = inputs(wrapper)
-    await current!.setValue('old-password-123')
-    await next!.setValue(NEW_PASSWORD)
-    await confirm!.setValue('something-else-123')
-    await toggles(wrapper)[2]!.trigger('click')
+    mountForm()
+    await current().fill('old-password-123')
+    await next().fill(NEW_PASSWORD)
+    await confirm().fill('something-else-123')
+    await toggle(2).click()
 
-    await wrapper.find('form').trigger('submit')
+    await submit().click()
 
-    await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('Пароли не совпадают')
-    })
+    await expect.element(page.getByText('Пароли не совпадают')).toBeVisible()
     expect(changePassword).not.toHaveBeenCalled()
-    expect(inputs(wrapper)[2]!.attributes('type')).toBe('text')
-    expect(inputs(wrapper)[2]!.element.value).toBe('something-else-123')
+    await expect.element(confirm()).toHaveAttribute('type', 'text')
+    await expect.element(confirm()).toHaveValue('something-else-123')
   })
 })

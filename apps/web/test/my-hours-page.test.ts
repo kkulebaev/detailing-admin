@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { page } from 'vitest/browser'
 import type { MySalaryOk } from '@detailing-admin/shared'
 
 // Hoisted rather than exported from the mock: a browser-mode mock drops exports
@@ -71,9 +72,14 @@ const linked: MySalaryOk = {
 
 function mountPage() {
   return mount(MyHoursPage, {
+    attachTo: document.body,
     global: { stubs: { WorkHoursFormDialog: true } },
   })
 }
+
+const addHours = () => page.getByRole('button', { name: 'Добавить часы' })
+
+enableAutoUnmount(afterEach)
 
 describe('MyHoursPage', () => {
   beforeEach(() => {
@@ -82,16 +88,15 @@ describe('MyHoursPage', () => {
 
   it('explains an unlinked account instead of showing zeros', async () => {
     data.value = { ...linked, master: null, entries: [], hourlyRate: null }
-    const w = mountPage()
-    await flushPromises()
-    expect(w.text()).toContain('Аккаунт не привязан к мастеру')
-    expect(w.text()).not.toContain('Добавить часы')
+    mountPage()
+    await expect.element(page.getByText('Аккаунт не привязан к мастеру')).toBeVisible()
+    await expect.element(addHours()).not.toBeInTheDocument()
   })
 
   it('shows the month totals', async () => {
     data.value = linked
     const w = mountPage()
-    await flushPromises()
+    await expect.element(addHours()).toBeVisible()
     const text = w.text()
     expect(text).toContain('Пётр')
     expect(text).toContain('4 800 ₽')
@@ -102,21 +107,17 @@ describe('MyHoursPage', () => {
 
   it('offers edit and delete only for hours inside the window', async () => {
     data.value = linked
-    const w = mountPage()
-    await flushPromises()
-    const labels = w.findAll('button[aria-label]').map((b) => b.attributes('aria-label'))
-    expect(labels).toContain('Редактировать часы за 24 октября')
-    expect(labels).toContain('Удалить часы за 24 октября')
-    expect(labels.some((l) => l?.includes('10 октября'))).toBe(false)
-    expect(labels.some((l) => l?.includes('15 октября'))).toBe(false)
+    mountPage()
+    await expect.element(page.getByRole('button', { name: 'Редактировать часы за 24 октября' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: 'Удалить часы за 24 октября' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: /10 октября/ })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: /15 октября/ })).not.toBeInTheDocument()
   })
 
   it('disables adding hours until a rate is set', async () => {
     data.value = { ...linked, hourlyRate: null }
-    const w = mountPage()
-    await flushPromises()
-    const add = w.findAll('button').find((b) => b.text().includes('Добавить часы'))
-    expect(add?.attributes('disabled')).toBeDefined()
-    expect(w.text()).toContain('Ставка ещё не задана')
+    mountPage()
+    await expect.element(addHours()).toBeDisabled()
+    await expect.element(page.getByText(/Ставка ещё не задана/)).toBeVisible()
   })
 })

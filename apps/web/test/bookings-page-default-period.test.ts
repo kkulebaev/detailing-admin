@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { page } from 'vitest/browser'
 import { createPinia } from 'pinia'
-import { defineComponent, h, type ComputedRef } from 'vue'
+import type { ComputedRef } from 'vue'
 import type { GetApiBookingsParams } from '@/lib/bookings-api'
 
 // Hoisted rather than exported from the mock: a browser-mode mock drops exports
@@ -30,20 +31,12 @@ vi.mock('vue-sonner', () => ({
 
 import BookingsPage from '@/components/BookingsPage.vue'
 
-// Popover teleports its content and only renders it when open; the slot-only
-// stubs keep the period buttons reachable from the wrapper. A render function,
-// because the browser build of Vue has no template compiler.
-const slotStub = defineComponent((_, { slots }) => () => h('div', slots.default?.()))
-
 function mountPage() {
   return mount(BookingsPage, {
+    attachTo: document.body,
     global: {
       plugins: [createPinia()],
       stubs: {
-        Popover: slotStub,
-        PopoverTrigger: slotStub,
-        PopoverContent: slotStub,
-        Calendar: true,
         BookingDetailsDialog: true,
         BookingEditDialog: true,
       },
@@ -51,11 +44,17 @@ function mountPage() {
   })
 }
 
-function buttonByText(wrapper: ReturnType<typeof mountPage>, text: string) {
-  const button = wrapper.findAll('button').find((b) => b.text() === text)
-  if (!button) throw new Error(`no button «${text}»`)
-  return button
+const button = (name: string) => page.getByRole('button', { name })
+
+// Period actions live in a popover opened from the button that names the period.
+async function choosePeriod(from: string, action: string) {
+  await button(from).click()
+  await button(action).click()
+  // «Все записи» is both an action in the popover and the trigger's next label.
+  await expect.element(page.getByRole('dialog')).not.toBeInTheDocument()
 }
+
+enableAutoUnmount(afterEach)
 
 describe('BookingsPage default period', () => {
   beforeEach(() => {
@@ -66,61 +65,63 @@ describe('BookingsPage default period', () => {
     vi.useRealTimers()
   })
 
-  it('requests bookings from today with an open end', () => {
-    const wrapper = mountPage()
+  it('requests bookings from today with an open end', async () => {
+    mountPage()
     expect(captured.params.value.dateFrom).toBe('05.11.2026')
     expect(captured.params.value.dateTo).toBeUndefined()
-    expect(wrapper.text()).toContain('С 05.11.2026')
+    await expect.element(button('С 05.11.2026')).toBeVisible()
   })
 
-  it('keeps the default-period empty state while offering a reset', () => {
-    const wrapper = mountPage()
-    expect(wrapper.text()).toContain('Нет записей с сегодняшнего дня')
-    expect(wrapper.text()).not.toContain('Ничего не найдено')
-    expect(buttonByText(wrapper, 'Сбросить').exists()).toBe(true)
+  it('keeps the default-period empty state while offering a reset', async () => {
+    mountPage()
+    await expect.element(page.getByText('Нет записей с сегодняшнего дня')).toBeVisible()
+    await expect.element(page.getByText('Ничего не найдено')).not.toBeInTheDocument()
+    await expect.element(button('Сбросить')).toBeVisible()
   })
 
   it('switches the default period to «Все записи» on reset', async () => {
-    const wrapper = mountPage()
+    mountPage()
 
-    await buttonByText(wrapper, 'Сбросить').trigger('click')
-    await flushPromises()
+    await button('Сбросить').click()
+
+    await expect.element(button('Все записи')).toBeVisible()
     expect(captured.params.value.dateFrom).toBeUndefined()
     expect(captured.params.value.dateTo).toBeUndefined()
-    expect(wrapper.text()).not.toContain('С 05.11.2026')
+    await expect.element(button('С 05.11.2026')).not.toBeInTheDocument()
   })
 
   it('switches a chosen month to «Все записи» on reset', async () => {
-    const wrapper = mountPage()
+    mountPage()
 
-    await buttonByText(wrapper, 'Весь месяц').trigger('click')
-    await flushPromises()
+    await choosePeriod('С 05.11.2026', 'Весь месяц')
+    await expect.element(page.getByText('Ничего не найдено')).toBeVisible()
     expect(captured.params.value.dateFrom).toBe('01.11.2026')
-    expect(wrapper.text()).toContain('Ничего не найдено')
 
-    await buttonByText(wrapper, 'Сбросить').trigger('click')
-    await flushPromises()
+    await button('Сбросить').click()
+
+    await expect.element(button('Все записи')).toBeVisible()
     expect(captured.params.value.dateFrom).toBeUndefined()
     expect(captured.params.value.dateTo).toBeUndefined()
   })
 
   it('hides the reset when «Все записи» has nothing left to clear', async () => {
-    const wrapper = mountPage()
+    mountPage()
 
-    await buttonByText(wrapper, 'Все записи').trigger('click')
-    await flushPromises()
+    await choosePeriod('С 05.11.2026', 'Все записи')
+
+    await expect.element(page.getByText('Записей пока нет')).toBeVisible()
     expect(captured.params.value.dateFrom).toBeUndefined()
-    expect(wrapper.text()).not.toContain('Сбросить')
-    expect(wrapper.text()).toContain('Записей пока нет')
-    expect(wrapper.text()).not.toContain('Показать все записи')
+    await expect.element(button('Сбросить')).not.toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: /Показать все записи/ })).not.toBeInTheDocument()
   })
 
   it('returns to the default on «С сегодня»', async () => {
-    const wrapper = mountPage()
+    mountPage()
 
-    await buttonByText(wrapper, 'Все записи').trigger('click')
-    await buttonByText(wrapper, 'С сегодня').trigger('click')
-    await flushPromises()
+    await choosePeriod('С 05.11.2026', 'Все записи')
+    await choosePeriod('Все записи', 'С сегодня')
+
+    await expect.element(button('С 05.11.2026')).toBeVisible()
     expect(captured.params.value.dateFrom).toBe('05.11.2026')
   })
 })
