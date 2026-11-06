@@ -10,5 +10,5 @@ import type { PostApiMasters409Error } from './postApiMasters409Error';
 export type PostApiMasters409 = {
   ok: false;
   error: PostApiMasters409Error;
-  reason: 'duplicate_name' | 'duplicate_user';
+  reason: 'duplicate_name' | 'archived_name' | 'duplicate_user';
 };

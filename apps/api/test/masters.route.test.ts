@@ -79,6 +79,7 @@ const master = (over: Partial<Record<string, unknown>> = {}) => ({
   position: 0,
   canBeResponsible: true,
   paidSalary: true,
+  archived: false,
   telegramId: null,
   userId: null,
   ...over,
@@ -301,33 +302,6 @@ describe('/api/masters', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(vi.mocked(deleteMaster)).toHaveBeenCalledWith(1)
-  })
-
-  it('DELETE /{id} with recorded work hours → 409 has_work_hours', async () => {
-    vi.mocked(deleteMaster).mockRejectedValue(new MasterError('has_work_hours'))
-    const res = await req(app, '/1', 'DELETE')
-    expect(res.status).toBe(409)
-    const body = await res.json()
-    expect(body.error).toBe('conflict')
-    expect(body.reason).toBe('has_work_hours')
-  })
-
-  it('DELETE /{id} with recorded payouts → 409 has_payouts', async () => {
-    vi.mocked(deleteMaster).mockRejectedValue(new MasterError('has_payouts'))
-    const res = await req(app, '/1', 'DELETE')
-    expect(res.status).toBe(409)
-    const body = await res.json()
-    expect(body.error).toBe('conflict')
-    expect(body.reason).toBe('has_payouts')
-  })
-
-  it('DELETE /{id} with linked bookings → 409 has_bookings', async () => {
-    vi.mocked(deleteMaster).mockRejectedValue(new MasterError('has_bookings'))
-    const res = await req(app, '/1', 'DELETE')
-    expect(res.status).toBe(409)
-    const body = await res.json()
-    expect(body.error).toBe('conflict')
-    expect(body.reason).toBe('has_bookings')
   })
 
   it('PATCH /reorder → 200', async () => {

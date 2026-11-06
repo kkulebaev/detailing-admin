@@ -37,8 +37,6 @@ export * from './deleteApiMastersId400Error';
 export * from './deleteApiMastersId400IssuesItem';
 export * from './deleteApiMastersId404';
 export * from './deleteApiMastersId404Error';
-export * from './deleteApiMastersId409';
-export * from './deleteApiMastersId409Error';
 export * from './deleteApiMastersId500';
 export * from './deleteApiMastersId500Error';
 export * from './deleteApiMastersId503';

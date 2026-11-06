@@ -9,7 +9,6 @@ import type {
   DeleteApiMastersId200,
   DeleteApiMastersId400,
   DeleteApiMastersId404,
-  DeleteApiMastersId409,
   DeleteApiMastersId500,
   DeleteApiMastersId503,
   GetApiMasters200,
@@ -307,11 +306,6 @@ export type deleteApiMastersIdResponse404 = {
   status: 404
 }
 
-export type deleteApiMastersIdResponse409 = {
-  data: DeleteApiMastersId409
-  status: 409
-}
-
 export type deleteApiMastersIdResponse500 = {
   data: DeleteApiMastersId500
   status: 500
@@ -325,7 +319,7 @@ export type deleteApiMastersIdResponse503 = {
 export type deleteApiMastersIdResponseSuccess = (deleteApiMastersIdResponse200) & {
   headers: Headers;
 };
-export type deleteApiMastersIdResponseError = (deleteApiMastersIdResponse400 | deleteApiMastersIdResponse404 | deleteApiMastersIdResponse409 | deleteApiMastersIdResponse500 | deleteApiMastersIdResponse503) & {
+export type deleteApiMastersIdResponseError = (deleteApiMastersIdResponse400 | deleteApiMastersIdResponse404 | deleteApiMastersIdResponse500 | deleteApiMastersIdResponse503) & {
   headers: Headers;
 };
 

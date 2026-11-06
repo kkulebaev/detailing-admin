@@ -134,7 +134,11 @@ If the form sets `notify: true`, `notifyMaster()` sends a message to every assig
 
 ### Salaries
 
-`master_rates` holds the current hourly rate (kept out of `masters`, whose `GET` is open to employees). Each `work_hours` row freezes `rateSnapshot` at insert so a rate change never rewrites past pay; time is stored as integer `minutes`. `payouts` are one-off amounts (negative = deduction, zero rejected by a DB check). Both history tables use `onDelete: 'restrict'`, and `deleteMaster()` refuses a master that has history.
+`master_rates` holds the current hourly rate (kept out of `masters`, whose `GET` is open to employees). Each `work_hours` row freezes `rateSnapshot` at insert so a rate change never rewrites past pay; time is stored as integer `minutes`. `payouts` are one-off amounts (negative = deduction, zero rejected by a DB check). Both history tables use `onDelete: 'restrict'`.
+
+### Deleting a master is archiving
+
+`DELETE /api/masters/{id}` never removes the row: `deleteMaster()` sets `masters.archived` and clears `userId`, so bookings and pay history keep their links and the account can be attached elsewhere. There is no API or UI to restore; that is a manual `UPDATE` in the database. Archived masters are absent from `GET /api/masters`, and `updateMaster`/`reorderMasters` ignore them, so they vanish from every picker and from the `/bookings` filter. Two places still show them on purpose: a booking that already names them, and the salaries summary in months where they have hours or payouts, so money owed for the last month isn't hidden. The name stays taken (UNIQUE), which surfaces as the `archived_name` conflict.
 
 ### Self-service hours («Мои часы»)
 

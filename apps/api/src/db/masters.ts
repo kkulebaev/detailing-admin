@@ -1,24 +1,14 @@
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
-import {
-  bookingMasters,
-  bookings,
-  masters,
-  payouts,
-  users,
-  workHours,
-  type Master,
-} from './schema.js'
+import { masters, users, type Master } from './schema.js'
 
 export type MasterMutationError =
   | 'duplicate_name'
+  | 'archived_name'
   | 'duplicate_user'
   | 'unknown_user'
   | 'not_found'
   | 'invalid_order'
-  | 'has_work_hours'
-  | 'has_payouts'
-  | 'has_bookings'
 
 export class MasterError extends Error {
   constructor(public readonly code: MasterMutationError) {
@@ -37,7 +27,24 @@ export interface MasterInput {
 
 export async function listMasters(): Promise<Master[]> {
   const db = getDb()
-  return db.select().from(masters).orderBy(masters.position, masters.id)
+  return db
+    .select()
+    .from(masters)
+    .where(eq(masters.archived, false))
+    .orderBy(masters.position, masters.id)
+}
+
+// An archived master keeps the UNIQUE name but is invisible in the app, so the
+// clash gets its own code: «already exists» would point at a row nobody can see.
+async function assertNameFree(name: string, masterId?: number) {
+  const db = getDb()
+  const [duplicate] = await db
+    .select({ id: masters.id, archived: masters.archived })
+    .from(masters)
+    .where(eq(masters.name, name))
+    .limit(1)
+  if (!duplicate || duplicate.id === masterId) return
+  throw new MasterError(duplicate.archived ? 'archived_name' : 'duplicate_name')
 }
 
 // Names are unique (see the `name` unique constraint), so this resolves at most
@@ -92,12 +99,7 @@ async function nextPosition(): Promise<number> {
 
 export async function createMaster(input: MasterInput): Promise<Master> {
   const db = getDb()
-  const [existing] = await db
-    .select({ id: masters.id })
-    .from(masters)
-    .where(eq(masters.name, input.name))
-    .limit(1)
-  if (existing) throw new MasterError('duplicate_name')
+  await assertNameFree(input.name)
   await assertUserLinkable(input.userId)
 
   const position = await nextPosition()
@@ -126,67 +128,42 @@ export interface MasterPatch {
 export async function updateMaster(id: number, patch: MasterPatch): Promise<Master> {
   const db = getDb()
 
-  if (patch.name !== undefined) {
-    const [duplicate] = await db
-      .select({ id: masters.id })
-      .from(masters)
-      .where(eq(masters.name, patch.name))
-      .limit(1)
-    if (duplicate && duplicate.id !== id) throw new MasterError('duplicate_name')
-  }
+  if (patch.name !== undefined) await assertNameFree(patch.name, id)
   await assertUserLinkable(patch.userId, id)
 
-  const [row] = await db.update(masters).set(patch).where(eq(masters.id, id)).returning()
+  const [row] = await db
+    .update(masters)
+    .set(patch)
+    .where(and(eq(masters.id, id), eq(masters.archived, false)))
+    .returning()
   if (!row) throw new MasterError('not_found')
   return row
 }
 
+// Soft delete: bookings, hours and payouts must keep pointing at this row. The
+// account is released because the UNIQUE link would otherwise block attaching it
+// to another master through a row the admin can no longer see, and because a
+// removed master shouldn't keep logging hours on «Мои часы».
 export async function deleteMaster(id: number): Promise<void> {
   const db = getDb()
-  // Payment history in work_hours references this master with onDelete:'restrict'
-  // — Postgres would reject the delete. Refuse it explicitly so the route can
-  // surface a 409 instead of a generic 500 (mirrors deleteClient/has_bookings).
-  const [linkedWork] = await db
-    .select({ id: workHours.id })
-    .from(workHours)
-    .where(eq(workHours.masterId, id))
-    .limit(1)
-  if (linkedWork) throw new MasterError('has_work_hours')
-  // Payouts are payment history too, and reference the master with the same
-  // `restrict` — probed here, right after hours and ahead of bookings.
-  const [linkedPayout] = await db
-    .select({ id: payouts.id })
-    .from(payouts)
-    .where(eq(payouts.masterId, id))
-    .limit(1)
-  if (linkedPayout) throw new MasterError('has_payouts')
-  // Booking history references this master by id-link (junction and/or the
-  // responsible_id FK). Both would `cascade`/`set null` silently, orphaning the
-  // history from its master; refuse instead so a rename is the only path and the
-  // live-name history stays intact.
-  const [linkedJunction] = await db
-    .select({ bookingId: bookingMasters.bookingId })
-    .from(bookingMasters)
-    .where(eq(bookingMasters.masterId, id))
-    .limit(1)
-  if (linkedJunction) throw new MasterError('has_bookings')
-  const [linkedResponsible] = await db
-    .select({ id: bookings.id })
-    .from(bookings)
-    .where(eq(bookings.responsibleId, id))
-    .limit(1)
-  if (linkedResponsible) throw new MasterError('has_bookings')
-  const result = await db.delete(masters).where(eq(masters.id, id)).returning({ id: masters.id })
+  const result = await db
+    .update(masters)
+    .set({ archived: true, userId: null })
+    .where(and(eq(masters.id, id), eq(masters.archived, false)))
+    .returning({ id: masters.id })
   if (result.length === 0) throw new MasterError('not_found')
 }
 
 // Assigns dense positions 0..n-1 in the given order. The posted id set must
-// equal the full set of rows (active + inactive) — a partial or foreign set is
+// equal the full set of non-archived rows — a partial or foreign set is
 // rejected without touching the table, so positions can't silently desync.
 export async function reorderMasters(ids: number[]): Promise<Master[]> {
   const db = getDb()
   return db.transaction(async (tx) => {
-    const existing = await tx.select({ id: masters.id }).from(masters)
+    const existing = await tx
+      .select({ id: masters.id })
+      .from(masters)
+      .where(eq(masters.archived, false))
     const existingIds = new Set(existing.map((r) => r.id))
     const postedIds = new Set(ids)
     const sameSize = postedIds.size === ids.length && existingIds.size === postedIds.size
@@ -196,6 +173,10 @@ export async function reorderMasters(ids: number[]): Promise<Master[]> {
     for (let i = 0; i < ids.length; i++) {
       await tx.update(masters).set({ position: i }).where(eq(masters.id, ids[i]))
     }
-    return tx.select().from(masters).orderBy(masters.position, masters.id)
+    return tx
+      .select()
+      .from(masters)
+      .where(eq(masters.archived, false))
+      .orderBy(masters.position, masters.id)
   })
 }

@@ -53,11 +53,16 @@ export const reorderInputSchema = z.object({
 export type ReorderInput = z.infer<typeof reorderInputSchema>
 
 // duplicate_user: the account is already linked to another master — one account
-// logs hours for exactly one master.
+// logs hours for exactly one master. archived_name: the name belongs to a deleted
+// master, whose row stays in the table.
 export const masterConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
-  reason: z.union([z.literal('duplicate_name'), z.literal('duplicate_user')]),
+  reason: z.union([
+    z.literal('duplicate_name'),
+    z.literal('archived_name'),
+    z.literal('duplicate_user'),
+  ]),
 })
 
 // invalid_order is a validation-flavoured error specific to reorder: the posted
@@ -66,20 +71,6 @@ const masterInvalidOrderSchema = z.object({
   ok: z.literal(false),
   error: z.literal('validation'),
   reason: z.literal('invalid_order'),
-})
-
-// Delete-only conflict: the master is still pinned by payment history
-// (work_hours, payouts) or by bookings linked via the id-link (junction /
-// responsible_id). Refused instead of cascading so the live-name booking
-// history stays intact.
-const masterDeleteConflictSchema = z.object({
-  ok: z.literal(false),
-  error: z.literal('conflict'),
-  reason: z.union([
-    z.literal('has_work_hours'),
-    z.literal('has_payouts'),
-    z.literal('has_bookings'),
-  ]),
 })
 
 export const mastersListResponseSchema = z.union([
@@ -108,7 +99,6 @@ export const masterUpdateResponseSchema = z.union([
 
 export const masterDeleteResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
-  masterDeleteConflictSchema,
   notFoundErrorSchema,
   dbUnavailableErrorSchema,
   internalErrorSchema,

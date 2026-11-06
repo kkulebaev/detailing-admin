@@ -6804,6 +6804,12 @@
                         {
                           "type": "string",
                           "enum": [
+                            "archived_name"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
                             "duplicate_user"
                           ]
                         }
@@ -7314,6 +7320,12 @@
                         {
                           "type": "string",
                           "enum": [
+                            "archived_name"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
                             "duplicate_user"
                           ]
                         }
@@ -7514,57 +7526,6 @@
                   "required": [
                     "ok",
                     "error"
-                  ]
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Master still has work hours or booking history",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "error": {
-                      "type": "string",
-                      "enum": [
-                        "conflict"
-                      ]
-                    },
-                    "reason": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": [
-                            "has_work_hours"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "has_payouts"
-                          ]
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "has_bookings"
-                          ]
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "ok",
-                    "error",
-                    "reason"
                   ]
                 }
               }

@@ -132,23 +132,8 @@ async function confirmDelete() {
       return
     }
     // Real failure — keep the dialog open and surface the reason inside it.
-    if (result.error === 'conflict') {
-      if (result.reason === 'has_bookings') {
-        deleteError.value = 'Нельзя удалить мастера: есть записи клиентов'
-      } else if (result.reason === 'has_payouts') {
-        // The salaries sheet lists only masters with «Начисляется зарплата» on,
-        // so the payouts blocking the delete can be invisible until it's back.
-        deleteError.value =
-          'Нельзя удалить мастера: есть разовые выплаты. Сначала удалите их на ' +
-          'странице «Зарплаты». Если галочка «Начисляется зарплата» снята — ' +
-          'включите её, иначе мастера там не видно'
-      } else {
-        deleteError.value = 'Нельзя удалить мастера: есть отработанные часы'
-      }
-    } else {
-      deleteError.value =
-        result.error === 'unavailable' ? result.message : 'Не удалось удалить мастера'
-    }
+    deleteError.value =
+      result.error === 'unavailable' ? result.message : 'Не удалось удалить мастера'
   } catch {
     deleteError.value = 'Не удалось удалить мастера'
   } finally {
@@ -267,7 +252,7 @@ async function confirmDelete() {
           <AlertDialogTitle>Удалить мастера?</AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget">
-              Мастер «{{ deleteTarget.name }}» будет удалён. Действие нельзя отменить
+              Мастер «{{ deleteTarget.name }}» пропадёт из списков, а его записи и зарплата сохранятся. Вернуть мастера можно только через базу данных
             </template>
           </AlertDialogDescription>
         </AlertDialogHeader>

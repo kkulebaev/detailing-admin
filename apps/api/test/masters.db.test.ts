@@ -174,57 +174,34 @@ describe('linking an account', () => {
   })
 })
 
-describe('deleteMaster guards', () => {
-  it('throws has_work_hours when the master still has recorded hours', async () => {
-    // Probe finds a linked work_hours row → refuse before deleting.
-    const { db } = makeFakeDb({ selectResults: [[{ id: 42 }]] })
+describe('deleteMaster', () => {
+  it('archives the row and releases the account instead of removing it', async () => {
+    const { db, capture } = makeFakeDb({ selectResults: [], updateResults: [[{ id: 1 }]] })
     _setDbForTest(db)
-
-    const err = await deleteMaster(1).catch((e) => e)
-    expect(err).toBeInstanceOf(MasterError)
-    expect(err.code).toBe('has_work_hours')
+    await deleteMaster(1)
+    expect(capture.sets).toEqual([{ archived: true, userId: null }])
   })
 
-  it('throws has_payouts when the master still has one-off payments', async () => {
-    // work_hours empty → payouts probe finds a row → refuse. Payouts are payment
-    // history too, so they outlive the master just like hours do.
-    const { db } = makeFakeDb({ selectResults: [[], [{ id: 7 }]] })
+  it('throws not_found when the master is missing or already archived', async () => {
+    const { db } = makeFakeDb({ selectResults: [], updateResults: [[]] })
     _setDbForTest(db)
+    await expect(deleteMaster(1)).rejects.toMatchObject({ code: 'not_found' })
+  })
+})
 
-    const err = await deleteMaster(1).catch((e) => e)
-    expect(err).toBeInstanceOf(MasterError)
-    expect(err.code).toBe('has_payouts')
+describe('a name held by an archived master', () => {
+  const input = { name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }
+
+  it('is refused with archived_name on create', async () => {
+    const { db } = makeFakeDb({ selectResults: [[{ id: 7, archived: true }]] })
+    _setDbForTest(db)
+    await expect(createMaster(input)).rejects.toMatchObject({ code: 'archived_name' })
   })
 
-  it('throws has_bookings when a junction row still links the master', async () => {
-    // work_hours + payouts empty → junction probe finds a link → refuse.
-    const { db } = makeFakeDb({ selectResults: [[], [], [{ bookingId: 'bk1' }]] })
+  it('is refused with archived_name on rename', async () => {
+    const { db } = makeFakeDb({ selectResults: [[{ id: 7, archived: true }]] })
     _setDbForTest(db)
-
-    const err = await deleteMaster(1).catch((e) => e)
-    expect(err).toBeInstanceOf(MasterError)
-    expect(err.code).toBe('has_bookings')
-  })
-
-  it('throws has_bookings when a booking still names the master as responsible', async () => {
-    // work_hours + payouts + junction empty → responsible_id probe finds a
-    // booking → refuse.
-    const { db } = makeFakeDb({ selectResults: [[], [], [], [{ id: 'bk1' }]] })
-    _setDbForTest(db)
-
-    const err = await deleteMaster(1).catch((e) => e)
-    expect(err).toBeInstanceOf(MasterError)
-    expect(err.code).toBe('has_bookings')
-  })
-
-  it('throws not_found when the master has no history and no row is deleted', async () => {
-    // All four probes empty; the delete removes nothing.
-    const { db } = makeFakeDb({ selectResults: [[], [], [], []] })
-    _setDbForTest(db)
-
-    const err = await deleteMaster(999).catch((e) => e)
-    expect(err).toBeInstanceOf(MasterError)
-    expect(err.code).toBe('not_found')
+    await expect(updateMaster(1, { name: 'Пётр' })).rejects.toMatchObject({ code: 'archived_name' })
   })
 })
 

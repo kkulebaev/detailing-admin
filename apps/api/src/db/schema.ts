@@ -175,6 +175,10 @@ export const masters = pgTable('masters', {
   // Whether this master is paid a salary — filters the Зарплаты page. Defaults
   // true so existing masters keep appearing there; admins opt individuals out.
   paidSalary: boolean('paid_salary').notNull().default(true),
+  // «Удалить» only sets this: bookings and pay history keep referencing the row.
+  // The API hides archived masters and has no way back; restoring is a manual
+  // UPDATE in the database.
+  archived: boolean('archived').notNull().default(false),
   // Reserved for future Telegram notifications; nullable until a master links one.
   telegramId: varchar('telegram_id', { length: 64 }),
   // Account that logs hours as this master on «Мои часы». UNIQUE: one account
@@ -237,7 +241,7 @@ export type NewMasterRate = typeof masterRates.$inferInsert
 // Records of hours worked. `rateSnapshot` freezes the master's rate at insert so
 // a later rate change never rewrites past months' pay. `onDelete: 'restrict'`
 // (not cascade) is the DB-level guard against losing payment history when a
-// master is deleted; deleteMaster() also refuses in app code (has_work_hours).
+// master row is removed; the app only archives masters, see deleteMaster().
 // `minutes` (not float hours) keeps arithmetic integer — "money = int".
 export const workHours = pgTable(
   'work_hours',

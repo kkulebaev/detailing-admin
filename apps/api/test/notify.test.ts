@@ -47,6 +47,7 @@ const MASTER = {
   position: 0,
   canBeResponsible: true,
   paidSalary: true,
+  archived: false,
   telegramId: '55555',
   userId: null,
 }

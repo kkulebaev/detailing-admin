@@ -1,4 +1,4 @@
-import { and, eq, gte, lt, sql } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, lt, or, sql } from 'drizzle-orm'
 import { monthRange, salaryFromMinutesRateSum, type SalaryRow } from '@detailing-admin/shared'
 import { getDb } from './client.js'
 import {
@@ -104,7 +104,18 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
     .leftJoin(masterRates, eq(masterRates.masterId, masters.id))
     .leftJoin(agg, eq(agg.masterId, masters.id))
     .leftJoin(payoutAgg, eq(payoutAgg.masterId, masters.id))
-    .where(eq(masters.paidSalary, true))
+    // An archived master stays in any month they have hours or payouts: dropping
+    // them would hide money still owed for the month they left.
+    .where(
+      and(
+        eq(masters.paidSalary, true),
+        or(
+          eq(masters.archived, false),
+          isNotNull(agg.totalMinutes),
+          isNotNull(payoutAgg.payoutsSum),
+        ),
+      ),
+    )
     .orderBy(masters.position, masters.id)
 
   // postgres-js returns SUM() as a string (numeric/bigint); coerce with Number.

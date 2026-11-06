@@ -10,5 +10,5 @@ import type { PatchApiMastersId409Error } from './patchApiMastersId409Error';
 export type PatchApiMastersId409 = {
   ok: false;
   error: PatchApiMastersId409Error;
-  reason: 'duplicate_name' | 'duplicate_user';
+  reason: 'duplicate_name' | 'archived_name' | 'duplicate_user';
 };
