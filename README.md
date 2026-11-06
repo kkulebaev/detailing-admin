@@ -186,7 +186,7 @@ pnpm --filter @detailing-admin/web gen:client
 - Создать один **проект** и внутри него три ресурса: сервисы `detailing-api`, `detailing-web` и **Postgres** (New → Database → PostgreSQL).
 - В сервисе `detailing-api` в **Settings → Variables** связать переменную `DATABASE_URL` с Postgres через **+ New Variable Reference → Postgres.DATABASE_URL**. Это даст приватный URL внутри проекта и переживёт перезапуск БД.
 
-Браузер ходит только в `detailing-web`: web-контейнер (`vite preview`) сам проксирует `/api` в `detailing-api` по внутренней сети Railway. Так auth-cookie остаётся first-party (`SameSite=Lax`).
+Браузер ходит только в `detailing-web`: web-контейнер (nginx) сам проксирует `/api` в `detailing-api` по внутренней сети Railway. Так auth-cookie остаётся first-party (`SameSite=Lax`).
 
 ---
 

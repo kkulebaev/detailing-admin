@@ -20,40 +20,18 @@ COPY . .
 
 RUN pnpm -F @detailing-admin/web build
 
-# ── Stage 3: produce a self-contained deployment ─────────────────────────────
-# No --prod here: vite (the preview server) is a devDep, so a prod-only deploy
-# would strip it and break startup. `pnpm deploy` still hoists transitively and
-# leaves out other workspaces' deps (googleapis, tsup, vitest, vue-tsc, …) which
-# otherwise dominated the runtime image when we copied the root node_modules.
-FROM builder AS deployer
+# ── Stage 3: serve the static build and proxy /api ───────────────────────────
+FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 
-ENV CI=true
-RUN pnpm deploy --filter=@detailing-admin/web /deploy/web
+# Railway assigns PORT at runtime; 8080 is the fallback for a plain `docker run`.
+ENV PORT=8080
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+# Without the filter envsubst would also expand any nginx variable that happens to
+# share a name with an environment variable.
+ENV NGINX_ENVSUBST_FILTER='^(PORT|VITE_API_PROXY_TARGET|NGINX_LOCAL_RESOLVERS)$'
 
-# ── Stage 4: minimal runtime — vite preview ──────────────────────────────────
-# NOTE: `vite preview` is documented as not-for-production. It works for this
-# MVP, but when traffic grows, swap this stage for nginx:alpine serving
-# /app/dist and drop the Node runtime entirely.
-FROM node:26-alpine AS runtime
-
-WORKDIR /app
-
-# WORKDIR creates /app as root. Vite's config-loader may write to /app/.vite
-# (esbuild scratch) when bundling vite.config.ts on preview startup.
-RUN chown node:node /app
-
-COPY --from=deployer --chown=node:node /deploy/web ./
-
-USER node
-
-# Production mode keeps Vue/plugins out of dev branches even though preview
-# already defaults to mode=production.
-ENV NODE_ENV=production
+COPY apps/web/nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY --chmod=755 apps/web/nginx/05-api-target.envsh /docker-entrypoint.d/05-api-target.envsh
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 
 EXPOSE 8080
-
-# Invoke vite directly via node — bypasses pnpm at runtime (its startup
-# deps-status-check tries to `pnpm install` into /app and fails for the
-# non-root user).
-# `exec` makes node PID 1 so SIGTERM from Railway reaches it directly.
-CMD ["sh", "-c", "exec node node_modules/vite/bin/vite.js preview --port ${PORT:-8080} --host 0.0.0.0"]
