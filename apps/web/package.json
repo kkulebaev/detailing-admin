@@ -16,6 +16,7 @@
     "@internationalized/date": "^3.12.4",
     "@lucide/vue": "^1.68.0",
     "@pinia/colada": "^1.4.9",
+    "@pinia/colada-plugin-retry": "1.0.3",
     "@unovis/ts": "^1.7.1",
     "@unovis/vue": "^1.7.1",
     "@vee-validate/zod": "^4.15.1",

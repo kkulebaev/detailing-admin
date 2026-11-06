@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { PiniaColada } from '@pinia/colada'
+import { PiniaColadaRetry } from '@pinia/colada-plugin-retry'
 import App from './App.vue'
 import { router } from './router'
 import { useAuthStore } from './stores/auth'
@@ -10,7 +11,11 @@ import './styles/globals.css'
 
 const app = createApp(App)
 app.use(createPinia())
-app.use(PiniaColada)
+// Only a dropped connection or a non-JSON reply (a proxy's 502 page) reaches this
+// as an error: `orvalFetch` hands HTTP errors back as `{ ok: false }` data, so a
+// 401 or 404 is never retried. Only reads go through colada, so a retry can't
+// duplicate a booking.
+app.use(PiniaColada, { plugins: [PiniaColadaRetry()] })
 app.use(router)
 
 // Wired here, not inside orval-mutator.ts: auth-api.ts (and everything that
