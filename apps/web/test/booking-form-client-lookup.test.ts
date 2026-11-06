@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
 import { ref } from 'vue'
@@ -7,19 +6,21 @@ import type { ClientLookupSummary } from '@detailing-admin/shared'
 import { useAuthStore } from '@/stores/auth'
 import type { Client } from '@/lib/clients-api'
 
-// The matched client is driven directly through a shared ref exposed by the
-// mocked composable — the composable's own phone gating is covered in
-// use-client-lookup.test.ts; here we exercise the form's reaction to a match.
-vi.mock('@/composables/use-client-lookup', async () => {
-  const { ref: r } = await vi.importActual<typeof import('vue')>('vue')
-  const matchedClient = r<Client | null>(null)
-  const matchedClientSummary = r<ClientLookupSummary | null>(null)
+// The matched client is driven directly through shared refs — the composable's
+// own phone gating is covered in use-client-lookup.test.ts; here we exercise the
+// form's reaction to a match. They are hoisted rather than exported from the mock
+// because a browser-mode mock drops exports the real module doesn't have.
+const { matched, summary } = await vi.hoisted(async () => {
+  const { ref: r } = await import('vue')
   return {
-    useClientLookup: () => ({ matchedClient, matchedClientSummary }),
-    __matchedClient: matchedClient,
-    __summary: matchedClientSummary,
+    matched: r<Client | null>(null),
+    summary: r<ClientLookupSummary | null>(null),
   }
 })
+
+vi.mock('@/composables/use-client-lookup', () => ({
+  useClientLookup: () => ({ matchedClient: matched, matchedClientSummary: summary }),
+}))
 
 // Queries that fire on mount — return empty-but-ok data so the master options
 // fall back to the enum and nothing is left in a loading state.
@@ -35,11 +36,7 @@ vi.mock('vue-sonner', () => ({
 }))
 
 import BookingForm from '@/components/BookingForm.vue'
-import * as lookupMock from '@/composables/use-client-lookup'
 import { toast } from 'vue-sonner'
-
-const matched = (lookupMock as unknown as { __matchedClient: { value: Client | null } }).__matchedClient
-const summary = (lookupMock as unknown as { __summary: { value: ClientLookupSummary | null } }).__summary
 
 const client: Client = {
   id: '11111111-1111-1111-1111-111111111111',

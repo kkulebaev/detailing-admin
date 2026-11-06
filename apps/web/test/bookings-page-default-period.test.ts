@@ -1,13 +1,15 @@
-// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import type { ComputedRef } from 'vue'
+import { defineComponent, h, type ComputedRef } from 'vue'
 import type { GetApiBookingsParams } from '@/lib/bookings-api'
+
+// Hoisted rather than exported from the mock: a browser-mode mock drops exports
+// the real module doesn't have.
+const captured = vi.hoisted(() => ({}) as { params: ComputedRef<GetApiBookingsParams> })
 
 vi.mock('@/lib/queries', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
-  const captured: { params?: ComputedRef<GetApiBookingsParams> } = {}
   return {
     useBookingsQuery: (params: ComputedRef<GetApiBookingsParams>) => {
       captured.params = params
@@ -19,7 +21,6 @@ vi.mock('@/lib/queries', async () => {
     },
     useMastersQuery: () => ({ data: ref(undefined) }),
     useInvalidateBookings: () => vi.fn(),
-    __captured: captured,
   }
 })
 
@@ -28,17 +29,11 @@ vi.mock('vue-sonner', () => ({
 }))
 
 import BookingsPage from '@/components/BookingsPage.vue'
-import * as queriesMock from '@/lib/queries'
-
-const captured = (
-  queriesMock as unknown as {
-    __captured: { params: ComputedRef<GetApiBookingsParams> }
-  }
-).__captured
 
 // Popover teleports its content and only renders it when open; the slot-only
-// stubs keep the period buttons reachable from the wrapper.
-const slotStub = { template: '<div><slot /></div>' }
+// stubs keep the period buttons reachable from the wrapper. A render function,
+// because the browser build of Vue has no template compiler.
+const slotStub = defineComponent((_, { slots }) => () => h('div', slots.default?.()))
 
 function mountPage() {
   return mount(BookingsPage, {

@@ -266,6 +266,12 @@ pnpm lint        # eslint
 pnpm build       # tsup (api) + vue-tsc + vite build (web)
 ```
 
+Тесты `apps/web` работают в Chromium (Vitest Browser Mode). После первой установки зависимостей выполните один раз:
+
+```bash
+pnpm --filter @detailing-admin/web exec playwright install --only-shell chromium
+```
+
 Те же `lint`, `typecheck` и `test` запускаются lefthook'ом перед каждым коммитом, в котором есть `.ts`/`.vue`. CI в репозитории нет.
 
 ---

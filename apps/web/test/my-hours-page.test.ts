@@ -1,15 +1,19 @@
-// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import type { MySalaryOk } from '@detailing-admin/shared'
 
+// Hoisted rather than exported from the mock: a browser-mode mock drops exports
+// the real module doesn't have.
+const data = await vi.hoisted(async () => {
+  const { ref } = await import('vue')
+  return ref<MySalaryOk | undefined>(undefined)
+})
+
 vi.mock('@/lib/queries', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
-  const data = ref<MySalaryOk | undefined>(undefined)
   return {
     useMySalaryQuery: () => ({ data, error: ref(null), asyncStatus: ref('idle') }),
     useInvalidateMySalary: () => vi.fn(),
-    __data: data,
   }
 })
 
@@ -20,9 +24,6 @@ vi.mock('vue-sonner', () => ({
 }))
 
 import MyHoursPage from '@/pages/MyHoursPage.vue'
-import * as queriesMock from '@/lib/queries'
-
-const data = (queriesMock as unknown as { __data: { value: MySalaryOk | undefined } }).__data
 
 const linked: MySalaryOk = {
   ok: true,

@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { ref } from 'vue'
@@ -46,9 +45,6 @@ function carInput(w: VueWrapper): HTMLInputElement {
   return w.find('input[placeholder="Toyota Camry"]').element as HTMLInputElement
 }
 
-// The popover content is teleported out of the component tree, and reka-ui's
-// Presence keeps the closed node around until the exit animation ends — which
-// never fires without a layout engine. Read the state attribute instead.
 function options(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>('ul[data-car-suggestions] li[role="option"]'))
 }

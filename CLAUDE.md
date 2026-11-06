@@ -23,6 +23,8 @@ pnpm lint                 # eslint over the whole workspace
 
 A lefthook pre-commit hook runs `lint`, `typecheck` and `test` in parallel whenever a `.ts`/`.vue` file is staged. There is no CI — the hook is the gate.
 
+Web tests run in Chromium, so after the first install run `pnpm --filter @detailing-admin/web exec playwright install --only-shell chromium` once; without it neither `pnpm test` nor the hook passes.
+
 Per-package (run from package dir or via `pnpm --filter`):
 
 ```bash
@@ -186,6 +188,7 @@ Base components live in `apps/web/src/components/ui/<name>/` — the full shadcn
 - **Money is int:** amounts are whole rubles in `integer` columns; durations are integer minutes.
 - **Commits:** Conventional Commits 1.0.0 (`feat`, `fix`, `chore`, `refactor`, etc., optional scope). Description only — no body. No `Co-Authored-By` trailer.
 - **Tests:** Vitest unit tests under `<package>/test/`. The Sheets client is mocked via `_setClientForTest()` and boot state via `_resetForTest()` / `_setDbReadyForTest()` — never make real Sheets or DB calls in tests. reka-ui `Dialog` content is teleported, so in web component tests query it through `document`, not the mount wrapper.
+- **Web tests run in Vitest Browser Mode** (Chromium via `@vitest/browser-playwright`, config in `apps/web/vitest.config.ts`, kept out of `vite.config.ts` because `vite preview` loads that file in prod). A `vi.mock` factory can't add exports the real module lacks, since they arrive `undefined`: share state with `vi.hoisted`. Stubs use render functions, not a string `template`, because the browser build of Vue has no compiler.
 - **Drizzle:** `drizzle.config.ts` has `casing: 'snake_case'` — write columns in camelCase TS (`sectionId`) and they map to `section_id` in SQL. Migrations live in `apps/api/drizzle/`; never hand-edit the generated SQL — change `schema.ts` and re-run `db:generate`. Migration files and `drizzle/meta/*` must be committed together.
 - **Seed data:** `apps/api/.seed/` is gitignored (contains PII: client phones from historical sheets). The pricelist JSON also lives there and is intentionally outside git — regenerate it manually if a fresh checkout needs it. `seed:dump` regenerates `clients.json` from Sheets; there is no dump script for the pricelist.
 - **Backlog:** `TODO.md` lists feature candidates with value/complexity notes; mark items `✅ Выполнено` with a status line when they ship.
