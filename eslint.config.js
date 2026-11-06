@@ -11,6 +11,7 @@
 import tseslint from 'typescript-eslint'
 import vitest from '@vitest/eslint-plugin'
 import vue from 'eslint-plugin-vue'
+import { importX } from 'eslint-plugin-import-x'
 import vueParser from 'vue-eslint-parser'
 
 const TEST_FILES = ['**/test/**/*.{ts,vue}']
@@ -48,6 +49,11 @@ export default tseslint.config(
   },
   ...vue.configs['flat/essential'],
   {
+    files: ['**/*.{ts,vue}'],
+    plugins: { 'import-x': importX },
+    rules: { 'import-x/first': 'error' },
+  },
+  {
     files: ['**/*.vue'],
     plugins: { '@typescript-eslint': tseslint.plugin, vue },
     languageOptions: {
@@ -59,7 +65,13 @@ export default tseslint.config(
         extraFileExtensions: ['.vue'],
       },
     },
-    rules: NO_TYPE_ASSERTIONS,
+    rules: {
+      ...NO_TYPE_ASSERTIONS,
+      // A <button> without a type submits its form when clicked.
+      'vue/html-button-has-type': 'error',
+      'vue/no-undef-components': ['error', { ignorePatterns: ['^RouterLink$', '^RouterView$'] }],
+      'vue/no-undef-properties': 'error',
+    },
   },
   {
     ...vitest.configs.recommended,
@@ -68,6 +80,8 @@ export default tseslint.config(
       ...vitest.configs.recommended.rules,
       // Mock casts are part of the testing toolkit.
       '@typescript-eslint/consistent-type-assertions': 'off',
+      // `vi.mock` conventionally precedes the imports it affects; vitest hoists it.
+      'import-x/first': 'off',
       // The preset only warns, and a warning doesn't fail `pnpm lint`: with no CI a
       // forgotten `it.skip` would stay switched off without anyone noticing.
       'vitest/no-disabled-tests': 'error',

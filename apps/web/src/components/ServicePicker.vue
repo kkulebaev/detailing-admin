@@ -493,7 +493,7 @@ watch(() => props.modelValue, syncSelectionFromString)
                   class="h-8 w-20 pr-4 text-right text-sm tabular-nums"
                   :aria-label="`Цена услуги ${s.name}`"
                   :model-value="rawPrices[s.id] ?? ''"
-                  @input="(e: Event) => onPriceInput(s.id, e)"
+                  @input="onPriceInput(s.id, $event)"
                 />
                 <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₽</span>
               </div>
