@@ -11,8 +11,7 @@ async function fillBooking(page: Page, client: { phone: string; name: string; ca
   await page.getByLabel('Марка и модель', { exact: true }).fill(client.car)
   await page.keyboard.press('Escape')
 
-  // A combobox takes no accessible name from its content, so this one has none.
-  await page.getByRole('combobox').filter({ hasText: 'Выбрать услугу' }).click()
+  await page.getByRole('combobox', { name: 'Услуга: Выбрать услугу' }).click()
   await page.getByRole('option', { name: /Полировка кузова/ }).click()
   await page.keyboard.press('Escape')
 

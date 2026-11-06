@@ -373,6 +373,7 @@ watch(() => props.modelValue, syncSelectionFromString)
           type="button"
           variant="outline"
           role="combobox"
+          :aria-label="`Услуга: ${triggerLabel}`"
           :aria-expanded="open"
           :aria-invalid="props.invalid"
           :disabled="loading || !!loadError"
