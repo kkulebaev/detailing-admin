@@ -95,9 +95,7 @@ describe('PayoutFormDialog', () => {
     await button('Добавить').click()
 
     await vi.waitFor(() => expect(createPayoutMock).toHaveBeenCalledTimes(1))
-    expect(createPayoutMock).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 2000 }),
-    )
+    expect(createPayoutMock).toHaveBeenCalledWith(expect.objectContaining({ amount: 2000 }))
   })
 
   it('оставляет «Начисление» выбранным по умолчанию', async () => {
@@ -108,9 +106,7 @@ describe('PayoutFormDialog', () => {
     await button('Добавить').click()
 
     await vi.waitFor(() =>
-      expect(createPayoutMock).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 1500 }),
-      ),
+      expect(createPayoutMock).toHaveBeenCalledWith(expect.objectContaining({ amount: 1500 })),
     )
   })
 
@@ -126,9 +122,7 @@ describe('PayoutFormDialog', () => {
     await button('Добавить').click()
 
     await vi.waitFor(() =>
-      expect(createPayoutMock).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: -2000 }),
-      ),
+      expect(createPayoutMock).toHaveBeenCalledWith(expect.objectContaining({ amount: -2000 })),
     )
   })
 
@@ -176,10 +170,7 @@ describe('PayoutFormDialog', () => {
     await button('Сохранить').click()
 
     await vi.waitFor(() =>
-      expect(updatePayoutMock).toHaveBeenCalledWith(
-        9,
-        expect.objectContaining({ amount: 3500 }),
-      ),
+      expect(updatePayoutMock).toHaveBeenCalledWith(9, expect.objectContaining({ amount: 3500 })),
     )
   })
 

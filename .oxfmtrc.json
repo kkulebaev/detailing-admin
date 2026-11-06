@@ -1,0 +1,22 @@
+{
+  "useTabs": false,
+  "tabWidth": 2,
+  "endOfLine": "lf",
+  "printWidth": 100,
+  "singleQuote": true,
+  "semi": false,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "bracketSpacing": true,
+  "proseWrap": "preserve",
+  "htmlWhitespaceSensitivity": "css",
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "apps/web/src/components/ui/**",
+    "apps/web/src/lib/generated/**",
+    "apps/web/openapi.json",
+    "apps/api/drizzle/**",
+    "pnpm-lock.yaml",
+    "**/*.md"
+  ]
+}

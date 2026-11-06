@@ -17,7 +17,10 @@ import type { Client } from '@/lib/clients-api'
 vi.mock('@/composables/use-client-lookup', async () => {
   const { ref: r } = await vi.importActual<typeof import('vue')>('vue')
   return {
-    useClientLookup: () => ({ matchedClient: r<Client | null>(null), matchedClientSummary: r(null) }),
+    useClientLookup: () => ({
+      matchedClient: r<Client | null>(null),
+      matchedClientSummary: r(null),
+    }),
   }
 })
 
@@ -46,7 +49,9 @@ function carInput(w: VueWrapper): HTMLInputElement {
 }
 
 function options(): HTMLElement[] {
-  return Array.from(document.querySelectorAll<HTMLElement>('ul[data-car-suggestions] li[role="option"]'))
+  return Array.from(
+    document.querySelectorAll<HTMLElement>('ul[data-car-suggestions] li[role="option"]'),
+  )
 }
 
 function tap(el: HTMLElement, { dx = 0, dy = 0 } = {}) {

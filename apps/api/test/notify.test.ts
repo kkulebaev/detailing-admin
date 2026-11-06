@@ -126,9 +126,7 @@ describe('notifyMaster', () => {
 
   it('sends to each distinct master chat and collapses to one delivered result', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
-      name === 'Пётр'
-        ? MASTER
-        : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
+      name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
     const result = await notifyMaster(MULTI)
     expect(result).toEqual({ attempted: true, delivered: true })
@@ -147,9 +145,7 @@ describe('notifyMaster', () => {
 
   it('collapses to delivered when at least one master receives the message', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
-      name === 'Пётр'
-        ? MASTER
-        : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
+      name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
     vi.mocked(sendTelegramMessage).mockImplementation(async (chatId: string) =>
       chatId === '55555' ? { ok: false, reason: 'timeout' } : { ok: true },
@@ -160,9 +156,7 @@ describe('notifyMaster', () => {
 
   it('reports the first failure reason when every send fails', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
-      name === 'Пётр'
-        ? MASTER
-        : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
+      name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
     vi.mocked(sendTelegramMessage).mockImplementation(async (chatId: string) =>
       chatId === '55555' ? { ok: false, reason: 'timeout' } : { ok: false, reason: 'blocked' },

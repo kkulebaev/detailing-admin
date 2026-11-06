@@ -220,9 +220,7 @@ describe('POST /api/bookings', () => {
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toBe('validation')
-    const issue = (body.issues as Array<{ path: unknown[] }>).find((i) =>
-      i.path.includes('time'),
-    )
+    const issue = (body.issues as Array<{ path: unknown[] }>).find((i) => i.path.includes('time'))
     expect(issue).toBeTruthy()
   })
 
@@ -295,8 +293,8 @@ describe('POST /api/bookings', () => {
     expect(body.ok).toBe(false)
     expect(body.error).toBe('validation')
     expect(
-      (body.issues as Array<{ path: unknown[]; message: string }>).some((i) =>
-        i.path.includes('Idempotency-Key') && /128/.test(i.message),
+      (body.issues as Array<{ path: unknown[]; message: string }>).some(
+        (i) => i.path.includes('Idempotency-Key') && /128/.test(i.message),
       ),
     ).toBe(true)
     expect(vi.mocked(appendBooking)).not.toHaveBeenCalled()
@@ -896,12 +894,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     const res = await patch(VALID_PAYLOAD)
     expect(res.status).toBe(200)
     expect(vi.mocked(selectCarId)).not.toHaveBeenCalled()
-    expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(
-      ID,
-      expect.any(Object),
-      null,
-      null,
-    )
+    expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(ID, expect.any(Object), null, null)
   })
 
   it('PATCH a missing booking → 404', async () => {

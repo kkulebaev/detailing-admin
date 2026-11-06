@@ -19,11 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -241,9 +237,7 @@ function handleResult(result: PayoutMutationResult, successMsg: string) {
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать выплату' : 'Добавить выплату' }}</DialogTitle>
-        <DialogDescription v-if="pickMaster">
-          Выберите мастера и укажите сумму
-        </DialogDescription>
+        <DialogDescription v-if="pickMaster"> Выберите мастера и укажите сумму </DialogDescription>
         <DialogDescription v-else>{{ masterName }}</DialogDescription>
       </DialogHeader>
 
@@ -288,11 +282,7 @@ function handleResult(result: PayoutMutationResult, successMsg: string) {
               </Button>
             </PopoverTrigger>
             <PopoverContent class="w-auto p-0" align="start">
-              <Calendar
-                locale="ru-RU"
-                :model-value="dateCal"
-                @update:model-value="onDateSelect"
-              />
+              <Calendar locale="ru-RU" :model-value="dateCal" @update:model-value="onDateSelect" />
             </PopoverContent>
           </Popover>
           <p v-if="fieldErrors.payoutDate" class="text-sm text-destructive">
@@ -310,12 +300,8 @@ function handleResult(result: PayoutMutationResult, successMsg: string) {
             :disabled="submitting"
             @update:model-value="onDirectionChange"
           >
-            <ToggleGroupItem value="accrual" aria-label="Начисление">
-              Начисление
-            </ToggleGroupItem>
-            <ToggleGroupItem value="deduction" aria-label="Удержание">
-              Удержание
-            </ToggleGroupItem>
+            <ToggleGroupItem value="accrual" aria-label="Начисление"> Начисление </ToggleGroupItem>
+            <ToggleGroupItem value="deduction" aria-label="Удержание"> Удержание </ToggleGroupItem>
           </ToggleGroup>
           <p class="text-xs text-muted-foreground">Удержание уменьшает итог за месяц</p>
         </div>
@@ -357,10 +343,7 @@ function handleResult(result: PayoutMutationResult, successMsg: string) {
           </p>
         </div>
 
-        <p
-          v-if="error && Object.keys(fieldErrors).length === 0"
-          class="text-sm text-destructive"
-        >
+        <p v-if="error && Object.keys(fieldErrors).length === 0" class="text-sm text-destructive">
           {{ error }}
         </p>
 

@@ -89,7 +89,9 @@ describe('bookingToRow', () => {
   })
 
   it('amountFormula → written verbatim to cell H instead of the number', () => {
-    const row = bookingToRow(parseBooking({ ...baseInput, amount: 5050, amountFormula: '=2000+3000-950' }))
+    const row = bookingToRow(
+      parseBooking({ ...baseInput, amount: 5050, amountFormula: '=2000+3000-950' }),
+    )
     expect(row[7]).toBe('=2000+3000-950')
   })
 

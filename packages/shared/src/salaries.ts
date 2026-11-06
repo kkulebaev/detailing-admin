@@ -217,20 +217,18 @@ export const payoutDeleteResponseSchema = z.union([
 
 // ---- «Мои часы» (an employee's own salary) ----
 
-export const mySalaryOkSchema = salaryRowSchema
-  .omit({ masterId: true, masterName: true })
-  .extend({
-    ok: z.literal(true),
-    month: z.string(),
-    // Null while the account is not linked to a master: the page explains that
-    // instead of showing zeros.
-    master: z.object({ id: z.number().int(), name: z.string() }).nullable(),
-    entries: z.array(salaryEntrySchema),
-    // Inclusive ISO range the employee may add, edit and delete hours in. Sent
-    // by the server so the page never computes «today» in the wrong timezone.
-    editableFrom: z.string(),
-    editableTo: z.string(),
-  })
+export const mySalaryOkSchema = salaryRowSchema.omit({ masterId: true, masterName: true }).extend({
+  ok: z.literal(true),
+  month: z.string(),
+  // Null while the account is not linked to a master: the page explains that
+  // instead of showing zeros.
+  master: z.object({ id: z.number().int(), name: z.string() }).nullable(),
+  entries: z.array(salaryEntrySchema),
+  // Inclusive ISO range the employee may add, edit and delete hours in. Sent
+  // by the server so the page never computes «today» in the wrong timezone.
+  editableFrom: z.string(),
+  editableTo: z.string(),
+})
 
 export type MySalaryOk = z.infer<typeof mySalaryOkSchema>
 

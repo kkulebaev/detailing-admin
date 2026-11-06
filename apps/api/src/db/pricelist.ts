@@ -1,12 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
-import {
-  sections,
-  services,
-  type NewService,
-  type Section,
-  type Service,
-} from './schema.js'
+import { sections, services, type NewService, type Section, type Service } from './schema.js'
 
 export interface PricelistSection {
   id: number
@@ -58,11 +52,7 @@ export async function updateSection(id: number, name: string): Promise<Section> 
   const db = getDb()
   const duplicate = await findSectionByName(name)
   if (duplicate && duplicate.id !== id) throw new PricelistError('duplicate_name')
-  const [row] = await db
-    .update(sections)
-    .set({ name })
-    .where(eq(sections.id, id))
-    .returning()
+  const [row] = await db.update(sections).set({ name }).where(eq(sections.id, id)).returning()
   if (!row) throw new PricelistError('not_found')
   return row
 }
@@ -80,7 +70,11 @@ export async function deleteSection(id: number): Promise<void> {
 
 async function ensureSectionExists(id: number): Promise<void> {
   const db = getDb()
-  const rows = await db.select({ id: sections.id }).from(sections).where(eq(sections.id, id)).limit(1)
+  const rows = await db
+    .select({ id: sections.id })
+    .from(sections)
+    .where(eq(sections.id, id))
+    .limit(1)
   if (rows.length === 0) throw new PricelistError('not_found')
 }
 

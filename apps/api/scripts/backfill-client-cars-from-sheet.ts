@@ -70,7 +70,9 @@ export async function backfillClientCarsFromSheet(): Promise<SheetCarBackfillRes
   const clients = await sql<{ id: string; phone: string }[]>`SELECT id, phone FROM clients`
   const phoneToId = new Map(clients.map((c) => [c.phone, c.id]))
 
-  const before = Number((await sql<{ c: number }[]>`SELECT count(*)::int AS c FROM client_cars`)[0].c)
+  const before = Number(
+    (await sql<{ c: number }[]>`SELECT count(*)::int AS c FROM client_cars`)[0].c,
+  )
 
   const r: SheetCarBackfillResult = {
     rowsScanned: 0,
@@ -109,7 +111,9 @@ export async function backfillClientCarsFromSheet(): Promise<SheetCarBackfillRes
     r.carsUpserted++
   }
 
-  const after = Number((await sql<{ c: number }[]>`SELECT count(*)::int AS c FROM client_cars`)[0].c)
+  const after = Number(
+    (await sql<{ c: number }[]>`SELECT count(*)::int AS c FROM client_cars`)[0].c,
+  )
   r.clientCarsAdded = after - before
   return r
 }

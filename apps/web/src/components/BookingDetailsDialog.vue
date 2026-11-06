@@ -62,11 +62,7 @@ function focusDialogItself(e: Event) {
 
 <template>
   <Dialog :open="props.open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent
-      v-if="props.booking"
-      class="max-w-md"
-      @open-auto-focus="focusDialogItself"
-    >
+    <DialogContent v-if="props.booking" class="max-w-md" @open-auto-focus="focusDialogItself">
       <DialogHeader>
         <DialogTitle>{{ props.booking.car || 'Без машины' }}</DialogTitle>
         <DialogDescription>{{ dateText }} · {{ timeText }}</DialogDescription>
@@ -92,16 +88,15 @@ function focusDialogItself(e: Event) {
         </dd>
 
         <dt class="text-muted-foreground">Услуга</dt>
-        <dd class="col-span-2 break-words whitespace-pre-line">{{ props.booking.service || '—' }}</dd>
+        <dd class="col-span-2 break-words whitespace-pre-line">
+          {{ props.booking.service || '—' }}
+        </dd>
 
         <template v-if="props.booking.amount != null">
           <dt class="text-muted-foreground">Сумма</dt>
           <dd class="col-span-2 tabular-nums">
             {{ formatAmount(props.booking.amount) }} ₽
-            <span
-              v-if="props.booking.amountFormula"
-              class="block text-xs text-muted-foreground"
-            >
+            <span v-if="props.booking.amountFormula" class="block text-xs text-muted-foreground">
               {{ props.booking.amountFormula }}
             </span>
           </dd>

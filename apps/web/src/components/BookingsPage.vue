@@ -58,11 +58,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -70,12 +66,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -277,10 +268,7 @@ const { limit: LIMIT, offset, page, resetToFirstPage } = useOffsetPagination()
 
 const { data: mastersData } = useMastersQuery()
 const masterOptions = computed(() =>
-  resolveMasterOptions(
-    mastersData.value?.ok ? mastersData.value.masters : undefined,
-    () => true,
-  ),
+  resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
 )
 
 // ── Period filter ───────────────────────────────────────────────────────────
@@ -307,7 +295,7 @@ const periodLabel = computed(() => {
 })
 
 // Оба конца диапазона совпадают для дня и охватывают месяц целиком для месяца.
-const periodRange = computed<{ from: string, to?: string } | null>(() => {
+const periodRange = computed<{ from: string; to?: string } | null>(() => {
   const day = dayCal.value
   if (day) {
     const d = calToDdmmyyyy(day)
@@ -332,12 +320,9 @@ const params = computed<GetApiBookingsParams>(() => ({
 
 // Any filter change returns to the first page; paging itself moves `offset`
 // directly and is intentionally excluded here.
-watch(
-  [monthKey, dayCal, masterFilter, readinessFilter, searchDebounced],
-  () => {
-    resetToFirstPage()
-  },
-)
+watch([monthKey, dayCal, masterFilter, readinessFilter, searchDebounced], () => {
+  resetToFirstPage()
+})
 
 const { data: queryData, error: queryError, asyncStatus } = useBookingsQuery(params)
 
@@ -353,9 +338,7 @@ const total = computed(() => {
 
 // Skeleton only on the very first load — background refetches keep the previous
 // rows visible (placeholderData in useBookingsQuery), so `loading` is false then.
-const loading = computed(
-  () => asyncStatus.value === 'loading' && queryData.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 // Delay the skeleton so a fast first load doesn't flash it — only show it if the
 // initial load is genuinely slow (>200ms).
@@ -394,7 +377,6 @@ async function onExport() {
     exporting.value = false
   }
 }
-
 
 // ── Filter reset ──────────────────────────────────────────────────────────────
 // Drives the full-height empty state: stretch the table so the placeholder
@@ -649,12 +631,7 @@ function formatCreatedAt(iso: string): string {
           <div class="flex-1 [&_button]:w-full">
             <ReusePeriod />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            class="h-9 gap-1"
-            @click="filtersSheetOpen = true"
-          >
+          <Button variant="outline" size="sm" class="h-9 gap-1" @click="filtersSheetOpen = true">
             <SlidersHorizontal class="size-4" />
             Фильтры
             <span
@@ -796,228 +773,228 @@ function formatCreatedAt(iso: string): string {
           <col v-if="isAdmin" class="w-24" />
         </colgroup>
         <TableHeader v-if="!isEmpty && !compact" class="sticky top-0 z-10 bg-muted">
-            <TableRow>
-              <TableHead class="px-4 text-right">#</TableHead>
-              <TableHead class="px-4">Дата</TableHead>
-              <TableHead class="px-4">Время</TableHead>
-              <TableHead class="px-4">Имя</TableHead>
-              <TableHead class="px-4">Телефон</TableHead>
-              <TableHead class="px-4">Машина</TableHead>
-              <TableHead class="px-4">Услуга</TableHead>
-              <TableHead v-if="canSeeAmounts" class="px-4 text-right whitespace-nowrap">
-                Сумма ₽
-              </TableHead>
-              <TableHead class="px-4">Готовность</TableHead>
-              <TableHead class="px-4">Мастер</TableHead>
-              <TableHead class="px-4">Ответственный</TableHead>
-              <TableHead class="px-4">Примечание</TableHead>
-              <TableHead v-if="isAdmin" class="px-4 text-right">Действия</TableHead>
+          <TableRow>
+            <TableHead class="px-4 text-right">#</TableHead>
+            <TableHead class="px-4">Дата</TableHead>
+            <TableHead class="px-4">Время</TableHead>
+            <TableHead class="px-4">Имя</TableHead>
+            <TableHead class="px-4">Телефон</TableHead>
+            <TableHead class="px-4">Машина</TableHead>
+            <TableHead class="px-4">Услуга</TableHead>
+            <TableHead v-if="canSeeAmounts" class="px-4 text-right whitespace-nowrap">
+              Сумма ₽
+            </TableHead>
+            <TableHead class="px-4">Готовность</TableHead>
+            <TableHead class="px-4">Мастер</TableHead>
+            <TableHead class="px-4">Ответственный</TableHead>
+            <TableHead class="px-4">Примечание</TableHead>
+            <TableHead v-if="isAdmin" class="px-4 text-right">Действия</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <template v-if="showSkeleton">
+            <TableRow v-for="i in 8" :key="i">
+              <TableCell v-for="c in columnCount" :key="c" class="px-4">
+                <Skeleton class="h-4 w-full" />
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            <template v-if="showSkeleton">
-              <TableRow v-for="i in 8" :key="i">
-                <TableCell v-for="c in columnCount" :key="c" class="px-4">
-                  <Skeleton class="h-4 w-full" />
-                </TableCell>
-              </TableRow>
-            </template>
-            <TableEmpty
-              v-else-if="isEmpty"
-              :colspan="columnCount"
-              class="whitespace-normal"
-            >
-              <Empty class="gap-4 p-0">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <component :is="hasActiveFilters ? SearchX : Inbox" />
-                  </EmptyMedia>
-                  <EmptyTitle>
-                    {{
-                      hasActiveFilters
-                        ? 'Ничего не найдено'
-                        : isDefaultPeriod
-                          ? 'Нет записей с сегодняшнего дня'
-                          : 'Записей пока нет'
-                    }}
-                  </EmptyTitle>
-                  <EmptyDescription>
-                    {{
-                      hasActiveFilters
-                        ? 'Попробуйте изменить условия или сбросить фильтры'
-                        : isDefaultPeriod
-                          ? 'Прошлые записи можно посмотреть за другой период'
-                          : 'Новые записи появятся здесь'
-                    }}
-                  </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Button
-                    v-if="hasActiveFilters"
-                    variant="outline"
-                    size="sm"
-                    class="gap-1"
-                    @click="resetFilters"
-                  >
-                    <X class="size-4" /> Сбросить фильтры
-                  </Button>
-                  <Button v-else-if="isDefaultPeriod" variant="outline" size="sm" @click="selectAllBookings">
-                    Показать все записи
-                  </Button>
-                </EmptyContent>
-              </Empty>
-            </TableEmpty>
-            <template v-else-if="compact">
-              <!-- Две строки на запись: дата, время и имя сверху, машина и услуга
+          </template>
+          <TableEmpty v-else-if="isEmpty" :colspan="columnCount" class="whitespace-normal">
+            <Empty class="gap-4 p-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <component :is="hasActiveFilters ? SearchX : Inbox" />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {{
+                    hasActiveFilters
+                      ? 'Ничего не найдено'
+                      : isDefaultPeriod
+                        ? 'Нет записей с сегодняшнего дня'
+                        : 'Записей пока нет'
+                  }}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {{
+                    hasActiveFilters
+                      ? 'Попробуйте изменить условия или сбросить фильтры'
+                      : isDefaultPeriod
+                        ? 'Прошлые записи можно посмотреть за другой период'
+                        : 'Новые записи появятся здесь'
+                  }}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  v-if="hasActiveFilters"
+                  variant="outline"
+                  size="sm"
+                  class="gap-1"
+                  @click="resetFilters"
+                >
+                  <X class="size-4" /> Сбросить фильтры
+                </Button>
+                <Button
+                  v-else-if="isDefaultPeriod"
+                  variant="outline"
+                  size="sm"
+                  @click="selectAllBookings"
+                >
+                  Показать все записи
+                </Button>
+              </EmptyContent>
+            </Empty>
+          </TableEmpty>
+          <template v-else-if="compact">
+            <!-- Две строки на запись: дата, время и имя сверху, машина и услуга
                    одной усечённой строкой снизу. Остальные восемь полей — в
                    диалоге по тапу; готовность читается заливкой строки. -->
-              <TableRow
-                v-for="row in items"
-                :key="row.id"
-                tabindex="0"
-                :class="[readinessRowClass(row.readiness), 'cursor-pointer']"
-                :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
-                @click="openDetails(row)"
-                @keydown.enter="openDetails(row)"
-              >
-                <TableCell class="px-3 py-2 whitespace-normal">
-                  <!-- Дата, сумма и статус занимают свою ширину, машина и услуга
+            <TableRow
+              v-for="row in items"
+              :key="row.id"
+              tabindex="0"
+              :class="[readinessRowClass(row.readiness), 'cursor-pointer']"
+              :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
+              @click="openDetails(row)"
+              @keydown.enter="openDetails(row)"
+            >
+              <TableCell class="px-3 py-2 whitespace-normal">
+                <!-- Дата, сумма и статус занимают свою ширину, машина и услуга
                        забирают весь остаток: фиксированная колонка справа
                        оставляла пустоту при коротком статусе. -->
-                  <div class="flex items-baseline gap-2">
-                    <span class="shrink-0 tabular-nums text-muted-foreground">
-                      {{ formatDateCompact(row) }}
-                      {{ formatTimeCompact(row) }}
-                    </span>
-                    <span class="min-w-0 flex-1 truncate text-sm font-medium">
-                      {{ row.car || '—' }}
-                    </span>
-                    <span
-                      v-if="canSeeAmounts"
-                      class="shrink-0 text-sm font-medium tabular-nums"
-                      :title="row.amountFormula ?? ''"
-                    >
-                      <template v-if="row.amount != null">{{ formatAmount(row.amount) }} ₽</template>
-                      <template v-else>—</template>
-                    </span>
-                  </div>
-                  <div class="mt-0.5 flex items-baseline gap-2">
-                    <span class="min-w-0 flex-1 truncate text-muted-foreground">
-                      {{ formatSummaryLine(row) }}
-                    </span>
-                    <div class="shrink-0">
-                      <ReadinessPicker
-                        variant="plain"
-                        :readiness="readinessOverride[row.id] ?? row.readiness"
-                        :readonly="!isAdmin"
-                        :disabled="savingReadiness[row.id]"
-                        @update="(v) => onReadinessChange(row, v)"
-                      />
-                    </div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            </template>
-            <TableRow
-              v-else
-              v-for="(row, index) in items"
-              :key="row.id"
-              :class="readinessRowClass(row.readiness)"
-            >
-              <!-- Сквозной порядковый номер на убывание: верхняя строка = total,
-                   консистентно между страницами (учитывает offset). -->
-              <TableCell
-                class="px-4 align-top text-right tabular-nums text-muted-foreground"
-                :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
-              >
-                {{ total - offset - index }}
-              </TableCell>
-              <TableCell class="px-4 align-top tabular-nums whitespace-normal">
-                {{ formatDateCell(row) }}
-              </TableCell>
-              <TableCell class="px-4 align-top tabular-nums">
-                {{ formatTimeCell(row) }}
-              </TableCell>
-              <TableCell class="px-4 align-top whitespace-normal">{{ row.name || '—' }}</TableCell>
-              <TableCell class="px-4 align-top tabular-nums">
-                {{ row.phone ? formatPhone(row.phone) : '—' }}
-              </TableCell>
-              <TableCell class="px-4 align-top whitespace-normal">{{ row.car || '—' }}</TableCell>
-              <TableCell class="px-4 align-top">
-                <!-- `service` is newline-separated (one line per pricelist
-                     section); render it as a vertical list to keep the column
-                     narrow instead of one wide run of text. -->
-                <span
-                  class="block max-w-56 whitespace-pre-line leading-snug"
-                  :title="row.service"
-                >
-                  {{ row.service || '—' }}
-                </span>
-              </TableCell>
-              <TableCell
-                v-if="canSeeAmounts"
-                class="px-4 align-top text-right whitespace-nowrap tabular-nums"
-              >
-                <!-- Пунктирное подчёркивание сигналит, что у суммы есть формула,
-                     показываемая тултипом при наведении. -->
-                <span
-                  :class="
-                    row.amountFormula
-                      ? 'underline decoration-dotted decoration-muted-foreground/60 underline-offset-4'
-                      : ''
-                  "
-                  :title="row.amountFormula ?? ''"
-                >
-                  {{ row.amount != null ? formatAmount(row.amount) : '—' }}
-                </span>
-              </TableCell>
-              <TableCell v-if="isAdmin" class="px-4 align-top">
-                <Select
-                  :model-value="readinessSelectValue(row)"
-                  :disabled="savingReadiness[row.id]"
-                  @update:model-value="(v) => onReadinessChange(row, String(v))"
-                >
-                  <SelectTrigger size="sm" class="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem :value="READINESS_NONE">—</SelectItem>
-                    <SelectItem v-for="r in READINESS" :key="r" :value="r">{{ r }}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </TableCell>
-              <TableCell v-else class="px-4 align-top">
-                {{ row.readiness || '—' }}
-              </TableCell>
-              <TableCell class="px-4 align-top whitespace-normal">{{ row.master.length ? row.master.join(', ') : '—' }}</TableCell>
-              <TableCell class="px-4 align-top whitespace-normal">
-                {{ row.responsible || '—' }}
-              </TableCell>
-              <TableCell class="px-4 align-top whitespace-normal text-muted-foreground">
-                {{ row.note || '—' }}
-              </TableCell>
-              <TableCell v-if="isAdmin" class="px-4 align-top text-right">
-                <div class="inline-flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    :aria-label="`Редактировать запись ${row.name || row.phone}`"
-                    @click="openEdit(row)"
+                <div class="flex items-baseline gap-2">
+                  <span class="shrink-0 tabular-nums text-muted-foreground">
+                    {{ formatDateCompact(row) }}
+                    {{ formatTimeCompact(row) }}
+                  </span>
+                  <span class="min-w-0 flex-1 truncate text-sm font-medium">
+                    {{ row.car || '—' }}
+                  </span>
+                  <span
+                    v-if="canSeeAmounts"
+                    class="shrink-0 text-sm font-medium tabular-nums"
+                    :title="row.amountFormula ?? ''"
                   >
-                    <Pencil class="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    :aria-label="`Удалить запись ${row.name || row.phone}`"
-                    @click="askDelete(row)"
-                  >
-                    <Trash2 class="size-3.5" />
-                  </Button>
+                    <template v-if="row.amount != null">{{ formatAmount(row.amount) }} ₽</template>
+                    <template v-else>—</template>
+                  </span>
+                </div>
+                <div class="mt-0.5 flex items-baseline gap-2">
+                  <span class="min-w-0 flex-1 truncate text-muted-foreground">
+                    {{ formatSummaryLine(row) }}
+                  </span>
+                  <div class="shrink-0">
+                    <ReadinessPicker
+                      variant="plain"
+                      :readiness="readinessOverride[row.id] ?? row.readiness"
+                      :readonly="!isAdmin"
+                      :disabled="savingReadiness[row.id]"
+                      @update="(v) => onReadinessChange(row, v)"
+                    />
+                  </div>
                 </div>
               </TableCell>
             </TableRow>
-          </TableBody>
+          </template>
+          <TableRow
+            v-else
+            v-for="(row, index) in items"
+            :key="row.id"
+            :class="readinessRowClass(row.readiness)"
+          >
+            <!-- Сквозной порядковый номер на убывание: верхняя строка = total,
+                   консистентно между страницами (учитывает offset). -->
+            <TableCell
+              class="px-4 align-top text-right tabular-nums text-muted-foreground"
+              :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
+            >
+              {{ total - offset - index }}
+            </TableCell>
+            <TableCell class="px-4 align-top tabular-nums whitespace-normal">
+              {{ formatDateCell(row) }}
+            </TableCell>
+            <TableCell class="px-4 align-top tabular-nums">
+              {{ formatTimeCell(row) }}
+            </TableCell>
+            <TableCell class="px-4 align-top whitespace-normal">{{ row.name || '—' }}</TableCell>
+            <TableCell class="px-4 align-top tabular-nums">
+              {{ row.phone ? formatPhone(row.phone) : '—' }}
+            </TableCell>
+            <TableCell class="px-4 align-top whitespace-normal">{{ row.car || '—' }}</TableCell>
+            <TableCell class="px-4 align-top">
+              <!-- `service` is newline-separated (one line per pricelist
+                     section); render it as a vertical list to keep the column
+                     narrow instead of one wide run of text. -->
+              <span class="block max-w-56 whitespace-pre-line leading-snug" :title="row.service">
+                {{ row.service || '—' }}
+              </span>
+            </TableCell>
+            <TableCell
+              v-if="canSeeAmounts"
+              class="px-4 align-top text-right whitespace-nowrap tabular-nums"
+            >
+              <!-- Пунктирное подчёркивание сигналит, что у суммы есть формула,
+                     показываемая тултипом при наведении. -->
+              <span
+                :class="
+                  row.amountFormula
+                    ? 'underline decoration-dotted decoration-muted-foreground/60 underline-offset-4'
+                    : ''
+                "
+                :title="row.amountFormula ?? ''"
+              >
+                {{ row.amount != null ? formatAmount(row.amount) : '—' }}
+              </span>
+            </TableCell>
+            <TableCell v-if="isAdmin" class="px-4 align-top">
+              <Select
+                :model-value="readinessSelectValue(row)"
+                :disabled="savingReadiness[row.id]"
+                @update:model-value="(v) => onReadinessChange(row, String(v))"
+              >
+                <SelectTrigger size="sm" class="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem :value="READINESS_NONE">—</SelectItem>
+                  <SelectItem v-for="r in READINESS" :key="r" :value="r">{{ r }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </TableCell>
+            <TableCell v-else class="px-4 align-top">
+              {{ row.readiness || '—' }}
+            </TableCell>
+            <TableCell class="px-4 align-top whitespace-normal">{{
+              row.master.length ? row.master.join(', ') : '—'
+            }}</TableCell>
+            <TableCell class="px-4 align-top whitespace-normal">
+              {{ row.responsible || '—' }}
+            </TableCell>
+            <TableCell class="px-4 align-top whitespace-normal text-muted-foreground">
+              {{ row.note || '—' }}
+            </TableCell>
+            <TableCell v-if="isAdmin" class="px-4 align-top text-right">
+              <div class="inline-flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="`Редактировать запись ${row.name || row.phone}`"
+                  @click="openEdit(row)"
+                >
+                  <Pencil class="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="`Удалить запись ${row.name || row.phone}`"
+                  @click="askDelete(row)"
+                >
+                  <Trash2 class="size-3.5" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        </TableBody>
       </Table>
 
       <TablePagination
@@ -1039,11 +1016,7 @@ function formatCreatedAt(iso: string): string {
       @readiness="(v) => detailsBooking && onReadinessChange(detailsBooking, v)"
     />
 
-    <BookingEditDialog
-      v-model:open="editDialogOpen"
-      :booking="editTarget"
-      @saved="onEditSaved"
-    />
+    <BookingEditDialog v-model:open="editDialogOpen" :booking="editTarget" @saved="onEditSaved" />
 
     <AlertDialog :open="deleteDialogOpen" @update:open="onDeleteDialogOpenChange">
       <AlertDialogContent>

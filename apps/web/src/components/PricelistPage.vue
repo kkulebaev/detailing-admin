@@ -51,9 +51,7 @@ const sections = computed<PricelistSection[]>(() => {
   return r?.ok ? r.sections : []
 })
 
-const loading = computed(
-  () => asyncStatus.value === 'loading' && queryData.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 const error = computed<string | null>(() => {
   if (queryError.value) return 'Сетевая ошибка при загрузке прайс-листа'
@@ -79,9 +77,7 @@ const deleteTarget = ref<DeleteTarget | null>(null)
 const deleting = ref(false)
 const deleteError = ref<string | null>(null)
 
-const totalServices = computed(() =>
-  sections.value.reduce((acc, s) => acc + s.services.length, 0),
-)
+const totalServices = computed(() => sections.value.reduce((acc, s) => acc + s.services.length, 0))
 
 const CLASS_COLUMNS: readonly CarClass[] = [1, 2, 3, 4]
 const CLASS_NUMERALS: Record<CarClass, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
@@ -327,11 +323,7 @@ async function confirmDelete() {
                   </div>
                 </TableHead>
               </TableRow>
-              <TableRow
-                v-for="svc in section.services"
-                :key="svc.id"
-                class="align-top"
-              >
+              <TableRow v-for="svc in section.services" :key="svc.id" class="align-top">
                 <TableCell class="px-4 font-medium whitespace-normal">
                   {{ svc.name }}
                   <Badge
@@ -413,7 +405,10 @@ async function confirmDelete() {
           </div>
         </template>
 
-        <p v-else-if="sections.length === 0" class="px-4 py-8 text-center text-sm text-muted-foreground">
+        <p
+          v-else-if="sections.length === 0"
+          class="px-4 py-8 text-center text-sm text-muted-foreground"
+        >
           Прайс-лист пуст.
         </p>
 
@@ -434,7 +429,9 @@ async function confirmDelete() {
                 class="size-4 shrink-0 text-muted-foreground transition-transform"
                 :class="{ 'rotate-90': openSections.has(section.id) }"
               />
-              <span class="min-w-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span
+                class="min-w-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              >
                 {{ section.name }}
               </span>
               <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -563,10 +560,7 @@ async function confirmDelete() {
       @saved="invalidatePricelist"
     />
 
-    <AlertDialog
-      :open="deleteDialogOpen"
-      @update:open="onDeleteDialogOpenChange"
-    >
+    <AlertDialog :open="deleteDialogOpen" @update:open="onDeleteDialogOpenChange">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
@@ -574,8 +568,8 @@ async function confirmDelete() {
           </AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget?.kind === 'section'">
-              Раздел «{{ deleteTarget.name }}» будет удалён. Действие нельзя отменить.
-              Удалить раздел можно только если в нём не осталось услуг
+              Раздел «{{ deleteTarget.name }}» будет удалён. Действие нельзя отменить. Удалить
+              раздел можно только если в нём не осталось услуг
             </template>
             <template v-else-if="deleteTarget">
               Услуга «{{ deleteTarget.name }}» будет удалена. Действие нельзя отменить

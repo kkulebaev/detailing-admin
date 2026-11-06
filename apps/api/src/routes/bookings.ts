@@ -112,8 +112,14 @@ const listQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
   // Date filters arrive in the UI's DD.MM.YYYY format; the handler converts to
   // ISO before querying. Bad shapes 400 rather than silently ignoring a filter.
-  dateFrom: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/).optional(),
-  dateTo: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/).optional(),
+  dateFrom: z
+    .string()
+    .regex(/^\d{2}\.\d{2}\.\d{4}$/)
+    .optional(),
+  dateTo: z
+    .string()
+    .regex(/^\d{2}\.\d{2}\.\d{4}$/)
+    .optional(),
   master: z.string().max(120).optional(),
   readiness: z.enum(READINESS).optional(),
   q: z.string().max(200).optional(),
@@ -274,7 +280,10 @@ function bookingsValidationHook(
       },
       'Validation failed',
     )
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, StatusCodes.BAD_REQUEST)
+    return c.json(
+      { ok: false as const, error: 'validation' as const, issues },
+      StatusCodes.BAD_REQUEST,
+    )
   }
 }
 
@@ -285,205 +294,96 @@ const router = new OpenAPIHono<{ Variables: Vars }>({ defaultHook: bookingsValid
 // Assigned imperatively because OpenAPIHono's `.use()` returns a plain `Hono`,
 // which would lose the `.openapi()` method on a chained call.
 router.use('/', async (c, next) => {
-    const requestId = uuidv4()
-    c.header('X-Request-Id', requestId)
-    c.set('requestId', requestId)
+  const requestId = uuidv4()
+  c.header('X-Request-Id', requestId)
+  c.set('requestId', requestId)
 
-    // Boot state (Sheets header/credential checks) only gates the write path.
-    // The GET read serves from Postgres and is independent of Sheets — it guards
-    // itself with isDbReady().
-    if (c.req.method !== 'POST') {
-      await next()
-      return
-    }
+  // Boot state (Sheets header/credential checks) only gates the write path.
+  // The GET read serves from Postgres and is independent of Sheets — it guards
+  // itself with isDbReady().
+  if (c.req.method !== 'POST') {
+    await next()
+    return
+  }
 
-    const state = getBootState()
-    if (state === 'ok') {
-      await next()
-      return
-    }
+  const state = getBootState()
+  if (state === 'ok') {
+    await next()
+    return
+  }
 
-    if (state === 'headers_mismatch') {
-      const m = getBootHeadersMismatch()
-      return c.json(
-        {
-          ok: false as const,
-          error: 'unavailable' as const,
-          reason: 'headers_mismatch' as const,
-          column_index: m?.column_index ?? 0,
-          expected: m?.expected ?? '',
-          observed: m?.observed ?? '',
-        },
-        StatusCodes.SERVICE_UNAVAILABLE,
-      )
-    }
-
+  if (state === 'headers_mismatch') {
+    const m = getBootHeadersMismatch()
     return c.json(
       {
         ok: false as const,
         error: 'unavailable' as const,
-        reason: 'not_configured' as const,
-        message: getBootNotConfiguredMessage() ?? 'Boot initialization failed',
+        reason: 'headers_mismatch' as const,
+        column_index: m?.column_index ?? 0,
+        expected: m?.expected ?? '',
+        observed: m?.observed ?? '',
       },
       StatusCodes.SERVICE_UNAVAILABLE,
     )
-  })
+  }
+
+  return c.json(
+    {
+      ok: false as const,
+      error: 'unavailable' as const,
+      reason: 'not_configured' as const,
+      message: getBootNotConfiguredMessage() ?? 'Boot initialization failed',
+    },
+    StatusCodes.SERVICE_UNAVAILABLE,
+  )
+})
 
 router.openapi(postBookingRoute, async (c) => {
-    const requestId = c.get('requestId')
-    const { 'idempotency-key': idempotencyKey } = c.req.valid('header')
+  const requestId = c.get('requestId')
+  const { 'idempotency-key': idempotencyKey } = c.req.valid('header')
 
-    // Idempotency cache hit — return cached result without touching Sheets.
-    const cached = idempotency.get(idempotencyKey)
-    if (cached) {
-      if (!cached.ok) {
-        // Sanity: cache is supposed to hold only successes. Evict and fall
-        // through to a fresh request.
-        idempotency.delete_(idempotencyKey)
-      } else {
-        baseLogger.info(
-          {
-            event: 'booking.request',
-            request_id: requestId,
-            idempotency_key: idempotencyKey,
-            idempotent: true,
-            validation_failed: false,
-            sheets_latency_ms: null,
-            sheets_status_code: null,
-            status: 201,
-          },
-          'Idempotent response served from cache',
-        )
-        return c.json(
-          {
-            ok: true as const,
-            idempotent: true,
-            updatedRange: cached.updatedRange,
-            updatedRow: cached.updatedRow,
-            // Replay the original notification outcome; a cache hit must not
-            // re-send to Telegram.
-            ...(cached.notification ? { notification: cached.notification } : {}),
-          },
-          StatusCodes.CREATED,
-        )
-      }
-    }
-
-    const booking = c.req.valid('json')
-    const row = bookingToRow(booking)
-    const appendResult = await appendBooking(row)
-
-    if (!appendResult.ok) {
-      baseLogger.error(
+  // Idempotency cache hit — return cached result without touching Sheets.
+  const cached = idempotency.get(idempotencyKey)
+  if (cached) {
+    if (!cached.ok) {
+      // Sanity: cache is supposed to hold only successes. Evict and fall
+      // through to a fresh request.
+      idempotency.delete_(idempotencyKey)
+    } else {
+      baseLogger.info(
         {
           event: 'booking.request',
           request_id: requestId,
           idempotency_key: idempotencyKey,
-          idempotent: false,
+          idempotent: true,
           validation_failed: false,
-          sheets_latency_ms: appendResult.latencyMs,
-          sheets_status_code: appendResult.statusCode,
-          sheets_error_code: appendResult.errorCode,
-          status: 502,
+          sheets_latency_ms: null,
+          sheets_status_code: null,
+          status: 201,
         },
-        'Sheets append failed',
+        'Idempotent response served from cache',
       )
       return c.json(
         {
-          ok: false as const,
-          error: 'sheets' as const,
-          code: appendResult.statusCode,
-          message: appendResult.message,
+          ok: true as const,
+          idempotent: true,
+          updatedRange: cached.updatedRange,
+          updatedRow: cached.updatedRow,
+          // Replay the original notification outcome; a cache hit must not
+          // re-send to Telegram.
+          ...(cached.notification ? { notification: cached.notification } : {}),
         },
-        StatusCodes.BAD_GATEWAY,
+        StatusCodes.CREATED,
       )
     }
+  }
 
-    // Mirror the client and the booking into Postgres (best-effort; Sheets is
-    // still the source of truth). Failures here never block the booking — the DB
-    // is purely additive at stage 1. The client upsert and the booking mirror are
-    // independent: if the upsert fails the booking row is still persisted with a
-    // null client link (the snapshot name/phone keep the row self-sufficient).
-    let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
-    let clientId: string | null = null
-    let carId: string | null = null
-    let bookingPersisted = false
-    if (isDbReady()) {
-      try {
-        const result = await upsertClient(booking.phone, booking.name)
-        clientOutcome = result.outcome
-        clientId = result.client?.id ?? null
-      } catch (err) {
-        clientOutcome = 'error'
-        baseLogger.warn(
-          {
-            event: 'booking.client_upsert_failed',
-            request_id: requestId,
-            message: err instanceof Error ? err.message : String(err),
-          },
-          'Client upsert failed — booking succeeded, DB skipped',
-        )
-      }
+  const booking = c.req.valid('json')
+  const row = bookingToRow(booking)
+  const appendResult = await appendBooking(row)
 
-      // Best-effort ingest of the client's car. Own try/catch (sibling to the
-      // upsert and mirror catches, NOT combined) — a car failure must not
-      // suppress the mirror insert below. Skipped without a linked client
-      // (nowhere to attach it) or an empty make/model.
-      if (clientId && booking.car) {
-        try {
-          // Returns the id of the normalized car row so the mirror can link
-          // `car_id` atomically below; a failure leaves carId null (booking
-          // proceeds).
-          carId = await upsertClientCarReturningId(clientId, booking.car, booking.plate ?? '')
-        } catch (err) {
-          baseLogger.warn(
-            {
-              event: 'booking.client_car_upsert_failed',
-              request_id: requestId,
-              message: err instanceof Error ? err.message : String(err),
-            },
-            'Client car upsert failed — booking succeeded, DB skipped',
-          )
-        }
-      }
-
-      try {
-        // Idempotent on the key: a post-TTL retry (which re-appends to Sheets)
-        // will not create a second mirror row.
-        bookingPersisted = await insertBooking(booking, {
-          idempotencyKey,
-          clientId,
-          carId,
-          sheetRow: appendResult.updatedRow,
-          sheetRange: appendResult.updatedRange,
-        })
-      } catch (err) {
-        baseLogger.warn(
-          {
-            event: 'booking.db_mirror_failed',
-            request_id: requestId,
-            message: err instanceof Error ? err.message : String(err),
-          },
-          'Booking mirror insert failed — booking succeeded, DB skipped',
-        )
-      }
-    }
-
-    // Best-effort Telegram notification to the master. Runs after the write
-    // lands in Sheets and never blocks it — a failure only downgrades the
-    // response to a warning the form shows. Skipped entirely unless requested.
-    const notification = booking.notify ? await notifyMaster(booking) : undefined
-
-    const successResult = {
-      ok: true as const,
-      idempotent: false,
-      updatedRange: appendResult.updatedRange,
-      updatedRow: appendResult.updatedRow,
-      ...(notification ? { notification } : {}),
-    }
-    idempotency.set(idempotencyKey, successResult)
-
-    baseLogger.info(
+  if (!appendResult.ok) {
+    baseLogger.error(
       {
         event: 'booking.request',
         request_id: requestId,
@@ -492,17 +392,126 @@ router.openapi(postBookingRoute, async (c) => {
         validation_failed: false,
         sheets_latency_ms: appendResult.latencyMs,
         sheets_status_code: appendResult.statusCode,
-        client_outcome: clientOutcome,
-        booking_persisted: bookingPersisted,
-        notification_attempted: notification?.attempted ?? false,
-        notification_delivered: notification?.delivered ?? null,
-        status: 201,
+        sheets_error_code: appendResult.errorCode,
+        status: 502,
       },
-      'Booking created',
+      'Sheets append failed',
     )
+    return c.json(
+      {
+        ok: false as const,
+        error: 'sheets' as const,
+        code: appendResult.statusCode,
+        message: appendResult.message,
+      },
+      StatusCodes.BAD_GATEWAY,
+    )
+  }
 
-    return c.json(successResult, StatusCodes.CREATED)
-  })
+  // Mirror the client and the booking into Postgres (best-effort; Sheets is
+  // still the source of truth). Failures here never block the booking — the DB
+  // is purely additive at stage 1. The client upsert and the booking mirror are
+  // independent: if the upsert fails the booking row is still persisted with a
+  // null client link (the snapshot name/phone keep the row self-sufficient).
+  let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
+  let clientId: string | null = null
+  let carId: string | null = null
+  let bookingPersisted = false
+  if (isDbReady()) {
+    try {
+      const result = await upsertClient(booking.phone, booking.name)
+      clientOutcome = result.outcome
+      clientId = result.client?.id ?? null
+    } catch (err) {
+      clientOutcome = 'error'
+      baseLogger.warn(
+        {
+          event: 'booking.client_upsert_failed',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+        },
+        'Client upsert failed — booking succeeded, DB skipped',
+      )
+    }
+
+    // Best-effort ingest of the client's car. Own try/catch (sibling to the
+    // upsert and mirror catches, NOT combined) — a car failure must not
+    // suppress the mirror insert below. Skipped without a linked client
+    // (nowhere to attach it) or an empty make/model.
+    if (clientId && booking.car) {
+      try {
+        // Returns the id of the normalized car row so the mirror can link
+        // `car_id` atomically below; a failure leaves carId null (booking
+        // proceeds).
+        carId = await upsertClientCarReturningId(clientId, booking.car, booking.plate ?? '')
+      } catch (err) {
+        baseLogger.warn(
+          {
+            event: 'booking.client_car_upsert_failed',
+            request_id: requestId,
+            message: err instanceof Error ? err.message : String(err),
+          },
+          'Client car upsert failed — booking succeeded, DB skipped',
+        )
+      }
+    }
+
+    try {
+      // Idempotent on the key: a post-TTL retry (which re-appends to Sheets)
+      // will not create a second mirror row.
+      bookingPersisted = await insertBooking(booking, {
+        idempotencyKey,
+        clientId,
+        carId,
+        sheetRow: appendResult.updatedRow,
+        sheetRange: appendResult.updatedRange,
+      })
+    } catch (err) {
+      baseLogger.warn(
+        {
+          event: 'booking.db_mirror_failed',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+        },
+        'Booking mirror insert failed — booking succeeded, DB skipped',
+      )
+    }
+  }
+
+  // Best-effort Telegram notification to the master. Runs after the write
+  // lands in Sheets and never blocks it — a failure only downgrades the
+  // response to a warning the form shows. Skipped entirely unless requested.
+  const notification = booking.notify ? await notifyMaster(booking) : undefined
+
+  const successResult = {
+    ok: true as const,
+    idempotent: false,
+    updatedRange: appendResult.updatedRange,
+    updatedRow: appendResult.updatedRow,
+    ...(notification ? { notification } : {}),
+  }
+  idempotency.set(idempotencyKey, successResult)
+
+  baseLogger.info(
+    {
+      event: 'booking.request',
+      request_id: requestId,
+      idempotency_key: idempotencyKey,
+      idempotent: false,
+      validation_failed: false,
+      sheets_latency_ms: appendResult.latencyMs,
+      sheets_status_code: appendResult.statusCode,
+      client_outcome: clientOutcome,
+      booking_persisted: bookingPersisted,
+      notification_attempted: notification?.attempted ?? false,
+      notification_delivered: notification?.delivered ?? null,
+      status: 201,
+    },
+    'Booking created',
+  )
+
+  return c.json(successResult, StatusCodes.CREATED)
+})
 
 router.openapi(
   getBookingsRoute,
@@ -553,7 +562,10 @@ router.openapi(
         },
         'Bookings query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   },
   defaultValidationHook,
@@ -627,7 +639,10 @@ router.openapi(
         },
         'Booking update failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   },
   defaultValidationHook,
@@ -672,7 +687,10 @@ router.openapi(
         },
         'Booking delete failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   },
   defaultValidationHook,
@@ -730,7 +748,10 @@ router.openapi(
         },
         'Booking readiness update failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   },
   defaultValidationHook,
@@ -760,7 +781,9 @@ function isoDateTimeCell(iso: string): string {
 /** One CSV row from a wire booking. `amount` is present only when `includeAmount`
  * (admin) — the column set must match the header built with the same flag. */
 function bookingCsvRow(r: BookingRow, includeAmount: boolean): string[] {
-  const date = r.dateTo ? `${isoDateCell(r.dateFrom)}-${isoDateCell(r.dateTo)}` : isoDateCell(r.dateFrom)
+  const date = r.dateTo
+    ? `${isoDateCell(r.dateFrom)}-${isoDateCell(r.dateTo)}`
+    : isoDateCell(r.dateFrom)
   const time = r.timeTo ? `${r.timeFrom}-${r.timeTo}` : r.timeFrom
   return [
     date,
@@ -840,12 +863,20 @@ router.get('/export', async (c) => {
       'Ответственный',
       'Создано',
     ]
-    const rows = items.map((row) => bookingCsvRow(toBookingRow(row, { includeAmount }), includeAmount))
+    const rows = items.map((row) =>
+      bookingCsvRow(toBookingRow(row, { includeAmount }), includeAmount),
+    )
     const csv = toCsv([header, ...rows], { delimiter: ';', bom: true })
 
     const truncated = items.length >= EXPORT_CAP
     baseLogger[truncated ? 'warn' : 'info'](
-      { event: 'bookings.export', request_id: requestId, count: items.length, truncated, status: 200 },
+      {
+        event: 'bookings.export',
+        request_id: requestId,
+        count: items.length,
+        truncated,
+        status: 200,
+      },
       truncated ? 'Bookings export truncated at cap' : 'Bookings exported',
     )
 
@@ -864,7 +895,10 @@ router.get('/export', async (c) => {
       },
       'Bookings export failed',
     )
-    return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    return c.json(
+      { ok: false as const, error: 'internal' as const },
+      StatusCodes.INTERNAL_SERVER_ERROR,
+    )
   }
 })
 

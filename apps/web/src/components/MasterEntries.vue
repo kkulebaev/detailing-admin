@@ -26,7 +26,11 @@ const emit = defineEmits<{ edit: [SalaryEntry]; delete: [SalaryEntry] }>()
 // with its own cache entry. useInvalidateSalaryEntries (prefix key) refreshes
 // all. Hours and payouts arrive as one sorted feed, so there is a single
 // loading/error state here rather than a combination of two.
-const { data, error: queryError, asyncStatus } = useSalaryEntriesQuery(
+const {
+  data,
+  error: queryError,
+  asyncStatus,
+} = useSalaryEntriesQuery(
   computed<number | null>(() => props.masterId),
   computed(() => props.month),
 )
@@ -36,9 +40,7 @@ const entries = computed<SalaryEntry[]>(() => {
   return r?.ok ? r.entries : []
 })
 
-const loading = computed(
-  () => asyncStatus.value === 'loading' && data.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && data.value === undefined)
 
 const error = computed<string | null>(() => {
   if (queryError.value) return 'Сетевая ошибка при загрузке записей'

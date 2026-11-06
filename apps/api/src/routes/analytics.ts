@@ -60,7 +60,10 @@ function isoDate(d: Date): string {
 
 /** Previous period of the same length, immediately before [from,to]:
  * prevTo = from − 1 day, prevFrom = from − (to − from + 1 day). */
-function previousPeriod(fromIso: string, toIso: string): { prevFromIso: string; prevToIso: string } {
+function previousPeriod(
+  fromIso: string,
+  toIso: string,
+): { prevFromIso: string; prevToIso: string } {
   const from = new Date(`${fromIso}T00:00:00Z`)
   const to = new Date(`${toIso}T00:00:00Z`)
   const lengthDays = Math.round((to.getTime() - from.getTime()) / DAY_MS) + 1

@@ -49,7 +49,9 @@ describe('clientDetailOkSchema', () => {
     phone: '+79001234567',
     name: 'Иван',
     createdAt: '2026-06-01T12:00:00.000Z',
-    cars: [{ id: '22222222-2222-4222-8222-222222222222', makeModel: 'Toyota Camry', plate: 'А123АА77' }],
+    cars: [
+      { id: '22222222-2222-4222-8222-222222222222', makeModel: 'Toyota Camry', plate: 'А123АА77' },
+    ],
   }
   const validBooking = {
     id: '33333333-3333-4333-8333-333333333333',

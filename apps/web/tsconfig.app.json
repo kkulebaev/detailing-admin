@@ -13,10 +13,5 @@
       "@detailing-admin/shared/*": ["../../packages/shared/src/*.ts"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.vue",
-    "../../packages/shared/src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "../../packages/shared/src/**/*.ts"]
 }

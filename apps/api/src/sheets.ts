@@ -38,8 +38,7 @@ export function _setClientForTest(mock: ReturnType<typeof google.sheets>): void 
 }
 
 export async function verifyHeaders(): Promise<
-  | { ok: true }
-  | { ok: false; column_index: number; expected: string; observed: string }
+  { ok: true } | { ok: false; column_index: number; expected: string; observed: string }
 > {
   const client = getClient()
   const range = `${env.SHEET_NAME}!A1:K1`

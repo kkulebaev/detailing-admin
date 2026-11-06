@@ -55,7 +55,7 @@ describe('toCsv', () => {
       ['Имя', 'Телефон'],
       ['Иван', '+79991234567'],
     ])
-    expect(csv).toBe('﻿Имя;Телефон\r\nИван;\'+79991234567')
+    expect(csv).toBe("﻿Имя;Телефон\r\nИван;'+79991234567")
   })
 
   it('omits the BOM when bom:false', () => {
@@ -67,7 +67,13 @@ describe('toCsv', () => {
   })
 
   it('preserves column order across rows', () => {
-    const csv = toCsv([['c1', 'c2', 'c3'], ['1', '2', '3']], { bom: false })
+    const csv = toCsv(
+      [
+        ['c1', 'c2', 'c3'],
+        ['1', '2', '3'],
+      ],
+      { bom: false },
+    )
     expect(csv).toBe('c1;c2;c3\r\n1;2;3')
   })
 })

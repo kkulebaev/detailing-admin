@@ -96,7 +96,9 @@ describe('workHoursInputSchema', () => {
   const base = { masterId: 1, workDate: '2026-07-15' }
 
   it('accepts a quarter-hour value with an optional note', () => {
-    expect(workHoursInputSchema.safeParse({ ...base, hours: 7.5, note: 'смена' }).success).toBe(true)
+    expect(workHoursInputSchema.safeParse({ ...base, hours: 7.5, note: 'смена' }).success).toBe(
+      true,
+    )
     expect(workHoursInputSchema.safeParse({ ...base, hours: 0.25 }).success).toBe(true)
   })
 
@@ -110,9 +112,15 @@ describe('workHoursInputSchema', () => {
   })
 
   it('rejects a malformed or impossible ISO date', () => {
-    expect(workHoursInputSchema.safeParse({ masterId: 1, workDate: '15.07.2026', hours: 8 }).success).toBe(false)
-    expect(workHoursInputSchema.safeParse({ masterId: 1, workDate: '2026-02-31', hours: 8 }).success).toBe(false)
-    expect(workHoursInputSchema.safeParse({ masterId: 1, workDate: '2026-13-01', hours: 8 }).success).toBe(false)
+    expect(
+      workHoursInputSchema.safeParse({ masterId: 1, workDate: '15.07.2026', hours: 8 }).success,
+    ).toBe(false)
+    expect(
+      workHoursInputSchema.safeParse({ masterId: 1, workDate: '2026-02-31', hours: 8 }).success,
+    ).toBe(false)
+    expect(
+      workHoursInputSchema.safeParse({ masterId: 1, workDate: '2026-13-01', hours: 8 }).success,
+    ).toBe(false)
   })
 })
 
@@ -160,7 +168,9 @@ describe('payoutInputSchema', () => {
 
   it('accepts a positive and a negative whole amount', () => {
     expect(payoutInputSchema.safeParse({ ...base, amount: 5000 }).success).toBe(true)
-    expect(payoutInputSchema.safeParse({ ...base, amount: -2000, note: 'штраф' }).success).toBe(true)
+    expect(payoutInputSchema.safeParse({ ...base, amount: -2000, note: 'штраф' }).success).toBe(
+      true,
+    )
   })
 
   it('rejects a zero amount with the domain message', () => {
@@ -179,8 +189,12 @@ describe('payoutInputSchema', () => {
   })
 
   it('rejects a malformed or impossible ISO date', () => {
-    expect(payoutInputSchema.safeParse({ masterId: 1, payoutDate: '2026-02-31', amount: 100 }).success).toBe(false)
-    expect(payoutInputSchema.safeParse({ masterId: 1, payoutDate: '15.07.2026', amount: 100 }).success).toBe(false)
+    expect(
+      payoutInputSchema.safeParse({ masterId: 1, payoutDate: '2026-02-31', amount: 100 }).success,
+    ).toBe(false)
+    expect(
+      payoutInputSchema.safeParse({ masterId: 1, payoutDate: '15.07.2026', amount: 100 }).success,
+    ).toBe(false)
   })
 })
 

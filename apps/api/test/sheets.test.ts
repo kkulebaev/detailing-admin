@@ -114,7 +114,8 @@ describe('appendBooking', () => {
       status: 200,
     })
     await appendBooking(['04.06.2026', '10:00', '', '', '', '', '', '', '', '', ''])
-    const call = mock.spreadsheets.values.append.mock.calls[0]?.[0] as sheets_v4.Params$Resource$Spreadsheets$Values$Append
+    const call = mock.spreadsheets.values.append.mock
+      .calls[0]?.[0] as sheets_v4.Params$Resource$Spreadsheets$Values$Append
     // The range passed to googleapis should contain the sheet name exactly as-is;
     // googleapis handles URL-encoding internally.
     expect(call.range).toBe('Запись 2026!A1')

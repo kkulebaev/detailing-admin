@@ -7,8 +7,7 @@ import { runMigrations } from './db/migrate.js'
 export type BootState = 'ok' | 'headers_mismatch' | 'not_configured'
 
 let _bootState: BootState = 'ok'
-let _bootHeadersMismatch: { column_index: number; expected: string; observed: string } | null =
-  null
+let _bootHeadersMismatch: { column_index: number; expected: string; observed: string } | null = null
 let _bootNotConfiguredMessage: string | null = null
 let _dbReady = false
 

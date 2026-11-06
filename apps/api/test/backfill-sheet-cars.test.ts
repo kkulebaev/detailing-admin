@@ -18,7 +18,10 @@ describe('splitCar', () => {
   })
 
   it('trims both halves', () => {
-    expect(splitCar('  Volvo XC60 ,  В777ВВ99 ')).toEqual({ makeModel: 'Volvo XC60', plate: 'В777ВВ99' })
+    expect(splitCar('  Volvo XC60 ,  В777ВВ99 ')).toEqual({
+      makeModel: 'Volvo XC60',
+      plate: 'В777ВВ99',
+    })
   })
 
   it('handles an empty string', () => {

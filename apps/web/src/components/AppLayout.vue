@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import AppLogo from '@/components/AppLogo.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 </script>
 
 <template>

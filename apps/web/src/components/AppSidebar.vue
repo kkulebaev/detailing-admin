@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { computed, watch, type Component } from 'vue'
-import { BarChart3, CalendarPlus, ClipboardList, Clock, LogOut, ReceiptText, User, Users, Wallet, Wrench, X } from '@lucide/vue'
+import {
+  BarChart3,
+  CalendarPlus,
+  ClipboardList,
+  Clock,
+  LogOut,
+  ReceiptText,
+  User,
+  Users,
+  Wallet,
+  Wrench,
+  X,
+} from '@lucide/vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { Role } from '@detailing-admin/shared'
 import AppLogo from '@/components/AppLogo.vue'
@@ -29,8 +41,18 @@ interface NavItem {
 // Employees see the bookings list and their own hours, a booker also gets the
 // booking form; everything else is admin-only.
 const NAV_ITEMS: readonly NavItem[] = [
-  { to: { name: 'booking' }, label: 'Новая запись', icon: CalendarPlus, roles: ['admin', 'booker'] },
-  { to: { name: 'bookings' }, label: 'Записи', icon: ClipboardList, roles: ['admin', 'booker', 'employee'] },
+  {
+    to: { name: 'booking' },
+    label: 'Новая запись',
+    icon: CalendarPlus,
+    roles: ['admin', 'booker'],
+  },
+  {
+    to: { name: 'bookings' },
+    label: 'Записи',
+    icon: ClipboardList,
+    roles: ['admin', 'booker', 'employee'],
+  },
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users, roles: ['admin'] },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText, roles: ['admin'] },
   { to: { name: 'masters' }, label: 'Мастера', icon: Wrench, roles: ['admin'] },
@@ -55,9 +77,12 @@ const navItems = computed(() => {
 const route = useRoute()
 const router = useRouter()
 const { isMobile, setOpenMobile } = useSidebar()
-watch(() => route.fullPath, () => {
-  if (isMobile.value) setOpenMobile(false)
-})
+watch(
+  () => route.fullPath,
+  () => {
+    if (isMobile.value) setOpenMobile(false)
+  },
+)
 
 async function onLogout() {
   await auth.logout()

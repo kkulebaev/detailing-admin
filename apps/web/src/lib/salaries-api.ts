@@ -85,9 +85,7 @@ export function fetchSalaryEntries(
   )
 }
 
-export function createWorkHours(
-  payload: WorkHoursCreatePayload,
-): Promise<WorkHoursMutationResult> {
+export function createWorkHours(payload: WorkHoursCreatePayload): Promise<WorkHoursMutationResult> {
   return unwrap<WorkHoursMutationResult>(() => postApiSalariesHours(payload))
 }
 
@@ -95,9 +93,7 @@ export function updateWorkHours(
   id: number,
   payload: WorkHoursUpdatePayload,
 ): Promise<WorkHoursMutationResult> {
-  return unwrap<WorkHoursMutationResult>(() =>
-    patchApiSalariesHoursId(String(id), payload),
-  )
+  return unwrap<WorkHoursMutationResult>(() => patchApiSalariesHoursId(String(id), payload))
 }
 
 export function deleteWorkHours(id: number): Promise<WorkHoursDeleteResult> {
@@ -112,9 +108,7 @@ export function updatePayout(
   id: number,
   payload: PayoutUpdatePayload,
 ): Promise<PayoutMutationResult> {
-  return unwrap<PayoutMutationResult>(() =>
-    patchApiSalariesPayoutsId(String(id), payload),
-  )
+  return unwrap<PayoutMutationResult>(() => patchApiSalariesPayoutsId(String(id), payload))
 }
 
 export function deletePayout(id: number): Promise<PayoutDeleteResult> {

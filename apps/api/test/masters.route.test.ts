@@ -146,7 +146,10 @@ describe('/api/masters', () => {
   })
 
   it('GET / lists masters', async () => {
-    vi.mocked(listMasters).mockResolvedValue([master(), master({ id: 2, name: 'Пётр Новый', position: 1 })])
+    vi.mocked(listMasters).mockResolvedValue([
+      master(),
+      master({ id: 2, name: 'Пётр Новый', position: 1 }),
+    ])
     const res = await req(app, '/', 'GET')
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -171,7 +174,9 @@ describe('/api/masters', () => {
   })
 
   it('POST / persists a telegramId → 201', async () => {
-    vi.mocked(createMaster).mockResolvedValue(master({ id: 3, name: 'Новый Мастер', telegramId: '123456789' }))
+    vi.mocked(createMaster).mockResolvedValue(
+      master({ id: 3, name: 'Новый Мастер', telegramId: '123456789' }),
+    )
     const res = await req(app, '/', 'POST', {
       name: 'Новый Мастер',
       canBeResponsible: true,
@@ -258,7 +263,9 @@ describe('/api/masters', () => {
   })
 
   it('PATCH /{id} updates a master → 200', async () => {
-    vi.mocked(updateMaster).mockResolvedValue(master({ name: 'Иван Содель', canBeResponsible: false, telegramId: '42' }))
+    vi.mocked(updateMaster).mockResolvedValue(
+      master({ name: 'Иван Содель', canBeResponsible: false, telegramId: '42' }),
+    )
     const res = await req(app, '/1', 'PATCH', {
       name: 'Иван Содель',
       canBeResponsible: false,
@@ -305,7 +312,10 @@ describe('/api/masters', () => {
   })
 
   it('PATCH /reorder → 200', async () => {
-    vi.mocked(reorderMasters).mockResolvedValue([master({ id: 2, position: 0 }), master({ id: 1, position: 1 })])
+    vi.mocked(reorderMasters).mockResolvedValue([
+      master({ id: 2, position: 0 }),
+      master({ id: 1, position: 1 }),
+    ])
     const res = await req(app, '/reorder', 'PATCH', { ids: [2, 1] })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -325,9 +335,29 @@ describe('/api/masters', () => {
 
   it.each([
     ['/', 'GET', undefined],
-    ['/', 'POST', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }],
+    [
+      '/',
+      'POST',
+      {
+        name: 'Новый Мастер',
+        canBeResponsible: true,
+        paidSalary: true,
+        telegramId: null,
+        userId: null,
+      },
+    ],
     ['/reorder', 'PATCH', { ids: [1] }],
-    ['/1', 'PATCH', { name: 'Новый Мастер', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }],
+    [
+      '/1',
+      'PATCH',
+      {
+        name: 'Новый Мастер',
+        canBeResponsible: true,
+        paidSalary: true,
+        telegramId: null,
+        userId: null,
+      },
+    ],
     ['/1', 'DELETE', undefined],
   ])('%s %s returns 503 when DB is not ready', async (path, method, body) => {
     vi.mocked(isDbReady).mockReturnValue(false)

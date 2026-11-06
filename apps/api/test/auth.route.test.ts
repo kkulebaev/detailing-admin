@@ -107,7 +107,13 @@ beforeAll(async () => {
   }
 })
 
-function json(app: ReturnType<typeof createApp>, path: string, method: string, body?: unknown, headers: Record<string, string> = {}) {
+function json(
+  app: ReturnType<typeof createApp>,
+  path: string,
+  method: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+) {
   return app.request(path, {
     method,
     headers: { 'Content-Type': 'application/json', Origin: ORIGIN, ...headers },
@@ -125,7 +131,10 @@ describe('POST /api/auth/login', () => {
 
   it('valid credentials → 200 with user and a Set-Cookie', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
-    const res = await json(app, '/api/auth/login', 'POST', { login: 'admin', password: 'secret123' })
+    const res = await json(app, '/api/auth/login', 'POST', {
+      login: 'admin',
+      password: 'secret123',
+    })
     expect(res.status).toBe(200)
     const setCookie = res.headers.get('set-cookie') ?? ''
     expect(setCookie).toContain('auth_token=')
@@ -151,7 +160,10 @@ describe('POST /api/auth/login', () => {
 
   it('remember omitted → cookie uses the default Max-Age', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
-    const res = await json(app, '/api/auth/login', 'POST', { login: 'admin', password: 'secret123' })
+    const res = await json(app, '/api/auth/login', 'POST', {
+      login: 'admin',
+      password: 'secret123',
+    })
     expect(res.status).toBe(200)
     expect(res.headers.get('set-cookie') ?? '').toContain('Max-Age=86400')
   })
@@ -175,7 +187,10 @@ describe('POST /api/auth/login', () => {
 
   it('DB down → 503', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
-    const res = await json(app, '/api/auth/login', 'POST', { login: 'admin', password: 'secret123' })
+    const res = await json(app, '/api/auth/login', 'POST', {
+      login: 'admin',
+      password: 'secret123',
+    })
     expect(res.status).toBe(503)
     const body = await res.json()
     expect(body.error).toBe('unavailable')
@@ -253,33 +268,53 @@ describe('POST /api/auth/change-password', () => {
 
   it('DB down → 503', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
-    const res = await json(app, '/api/auth/change-password', 'POST', {
-      currentPassword: 'secret123',
-      newPassword: 'brandnew123',
-    }, { Cookie: await adminCookie() })
+    const res = await json(
+      app,
+      '/api/auth/change-password',
+      'POST',
+      {
+        currentPassword: 'secret123',
+        newPassword: 'brandnew123',
+      },
+      { Cookie: await adminCookie() },
+    )
     expect(res.status).toBe(503)
   })
 
   it('wrong current password → 400 validation on currentPassword', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
-    const res = await json(app, '/api/auth/change-password', 'POST', {
-      currentPassword: 'WRONG',
-      newPassword: 'brandnew123',
-    }, { Cookie: await adminCookie() })
+    const res = await json(
+      app,
+      '/api/auth/change-password',
+      'POST',
+      {
+        currentPassword: 'WRONG',
+        newPassword: 'brandnew123',
+      },
+      { Cookie: await adminCookie() },
+    )
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toBe('validation')
-    expect((body.issues as Array<{ path: unknown[] }>).some((i) => i.path.includes('currentPassword'))).toBe(true)
+    expect(
+      (body.issues as Array<{ path: unknown[] }>).some((i) => i.path.includes('currentPassword')),
+    ).toBe(true)
     expect(vi.mocked(updatePasswordHash)).not.toHaveBeenCalled()
   })
 
   it('correct current password → 200 and updates the hash', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     vi.mocked(updatePasswordHash).mockResolvedValue(true)
-    const res = await json(app, '/api/auth/change-password', 'POST', {
-      currentPassword: 'secret123',
-      newPassword: 'brandnew123',
-    }, { Cookie: await adminCookie() })
+    const res = await json(
+      app,
+      '/api/auth/change-password',
+      'POST',
+      {
+        currentPassword: 'secret123',
+        newPassword: 'brandnew123',
+      },
+      { Cookie: await adminCookie() },
+    )
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toEqual({ ok: true })
@@ -289,10 +324,16 @@ describe('POST /api/auth/change-password', () => {
   it('lost concurrent-change race (rowCount 0) → 409 stale_password', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     vi.mocked(updatePasswordHash).mockResolvedValue(false)
-    const res = await json(app, '/api/auth/change-password', 'POST', {
-      currentPassword: 'secret123',
-      newPassword: 'brandnew123',
-    }, { Cookie: await adminCookie() })
+    const res = await json(
+      app,
+      '/api/auth/change-password',
+      'POST',
+      {
+        currentPassword: 'secret123',
+        newPassword: 'brandnew123',
+      },
+      { Cookie: await adminCookie() },
+    )
     expect(res.status).toBe(409)
     const body = await res.json()
     expect(body).toEqual({ ok: false, error: 'conflict', reason: 'stale_password' })
@@ -315,16 +356,28 @@ describe('PATCH /api/auth/me', () => {
 
   it('DB down → 503', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
-    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' }, {
-      Cookie: await adminCookie(),
-    })
+    const res = await json(
+      app,
+      '/api/auth/me',
+      'PATCH',
+      { firstName: 'Иван', lastName: 'Петров' },
+      {
+        Cookie: await adminCookie(),
+      },
+    )
     expect(res.status).toBe(503)
   })
 
   it('blank name → 400 validation', async () => {
-    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: '  ', lastName: 'Петров' }, {
-      Cookie: await adminCookie(),
-    })
+    const res = await json(
+      app,
+      '/api/auth/me',
+      'PATCH',
+      { firstName: '  ', lastName: 'Петров' },
+      {
+        Cookie: await adminCookie(),
+      },
+    )
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toBe('validation')
@@ -337,9 +390,15 @@ describe('PATCH /api/auth/me', () => {
       firstName: 'Иван',
       lastName: 'Петров',
     } as never)
-    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' }, {
-      Cookie: await adminCookie(),
-    })
+    const res = await json(
+      app,
+      '/api/auth/me',
+      'PATCH',
+      { firstName: 'Иван', lastName: 'Петров' },
+      {
+        Cookie: await adminCookie(),
+      },
+    )
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toEqual({
@@ -356,9 +415,15 @@ describe('PATCH /api/auth/me', () => {
 
   it('account vanished between sign-in and now → 401', async () => {
     vi.mocked(updateProfile).mockResolvedValue(null)
-    const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' }, {
-      Cookie: await adminCookie(),
-    })
+    const res = await json(
+      app,
+      '/api/auth/me',
+      'PATCH',
+      { firstName: 'Иван', lastName: 'Петров' },
+      {
+        Cookie: await adminCookie(),
+      },
+    )
     expect(res.status).toBe(401)
   })
 })
@@ -380,7 +445,9 @@ describe('guards on existing routes', () => {
   })
 
   it('GET /api/clients with an employee session → 403', async () => {
-    const res = await json(app, '/api/clients', 'GET', undefined, { Cookie: await employeeCookie() })
+    const res = await json(app, '/api/clients', 'GET', undefined, {
+      Cookie: await employeeCookie(),
+    })
     expect(res.status).toBe(403)
     const body = await res.json()
     expect(body.error).toBe('forbidden')
@@ -450,10 +517,16 @@ describe('ADR consequences (stateless sessions)', () => {
     // Perform a successful password change with that session.
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     vi.mocked(updatePasswordHash).mockResolvedValue(true)
-    const changed = await json(app, '/api/auth/change-password', 'POST', {
-      currentPassword: 'secret123',
-      newPassword: 'brandnew123',
-    }, { Cookie: oldCookie })
+    const changed = await json(
+      app,
+      '/api/auth/change-password',
+      'POST',
+      {
+        currentPassword: 'secret123',
+        newPassword: 'brandnew123',
+      },
+      { Cookie: oldCookie },
+    )
     expect(changed.status).toBe(200)
 
     // The OLD token is not revoked server-side — it still authenticates.

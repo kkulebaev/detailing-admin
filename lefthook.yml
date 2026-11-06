@@ -1,4 +1,4 @@
-# Pre-commit gate: same `pnpm lint / typecheck / test` you'd run locally, fired
+# Pre-commit gate: same `pnpm lint / fmt:check / typecheck / test` you'd run locally, fired
 # in parallel. The glob filter just skips the whole hook on doc-only / config-
 # only commits — once a `.ts` or `.vue` is staged, each command runs against the
 # full workspace (eslint can't be sliced safely with current configs).
@@ -11,11 +11,14 @@ pre-commit:
     - rebase
   commands:
     lint:
-      glob: "*.{ts,vue}"
+      glob: '*.{ts,vue}'
       run: pnpm lint
+    fmt:
+      glob: '*.{ts,vue,js,json,yml,yaml}'
+      run: pnpm fmt:check
     typecheck:
-      glob: "*.{ts,vue}"
+      glob: '*.{ts,vue}'
       run: pnpm typecheck
     test:
-      glob: "*.{ts,vue}"
+      glob: '*.{ts,vue}'
       run: pnpm test

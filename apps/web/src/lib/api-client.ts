@@ -7,9 +7,7 @@
 //
 // Network errors and JSON-parse failures propagate as thrown errors (Pinia
 // Colada surfaces them via `state.error` / `asyncStatus === 'error'`).
-export async function unwrap<T>(
-  call: () => Promise<{ data: unknown }>,
-): Promise<T> {
+export async function unwrap<T>(call: () => Promise<{ data: unknown }>): Promise<T> {
   const { data } = await call()
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return data as T

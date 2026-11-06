@@ -74,7 +74,11 @@ function masterErrorResponse(c: Context, err: unknown) {
         StatusCodes.BAD_REQUEST,
       )
     }
-    if (err.code === 'duplicate_name' || err.code === 'archived_name' || err.code === 'duplicate_user') {
+    if (
+      err.code === 'duplicate_name' ||
+      err.code === 'archived_name' ||
+      err.code === 'duplicate_user'
+    ) {
       return c.json(
         { ok: false as const, error: 'conflict' as const, reason: err.code },
         StatusCodes.CONFLICT,
@@ -85,7 +89,10 @@ function masterErrorResponse(c: Context, err: unknown) {
     { message: err instanceof Error ? err.message : String(err) },
     'Master mutation failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  return c.json(
+    { ok: false as const, error: 'internal' as const },
+    StatusCodes.INTERNAL_SERVER_ERROR,
+  )
 }
 
 const respValidation = {
@@ -148,7 +155,10 @@ const reorderMastersRoute = createRoute({
   tags: ['masters'],
   request: { body: { content: { 'application/json': { schema: reorderInputSchema } } } },
   responses: {
-    200: { description: 'Masters reordered', content: { 'application/json': { schema: reorderOk } } },
+    200: {
+      description: 'Masters reordered',
+      content: { 'application/json': { schema: reorderOk } },
+    },
     400: respInvalidOrder,
     500: respInternal,
     503: respDbUnavailable,
@@ -211,7 +221,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Masters query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(createMasterRoute, async (c) => {
@@ -254,10 +267,17 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         )
       }
       baseLogger.error(
-        { event: 'masters.reorder.error', request_id: requestId, message: err instanceof Error ? err.message : String(err) },
+        {
+          event: 'masters.reorder.error',
+          request_id: requestId,
+          message: err instanceof Error ? err.message : String(err),
+        },
         'Masters reorder failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(updateMasterRoute, async (c) => {
@@ -305,7 +325,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { message: err instanceof Error ? err.message : String(err) },
         'Master delete failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
 

@@ -9,11 +9,7 @@ import { toast } from 'vue-sonner'
 import { Calendar as CalendarIcon, Pencil, TriangleAlert, User } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
-import {
-  bookingSchema,
-  DEFAULT_CAR_CLASS,
-  MAX_MASTERS,
-} from '@detailing-admin/shared'
+import { bookingSchema, DEFAULT_CAR_CLASS, MAX_MASTERS } from '@detailing-admin/shared'
 import type { BookingApiResult, CarClass, MissedBookings } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
 import { usePricelistQuery, useMastersQuery } from '@/lib/queries'
@@ -23,7 +19,11 @@ import { resolveMasterOptions } from '@/lib/master-options'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
 import { maskThousands } from '@/lib/number-mask'
 import { maskLicensePlate, PLATE_LETTERS } from '@/lib/license-plate'
-import { formatServiceCell, formatAmountFormula, type ServiceBreakdownRow } from '@/lib/service-breakdown'
+import {
+  formatServiceCell,
+  formatAmountFormula,
+  type ServiceBreakdownRow,
+} from '@/lib/service-breakdown'
 import { usePhoneInput, formatPastedPhone } from '@/composables/use-phone-input'
 import { useClientLookup } from '@/composables/use-client-lookup'
 import type { Car } from '@/lib/clients-api'
@@ -39,11 +39,7 @@ import { Switch } from '@/components/ui/switch'
 import { Calendar } from '@/components/ui/calendar'
 import ServicePicker from './ServicePicker.vue'
 import MasterMultiSelect from './MasterMultiSelect.vue'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -51,13 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { FORM_SHOW_ERRORS_KEY } from '@/components/ui/form/injectionKeys'
 
 // Form field set used to narrow Zod issue paths into a literal union without a
@@ -105,9 +95,14 @@ const mastersForMaster = computed(() =>
   resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
 )
 const mastersForResponsible = computed(() =>
-  resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, (m) => m.canBeResponsible),
+  resolveMasterOptions(
+    mastersData.value?.ok ? mastersData.value.masters : undefined,
+    (m) => m.canBeResponsible,
+  ),
 )
-const mastersLoading = computed(() => mastersStatus.value === 'loading' && mastersData.value === undefined)
+const mastersLoading = computed(
+  () => mastersStatus.value === 'loading' && mastersData.value === undefined,
+)
 // Without the enum fallback, an unloaded or empty list leaves the master select
 // empty — warn explicitly so the form doesn't look silently broken.
 const mastersWarning = computed(() => {
@@ -198,7 +193,10 @@ function maskTimeText(raw: string): string {
 }
 
 function capitalizeWords(raw: string): string {
-  return raw.replace(/(^|[\s\-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'))
+  return raw.replace(
+    /(^|[\s\-])(\p{L})/gu,
+    (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'),
+  )
 }
 
 function maskName(raw: string): string {
@@ -414,9 +412,24 @@ const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
 
 // Working hours of the detailing shop: 10:00–18:30 in 30-minute slots.
 const TIME_PRESETS = [
-  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30',
-  '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
+  '10:00',
+  '10:30',
+  '11:00',
+  '11:30',
+  '12:00',
+  '12:30',
+  '13:00',
+  '13:30',
+  '14:00',
+  '14:30',
+  '15:00',
+  '15:30',
+  '16:00',
+  '16:30',
+  '17:00',
+  '17:30',
+  '18:00',
+  '18:30',
 ] as const
 
 // ── Form ──────────────────────────────────────────────────────────────────────
@@ -472,9 +485,13 @@ const {
 // Keep the notification toggle in sync with availability: off when the selected
 // master has no Telegram ID, on once a notifiable master is picked. Declared
 // after useForm so the immediate run can read `values` (avoids a TDZ error).
-watch(canNotifyMaster, (ok) => {
-  sendNotification.value = ok
-}, { immediate: true })
+watch(
+  canNotifyMaster,
+  (ok) => {
+    sendNotification.value = ok
+  },
+  { immediate: true },
+)
 
 // The phone input is bound to the raw string and lives outside a FormField (see
 // F7), so vee-validate never observes keystrokes and its «Укажите номер
@@ -538,9 +555,15 @@ function toggleRangeMode() {
   setFieldValue('dateTo', dateFromText.value)
 }
 
-const isTodayActive = computed(() => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(0)))
-const isTomorrowActive = computed(() => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(1)))
-const isDayAfter2Active = computed(() => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(2)))
+const isTodayActive = computed(
+  () => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(0)),
+)
+const isTomorrowActive = computed(
+  () => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(1)),
+)
+const isDayAfter2Active = computed(
+  () => !isRangeMode.value && sameDay(dateFromCal.value, shiftedDate(2)),
+)
 
 function pickTime(t: string) {
   timeValue.value = t
@@ -576,11 +599,11 @@ const MAX_CAR_SUGGESTIONS = 30
 const filteredCars = computed<readonly string[]>(() => {
   const q = (values.car ?? '').trim().toLowerCase()
   if (!q) return CAR_SUGGESTIONS.slice(0, MAX_CAR_SUGGESTIONS)
-  return CAR_SUGGESTIONS
-    .filter((c) => c.toLowerCase().includes(q))
-    .slice(0, MAX_CAR_SUGGESTIONS)
+  return CAR_SUGGESTIONS.filter((c) => c.toLowerCase().includes(q)).slice(0, MAX_CAR_SUGGESTIONS)
 })
-watch(filteredCars, () => { carActiveIndex.value = 0 })
+watch(filteredCars, () => {
+  carActiveIndex.value = 0
+})
 
 function selectCar(car: string) {
   const el = carInputEl.value
@@ -613,7 +636,8 @@ function onDocumentPointerDown(e: Event) {
   if (
     target instanceof Element &&
     (target.closest('[data-car-input]') || target.closest('[data-car-suggestions]'))
-  ) return
+  )
+    return
   carPopoverOpen.value = false
 }
 
@@ -853,7 +877,9 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   try {
     result = await submitBooking(payload, idempotencyKey.value)
   } catch {
-    const retry = () => { void onSubmit() }
+    const retry = () => {
+      void onSubmit()
+    }
     toast.error('Ошибка при сохранении', {
       action: { label: 'Повторить', onClick: retry },
     })
@@ -889,7 +915,9 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
       }
     }
   } else {
-    const retry = () => { void onSubmit() }
+    const retry = () => {
+      void onSubmit()
+    }
     toast.error('Ошибка при сохранении', {
       action: { label: 'Повторить', onClick: retry },
     })
@@ -982,7 +1010,11 @@ const draftSchema = z.object({
 type Draft = z.infer<typeof draftSchema>
 
 function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY) } catch { /* storage may be disabled */ }
+  try {
+    localStorage.removeItem(DRAFT_KEY)
+  } catch {
+    /* storage may be disabled */
+  }
 }
 
 function saveDraft() {
@@ -1010,12 +1042,26 @@ function saveDraft() {
     // check would call an untouched, empty-selection draft "meaningful".
     const hasMaster = Array.isArray(draft.master) ? draft.master.length > 0 : Boolean(draft.master)
     const meaningful =
-      draft.isRangeMode || draft.timeValue || draft.name || draft.car || draft.licensePlate ||
-      draft.service || draft.note || draft.amountRaw || draft.discountRaw || hasMaster ||
-      draft.responsible || (draft.phoneRaw && draft.phoneRaw.replace(/\D/g, '').length > 1)
-    if (!meaningful) { clearDraft(); return }
+      draft.isRangeMode ||
+      draft.timeValue ||
+      draft.name ||
+      draft.car ||
+      draft.licensePlate ||
+      draft.service ||
+      draft.note ||
+      draft.amountRaw ||
+      draft.discountRaw ||
+      hasMaster ||
+      draft.responsible ||
+      (draft.phoneRaw && draft.phoneRaw.replace(/\D/g, '').length > 1)
+    if (!meaningful) {
+      clearDraft()
+      return
+    }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 function loadDraft() {
@@ -1071,7 +1117,9 @@ function loadDraft() {
     }
     if (d.responsible && d.responsible.trim()) setFieldValue('responsible', d.responsible)
     if (d.carClass) setFieldValue('carClass', d.carClass)
-  } catch { /* corrupted draft: ignore */ }
+  } catch {
+    /* corrupted draft: ignore */
+  }
 }
 
 // ── Тестовое заполнение (Ctrl+Shift+X) ───────────────────────────────────────
@@ -1080,7 +1128,13 @@ function loadDraft() {
 // пересчитается сама через ServicePicker; иначе выставляем сумму вручную.
 const { data: pricelistData } = usePricelistQuery()
 
-const TEST_NAMES = ['Иван Петров', 'Мария Смирнова', 'Алексей Иванов', 'Ольга Кузнецова', 'Дмитрий Соколов']
+const TEST_NAMES = [
+  'Иван Петров',
+  'Мария Смирнова',
+  'Алексей Иванов',
+  'Ольга Кузнецова',
+  'Дмитрий Соколов',
+]
 const TEST_NOTES = ['', 'Тестовая запись', 'Клиент просил перезвонить', 'Оплата картой']
 const PLATE_LETTER_LIST = [...PLATE_LETTERS]
 
@@ -1164,11 +1218,23 @@ function scheduleSave() {
 
 watch(
   [
-    dateFromText, dateToText, timeValue, timeToValue, isRangeMode,
-    phoneRaw, licensePlate, amountRaw, discountRaw, discountUnit,
-    () => values.name, () => values.car, () => values.service,
-    () => values.note, () => values.master,
-    () => values.responsible, () => values.carClass,
+    dateFromText,
+    dateToText,
+    timeValue,
+    timeToValue,
+    isRangeMode,
+    phoneRaw,
+    licensePlate,
+    amountRaw,
+    discountRaw,
+    discountUnit,
+    () => values.name,
+    () => values.car,
+    () => values.service,
+    () => values.note,
+    () => values.master,
+    () => values.responsible,
+    () => values.carClass,
   ],
   scheduleSave,
 )
@@ -1182,16 +1248,18 @@ watch(
       class="bg-destructive text-destructive-foreground px-4 py-3 text-sm font-medium"
       role="alert"
     >
-      «Сервис временно недоступен: расхождение в заголовках таблицы.
-      Столбец {{ unavailableBanner.column_index + 1 }}: ожидается «{{ unavailableBanner.expected }}», найдено «{{ unavailableBanner.observed }}».
-      Исправьте заголовок в таблице или EXPECTED_HEADERS в коде и перезапустите API.»
+      «Сервис временно недоступен: расхождение в заголовках таблицы. Столбец
+      {{ unavailableBanner.column_index + 1 }}: ожидается «{{ unavailableBanner.expected }}»,
+      найдено «{{ unavailableBanner.observed }}». Исправьте заголовок в таблице или EXPECTED_HEADERS
+      в коде и перезапустите API.»
     </div>
     <div
       v-else-if="unavailableBanner && unavailableBanner.kind === 'not_configured'"
       class="bg-destructive text-destructive-foreground px-4 py-3 text-sm font-medium"
       role="alert"
     >
-      «Сервис не сконфигурирован: {{ unavailableBanner.message }}. Проверьте серверные переменные окружения и перезапустите API.»
+      «Сервис не сконфигурирован: {{ unavailableBanner.message }}. Проверьте серверные переменные
+      окружения и перезапустите API.»
     </div>
 
     <form class="max-w-lg mx-auto px-4 pt-6 pb-36" @submit.prevent="onSubmit">
@@ -1217,104 +1285,107 @@ watch(
             <CardTitle class="text-base">Дата и время записи</CardTitle>
           </CardHeader>
           <CardContent class="px-4">
-          <!-- Quick date chips -->
-          <div class="flex flex-wrap gap-2 mb-2">
-            <button
-              type="button"
-              :data-active="isTodayActive"
-              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-              @click="pickDay(0)"
-            >
-              Сегодня
-            </button>
-            <button
-              type="button"
-              :data-active="isTomorrowActive"
-              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-              @click="pickDay(1)"
-            >
-              Завтра
-            </button>
-            <button
-              type="button"
-              :data-active="isDayAfter2Active"
-              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-              @click="pickDay(2)"
-            >
-              Послезавтра
-            </button>
-            <button
-              type="button"
-              :data-active="isRangeMode"
-              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-              @click="toggleRangeMode"
-            >
-              Диапазон
-            </button>
-          </div>
+            <!-- Quick date chips -->
+            <div class="flex flex-wrap gap-2 mb-2">
+              <button
+                type="button"
+                :data-active="isTodayActive"
+                class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                @click="pickDay(0)"
+              >
+                Сегодня
+              </button>
+              <button
+                type="button"
+                :data-active="isTomorrowActive"
+                class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                @click="pickDay(1)"
+              >
+                Завтра
+              </button>
+              <button
+                type="button"
+                :data-active="isDayAfter2Active"
+                class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                @click="pickDay(2)"
+              >
+                Послезавтра
+              </button>
+              <button
+                type="button"
+                :data-active="isRangeMode"
+                class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                @click="toggleRangeMode"
+              >
+                Диапазон
+              </button>
+            </div>
 
-          <div class="flex gap-2">
-            <!-- Date text input + calendar icon trigger -->
-            <div class="relative flex-1">
+            <div class="flex gap-2">
+              <!-- Date text input + calendar icon trigger -->
+              <div class="relative flex-1">
+                <Input
+                  type="text"
+                  inputmode="numeric"
+                  class="h-11 pr-10"
+                  placeholder="ДД.ММ.ГГГГ"
+                  v-model="dateFromText"
+                  :aria-invalid="submitAttempted && !!errors.dateFrom"
+                  @input="onDateFromTextInput"
+                />
+                <Popover v-model:open="dateFromOpen">
+                  <PopoverTrigger as-child>
+                    <button
+                      type="button"
+                      aria-label="Выбрать дату в календаре"
+                      class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
+                    >
+                      <CalendarIcon class="size-4.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent class="w-auto p-0" align="start">
+                    <Calendar
+                      locale="ru-RU"
+                      :model-value="dateFromCal"
+                      @update:model-value="onDateFromSelect"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <!-- Time text input (masked HH:MM) -->
               <Input
                 type="text"
                 inputmode="numeric"
-                class="h-11 pr-10"
-                placeholder="ДД.ММ.ГГГГ"
-                v-model="dateFromText"
-                :aria-invalid="submitAttempted && !!errors.dateFrom"
-                @input="onDateFromTextInput"
+                class="h-11 w-24"
+                placeholder="ЧЧ:ММ"
+                v-model="timeValue"
+                :aria-invalid="submitAttempted && !!errors.time"
+                @input="onTimeTextInput"
               />
-              <Popover v-model:open="dateFromOpen">
-                <PopoverTrigger as-child>
-                  <button
-                    type="button"
-                    aria-label="Выбрать дату в календаре"
-                    class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
-                  >
-                    <CalendarIcon class="size-4.5" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent class="w-auto p-0" align="start">
-                  <Calendar
-                    locale="ru-RU"
-                    :model-value="dateFromCal"
-                    @update:model-value="onDateFromSelect"
-                  />
-                </PopoverContent>
-              </Popover>
             </div>
-            <!-- Time text input (masked HH:MM) -->
-            <Input
-              type="text"
-              inputmode="numeric"
-              class="h-11 w-24"
-              placeholder="ЧЧ:ММ"
-              v-model="timeValue"
-              :aria-invalid="submitAttempted && !!errors.time"
-              @input="onTimeTextInput"
-            />
-          </div>
 
-          <!-- Time quick chips -->
-          <div class="flex flex-wrap gap-1.5 mt-2">
-            <button
-              v-for="t in TIME_PRESETS"
-              :key="t"
-              type="button"
-              :data-active="timeValue === t"
-              class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-              @click="pickTime(t)"
+            <!-- Time quick chips -->
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button
+                v-for="t in TIME_PRESETS"
+                :key="t"
+                type="button"
+                :data-active="timeValue === t"
+                class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                @click="pickTime(t)"
+              >
+                {{ t }}
+              </button>
+            </div>
+
+            <p
+              v-if="submitAttempted && errors.time"
+              class="text-sm font-medium text-destructive mt-1"
             >
-              {{ t }}
-            </button>
-          </div>
+              {{ errors.time }}
+            </p>
 
-          <p v-if="submitAttempted && errors.time" class="text-sm font-medium text-destructive mt-1">
-            {{ errors.time }}
-          </p>
-
-          <!-- End of work — smoothly expands/collapses when toggling range mode.
+            <!-- End of work — smoothly expands/collapses when toggling range mode.
                Outer grid animates grid-template-rows 0fr↔1fr; inner overflow-hidden
                clips during the transition. pt-4 on the innermost wrapper provides
                spacing above the range section when expanded and collapses with the
@@ -1322,78 +1393,84 @@ watch(
                NB: 0fr suffix is `!` (Tailwind v4 important) — without it, Tailwind
                emits grid-rows-[1fr] after grid-rows-[0fr] in source order, so the
                baseline class always wins and the transition never sees a change. -->
-          <Transition
-            enter-active-class="transition-[grid-template-rows] duration-200 ease-out"
-            leave-active-class="transition-[grid-template-rows] duration-200 ease-out"
-            enter-from-class="grid-rows-[0fr]!"
-            leave-to-class="grid-rows-[0fr]!"
-          >
-            <div v-if="isRangeMode" class="grid grid-rows-[1fr]">
-              <div class="overflow-hidden">
-                <div class="pt-4">
-                  <Label class="mb-2 block">Окончание работ</Label>
-                  <div class="flex gap-2">
-                    <div class="relative flex-1">
+            <Transition
+              enter-active-class="transition-[grid-template-rows] duration-200 ease-out"
+              leave-active-class="transition-[grid-template-rows] duration-200 ease-out"
+              enter-from-class="grid-rows-[0fr]!"
+              leave-to-class="grid-rows-[0fr]!"
+            >
+              <div v-if="isRangeMode" class="grid grid-rows-[1fr]">
+                <div class="overflow-hidden">
+                  <div class="pt-4">
+                    <Label class="mb-2 block">Окончание работ</Label>
+                    <div class="flex gap-2">
+                      <div class="relative flex-1">
+                        <Input
+                          type="text"
+                          inputmode="numeric"
+                          class="h-11 pr-10"
+                          placeholder="ДД.ММ.ГГГГ"
+                          v-model="dateToText"
+                          :aria-invalid="submitAttempted && !!errors.dateTo"
+                          @input="onDateToTextInput"
+                        />
+                        <Popover v-model:open="dateToOpen">
+                          <PopoverTrigger as-child>
+                            <button
+                              type="button"
+                              aria-label="Выбрать дату окончания в календаре"
+                              class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
+                            >
+                              <CalendarIcon class="size-4.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent class="w-auto p-0" align="start">
+                            <Calendar
+                              locale="ru-RU"
+                              :model-value="dateToCal"
+                              @update:model-value="onDateToSelect"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <Input
                         type="text"
                         inputmode="numeric"
-                        class="h-11 pr-10"
-                        placeholder="ДД.ММ.ГГГГ"
-                        v-model="dateToText"
-                        :aria-invalid="submitAttempted && !!errors.dateTo"
-                        @input="onDateToTextInput"
+                        class="h-11 w-24"
+                        placeholder="ЧЧ:ММ"
+                        v-model="timeToValue"
+                        :aria-invalid="submitAttempted && !!errors.timeTo"
+                        @input="onTimeToTextInput"
                       />
-                      <Popover v-model:open="dateToOpen">
-                        <PopoverTrigger as-child>
-                          <button
-                            type="button"
-                            aria-label="Выбрать дату окончания в календаре"
-                            class="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground"
-                          >
-                            <CalendarIcon class="size-4.5" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent class="w-auto p-0" align="start">
-                          <Calendar
-                            locale="ru-RU"
-                            :model-value="dateToCal"
-                            @update:model-value="onDateToSelect"
-                          />
-                        </PopoverContent>
-                      </Popover>
                     </div>
-                    <Input
-                      type="text"
-                      inputmode="numeric"
-                      class="h-11 w-24"
-                      placeholder="ЧЧ:ММ"
-                      v-model="timeToValue"
-                      :aria-invalid="submitAttempted && !!errors.timeTo"
-                      @input="onTimeToTextInput"
-                    />
-                  </div>
-                  <div class="flex flex-wrap gap-1.5 mt-2">
-                    <button
-                      v-for="t in TIME_PRESETS"
-                      :key="t"
-                      type="button"
-                      :data-active="timeToValue === t"
-                      class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
-                      @click="pickTimeTo(t)"
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                      <button
+                        v-for="t in TIME_PRESETS"
+                        :key="t"
+                        type="button"
+                        :data-active="timeToValue === t"
+                        class="text-xs px-2.5 py-1 rounded-full border border-input bg-background hover:bg-accent transition-colors data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:border-primary"
+                        @click="pickTimeTo(t)"
+                      >
+                        {{ t }}
+                      </button>
+                    </div>
+                    <p
+                      v-if="submitAttempted && errors.timeTo"
+                      class="text-sm font-medium text-destructive mt-1"
                     >
-                      {{ t }}
-                    </button>
+                      {{ errors.timeTo }}
+                    </p>
+                    <p
+                      v-if="submitAttempted && errors.dateTo"
+                      class="text-sm font-medium text-destructive mt-1"
+                    >
+                      {{ errors.dateTo }}
+                    </p>
                   </div>
-                  <p v-if="submitAttempted && errors.timeTo" class="text-sm font-medium text-destructive mt-1">
-                    {{ errors.timeTo }}
-                  </p>
-                  <p v-if="submitAttempted && errors.dateTo" class="text-sm font-medium text-destructive mt-1">
-                    {{ errors.dateTo }}
-                  </p>
                 </div>
               </div>
-            </div>
-          </Transition>
+            </Transition>
           </CardContent>
         </Card>
 
@@ -1403,195 +1480,196 @@ watch(
             <CardTitle class="text-base">Информация о клиенте</CardTitle>
           </CardHeader>
           <CardContent class="px-4">
-          <div class="space-y-4">
-            <!-- Phone first: a matched number auto-fills the name below (feature
+            <div class="space-y-4">
+              <!-- Phone first: a matched number auto-fills the name below (feature
                  5.1), so the phone leads the client section. -->
-            <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
-            <div>
-              <div class="mb-2 flex items-center gap-2">
-                <Label>Номер телефона</Label>
-                <!-- Spinner while an exact-match lookup is in flight, so the gap
+              <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
+              <div>
+                <div class="mb-2 flex items-center gap-2">
+                  <Label>Номер телефона</Label>
+                  <!-- Spinner while an exact-match lookup is in flight, so the gap
                      before a chip appears (or doesn't) reads as "searching", not silence. -->
-                <Spinner v-if="showLookupSpinner" class="size-4 text-muted-foreground" />
-              </div>
-              <div class="relative">
-                <Input
-                  type="tel"
-                  inputmode="tel"
-                  class="h-11 pr-24"
-                  placeholder="+7 (___) ___-__-__"
-                  :model-value="phoneRaw"
-                  :aria-invalid="submitAttempted && !!errors.phone"
-                  @input="onPhoneInput"
-                  @keydown="onPhoneKeydown"
-                  @paste="onPhonePaste"
-                />
-                <button
-                  type="button"
-                  aria-label="Вставить номер из буфера обмена"
-                  class="absolute right-1 top-1/2 -translate-y-1/2 h-9 px-3 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground text-xs font-medium"
-                  @click="onClickPastePhone"
+                  <Spinner v-if="showLookupSpinner" class="size-4 text-muted-foreground" />
+                </div>
+                <div class="relative">
+                  <Input
+                    type="tel"
+                    inputmode="tel"
+                    class="h-11 pr-24"
+                    placeholder="+7 (___) ___-__-__"
+                    :model-value="phoneRaw"
+                    :aria-invalid="submitAttempted && !!errors.phone"
+                    @input="onPhoneInput"
+                    @keydown="onPhoneKeydown"
+                    @paste="onPhonePaste"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Вставить номер из буфера обмена"
+                    class="absolute right-1 top-1/2 -translate-y-1/2 h-9 px-3 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground text-xs font-medium"
+                    @click="onClickPastePhone"
+                  >
+                    Вставить
+                  </button>
+                </div>
+                <p
+                  v-if="submitAttempted && errors.phone"
+                  class="text-sm font-medium text-destructive mt-1"
                 >
-                  Вставить
-                </button>
-              </div>
-              <p v-if="submitAttempted && errors.phone" class="text-sm font-medium text-destructive mt-1">
-                {{ errors.phone }}
-              </p>
+                  {{ errors.phone }}
+                </p>
 
-              <!-- Подсказка распознанного клиента и его авто. Отдельная
+                <!-- Подсказка распознанного клиента и его авто. Отдельная
                    поверхность под телефоном (не в поповере «Марка и модель»):
                    имя подставляется автоматически, авто — по тапу. -->
-              <div v-if="matchedClient" class="mt-2">
-                <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                  <User class="size-3.5 shrink-0" />
-                  <span>
-                    {{ matchedClient.name
-                      ? `Найден клиент с именем: ${matchedClient.name}`
-                      : 'Найден клиент без имени' }}
-                  </span>
-                </div>
-                <div
-                  v-if="matchedClientSummary"
-                  class="mt-1 space-y-0.5 pl-5.5 text-xs text-muted-foreground"
-                >
-                  <p v-if="matchedClientSummary.visitCount > 0 && matchedClientSummary.lastVisit">
-                    Визитов: {{ matchedClientSummary.visitCount }} · последний
-                    {{ isoToDdmmyyyy(matchedClientSummary.lastVisit) }}
-                  </p>
-                  <p v-else>Завершённых визитов ещё не было</p>
-                  <p v-if="matchedClientSummary.totalSpent" class="tabular-nums">
-                    Потрачено: {{ formatAmount(String(matchedClientSummary.totalSpent)) }} ₽
-                  </p>
-                  <p
-                    v-if="matchedClientSummary.lastService"
-                    class="line-clamp-3 whitespace-pre-line"
+                <div v-if="matchedClient" class="mt-2">
+                  <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                    <User class="size-3.5 shrink-0" />
+                    <span>
+                      {{
+                        matchedClient.name
+                          ? `Найден клиент с именем: ${matchedClient.name}`
+                          : 'Найден клиент без имени'
+                      }}
+                    </span>
+                  </div>
+                  <div
+                    v-if="matchedClientSummary"
+                    class="mt-1 space-y-0.5 pl-5.5 text-xs text-muted-foreground"
                   >
-                    Последнее: {{ matchedClientSummary.lastService }}
-                  </p>
-                  <!-- New tab: leaving the form would drop it mid-entry, and the
+                    <p v-if="matchedClientSummary.visitCount > 0 && matchedClientSummary.lastVisit">
+                      Визитов: {{ matchedClientSummary.visitCount }} · последний
+                      {{ isoToDdmmyyyy(matchedClientSummary.lastVisit) }}
+                    </p>
+                    <p v-else>Завершённых визитов ещё не было</p>
+                    <p v-if="matchedClientSummary.totalSpent" class="tabular-nums">
+                      Потрачено: {{ formatAmount(String(matchedClientSummary.totalSpent)) }} ₽
+                    </p>
+                    <p
+                      v-if="matchedClientSummary.lastService"
+                      class="line-clamp-3 whitespace-pre-line"
+                    >
+                      Последнее: {{ matchedClientSummary.lastService }}
+                    </p>
+                    <!-- New tab: leaving the form would drop it mid-entry, and the
                        card's close navigates to /clients, not back here. -->
-                  <RouterLink
-                    v-if="auth.isAdmin"
-                    :to="{ name: 'client-detail', params: { id: matchedClient.id } }"
-                    target="_blank"
-                    class="inline-block pt-0.5 font-medium text-foreground underline-offset-4 hover:underline"
-                  >
-                    Открыть карточку →
-                  </RouterLink>
+                    <RouterLink
+                      v-if="auth.isAdmin"
+                      :to="{ name: 'client-detail', params: { id: matchedClient.id } }"
+                      target="_blank"
+                      class="inline-block pt-0.5 font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      Открыть карточку →
+                    </RouterLink>
+                  </div>
+                  <Alert v-if="matchedClientSummary?.missed" variant="destructive" class="mt-2">
+                    <TriangleAlert />
+                    <AlertTitle>Записывать только по предоплате</AlertTitle>
+                    <AlertDescription>
+                      {{ formatMissed(matchedClientSummary.missed) }}
+                    </AlertDescription>
+                  </Alert>
                 </div>
-                <Alert
-                  v-if="matchedClientSummary?.missed"
-                  variant="destructive"
-                  class="mt-2"
-                >
-                  <TriangleAlert />
-                  <AlertTitle>Записывать только по предоплате</AlertTitle>
-                  <AlertDescription>
-                    {{ formatMissed(matchedClientSummary.missed) }}
-                  </AlertDescription>
-                </Alert>
               </div>
-            </div>
 
-            <FormField v-slot="{ componentField }" name="name">
-              <FormItem>
-                <FormLabel>Имя</FormLabel>
-                <FormControl>
-                  <Input
-                    type="text"
-                    class="h-11"
-                    placeholder="Иван"
-                    v-bind="componentField"
-                    @input="onNameInput"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
-
-            <FormField v-slot="{ componentField }" name="car">
-              <FormItem>
-                <FormLabel>Марка и модель</FormLabel>
-                <div class="relative">
+              <FormField v-slot="{ componentField }" name="name">
+                <FormItem>
+                  <FormLabel>Имя</FormLabel>
                   <FormControl>
                     <Input
                       type="text"
                       class="h-11"
-                      placeholder="Toyota Camry"
-                      autocomplete="off"
-                      role="combobox"
-                      aria-autocomplete="list"
-                      :aria-expanded="carPopoverOpen && filteredCars.length > 0"
-                      data-car-input
+                      placeholder="Иван"
                       v-bind="componentField"
-                      @focus="openCarSuggestions"
-                      @click="openCarSuggestions"
-                      @input="onCarInput"
-                      @keydown="onCarKeydown"
+                      @input="onNameInput"
                     />
                   </FormControl>
-                  <ul
-                    v-if="carPopoverOpen && filteredCars.length > 0"
-                    ref="carListEl"
-                    data-car-suggestions
-                    role="listbox"
-                    class="absolute inset-x-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border bg-popover py-1 text-popover-foreground shadow-md"
-                  >
-                    <li
-                      v-for="(car, i) in filteredCars"
-                      :key="car"
-                      role="option"
-                      :aria-selected="i === carActiveIndex"
-                      :data-active="i === carActiveIndex"
-                      class="cursor-pointer px-3 py-2 text-sm data-[active=true]:bg-accent"
-                      @pointerdown.prevent="onCarItemPointerDown($event, i)"
-                      @pointerup="onCarItemPointerUp($event, car)"
-                      @mouseenter="carActiveIndex = i"
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <FormField v-slot="{ componentField }" name="car">
+                <FormItem>
+                  <FormLabel>Марка и модель</FormLabel>
+                  <div class="relative">
+                    <FormControl>
+                      <Input
+                        type="text"
+                        class="h-11"
+                        placeholder="Toyota Camry"
+                        autocomplete="off"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        :aria-expanded="carPopoverOpen && filteredCars.length > 0"
+                        data-car-input
+                        v-bind="componentField"
+                        @focus="openCarSuggestions"
+                        @click="openCarSuggestions"
+                        @input="onCarInput"
+                        @keydown="onCarKeydown"
+                      />
+                    </FormControl>
+                    <ul
+                      v-if="carPopoverOpen && filteredCars.length > 0"
+                      ref="carListEl"
+                      data-car-suggestions
+                      role="listbox"
+                      class="absolute inset-x-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-md border bg-popover py-1 text-popover-foreground shadow-md"
                     >
-                      {{ car }}
-                    </li>
-                  </ul>
-                </div>
-                <FormMessage />
-              </FormItem>
-            </FormField>
+                      <li
+                        v-for="(car, i) in filteredCars"
+                        :key="car"
+                        role="option"
+                        :aria-selected="i === carActiveIndex"
+                        :data-active="i === carActiveIndex"
+                        class="cursor-pointer px-3 py-2 text-sm data-[active=true]:bg-accent"
+                        @pointerdown.prevent="onCarItemPointerDown($event, i)"
+                        @pointerup="onCarItemPointerUp($event, car)"
+                        @mouseenter="carActiveIndex = i"
+                      >
+                        {{ car }}
+                      </li>
+                    </ul>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-            <!-- Client's cars as chips right under «Марка и модель» — the first is
+              <!-- Client's cars as chips right under «Марка и модель» — the first is
                  auto-filled; chips appear only with several, to switch to another. -->
-            <div
-              v-if="matchedClient && matchedClient.cars.length > 1"
-              class="-mt-2 flex flex-wrap gap-1.5"
-            >
-              <button
-                v-for="car in matchedClient.cars"
-                :key="car.id"
-                type="button"
-                :aria-label="`Заполнить авто ${car.makeModel}${car.plate ? ' ' + car.plate : ''}`"
-                class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
-                @click="selectClientCar(car)"
+              <div
+                v-if="matchedClient && matchedClient.cars.length > 1"
+                class="-mt-2 flex flex-wrap gap-1.5"
               >
-                {{ car.makeModel }}{{ car.plate ? ' · ' + car.plate : '' }}
-              </button>
-            </div>
+                <button
+                  v-for="car in matchedClient.cars"
+                  :key="car.id"
+                  type="button"
+                  :aria-label="`Заполнить авто ${car.makeModel}${car.plate ? ' ' + car.plate : ''}`"
+                  class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
+                  @click="selectClientCar(car)"
+                >
+                  {{ car.makeModel }}{{ car.plate ? ' · ' + car.plate : '' }}
+                </button>
+              </div>
 
-            <div>
-              <Label class="mb-2 block">
-                Гос. номер
-                <span class="text-muted-foreground font-normal">(необязательно)</span>
-              </Label>
-              <Input
-                type="text"
-                class="h-11"
-                placeholder="А123АА777"
-                maxlength="9"
-                autocomplete="off"
-                autocapitalize="characters"
-                v-model="licensePlate"
-                @input="onLicensePlateInput"
-              />
+              <div>
+                <Label class="mb-2 block">
+                  Гос. номер
+                  <span class="text-muted-foreground font-normal">(необязательно)</span>
+                </Label>
+                <Input
+                  type="text"
+                  class="h-11"
+                  placeholder="А123АА777"
+                  maxlength="9"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  v-model="licensePlate"
+                  @input="onLicensePlateInput"
+                />
+              </div>
             </div>
-          </div>
           </CardContent>
         </Card>
 
@@ -1601,46 +1679,42 @@ watch(
             <CardTitle class="text-base">Объем работ</CardTitle>
           </CardHeader>
           <CardContent class="px-4">
-          <div class="space-y-4">
-            <!-- Bound via explicit props instead of `v-bind="componentField"`:
+            <div class="space-y-4">
+              <!-- Bound via explicit props instead of `v-bind="componentField"`:
                  componentField's fallthrough onInput/onChange DOM listeners
                  land on the picker's root div and would overwrite `service`
                  with text from any bubbling event (e.g. the price inputs). -->
-            <FormField v-slot="{ value, handleChange }" name="service">
-              <FormItem>
-                <FormLabel>Услуга</FormLabel>
-                <FormControl>
-                  <ServicePicker
-                    :model-value="typeof value === 'string' ? value : ''"
-                    :car-class="values.carClass ?? DEFAULT_CAR_CLASS"
-                    :invalid="submitAttempted && !!errors.service"
-                    @update:model-value="handleChange"
-                    @update:car-class="(c: CarClass) => setFieldValue('carClass', c)"
-                    @update:total="onServicesTotal"
-                    @update:breakdown="onServiceBreakdown"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
+              <FormField v-slot="{ value, handleChange }" name="service">
+                <FormItem>
+                  <FormLabel>Услуга</FormLabel>
+                  <FormControl>
+                    <ServicePicker
+                      :model-value="typeof value === 'string' ? value : ''"
+                      :car-class="values.carClass ?? DEFAULT_CAR_CLASS"
+                      :invalid="submitAttempted && !!errors.service"
+                      @update:model-value="handleChange"
+                      @update:car-class="(c: CarClass) => setFieldValue('carClass', c)"
+                      @update:total="onServicesTotal"
+                      @update:breakdown="onServiceBreakdown"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-            <FormField v-slot="{ componentField }" name="note">
-              <FormItem>
-                <FormLabel>
-                  Примечание
-                  <span class="text-muted-foreground font-normal">(необязательно)</span>
-                </FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows="3"
-                    class="[field-sizing:content]"
-                    v-bind="componentField"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
-          </div>
+              <FormField v-slot="{ componentField }" name="note">
+                <FormItem>
+                  <FormLabel>
+                    Примечание
+                    <span class="text-muted-foreground font-normal">(необязательно)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea rows="3" class="[field-sizing:content]" v-bind="componentField" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+            </div>
           </CardContent>
         </Card>
 
@@ -1650,94 +1724,101 @@ watch(
             <CardTitle class="text-base">Оплата</CardTitle>
           </CardHeader>
           <CardContent class="px-4">
-          <Label class="mb-2 block">Сумма, ₽</Label>
-          <Input
-            type="text"
-            inputmode="numeric"
-            class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            placeholder="0"
-            v-model="amountRaw"
-            :aria-invalid="submitAttempted && !!errors.amount"
-            @input="onAmountInput"
-          />
-          <div class="flex flex-wrap gap-2 mt-2">
-            <button
-              v-for="delta in AMOUNT_PRESETS"
-              :key="delta"
-              type="button"
-              class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
-              @click="addAmount(delta)"
+            <Label class="mb-2 block">Сумма, ₽</Label>
+            <Input
+              type="text"
+              inputmode="numeric"
+              class="h-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              placeholder="0"
+              v-model="amountRaw"
+              :aria-invalid="submitAttempted && !!errors.amount"
+              @input="onAmountInput"
+            />
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button
+                v-for="delta in AMOUNT_PRESETS"
+                :key="delta"
+                type="button"
+                class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
+                @click="addAmount(delta)"
+              >
+                +{{ formatAmount(String(delta)) }}
+              </button>
+            </div>
+            <p
+              v-if="amountOverridden"
+              class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-600 dark:text-amber-500"
             >
-              +{{ formatAmount(String(delta)) }}
-            </button>
-          </div>
-          <p
-            v-if="amountOverridden"
-            class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-600 dark:text-amber-500"
-          >
-            <Pencil class="size-3.5 shrink-0" />
-            <span>Изменено вручную · {{ amountDeltaLabel }}</span>
-            <button
-              type="button"
-              class="underline underline-offset-2 hover:no-underline"
-              @click="resetAmountToServices"
+              <Pencil class="size-3.5 shrink-0" />
+              <span>Изменено вручную · {{ amountDeltaLabel }}</span>
+              <button
+                type="button"
+                class="underline underline-offset-2 hover:no-underline"
+                @click="resetAmountToServices"
+              >
+                вернуть
+              </button>
+            </p>
+            <p v-if="amountOverridden" class="mt-1 text-xs text-muted-foreground">
+              При изменении услуг, их цен или класса кузова сумма пересчитается автоматически.
+            </p>
+            <p
+              v-if="submitAttempted && errors.amount"
+              class="text-sm font-medium text-destructive mt-1"
             >
-              вернуть
-            </button>
-          </p>
-          <p v-if="amountOverridden" class="mt-1 text-xs text-muted-foreground">
-            При изменении услуг, их цен или класса кузова сумма пересчитается автоматически.
-          </p>
-          <p v-if="submitAttempted && errors.amount" class="text-sm font-medium text-destructive mt-1">
-            {{ errors.amount }}
-          </p>
+              {{ errors.amount }}
+            </p>
 
-          <Label class="mt-4 mb-2 block">
-            Скидка
-            <span class="text-muted-foreground font-normal">(необязательно)</span>
-          </Label>
-          <div class="flex gap-2">
-            <div class="inline-flex h-11 items-center rounded-md border border-input bg-background p-1 shrink-0">
-              <button
-                type="button"
-                :data-active="discountUnit === 'rub'"
-                class="h-full px-3 rounded-sm text-sm transition-colors hover:bg-accent data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
-                @click="setDiscountUnit('rub')"
+            <Label class="mt-4 mb-2 block">
+              Скидка
+              <span class="text-muted-foreground font-normal">(необязательно)</span>
+            </Label>
+            <div class="flex gap-2">
+              <div
+                class="inline-flex h-11 items-center rounded-md border border-input bg-background p-1 shrink-0"
               >
-                ₽
-              </button>
-              <button
-                type="button"
-                :data-active="discountUnit === 'pct'"
-                class="h-full px-3 rounded-sm text-sm transition-colors hover:bg-accent data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
-                @click="setDiscountUnit('pct')"
-              >
-                %
-              </button>
+                <button
+                  type="button"
+                  :data-active="discountUnit === 'rub'"
+                  class="h-full px-3 rounded-sm text-sm transition-colors hover:bg-accent data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+                  @click="setDiscountUnit('rub')"
+                >
+                  ₽
+                </button>
+                <button
+                  type="button"
+                  :data-active="discountUnit === 'pct'"
+                  class="h-full px-3 rounded-sm text-sm transition-colors hover:bg-accent data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+                  @click="setDiscountUnit('pct')"
+                >
+                  %
+                </button>
+              </div>
+              <div class="relative flex-1">
+                <Input
+                  type="text"
+                  inputmode="numeric"
+                  class="h-11 pr-8 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  placeholder="0"
+                  :model-value="discountRaw"
+                  @input="onDiscountInput"
+                />
+                <span
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+                >
+                  {{ discountUnit === 'pct' ? '%' : '₽' }}
+                </span>
+              </div>
             </div>
-            <div class="relative flex-1">
-              <Input
-                type="text"
-                inputmode="numeric"
-                class="h-11 pr-8 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                placeholder="0"
-                :model-value="discountRaw"
-                @input="onDiscountInput"
-              />
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                {{ discountUnit === 'pct' ? '%' : '₽' }}
+            <div class="mt-3 flex items-center justify-between border-t border-border pt-3">
+              <span class="text-sm text-muted-foreground">Итого к оплате</span>
+              <span class="tabular-nums font-semibold">
+                {{ formatAmount(String(finalAmount)) }} ₽
+                <span v-if="hasDiscount" class="ml-1 text-xs font-normal text-muted-foreground">
+                  (−{{ formatAmount(String(discountAmount)) }} ₽)
+                </span>
               </span>
             </div>
-          </div>
-          <div class="mt-3 flex items-center justify-between border-t border-border pt-3">
-            <span class="text-sm text-muted-foreground">Итого к оплате</span>
-            <span class="tabular-nums font-semibold">
-              {{ formatAmount(String(finalAmount)) }} ₽
-              <span v-if="hasDiscount" class="ml-1 text-xs font-normal text-muted-foreground">
-                (−{{ formatAmount(String(discountAmount)) }} ₽)
-              </span>
-            </span>
-          </div>
           </CardContent>
         </Card>
 
@@ -1747,74 +1828,75 @@ watch(
             <CardTitle class="text-base">Статус</CardTitle>
           </CardHeader>
           <CardContent class="px-4">
-          <div class="space-y-4">
-            <Alert v-if="mastersWarning" variant="destructive">
-              <AlertDescription>{{ mastersWarning }}</AlertDescription>
-            </Alert>
-            <FormField v-slot="{ componentField }" name="master">
-              <FormItem>
-                <FormLabel>Мастер</FormLabel>
-                <!-- No FormControl: its id/aria-* attrs are meant for the
+            <div class="space-y-4">
+              <Alert v-if="mastersWarning" variant="destructive">
+                <AlertDescription>{{ mastersWarning }}</AlertDescription>
+              </Alert>
+              <FormField v-slot="{ componentField }" name="master">
+                <FormItem>
+                  <FormLabel>Мастер</FormLabel>
+                  <!-- No FormControl: its id/aria-* attrs are meant for the
                      wrapped element directly, but the real button here sits
                      behind Popover/PopoverTrigger layers (like the ServicePicker
                      case above, componentField fallthrough isn't a plain input). -->
-                <MasterMultiSelect
-                  v-bind="componentField"
-                  :options="mastersForMaster"
-                  :max="MAX_MASTERS"
-                  class="min-h-11"
-                />
-                <FormMessage />
-              </FormItem>
-            </FormField>
+                  <MasterMultiSelect
+                    v-bind="componentField"
+                    :options="mastersForMaster"
+                    :max="MAX_MASTERS"
+                    class="min-h-11"
+                  />
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-            <FormField v-slot="{ componentField }" name="responsible">
-              <FormItem>
-                <FormLabel>Ответственный</FormLabel>
-                <Select v-bind="componentField">
-                  <FormControl>
-                    <SelectTrigger class="h-11">
-                      <SelectValue placeholder="Не выбрано" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="r in mastersForResponsible"
-                      :key="r"
-                      :value="r"
-                    >
-                      {{ r }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            </FormField>
+              <FormField v-slot="{ componentField }" name="responsible">
+                <FormItem>
+                  <FormLabel>Ответственный</FormLabel>
+                  <Select v-bind="componentField">
+                    <FormControl>
+                      <SelectTrigger class="h-11">
+                        <SelectValue placeholder="Не выбрано" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem v-for="r in mastersForResponsible" :key="r" :value="r">
+                        {{ r }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-            <!-- Уведомление доступно только если у выбранного мастера указан
+              <!-- Уведомление доступно только если у выбранного мастера указан
                  Telegram ID; иначе тоггл выключен и заблокирован. -->
-            <div class="flex items-start gap-3 pt-2 border-t border-border">
-              <Switch v-model="sendNotification" :disabled="!canNotifyMaster" />
-              <div class="grid gap-1">
-                <Label class="cursor-pointer" :class="{ 'opacity-50': !canNotifyMaster }">
-                  Отправить уведомление
-                </Label>
-                <p v-if="!canNotifyMaster" class="text-xs text-muted-foreground">
-                  {{ notifyHint }}
-                </p>
-                <p v-else-if="sendNotification && notifyMissing.length" class="text-xs text-muted-foreground">
-                  Не получат: {{ notifyMissing.join(', ') }}
-                </p>
+              <div class="flex items-start gap-3 pt-2 border-t border-border">
+                <Switch v-model="sendNotification" :disabled="!canNotifyMaster" />
+                <div class="grid gap-1">
+                  <Label class="cursor-pointer" :class="{ 'opacity-50': !canNotifyMaster }">
+                    Отправить уведомление
+                  </Label>
+                  <p v-if="!canNotifyMaster" class="text-xs text-muted-foreground">
+                    {{ notifyHint }}
+                  </p>
+                  <p
+                    v-else-if="sendNotification && notifyMissing.length"
+                    class="text-xs text-muted-foreground"
+                  >
+                    Не получат: {{ notifyMissing.join(', ') }}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
           </CardContent>
         </Card>
       </div>
     </form>
 
     <!-- Sticky submit bar (safe-area aware) -->
-    <div class="fixed bottom-0 left-0 right-0 md:left-64 px-4 py-4 bg-background border-t border-border pb-safe">
+    <div
+      class="fixed bottom-0 left-0 right-0 md:left-64 px-4 py-4 bg-background border-t border-border pb-safe"
+    >
       <div class="max-w-lg mx-auto px-4">
         <Button
           type="button"

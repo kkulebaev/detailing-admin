@@ -49,11 +49,13 @@ function toggle(option: string) {
         type="button"
         variant="outline"
         :disabled="disabled"
-        :class="cn(
-          'h-auto min-h-9 w-full justify-between gap-1 py-1.5 font-normal',
-          model.length === 0 && 'text-muted-foreground',
-          props.class,
-        )"
+        :class="
+          cn(
+            'h-auto min-h-9 w-full justify-between gap-1 py-1.5 font-normal',
+            model.length === 0 && 'text-muted-foreground',
+            props.class,
+          )
+        "
       >
         <span v-if="model.length === 0" class="truncate">{{ placeholder }}</span>
         <div v-else class="flex flex-1 flex-wrap items-center gap-1 text-left">
@@ -72,13 +74,19 @@ function toggle(option: string) {
           role="checkbox"
           :aria-checked="isSelected(option)"
           :aria-disabled="isOptionDisabled(option)"
-          :class="cn(
-            'flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground',
-            isOptionDisabled(option) && 'pointer-events-none cursor-not-allowed opacity-50',
-          )"
+          :class="
+            cn(
+              'flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground',
+              isOptionDisabled(option) && 'pointer-events-none cursor-not-allowed opacity-50',
+            )
+          "
           @click="toggle(option)"
         >
-          <Checkbox :model-value="isSelected(option)" :disabled="isOptionDisabled(option)" class="pointer-events-none" />
+          <Checkbox
+            :model-value="isSelected(option)"
+            :disabled="isOptionDisabled(option)"
+            class="pointer-events-none"
+          />
           <span class="truncate">{{ option }}</span>
         </div>
       </div>

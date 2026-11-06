@@ -55,9 +55,7 @@ const RAW: RawAnalytics = {
     { bucket: '2026-07-03', revenue: '60000', count: '2' },
   ],
   retention: { newCount: '2', returningCount: '3' },
-  topBySum: [
-    { clientId: 'c1', name: 'Иван', phone: '+79990000001', sum: '90000', visits: '2' },
-  ],
+  topBySum: [{ clientId: 'c1', name: 'Иван', phone: '+79990000001', sum: '90000', visits: '2' }],
 }
 
 function get(

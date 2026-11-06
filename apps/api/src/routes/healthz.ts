@@ -1,10 +1,6 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { StatusCodes, unavailableErrorSchema } from '@detailing-admin/shared'
-import {
-  getBootState,
-  getBootHeadersMismatch,
-  getBootNotConfiguredMessage,
-} from '../boot.js'
+import { getBootState, getBootHeadersMismatch, getBootNotConfiguredMessage } from '../boot.js'
 
 const healthzOkSchema = z.object({ ok: z.literal(true), time: z.string() })
 

@@ -157,19 +157,37 @@ router
       // Constant-time path: never reveal whether the login exists.
       await dummyVerify(password)
       baseLogger.info(
-        { event: 'auth.login.fail', request_id: requestId, login, reason: 'unknown_login', status: 401 },
+        {
+          event: 'auth.login.fail',
+          request_id: requestId,
+          login,
+          reason: 'unknown_login',
+          status: 401,
+        },
         'Login failed',
       )
-      return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
+      return c.json(
+        { ok: false as const, error: 'unauthorized' as const },
+        StatusCodes.UNAUTHORIZED,
+      )
     }
 
     const valid = await verifyPassword(password, user.passwordHash)
     if (!valid) {
       baseLogger.info(
-        { event: 'auth.login.fail', request_id: requestId, login, reason: 'bad_password', status: 401 },
+        {
+          event: 'auth.login.fail',
+          request_id: requestId,
+          login,
+          reason: 'bad_password',
+          status: 401,
+        },
         'Login failed',
       )
-      return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
+      return c.json(
+        { ok: false as const, error: 'unauthorized' as const },
+        StatusCodes.UNAUTHORIZED,
+      )
     }
 
     const role = toRole(user.role)
@@ -205,11 +223,17 @@ router
   .openapi(meRoute, async (c) => {
     const token = getAuthToken(c)
     if (!token) {
-      return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
+      return c.json(
+        { ok: false as const, error: 'unauthorized' as const },
+        StatusCodes.UNAUTHORIZED,
+      )
     }
     const claims = await verifyToken(token)
     if (!claims) {
-      return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
+      return c.json(
+        { ok: false as const, error: 'unauthorized' as const },
+        StatusCodes.UNAUTHORIZED,
+      )
     }
     // Sliding refresh: re-mint with a fresh exp so an actively used session
     // does not expire mid-use. No DB read — pure token round-trip.
@@ -248,7 +272,10 @@ router
     const current = await findByLogin(user.login)
     if (!current) {
       // Session valid but account vanished (deleted between sign-in and now).
-      return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
+      return c.json(
+        { ok: false as const, error: 'unauthorized' as const },
+        StatusCodes.UNAUTHORIZED,
+      )
     }
 
     const valid = await verifyPassword(currentPassword, current.passwordHash)
@@ -303,7 +330,10 @@ router
     const updated = await updateProfile(user.sub, { firstName, lastName })
     if (!updated) {
       // Session valid but account vanished (deleted between sign-in and now).
-      return c.json({ ok: false as const, error: 'unauthorized' as const }, StatusCodes.UNAUTHORIZED)
+      return c.json(
+        { ok: false as const, error: 'unauthorized' as const },
+        StatusCodes.UNAUTHORIZED,
+      )
     }
 
     // Re-mint so the cookie (and thus the DB-free /me) carries the new name

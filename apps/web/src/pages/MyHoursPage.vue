@@ -26,13 +26,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import {
   Select,
   SelectContent,
@@ -75,7 +69,10 @@ const selfWindow = computed(() =>
 function isEditable(entry: SalaryEntry): entry is SalaryEntry & { kind: 'hours' } {
   const w = selfWindow.value
   return (
-    entry.kind === 'hours' && !!w && entry.workDate >= w.editableFrom && entry.workDate <= w.editableTo
+    entry.kind === 'hours' &&
+    !!w &&
+    entry.workDate >= w.editableFrom &&
+    entry.workDate <= w.editableTo
   )
 }
 
@@ -141,7 +138,8 @@ async function confirmDelete() {
           ? 'Эту запись уже нельзя удалить — обратитесь к администратору'
           : 'Аккаунт не привязан к мастеру'
     } else {
-      deleteError.value = result.error === 'unavailable' ? result.message : 'Не удалось удалить запись'
+      deleteError.value =
+        result.error === 'unavailable' ? result.message : 'Не удалось удалить запись'
     }
   } catch {
     deleteError.value = 'Не удалось удалить запись'
@@ -214,7 +212,9 @@ async function confirmDelete() {
             <Card>
               <CardHeader class="p-3">
                 <CardDescription>Часы</CardDescription>
-                <CardTitle class="text-xl tabular-nums">{{ formatHours(salary.totalMinutes) }}</CardTitle>
+                <CardTitle class="text-xl tabular-nums">{{
+                  formatHours(salary.totalMinutes)
+                }}</CardTitle>
               </CardHeader>
             </Card>
             <Card>
@@ -224,7 +224,9 @@ async function confirmDelete() {
                     · {{ formatAmount(salary.hourlyRate) }} ₽/ч</template
                   >
                 </CardDescription>
-                <CardTitle class="text-xl tabular-nums">{{ formatAmount(salary.hoursSalary) }} ₽</CardTitle>
+                <CardTitle class="text-xl tabular-nums"
+                  >{{ formatAmount(salary.hoursSalary) }} ₽</CardTitle
+                >
               </CardHeader>
             </Card>
             <Card>
@@ -240,7 +242,9 @@ async function confirmDelete() {
             </Card>
             <Card>
               <CardHeader class="p-3">
-                <CardDescription>Итого за {{ formatMonthAccusative(salary.month) }}</CardDescription>
+                <CardDescription
+                  >Итого за {{ formatMonthAccusative(salary.month) }}</CardDescription
+                >
                 <CardTitle
                   class="text-xl tabular-nums"
                   :class="{ 'text-destructive': salary.total < 0 }"

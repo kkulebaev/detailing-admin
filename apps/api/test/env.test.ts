@@ -71,7 +71,9 @@ describe('parseEnv', () => {
   })
 
   it('throws when JWT_SECRET is shorter than 32 chars', () => {
-    expect(() => parseEnv({ ...BASE, JWT_SECRET: 'short' })).toThrow('Environment validation failed')
+    expect(() => parseEnv({ ...BASE, JWT_SECRET: 'short' })).toThrow(
+      'Environment validation failed',
+    )
   })
 
   it('redacts JWT_SECRET in error messages', () => {
@@ -85,9 +87,9 @@ describe('parseEnv', () => {
   })
 
   it('throws when SPREADSHEET_ID is missing', () => {
-    expect(() =>
-      parseEnv({ GOOGLE_SERVICE_ACCOUNT_JSON_B64: 'dGVzdA==' }),
-    ).toThrow('Environment validation failed')
+    expect(() => parseEnv({ GOOGLE_SERVICE_ACCOUNT_JSON_B64: 'dGVzdA==' })).toThrow(
+      'Environment validation failed',
+    )
   })
 
   it('throws when GOOGLE_SERVICE_ACCOUNT_JSON_B64 is missing', () => {

@@ -16,17 +16,55 @@ import { insertBooking } from '../src/db/bookings.js'
 import { closeDb } from '../src/db/client.js'
 
 const FIRST = [
-  'Алексей', 'Марина', 'Пётр', 'Ольга', 'Николай', 'Иван', 'Екатерина', 'Дмитрий',
-  'Анна', 'Сергей', 'Юлия', 'Максим', 'Наталья', 'Андрей', 'Светлана',
+  'Алексей',
+  'Марина',
+  'Пётр',
+  'Ольга',
+  'Николай',
+  'Иван',
+  'Екатерина',
+  'Дмитрий',
+  'Анна',
+  'Сергей',
+  'Юлия',
+  'Максим',
+  'Наталья',
+  'Андрей',
+  'Светлана',
 ]
 const LAST = [
-  'Смирнов', 'Кузнецова', 'Васильев', 'Соколова', 'Фёдоров', 'Петров', 'Морозова',
-  'Волков', 'Егорова', 'Козлов', 'Новикова', 'Орлов', 'Тихонова', 'Лебедев', 'Зайцева',
+  'Смирнов',
+  'Кузнецова',
+  'Васильев',
+  'Соколова',
+  'Фёдоров',
+  'Петров',
+  'Морозова',
+  'Волков',
+  'Егорова',
+  'Козлов',
+  'Новикова',
+  'Орлов',
+  'Тихонова',
+  'Лебедев',
+  'Зайцева',
 ]
 const CARS = [
-  'Toyota Camry', 'Kia Rio', 'BMW X5', 'Lada Vesta', 'Mercedes-Benz E-class',
-  'Hyundai Solaris', 'Volkswagen Polo', 'Audi A4', 'Skoda Octavia', 'Nissan X-Trail',
-  'Mazda CX-5', 'Renault Duster', 'Ford Focus', 'Honda CR-V', 'Chevrolet Cruze',
+  'Toyota Camry',
+  'Kia Rio',
+  'BMW X5',
+  'Lada Vesta',
+  'Mercedes-Benz E-class',
+  'Hyundai Solaris',
+  'Volkswagen Polo',
+  'Audi A4',
+  'Skoda Octavia',
+  'Nissan X-Trail',
+  'Mazda CX-5',
+  'Renault Duster',
+  'Ford Focus',
+  'Honda CR-V',
+  'Chevrolet Cruze',
 ]
 // Mix of single-line and multi-line (per-section) services.
 const SERVICES = [
@@ -40,9 +78,25 @@ const SERVICES = [
   'Тонировка: Задняя полусфера',
 ]
 const MASTERS = [
-  'Дмитрий Глотов', 'Сергей Теплов', 'Вячеслав Толстов', 'Иван Содель', 'Андрей и ко.', 'Костя',
+  'Дмитрий Глотов',
+  'Сергей Теплов',
+  'Вячеслав Толстов',
+  'Иван Содель',
+  'Андрей и ко.',
+  'Костя',
 ]
-const TIMES = ['09:00', '10:00', '10:30', '11:00', '12:30', '14:00', '15:00', '16:30', '17:30', '18:00']
+const TIMES = [
+  '09:00',
+  '10:00',
+  '10:30',
+  '11:00',
+  '12:30',
+  '14:00',
+  '15:00',
+  '16:30',
+  '17:30',
+  '18:00',
+]
 
 function makePayload(i: number) {
   // Spread ~7 months from 2026-02-01 so the month filter has data across months.

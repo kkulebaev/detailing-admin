@@ -164,11 +164,7 @@ export async function updateClient(
     .where(and(eq(clients.phone, phone), ne(clients.id, id)))
     .limit(1)
   if (duplicate) throw new ClientError('duplicate_phone')
-  const [row] = await db
-    .update(clients)
-    .set({ phone, name })
-    .where(eq(clients.id, id))
-    .returning()
+  const [row] = await db.update(clients).set({ phone, name }).where(eq(clients.id, id)).returning()
   if (!row) throw new ClientError('not_found')
   await syncClientCars(row.id, cars)
   return { client: row, cars: await listCarsByClient(row.id) }

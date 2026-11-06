@@ -127,7 +127,9 @@ describe('usePhoneInput', () => {
 
   describe('позиция каретки после переформатирования', () => {
     function getCaret(event: Event): number | null {
-      const target = (event as unknown as { target: { setSelectionRange: ReturnType<typeof vi.fn> } }).target
+      const target = (
+        event as unknown as { target: { setSelectionRange: ReturnType<typeof vi.fn> } }
+      ).target
       const call = target.setSelectionRange.mock.calls.at(-1)
       return call ? (call[0] as number) : null
     }

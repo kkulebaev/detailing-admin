@@ -131,7 +131,9 @@ async function main() {
     })
     if (ok) inserted++
     else skipped++
-    console.log(`${ok ? 'inserted' : 'skipped '} ${key}  ${payload.name} — ${payload.service.slice(0, 32)}`)
+    console.log(
+      `${ok ? 'inserted' : 'skipped '} ${key}  ${payload.name} — ${payload.service.slice(0, 32)}`,
+    )
   }
   console.log(`\nDone: ${inserted} inserted, ${skipped} already present (${SAMPLES.length} total).`)
   await closeDb()

@@ -20,9 +20,7 @@ export function maskThousands(
   caretPos: number,
   maxDigits = Number.POSITIVE_INFINITY,
 ): MaskedNumber {
-  const digitsBeforeCaret = rawValue
-    .slice(0, Math.max(0, caretPos))
-    .replace(/\D/g, '').length
+  const digitsBeforeCaret = rawValue.slice(0, Math.max(0, caretPos)).replace(/\D/g, '').length
   const digits = rawValue.replace(/\D/g, '').slice(0, maxDigits)
   const value = groupThousands(digits)
 

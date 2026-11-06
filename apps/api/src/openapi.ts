@@ -14,6 +14,9 @@ export function defaultValidationHook(
       path: i.path.map((p) => (typeof p === 'symbol' ? String(p) : p)),
       message: i.message,
     }))
-    return c.json({ ok: false as const, error: 'validation' as const, issues }, StatusCodes.BAD_REQUEST)
+    return c.json(
+      { ok: false as const, error: 'validation' as const, issues },
+      StatusCodes.BAD_REQUEST,
+    )
   }
 }

@@ -70,8 +70,9 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
     .select({
       masterId: workHours.masterId,
       totalMinutes: sql<string>`sum(${workHours.minutes})`.as('total_minutes'),
-      minutesRateSum:
-        sql<string>`sum(${workHours.minutes} * ${workHours.rateSnapshot})`.as('minutes_rate_sum'),
+      minutesRateSum: sql<string>`sum(${workHours.minutes} * ${workHours.rateSnapshot})`.as(
+        'minutes_rate_sum',
+      ),
     })
     .from(workHours)
     .where(and(gte(workHours.workDate, start), lt(workHours.workDate, end)))

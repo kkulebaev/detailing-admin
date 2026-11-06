@@ -108,8 +108,12 @@ describe('MyHoursPage', () => {
   it('offers edit and delete only for hours inside the window', async () => {
     data.value = linked
     mountPage()
-    await expect.element(page.getByRole('button', { name: 'Редактировать часы за 24 октября' })).toBeVisible()
-    await expect.element(page.getByRole('button', { name: 'Удалить часы за 24 октября' })).toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: 'Редактировать часы за 24 октября' }))
+      .toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: 'Удалить часы за 24 октября' }))
+      .toBeVisible()
     await expect.element(page.getByRole('button', { name: /10 октября/ })).not.toBeInTheDocument()
     await expect.element(page.getByRole('button', { name: /15 октября/ })).not.toBeInTheDocument()
   })

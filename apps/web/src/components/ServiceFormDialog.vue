@@ -94,9 +94,7 @@ watch(
   },
 )
 
-type ParsedPrice =
-  | { ok: true; value: number }
-  | { ok: false; reason: 'empty' | 'invalid' }
+type ParsedPrice = { ok: true; value: number } | { ok: false; reason: 'empty' | 'invalid' }
 
 function parsePrice(raw: string): ParsedPrice {
   const trimmed = raw.trim()
@@ -215,9 +213,7 @@ async function submit() {
     <DialogContent class="max-h-[calc(100dvh-2rem)] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать услугу' : 'Новая услуга' }}</DialogTitle>
-        <DialogDescription>
-          Укажите фиксированную цену или диапазон «от – до»
-        </DialogDescription>
+        <DialogDescription> Укажите фиксированную цену или диапазон «от – до» </DialogDescription>
       </DialogHeader>
 
       <form class="grid gap-4 py-2" @submit.prevent="submit">

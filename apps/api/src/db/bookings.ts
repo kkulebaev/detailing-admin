@@ -167,10 +167,7 @@ export function toBookingRow(row: Booking, opts: { includeAmount: boolean }): Bo
 /** Full booking history for one client, newest first. Fetches `limit + 1` rows so
  * the caller can flag truncation without a second COUNT; `bookings_client_id_idx`
  * keeps it cheap. Live master names are overlaid as on every read path. */
-export async function listBookingsByClientId(
-  clientId: string,
-  limit: number,
-): Promise<Booking[]> {
+export async function listBookingsByClientId(clientId: string, limit: number): Promise<Booking[]> {
   const db = getDb()
   const rows = await db
     .select()
@@ -256,11 +253,7 @@ export async function updateBookingReadiness(
   readiness: Readiness | '',
 ): Promise<Booking | null> {
   const db = getDb()
-  const [row] = await db
-    .update(bookings)
-    .set({ readiness })
-    .where(eq(bookings.id, id))
-    .returning()
+  const [row] = await db.update(bookings).set({ readiness }).where(eq(bookings.id, id)).returning()
   if (!row) return null
   const [enriched] = await withLiveMasterNames([row])
   return enriched
@@ -333,7 +326,11 @@ export async function listBookings(
       // Not a phone — keep the text pattern.
     }
     conds.push(
-      or(ilike(bookings.name, textLike), ilike(bookings.car, textLike), ilike(bookings.phone, phoneLike)),
+      or(
+        ilike(bookings.name, textLike),
+        ilike(bookings.car, textLike),
+        ilike(bookings.phone, phoneLike),
+      ),
     )
   }
 

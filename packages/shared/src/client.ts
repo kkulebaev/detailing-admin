@@ -123,9 +123,7 @@ export const clientLookupSummarySchema = z.object({
   // Sent to admins only; its absence is what keeps it off the booker's form.
   totalSpent: z.number().optional(),
   lastService: z.string().nullable(),
-  missed: z
-    .object({ cancelled: z.number(), noShow: z.number(), lastDate: z.string() })
-    .nullable(),
+  missed: z.object({ cancelled: z.number(), noShow: z.number(), lastDate: z.string() }).nullable(),
 })
 
 export type ClientLookupSummary = z.infer<typeof clientLookupSummarySchema>

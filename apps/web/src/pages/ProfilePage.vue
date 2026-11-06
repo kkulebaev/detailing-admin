@@ -33,7 +33,9 @@ const secondaryLogin = computed(() =>
           </Avatar>
           <div class="grid gap-0.5">
             <span class="text-xl font-semibold leading-tight">{{ auth.displayName }}</span>
-            <span v-if="secondaryLogin" class="text-sm text-muted-foreground">{{ secondaryLogin }}</span>
+            <span v-if="secondaryLogin" class="text-sm text-muted-foreground">{{
+              secondaryLogin
+            }}</span>
           </div>
         </CardContent>
       </Card>

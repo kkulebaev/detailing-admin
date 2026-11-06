@@ -3,16 +3,21 @@ import { READINESS } from './enums.js'
 import { parseDdmmyyyy } from './date.js'
 import { normalizePhone } from './phone.js'
 
-const ddmmyyyy = z.string().max(10).regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Укажите дату в формате ДД.ММ.ГГГГ')
-const hhmm = z.string().max(5).regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Укажите время в формате ЧЧ:ММ')
+const ddmmyyyy = z
+  .string()
+  .max(10)
+  .regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Укажите дату в формате ДД.ММ.ГГГГ')
+const hhmm = z
+  .string()
+  .max(5)
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Укажите время в формате ЧЧ:ММ')
 
 // Car body class (I–IV). Sent as part of `bookingSchema`; the backend currently
 // ignores it, but the pricelist stores a price range per class and the form's
 // picker uses it to show the right column.
-export const carClassSchema = z.union(
-  [z.literal(1), z.literal(2), z.literal(3), z.literal(4)],
-  { error: () => 'Выберите класс кузова' },
-)
+export const carClassSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)], {
+  error: () => 'Выберите класс кузова',
+})
 export type CarClass = z.infer<typeof carClassSchema>
 export const DEFAULT_CAR_CLASS: CarClass = 2
 
@@ -67,12 +72,7 @@ export const bookingSchema = z
           .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
       )
       .transform((arr) => [...new Set(arr)])
-      .pipe(
-        z
-          .array(z.string())
-          .min(1, 'Выберите хотя бы одного мастера')
-          .max(MAX_MASTERS),
-      ),
+      .pipe(z.array(z.string()).min(1, 'Выберите хотя бы одного мастера').max(MAX_MASTERS)),
     // The form starts this field as undefined, which `.min()` below never sees.
     responsible: z
       .string({ error: 'Выберите ответственного' })

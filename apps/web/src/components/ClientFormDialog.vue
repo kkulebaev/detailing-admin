@@ -2,11 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { Plus, Trash2 } from '@lucide/vue'
-import {
-  createClient,
-  updateClient,
-  type Client,
-} from '@/lib/clients-api'
+import { createClient, updateClient, type Client } from '@/lib/clients-api'
 import { formatPastedPhone, usePhoneInput } from '@/composables/use-phone-input'
 import { maskLicensePlate } from '@/lib/license-plate'
 import { Button } from '@/components/ui/button'
@@ -221,7 +217,13 @@ async function submit() {
         <div class="grid gap-2">
           <div class="flex items-center justify-between">
             <Label>Машины</Label>
-            <Button type="button" variant="outline" size="sm" :disabled="submitting" @click="addCar">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="submitting"
+              @click="addCar"
+            >
               <Plus class="size-4" /> Добавить машину
             </Button>
           </div>
@@ -229,7 +231,10 @@ async function submit() {
           <!-- px/py дают место кольцу фокуса: overflow-y-auto клиппит и по X,
                иначе ring выделенного инпута срезается по краям. -mx компенсирует
                паддинг, чтобы инпуты остались выровнены с полями выше. -->
-          <div v-if="cars.length > 0" class="grid gap-3 max-h-64 overflow-y-auto px-1.5 py-1.5 -mx-1.5">
+          <div
+            v-if="cars.length > 0"
+            class="grid gap-3 max-h-64 overflow-y-auto px-1.5 py-1.5 -mx-1.5"
+          >
             <div v-for="(car, index) in cars" :key="index" class="grid gap-1">
               <div class="flex items-center gap-2">
                 <Input

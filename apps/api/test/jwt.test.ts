@@ -39,7 +39,9 @@ describe('jwt', () => {
     const now = Math.floor(Date.now() / 1000)
     // Default TTL 86400s vs remember TTL 2592000s (env defaults).
     expect(decodeExp(await signToken({ ...CLAIMS, remember: false }))).toBeLessThan(now + 86400 + 5)
-    expect(decodeExp(await signToken({ ...CLAIMS, remember: true }))).toBeGreaterThan(now + 86400 * 7)
+    expect(decodeExp(await signToken({ ...CLAIMS, remember: true }))).toBeGreaterThan(
+      now + 86400 * 7,
+    )
 
     const decoded = await verifyToken(await signToken({ ...CLAIMS, remember: true }))
     expect(decoded?.remember).toBe(true)
@@ -58,7 +60,11 @@ describe('jwt', () => {
     expect(decoded?.role).toBe('booker')
 
     const now = Math.floor(Date.now() / 1000)
-    const forged = await sign({ ...CLAIMS, role: 'root', iat: now, exp: now + 3600 }, SECRET, 'HS256')
+    const forged = await sign(
+      { ...CLAIMS, role: 'root', iat: now, exp: now + 3600 },
+      SECRET,
+      'HS256',
+    )
     expect(await verifyToken(forged)).toBeNull()
   })
 

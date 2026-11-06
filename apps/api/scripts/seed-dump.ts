@@ -57,7 +57,11 @@ function yearOf(title: string): number {
 }
 
 function findHeaderIndex(headerRow: unknown[], candidates: string[]): number {
-  const lower = headerRow.map((cell) => String(cell ?? '').trim().toLowerCase())
+  const lower = headerRow.map((cell) =>
+    String(cell ?? '')
+      .trim()
+      .toLowerCase(),
+  )
   for (const candidate of candidates) {
     const idx = lower.indexOf(candidate.toLowerCase())
     if (idx !== -1) return idx

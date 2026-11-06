@@ -127,7 +127,10 @@ describe('BookingForm — client autofill', () => {
 
   it('shows no chips for a single-car client (the one car is auto-filled)', async () => {
     await mountReadyForm()
-    matched.value = { ...client, cars: [{ id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА777' }] }
+    matched.value = {
+      ...client,
+      cars: [{ id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА777' }],
+    }
     await expect.element(carField()).toHaveValue('Toyota Camry')
     await expect.element(carChip('Toyota Camry')).not.toBeInTheDocument()
   })
@@ -141,7 +144,10 @@ describe('BookingForm — client autofill', () => {
   })
 
   it('overwrites a restored draft name on match and shows the chips', async () => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ phoneRaw: '+7 (916) 123-45-67', name: 'Пётр' }))
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ phoneRaw: '+7 (916) 123-45-67', name: 'Пётр' }),
+    )
     await mountReadyForm()
     await expect.element(nameField()).toHaveValue('Пётр')
     matched.value = client
@@ -176,7 +182,13 @@ describe('BookingForm — client autofill', () => {
   it('says so when a known client has no delivered visits yet', async () => {
     await mountReadyForm()
     matched.value = client
-    summary.value = { totalSpent: 0, visitCount: 0, lastVisit: null, lastService: null, missed: null }
+    summary.value = {
+      totalSpent: 0,
+      visitCount: 0,
+      lastVisit: null,
+      lastService: null,
+      missed: null,
+    }
     await expect.element(page.getByText('Завершённых визитов ещё не было')).toBeVisible()
     await expect.element(page.getByText(/Потрачено/)).not.toBeInTheDocument()
   })

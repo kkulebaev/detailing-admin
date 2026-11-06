@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Check, ChevronsUpDown, Minus, Plus, X } from '@lucide/vue'
-import {
-  type PricelistSection,
-  type PricelistService,
-} from '@/lib/pricelist-api'
+import { type PricelistSection, type PricelistService } from '@/lib/pricelist-api'
 import { usePricelistQuery } from '@/lib/queries'
 import { maskThousands } from '@/lib/number-mask'
 import type { ServiceBreakdownRow } from '@/lib/service-breakdown'
@@ -12,11 +9,7 @@ import { servicePriceForClass } from '@detailing-admin/shared'
 import type { CarClass } from '@detailing-admin/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Command,
   CommandEmpty,
@@ -60,9 +53,7 @@ const sections = computed<PricelistSection[]>(() => {
   return r?.ok ? r.sections : []
 })
 
-const loading = computed(
-  () => asyncStatus.value === 'loading' && queryData.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 const loadError = computed<string | null>(() => {
   if (queryError.value) return 'Сетевая ошибка при загрузке прайс-листа'
@@ -165,9 +156,7 @@ function syncPricesToSelection(resetAll = false) {
   quantities.value = nextQty
 }
 
-const total = computed(() =>
-  selectedIds.value.reduce((acc, id) => acc + lineTotal(id), 0),
-)
+const total = computed(() => selectedIds.value.reduce((acc, id) => acc + lineTotal(id), 0))
 
 function emitTotal() {
   emit('update:total', selectedIds.value.length === 0 ? null : total.value)
@@ -225,7 +214,12 @@ function syncSelectionFromString() {
   // «Сумма» stale. If the CSV already matches the current selection, keep the
   // ids (and prices) we have.
   if (csv === selectionToCsv()) return
-  const names = csv ? csv.split(',').map((s) => s.trim()).filter(Boolean) : []
+  const names = csv
+    ? csv
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
   const nameToId = new Map<string, number>()
   for (const sec of sections.value) for (const svc of sec.services) nameToId.set(svc.name, svc.id)
   const next: number[] = []
@@ -234,8 +228,7 @@ function syncSelectionFromString() {
     if (id != null) next.push(id)
   }
   const same =
-    next.length === selectedIds.value.length &&
-    next.every((id, i) => selectedIds.value[i] === id)
+    next.length === selectedIds.value.length && next.every((id, i) => selectedIds.value[i] === id)
   if (same) return
   selectedIds.value = next
   syncPricesToSelection()
@@ -391,31 +384,21 @@ watch(() => props.modelValue, syncSelectionFromString)
         :side-offset="4"
         @open-auto-focus="onOpenAutoFocus"
       >
-        <Command
-          multiple
-          :model-value="selectedIds"
-          @update:model-value="onSelectionChange"
-        >
+        <Command multiple :model-value="selectedIds" @update:model-value="onSelectionChange">
           <CommandInput placeholder="Найти услугу…" />
           <CommandList>
             <CommandEmpty>
               Услуга не найдена. Добавьте её в
               <router-link to="/pricelist" class="underline">прайс-лист</router-link>.
             </CommandEmpty>
-            <CommandGroup
-              v-for="sec in sections"
-              :key="sec.id"
-              :heading="sec.name"
-            >
+            <CommandGroup v-for="sec in sections" :key="sec.id" :heading="sec.name">
               <CommandItem
                 v-for="svc in sec.services"
                 :key="svc.id"
                 :value="svc.id"
                 :keywords="[svc.name, svc.description ?? '']"
               >
-                <Check
-                  :class="selectedIds.includes(svc.id) ? 'opacity-100' : 'opacity-0'"
-                />
+                <Check :class="selectedIds.includes(svc.id) ? 'opacity-100' : 'opacity-0'" />
                 <span class="flex-1">{{ svc.name }}</span>
                 <span class="tabular-nums text-muted-foreground whitespace-nowrap">
                   {{ formatServicePrice(svc) }}
@@ -496,7 +479,10 @@ watch(() => props.modelValue, syncSelectionFromString)
                   :model-value="rawPrices[s.id] ?? ''"
                   @input="onPriceInput(s.id, $event)"
                 />
-                <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₽</span>
+                <span
+                  class="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+                  >₽</span
+                >
               </div>
               <button
                 type="button"

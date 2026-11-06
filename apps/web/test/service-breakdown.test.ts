@@ -22,9 +22,7 @@ describe('formatServiceCell', () => {
   })
 
   it('formats a single service without its price', () => {
-    expect(formatServiceCell([row(1, 'Химчистка', 'Потолок', 2000)])).toBe(
-      'Химчистка: Потолок',
-    )
+    expect(formatServiceCell([row(1, 'Химчистка', 'Потолок', 2000)])).toBe('Химчистка: Потолок')
   })
 
   it('groups services of the same section on one comma-separated line', () => {
@@ -55,15 +53,15 @@ describe('formatServiceCell', () => {
   })
 
   it('renders a countable service as «×N» without a price', () => {
-    expect(
-      formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 3)]),
-    ).toBe('Химчистка: Сиденье перед. ×3')
+    expect(formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 3)])).toBe(
+      'Химчистка: Сиденье перед. ×3',
+    )
   })
 
   it('omits the ×N annotation when quantity is 1', () => {
-    expect(
-      formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 1)]),
-    ).toBe('Химчистка: Сиденье перед.')
+    expect(formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 1)])).toBe(
+      'Химчистка: Сиденье перед.',
+    )
   })
 
   it('mixes countable and plain services on one section line', () => {
@@ -92,9 +90,7 @@ describe('formatAmountFormula', () => {
   })
 
   it('expands a countable service as price*quantity', () => {
-    expect(formatAmountFormula([row(1, 'Химчистка', 'Сиденье', 1500, 3)], 4500, 0)).toBe(
-      '=1500*3',
-    )
+    expect(formatAmountFormula([row(1, 'Химчистка', 'Сиденье', 1500, 3)], 4500, 0)).toBe('=1500*3')
   })
 
   it('subtracts the discount as a trailing term', () => {
@@ -108,15 +104,11 @@ describe('formatAmountFormula', () => {
   })
 
   it('appends a positive override delta when the base exceeds the subtotal', () => {
-    expect(formatAmountFormula([row(1, 'Химчистка', 'Потолок', 2000)], 2500, 0)).toBe(
-      '=2000+500',
-    )
+    expect(formatAmountFormula([row(1, 'Химчистка', 'Потолок', 2000)], 2500, 0)).toBe('=2000+500')
   })
 
   it('appends a negative override delta when the base is below the subtotal', () => {
-    expect(formatAmountFormula([row(1, 'Химчистка', 'Потолок', 2000)], 1500, 0)).toBe(
-      '=2000-500',
-    )
+    expect(formatAmountFormula([row(1, 'Химчистка', 'Потолок', 2000)], 1500, 0)).toBe('=2000-500')
   })
 
   it('combines an override delta and a discount, evaluating to the saved amount', () => {

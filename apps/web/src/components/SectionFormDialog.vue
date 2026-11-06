@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import {
-  createSection,
-  updateSection,
-  type PricelistSectionRow,
-} from '@/lib/pricelist-api'
+import { createSection, updateSection, type PricelistSectionRow } from '@/lib/pricelist-api'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -92,9 +88,7 @@ async function submit() {
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Редактировать раздел' : 'Новый раздел' }}</DialogTitle>
-        <DialogDescription>
-          Раздел группирует услуги в прайс-листе
-        </DialogDescription>
+        <DialogDescription> Раздел группирует услуги в прайс-листе </DialogDescription>
       </DialogHeader>
 
       <form class="grid gap-4 py-2" @submit.prevent="submit">

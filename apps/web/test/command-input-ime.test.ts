@@ -16,9 +16,7 @@ const ITEMS = [
 ]
 
 function visibleLabels(wrapper: ReturnType<typeof mount>): string[] {
-  return wrapper
-    .findAll('[data-slot="command-item"]')
-    .map((n) => n.text().trim())
+  return wrapper.findAll('[data-slot="command-item"]').map((n) => n.text().trim())
 }
 
 async function mountHarness() {

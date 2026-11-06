@@ -45,7 +45,7 @@ describe('bookingSchema', () => {
     const result = bookingSchema.safeParse({ ...validBase, phone: '123' })
     assert(!result.success)
     const phoneIssue = result.error.issues.find(
-      (i) => JSON.stringify(i.path) === JSON.stringify(['phone'])
+      (i) => JSON.stringify(i.path) === JSON.stringify(['phone']),
     )
     expect(phoneIssue).toBeDefined()
     expect(result.error.issues).toHaveLength(1)

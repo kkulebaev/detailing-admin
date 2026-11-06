@@ -118,9 +118,7 @@ describe('listBookings master filter', () => {
   }
 
   const renderAll = (captured: unknown[]) =>
-    captured
-      .filter((c) => c !== undefined)
-      .map((c) => new PgDialect().sqlToQuery(c as never))
+    captured.filter((c) => c !== undefined).map((c) => new PgDialect().sqlToQuery(c as never))
 
   it('falls back to `= ANY(master)` membership when the name resolves to no id', async () => {
     const captured: unknown[] = []
@@ -302,9 +300,7 @@ function makeWriteDb(opts: {
       return c
     }
     c.then = (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-      Promise.resolve()
-        .then(resolve)
-        .then(res, rej)
+      Promise.resolve().then(resolve).then(res, rej)
     return c
   }
 
@@ -335,7 +331,12 @@ describe('insertBooking master id-link', () => {
   it('writes responsible_id and one junction row per matched master (not the responsible)', async () => {
     const { db, capture } = makeWriteDb({
       // resolveMasterIds → both names known.
-      selectResults: [[{ id: 1, name: 'Мастер А' }, { id: 2, name: 'Мастер Б' }]],
+      selectResults: [
+        [
+          { id: 1, name: 'Мастер А' },
+          { id: 2, name: 'Мастер Б' },
+        ],
+      ],
       // bookings insert returns the new id; junction insert resolves empty.
       insertResults: [[{ id: 'bk1' }], []],
     })
@@ -353,7 +354,12 @@ describe('insertBooking master id-link', () => {
 
   it('skips the junction row for an unmatched master name', async () => {
     const { db, capture } = makeWriteDb({
-      selectResults: [[{ id: 1, name: 'Мастер А' }, { id: 2, name: 'Мастер Б' }]],
+      selectResults: [
+        [
+          { id: 1, name: 'Мастер А' },
+          { id: 2, name: 'Мастер Б' },
+        ],
+      ],
       insertResults: [[{ id: 'bk1' }], []],
     })
     vi.mocked(getDb).mockReturnValue(db)
@@ -365,7 +371,12 @@ describe('insertBooking master id-link', () => {
 
   it('anchors position to the snapshot slot even when an earlier master is unmatched', async () => {
     const { db, capture } = makeWriteDb({
-      selectResults: [[{ id: 1, name: 'Мастер А' }, { id: 2, name: 'Мастер Б' }]],
+      selectResults: [
+        [
+          { id: 1, name: 'Мастер А' },
+          { id: 2, name: 'Мастер Б' },
+        ],
+      ],
       insertResults: [[{ id: 'bk1' }], []],
     })
     vi.mocked(getDb).mockReturnValue(db)
@@ -378,7 +389,12 @@ describe('insertBooking master id-link', () => {
 
   it('does not touch the junction on a conflict no-op (post-TTL retry)', async () => {
     const { db, capture } = makeWriteDb({
-      selectResults: [[{ id: 1, name: 'Мастер А' }, { id: 2, name: 'Мастер Б' }]],
+      selectResults: [
+        [
+          { id: 1, name: 'Мастер А' },
+          { id: 2, name: 'Мастер Б' },
+        ],
+      ],
       // Conflict → no returned id.
       insertResults: [[]],
     })
@@ -406,7 +422,12 @@ describe('updateBooking master id-link', () => {
   it('refreshes responsible_id atomically and rewrites the junction (delete + reinsert)', async () => {
     const updatedRow = { id: 'bk1', master: ['Мастер А'] }
     const { db, capture } = makeWriteDb({
-      selectResults: [[{ id: 1, name: 'Мастер А' }, { id: 2, name: 'Мастер Б' }]],
+      selectResults: [
+        [
+          { id: 1, name: 'Мастер А' },
+          { id: 2, name: 'Мастер Б' },
+        ],
+      ],
       updateResults: [[updatedRow]],
       insertResults: [[]],
     })
@@ -428,7 +449,12 @@ describe('updateBooking master id-link', () => {
   it('returns the updated row even when the junction rewrite throws (best-effort)', async () => {
     const updatedRow = { id: 'bk1', master: ['Мастер А'] }
     const { db } = makeWriteDb({
-      selectResults: [[{ id: 1, name: 'Мастер А' }, { id: 2, name: 'Мастер Б' }]],
+      selectResults: [
+        [
+          { id: 1, name: 'Мастер А' },
+          { id: 2, name: 'Мастер Б' },
+        ],
+      ],
       updateResults: [[updatedRow]],
       // Junction re-insert rejects.
       insertResults: [new Error('junction insert failed')],
@@ -492,9 +518,7 @@ describe('0017 migration car_id link', () => {
   })
 
   it('nulls car_id on car delete so the snapshot row survives a routine client edit', () => {
-    expect(sql).toMatch(
-      /bookings_car_id_client_cars_id_fk[\s\S]*?ON DELETE set null/,
-    )
+    expect(sql).toMatch(/bookings_car_id_client_cars_id_fk[\s\S]*?ON DELETE set null/)
   })
 
   it('indexes car_id for a future car→bookings reader', () => {
@@ -509,18 +533,12 @@ describe('0016 migration onDelete semantics', () => {
   )
 
   it('cascades both junction FKs so deletes clean up the id-links', () => {
-    expect(sql).toMatch(
-      /booking_masters_booking_id_bookings_id_fk[\s\S]*?ON DELETE cascade/,
-    )
-    expect(sql).toMatch(
-      /booking_masters_master_id_masters_id_fk[\s\S]*?ON DELETE cascade/,
-    )
+    expect(sql).toMatch(/booking_masters_booking_id_bookings_id_fk[\s\S]*?ON DELETE cascade/)
+    expect(sql).toMatch(/booking_masters_master_id_masters_id_fk[\s\S]*?ON DELETE cascade/)
   })
 
   it('nulls responsible_id on master delete so the snapshot row survives', () => {
-    expect(sql).toMatch(
-      /bookings_responsible_id_masters_id_fk[\s\S]*?ON DELETE set null/,
-    )
+    expect(sql).toMatch(/bookings_responsible_id_masters_id_fk[\s\S]*?ON DELETE set null/)
   })
 
   it('gives the junction a composite primary key', () => {

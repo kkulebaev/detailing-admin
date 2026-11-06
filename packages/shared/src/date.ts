@@ -11,11 +11,7 @@ export function parseDdmmyyyy(s: string): Date {
   const date = new Date(Date.UTC(y, m - 1, d))
 
   // Bounds-check via re-formatting: if the date rolled over, the parts won't match
-  if (
-    date.getUTCFullYear() !== y ||
-    date.getUTCMonth() !== m - 1 ||
-    date.getUTCDate() !== d
-  ) {
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
     throw new Error('Invalid DD.MM.YYYY: ' + s)
   }
 

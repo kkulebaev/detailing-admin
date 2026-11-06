@@ -76,9 +76,7 @@ export function createApp() {
   // Reading masters (GET) is open to any authenticated role so the bookings
   // filter works for employees; managing them (POST/PATCH/DELETE) stays admin-only.
   app.use('/api/masters/*', requireAuth)
-  app.use('/api/masters/*', (c, next) =>
-    c.req.method === 'GET' ? next() : requireAdmin(c, next),
-  )
+  app.use('/api/masters/*', (c, next) => (c.req.method === 'GET' ? next() : requireAdmin(c, next)))
 
   app.route('/healthz', healthzRouter)
   app.route('/api/bookings', bookingsRouter)

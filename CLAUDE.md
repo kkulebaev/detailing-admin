@@ -19,10 +19,11 @@ pnpm build                # vue-tsc + vite build (web); tsup (api)
 pnpm test                 # vitest in all packages
 pnpm typecheck            # tsc/vue-tsc --noEmit in all packages
 pnpm lint                 # eslint over the whole workspace
+pnpm fmt                  # oxfmt, rewrites files (`pnpm fmt:check` only reports)
 pnpm test:e2e             # Playwright, not part of the hook (needs docker compose postgres)
 ```
 
-A lefthook pre-commit hook runs `lint`, `typecheck` and `test` in parallel whenever a `.ts`/`.vue` file is staged. There is no CI — the hook is the gate.
+A lefthook pre-commit hook runs `lint`, `fmt:check`, `typecheck` and `test` in parallel whenever a `.ts`/`.vue` file is staged (`fmt:check` also on other formatted file types). There is no CI — the hook is the gate.
 
 Web tests run in Chromium, so after the first install run `pnpm --filter @detailing-admin/web exec playwright install --only-shell chromium` once; without it neither `pnpm test` nor the hook passes.
 

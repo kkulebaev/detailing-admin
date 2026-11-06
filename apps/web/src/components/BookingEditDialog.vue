@@ -28,11 +28,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -159,8 +155,7 @@ watch(
     service.value = b?.service ?? ''
     note.value = b?.note ?? ''
     amountRaw.value = b?.amount != null ? formatAmount(String(b.amount)) : ''
-    readiness.value =
-      b && READINESS.some((r) => r === b.readiness) ? b.readiness : READINESS_NONE
+    readiness.value = b && READINESS.some((r) => r === b.readiness) ? b.readiness : READINESS_NONE
     master.value = b?.master ?? []
     responsible.value = b?.responsible ? b.responsible : undefined
     carClass.value = b ? String(b.carClass) : String(DEFAULT_CAR_CLASS)
@@ -360,7 +355,9 @@ async function submit() {
 
         <!-- Окончание (необязательно) -->
         <div class="grid gap-2">
-          <Label>Окончание <span class="text-muted-foreground font-normal">(необязательно)</span></Label>
+          <Label
+            >Окончание <span class="text-muted-foreground font-normal">(необязательно)</span></Label
+          >
           <div class="flex gap-2">
             <Popover v-model:open="dateToOpen">
               <PopoverTrigger as-child>
@@ -592,10 +589,7 @@ async function submit() {
           </Select>
         </div>
 
-        <p
-          v-if="error && Object.keys(fieldErrors).length === 0"
-          class="text-sm text-destructive"
-        >
+        <p v-if="error && Object.keys(fieldErrors).length === 0" class="text-sm text-destructive">
           {{ error }}
         </p>
 

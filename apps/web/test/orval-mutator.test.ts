@@ -37,7 +37,9 @@ describe('orvalFetch', () => {
   })
 
   it('invokes the unauthorized handler on a 401 outside the auth-exempt paths', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(StatusCodes.UNAUTHORIZED, { ok: false, error: 'unauthorized' }))
+    fetchMock.mockResolvedValue(
+      jsonResponse(StatusCodes.UNAUTHORIZED, { ok: false, error: 'unauthorized' }),
+    )
     const { orvalFetch, setUnauthorizedHandler } = await import('@/lib/orval-mutator')
     const handler = vi.fn()
     setUnauthorizedHandler(handler)
@@ -57,7 +59,9 @@ describe('orvalFetch', () => {
   it.each(['/api/auth/login', '/api/auth/me', '/api/auth/logout'])(
     'does not invoke the unauthorized handler for %s',
     async (path) => {
-      fetchMock.mockResolvedValue(jsonResponse(StatusCodes.UNAUTHORIZED, { ok: false, error: 'unauthorized' }))
+      fetchMock.mockResolvedValue(
+        jsonResponse(StatusCodes.UNAUTHORIZED, { ok: false, error: 'unauthorized' }),
+      )
       const { orvalFetch, setUnauthorizedHandler } = await import('@/lib/orval-mutator')
       const handler = vi.fn()
       setUnauthorizedHandler(handler)

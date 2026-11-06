@@ -44,10 +44,7 @@ export function createMaster(payload: MasterInputPayload): Promise<MasterMutatio
   return unwrap<MasterMutationResult>(() => postApiMasters(payload))
 }
 
-export function updateMaster(
-  id: number,
-  payload: MasterInputPayload,
-): Promise<MasterUpdateResult> {
+export function updateMaster(id: number, payload: MasterInputPayload): Promise<MasterUpdateResult> {
   return unwrap<MasterUpdateResult>(() => patchApiMastersId(String(id), payload))
 }
 

@@ -80,11 +80,7 @@ function onSubmit() {
   <div class="login-page flex min-h-screen items-center justify-center px-4 py-12">
     <Card class="w-full max-w-sm shadow-lg">
       <CardHeader class="items-center justify-items-center gap-3 text-center">
-        <img
-          src="/apple-touch-icon.png"
-          alt="Dazzle Detailing"
-          class="size-16 rounded-full"
-        >
+        <img src="/apple-touch-icon.png" alt="Dazzle Detailing" class="size-16 rounded-full" />
         <div class="grid gap-1">
           <CardTitle class="text-xl">Вход в систему</CardTitle>
           <CardDescription>Введите логин и пароль, чтобы продолжить</CardDescription>
@@ -165,7 +161,11 @@ function onSubmit() {
   --ring: var(--brand);
 
   background:
-    radial-gradient(60% 45% at 50% 0%, color-mix(in oklch, var(--brand) 10%, transparent), transparent 70%),
+    radial-gradient(
+      60% 45% at 50% 0%,
+      color-mix(in oklch, var(--brand) 10%, transparent),
+      transparent 70%
+    ),
     var(--background);
 }
 </style>

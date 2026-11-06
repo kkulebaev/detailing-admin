@@ -203,7 +203,12 @@ describe('/api/salaries', () => {
   })
 
   it('GET /entries with an employee session → 403', async () => {
-    const res = await req('/entries?masterId=1&month=2026-07', 'GET', undefined, await employeeCookie())
+    const res = await req(
+      '/entries?masterId=1&month=2026-07',
+      'GET',
+      undefined,
+      await employeeCookie(),
+    )
     expect(res.status).toBe(403)
     expect(vi.mocked(listMasterEntries)).not.toHaveBeenCalled()
   })

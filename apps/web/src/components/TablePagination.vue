@@ -76,17 +76,10 @@ const mobileItems = computed<PaginationEntry[]>(() => {
       class="mx-0 w-auto"
     >
       <PaginationContent v-slot="{ items }" class="gap-0.5">
-        <PaginationPrevious
-          size="sm"
-          aria-label="Предыдущая страница"
-          class="px-1 sm:px-2.5"
-        >
+        <PaginationPrevious size="sm" aria-label="Предыдущая страница" class="px-1 sm:px-2.5">
           <ChevronLeft class="size-4" />
         </PaginationPrevious>
-        <template
-          v-for="(item, index) in isDesktop ? items : mobileItems"
-          :key="index"
-        >
+        <template v-for="(item, index) in isDesktop ? items : mobileItems" :key="index">
           <PaginationItem
             v-if="item.type === 'page'"
             :value="item.value"
@@ -98,11 +91,7 @@ const mobileItems = computed<PaginationEntry[]>(() => {
           </PaginationItem>
           <PaginationEllipsis v-else :index="index" class="size-5 sm:size-9" />
         </template>
-        <PaginationNext
-          size="sm"
-          aria-label="Следующая страница"
-          class="px-1 sm:px-2.5"
-        >
+        <PaginationNext size="sm" aria-label="Следующая страница" class="px-1 sm:px-2.5">
           <ChevronRight class="size-4" />
         </PaginationNext>
       </PaginationContent>

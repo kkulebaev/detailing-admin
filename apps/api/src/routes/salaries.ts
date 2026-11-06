@@ -91,7 +91,10 @@ function salaryErrorFallback(c: Context, err: unknown) {
     { message: err instanceof Error ? err.message : String(err) },
     'Salary mutation failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  return c.json(
+    { ok: false as const, error: 'internal' as const },
+    StatusCodes.INTERNAL_SERVER_ERROR,
+  )
 }
 
 // not_found → 404; anything else is unexpected → 500. Separate from
@@ -117,7 +120,10 @@ function payoutErrorFallback(
     },
     'Payout mutation failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  return c.json(
+    { ok: false as const, error: 'internal' as const },
+    StatusCodes.INTERNAL_SERVER_ERROR,
+  )
 }
 
 // createdAt is a Date off Drizzle; serialize to an ISO string for the wire
@@ -158,7 +164,10 @@ const listSalariesRoute = createRoute({
   tags: ['salaries'],
   request: { query: monthQuerySchema },
   responses: {
-    200: { description: 'Salaries for the month', content: { 'application/json': { schema: salariesListOk } } },
+    200: {
+      description: 'Salaries for the month',
+      content: { 'application/json': { schema: salariesListOk } },
+    },
     400: respValidation,
     500: respInternal,
     503: respDbUnavailable,
@@ -188,7 +197,10 @@ const listEntriesRoute = createRoute({
   tags: ['salaries'],
   request: { query: entriesQuerySchema },
   responses: {
-    200: { description: 'Salary entries for a master/month', content: { 'application/json': { schema: salaryEntriesListOk } } },
+    200: {
+      description: 'Salary entries for a master/month',
+      content: { 'application/json': { schema: salaryEntriesListOk } },
+    },
     400: respValidation,
     500: respInternal,
     503: respDbUnavailable,
@@ -201,7 +213,10 @@ const createWorkHoursRoute = createRoute({
   tags: ['salaries'],
   request: { body: { content: { 'application/json': { schema: workHoursInputSchema } } } },
   responses: {
-    201: { description: 'Work hours added', content: { 'application/json': { schema: workHoursMutationOk } } },
+    201: {
+      description: 'Work hours added',
+      content: { 'application/json': { schema: workHoursMutationOk } },
+    },
     // The handler's own 400 is the no_rate precondition. A zod body-validation
     // failure also yields 400 (via defaultHook) with the validation shape — same
     // status/one-schema convention as masters' reorder (invalid_order).
@@ -220,7 +235,10 @@ const updateWorkHoursRoute = createRoute({
     body: { content: { 'application/json': { schema: workHoursUpdateSchema } } },
   },
   responses: {
-    200: { description: 'Work hours updated', content: { 'application/json': { schema: workHoursMutationOk } } },
+    200: {
+      description: 'Work hours updated',
+      content: { 'application/json': { schema: workHoursMutationOk } },
+    },
     400: respValidation,
     404: respNotFound,
     500: respInternal,
@@ -234,7 +252,10 @@ const deleteWorkHoursRoute = createRoute({
   tags: ['salaries'],
   request: { params: idParamSchema },
   responses: {
-    200: { description: 'Work hours deleted', content: { 'application/json': { schema: deleteOk } } },
+    200: {
+      description: 'Work hours deleted',
+      content: { 'application/json': { schema: deleteOk } },
+    },
     400: respValidation,
     404: respNotFound,
     500: respInternal,
@@ -250,7 +271,10 @@ const createPayoutRoute = createRoute({
   tags: ['salaries'],
   request: { body: { content: { 'application/json': { schema: payoutInputSchema } } } },
   responses: {
-    201: { description: 'Payout added', content: { 'application/json': { schema: payoutMutationOk } } },
+    201: {
+      description: 'Payout added',
+      content: { 'application/json': { schema: payoutMutationOk } },
+    },
     400: respValidation,
     404: respNotFound,
     500: respInternal,
@@ -267,7 +291,10 @@ const updatePayoutRoute = createRoute({
     body: { content: { 'application/json': { schema: payoutUpdateSchema } } },
   },
   responses: {
-    200: { description: 'Payout updated', content: { 'application/json': { schema: payoutMutationOk } } },
+    200: {
+      description: 'Payout updated',
+      content: { 'application/json': { schema: payoutMutationOk } },
+    },
     400: respValidation,
     404: respNotFound,
     500: respInternal,
@@ -314,7 +341,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Salaries query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(setRateRoute, async (c) => {
@@ -349,7 +379,14 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       const { hours, payouts } = await listMasterEntries(masterId, month)
       const entries = mergeSalaryEntries(hours.map(toWire), payouts.map(payoutToWire))
       baseLogger.info(
-        { event: 'salaries.entries.list', request_id: requestId, master_id: masterId, month, count: entries.length, status: 200 },
+        {
+          event: 'salaries.entries.list',
+          request_id: requestId,
+          master_id: masterId,
+          month,
+          count: entries.length,
+          status: 200,
+        },
         'Salary entries listed',
       )
       return c.json({ ok: true as const, entries }, StatusCodes.OK)
@@ -364,7 +401,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Salary entries query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(createWorkHoursRoute, async (c) => {
@@ -382,7 +422,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         note: note ?? '',
       })
       baseLogger.info(
-        { event: 'salaries.hours.create', request_id: requestId, work_hours_id: row.id, master_id: masterId, status: 201 },
+        {
+          event: 'salaries.hours.create',
+          request_id: requestId,
+          work_hours_id: row.id,
+          master_id: masterId,
+          status: 201,
+        },
         'Work hours created',
       )
       return c.json({ ok: true as const, hours: toWire(row) }, StatusCodes.CREATED)
@@ -400,7 +446,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         { message: err instanceof Error ? err.message : String(err) },
         'Work hours create failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(updateWorkHoursRoute, async (c) => {
@@ -457,7 +506,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     try {
       const row = await createPayout({ masterId, payoutDate, amount, note: note ?? '' })
       baseLogger.info(
-        { event: 'salaries.payout.create', request_id: requestId, payout_id: row.id, master_id: masterId, status: 201 },
+        {
+          event: 'salaries.payout.create',
+          request_id: requestId,
+          payout_id: row.id,
+          master_id: masterId,
+          status: 201,
+        },
         'Payout created',
       )
       return c.json({ ok: true as const, payout: payoutToWire(row) }, StatusCodes.CREATED)
@@ -477,7 +532,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Payout create failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(updatePayoutRoute, async (c) => {

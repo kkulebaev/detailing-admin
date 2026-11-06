@@ -13,6 +13,8 @@
     "test:e2e": "pnpm --filter @detailing-admin/web test:e2e",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
     "prepare": "[ -d .git ] && lefthook install || true"
   },
   "devDependencies": {
@@ -22,6 +24,7 @@
     "eslint-plugin-vue": "^10.12.0",
     "globals": "^17.14.0",
     "lefthook": "^2.2.2",
+    "oxfmt": "^0.75.0",
     "typescript-eslint": "^8.72.1",
     "vue-eslint-parser": "^10.4.1"
   }

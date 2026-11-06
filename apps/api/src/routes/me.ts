@@ -69,7 +69,10 @@ function unavailable(c: Context) {
 }
 
 function selfError(c: Context, reason: 'no_rate' | 'not_linked' | 'outside_window') {
-  return c.json({ ok: false as const, error: 'validation' as const, reason }, StatusCodes.BAD_REQUEST)
+  return c.json(
+    { ok: false as const, error: 'validation' as const, reason },
+    StatusCodes.BAD_REQUEST,
+  )
 }
 
 function notFound(c: Context) {
@@ -86,7 +89,10 @@ function internal(c: Context, event: string, requestId: string, err: unknown) {
     },
     'Own work hours request failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  return c.json(
+    { ok: false as const, error: 'internal' as const },
+    StatusCodes.INTERNAL_SERVER_ERROR,
+  )
 }
 
 function toWire<T extends { createdAt: Date }>(row: T) {
@@ -127,7 +133,10 @@ const getSalaryRoute = createRoute({
   tags: ['me'],
   request: { query: z.object({ month: monthSchema }) },
   responses: {
-    200: { description: 'Own hours and pay for the month', content: { 'application/json': { schema: mySalaryOkSchema } } },
+    200: {
+      description: 'Own hours and pay for the month',
+      content: { 'application/json': { schema: mySalaryOkSchema } },
+    },
     400: respValidation,
     500: respInternal,
     503: respDbUnavailable,
@@ -140,7 +149,10 @@ const createHoursRoute = createRoute({
   tags: ['me'],
   request: { body: { content: { 'application/json': { schema: selfWorkHoursInputSchema } } } },
   responses: {
-    201: { description: 'Work hours added', content: { 'application/json': { schema: workHoursMutationOk } } },
+    201: {
+      description: 'Work hours added',
+      content: { 'application/json': { schema: workHoursMutationOk } },
+    },
     // A zod body failure is also a 400, with the issues shape.
     400: respSelfError,
     500: respInternal,
@@ -157,7 +169,10 @@ const updateHoursRoute = createRoute({
     body: { content: { 'application/json': { schema: workHoursUpdateSchema } } },
   },
   responses: {
-    200: { description: 'Work hours updated', content: { 'application/json': { schema: workHoursMutationOk } } },
+    200: {
+      description: 'Work hours updated',
+      content: { 'application/json': { schema: workHoursMutationOk } },
+    },
     400: respSelfError,
     404: respNotFound,
     500: respInternal,
@@ -171,7 +186,10 @@ const deleteHoursRoute = createRoute({
   tags: ['me'],
   request: { params: idParamSchema },
   responses: {
-    200: { description: 'Work hours deleted', content: { 'application/json': { schema: deleteOk } } },
+    200: {
+      description: 'Work hours deleted',
+      content: { 'application/json': { schema: deleteOk } },
+    },
     400: respSelfError,
     404: respNotFound,
     500: respInternal,
@@ -213,7 +231,9 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         getMasterRate(master.id),
         listMasterEntries(master.id, month),
       ])
-      const hoursSalary = computeSalary(hours.map((h) => ({ minutes: h.minutes, rate: h.rateSnapshot })))
+      const hoursSalary = computeSalary(
+        hours.map((h) => ({ minutes: h.minutes, rate: h.rateSnapshot })),
+      )
       const payoutsTotal = payouts.reduce((sum, p) => sum + p.amount, 0)
       const entries = mergeSalaryEntries(hours.map(toWire), payouts.map(toWire))
 
@@ -260,7 +280,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         note: input.note ?? '',
       })
       baseLogger.info(
-        { event: 'me.hours.create', request_id: requestId, master_id: master.id, hours_id: row.id, status: 201 },
+        {
+          event: 'me.hours.create',
+          request_id: requestId,
+          master_id: master.id,
+          hours_id: row.id,
+          status: 201,
+        },
         'Own work hours added',
       )
       return c.json({ ok: true as const, hours: toWire(row) }, StatusCodes.CREATED)
@@ -296,7 +322,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       if (input.note !== undefined) patch.note = input.note
       const row = await updateWorkHours(id, patch)
       baseLogger.info(
-        { event: 'me.hours.update', request_id: requestId, master_id: master.id, hours_id: id, status: 200 },
+        {
+          event: 'me.hours.update',
+          request_id: requestId,
+          master_id: master.id,
+          hours_id: id,
+          status: 200,
+        },
         'Own work hours updated',
       )
       return c.json({ ok: true as const, hours: toWire(row) }, StatusCodes.OK)
@@ -321,7 +353,13 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
       await deleteWorkHours(id)
       baseLogger.info(
-        { event: 'me.hours.delete', request_id: requestId, master_id: master.id, hours_id: id, status: 200 },
+        {
+          event: 'me.hours.delete',
+          request_id: requestId,
+          master_id: master.id,
+          hours_id: id,
+          status: 200,
+        },
         'Own work hours deleted',
       )
       return c.json({ ok: true as const }, StatusCodes.OK)

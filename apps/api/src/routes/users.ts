@@ -68,7 +68,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook }).openapi(
         },
         'Accounts query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   },
 )

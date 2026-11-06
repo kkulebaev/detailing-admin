@@ -94,7 +94,11 @@ describe('observability — POST /api/bookings log output', () => {
   it('emits exactly one log line per successful POST', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-test-key', Cookie: cookie },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'log-test-key',
+        Cookie: cookie,
+      },
       body: JSON.stringify(VALID_PAYLOAD),
     })
     expect(vi.mocked(baseLogger.info)).toHaveBeenCalledTimes(1)
@@ -103,7 +107,11 @@ describe('observability — POST /api/bookings log output', () => {
   it('log line contains all required structured fields', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'log-fields-key', Cookie: cookie },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'log-fields-key',
+        Cookie: cookie,
+      },
       body: JSON.stringify(VALID_PAYLOAD),
     })
 
@@ -124,7 +132,11 @@ describe('observability — POST /api/bookings log output', () => {
   it('X-Request-Id response header matches request_id in the log', async () => {
     const res = await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'reqid-test', Cookie: cookie },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'reqid-test',
+        Cookie: cookie,
+      },
       body: JSON.stringify(VALID_PAYLOAD),
     })
     const responseRequestId = res.headers.get('X-Request-Id')
@@ -135,7 +147,11 @@ describe('observability — POST /api/bookings log output', () => {
   it('log object does NOT contain phone, name, or note fields', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'pii-test', Cookie: cookie },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'pii-test',
+        Cookie: cookie,
+      },
       body: JSON.stringify({
         dateFrom: '04.06.2026',
         time: '10:00',

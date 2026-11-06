@@ -102,13 +102,19 @@ function pricelistErrorResponse(c: Context, err: unknown) {
     if (err.code === 'not_found') {
       return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
     }
-    return c.json({ ok: false as const, error: 'conflict' as const, reason: err.code }, StatusCodes.CONFLICT)
+    return c.json(
+      { ok: false as const, error: 'conflict' as const, reason: err.code },
+      StatusCodes.CONFLICT,
+    )
   }
   baseLogger.error(
     { message: err instanceof Error ? err.message : String(err) },
     'Pricelist mutation failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  return c.json(
+    { ok: false as const, error: 'internal' as const },
+    StatusCodes.INTERNAL_SERVER_ERROR,
+  )
 }
 
 const respValidation = {
@@ -149,7 +155,10 @@ const createSectionRoute = createRoute({
   tags: ['pricelist'],
   request: { body: { content: { 'application/json': { schema: sectionInputSchema } } } },
   responses: {
-    201: { description: 'Section created', content: { 'application/json': { schema: sectionMutationOk } } },
+    201: {
+      description: 'Section created',
+      content: { 'application/json': { schema: sectionMutationOk } },
+    },
     400: respValidation,
     404: respNotFound,
     409: respConflict,
@@ -167,7 +176,10 @@ const updateSectionRoute = createRoute({
     body: { content: { 'application/json': { schema: sectionInputSchema } } },
   },
   responses: {
-    200: { description: 'Section updated', content: { 'application/json': { schema: sectionMutationOk } } },
+    200: {
+      description: 'Section updated',
+      content: { 'application/json': { schema: sectionMutationOk } },
+    },
     400: respValidation,
     404: respNotFound,
     409: respConflict,
@@ -197,7 +209,10 @@ const createServiceRoute = createRoute({
   tags: ['pricelist'],
   request: { body: { content: { 'application/json': { schema: serviceInputSchema } } } },
   responses: {
-    201: { description: 'Service created', content: { 'application/json': { schema: serviceMutationOk } } },
+    201: {
+      description: 'Service created',
+      content: { 'application/json': { schema: serviceMutationOk } },
+    },
     400: respValidation,
     404: respNotFound,
     409: respConflict,
@@ -215,7 +230,10 @@ const updateServiceRoute = createRoute({
     body: { content: { 'application/json': { schema: serviceInputSchema } } },
   },
   responses: {
-    200: { description: 'Service updated', content: { 'application/json': { schema: serviceMutationOk } } },
+    200: {
+      description: 'Service updated',
+      content: { 'application/json': { schema: serviceMutationOk } },
+    },
     400: respValidation,
     404: respNotFound,
     409: respConflict,
@@ -273,7 +291,10 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         },
         'Pricelist query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(createSectionRoute, async (c) => {
@@ -286,7 +307,12 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     try {
       const section = await createSection(name)
       baseLogger.info(
-        { event: 'pricelist.section.create', request_id: requestId, section_id: section.id, status: 201 },
+        {
+          event: 'pricelist.section.create',
+          request_id: requestId,
+          section_id: section.id,
+          status: 201,
+        },
         'Section created',
       )
       return c.json({ ok: true as const, section }, StatusCodes.CREATED)

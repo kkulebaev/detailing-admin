@@ -2,12 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { ShieldCheck, Wallet } from '@lucide/vue'
 import { toast } from 'vue-sonner'
-import {
-  createMaster,
-  updateMaster,
-  type Account,
-  type Master,
-} from '@/lib/masters-api'
+import { createMaster, updateMaster, type Account, type Master } from '@/lib/masters-api'
 import { useAccountsQuery } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -193,13 +188,15 @@ async function submit() {
               target="_blank"
               rel="noopener noreferrer"
               class="font-medium text-primary underline underline-offset-2"
-            >@userinfobot</a>. Также, для уведомлений мастер должен нажать «/start» у
+              >@userinfobot</a
+            >. Также, для уведомлений мастер должен нажать «/start» у
             <a
               href="https://t.me/dazzle_detailing_bot"
               target="_blank"
               rel="noopener noreferrer"
               class="font-medium text-primary underline underline-offset-2"
-            >@dazzle_detailing_bot</a>.
+              >@dazzle_detailing_bot</a
+            >.
           </p>
         </div>
 
@@ -253,7 +250,10 @@ async function submit() {
           </Label>
         </div>
 
-        <p v-if="error && !fieldErrors.name && !fieldErrors.userId" class="text-sm text-destructive">
+        <p
+          v-if="error && !fieldErrors.name && !fieldErrors.userId"
+          class="text-sm text-destructive"
+        >
           {{ error }}
         </p>
 

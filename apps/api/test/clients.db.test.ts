@@ -174,7 +174,14 @@ describe('getClientStats', () => {
     _setDbForTest(
       makeFakeDb({
         selectResults: [
-          [{ totalSpent: '15000', visitCount: '3', lastVisit: '2026-06-10', firstVisit: '2026-01-05' }],
+          [
+            {
+              totalSpent: '15000',
+              visitCount: '3',
+              lastVisit: '2026-06-10',
+              firstVisit: '2026-01-05',
+            },
+          ],
         ],
         deleteResults: [],
       }),

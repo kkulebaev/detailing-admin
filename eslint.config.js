@@ -17,10 +17,7 @@ import vueParser from 'vue-eslint-parser'
 const TEST_FILES = ['**/test/**/*.{ts,vue}']
 
 const NO_TYPE_ASSERTIONS = {
-  '@typescript-eslint/consistent-type-assertions': [
-    'error',
-    { assertionStyle: 'never' },
-  ],
+  '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
 }
 
 export default tseslint.config(

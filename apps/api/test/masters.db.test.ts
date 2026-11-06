@@ -83,7 +83,13 @@ describe('createMaster (T2)', () => {
     _setDbForTest(db)
 
     await expect(
-      createMaster({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }),
+      createMaster({
+        name: 'Иван Содель',
+        canBeResponsible: true,
+        paidSalary: true,
+        telegramId: null,
+        userId: null,
+      }),
     ).rejects.toBeInstanceOf(MasterError)
   })
 
@@ -93,7 +99,18 @@ describe('createMaster (T2)', () => {
         [], // no existing row
         [{ max: 4 }], // nextPosition
       ],
-      insertResults: [[{ id: 9, name: 'Новый Мастер', position: 5, canBeResponsible: true, paidSalary: true, telegramId: null }]],
+      insertResults: [
+        [
+          {
+            id: 9,
+            name: 'Новый Мастер',
+            position: 5,
+            canBeResponsible: true,
+            paidSalary: true,
+            telegramId: null,
+          },
+        ],
+      ],
     })
     _setDbForTest(db)
 
@@ -106,7 +123,12 @@ describe('createMaster (T2)', () => {
     })
 
     expect(row.id).toBe(9)
-    expect(capture.values[0]).toMatchObject({ name: 'Новый Мастер', position: 5, canBeResponsible: true, telegramId: null })
+    expect(capture.values[0]).toMatchObject({
+      name: 'Новый Мастер',
+      position: 5,
+      canBeResponsible: true,
+      telegramId: null,
+    })
   })
 
   it('persists a supplied telegramId on insert', async () => {
@@ -115,11 +137,28 @@ describe('createMaster (T2)', () => {
         [], // no existing row
         [{ max: 0 }], // nextPosition
       ],
-      insertResults: [[{ id: 10, name: 'Пётр', position: 1, canBeResponsible: true, paidSalary: true, telegramId: '777' }]],
+      insertResults: [
+        [
+          {
+            id: 10,
+            name: 'Пётр',
+            position: 1,
+            canBeResponsible: true,
+            paidSalary: true,
+            telegramId: '777',
+          },
+        ],
+      ],
     })
     _setDbForTest(db)
 
-    const row = await createMaster({ name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: '777', userId: null })
+    const row = await createMaster({
+      name: 'Пётр',
+      canBeResponsible: true,
+      paidSalary: true,
+      telegramId: '777',
+      userId: null,
+    })
 
     expect(row.telegramId).toBe('777')
     expect(capture.values[0]).toMatchObject({ telegramId: '777' })
@@ -190,7 +229,13 @@ describe('deleteMaster', () => {
 })
 
 describe('a name held by an archived master', () => {
-  const input = { name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }
+  const input = {
+    name: 'Пётр',
+    canBeResponsible: true,
+    paidSalary: true,
+    telegramId: null,
+    userId: null,
+  }
 
   it('is refused with archived_name on create', async () => {
     const { db } = makeFakeDb({ selectResults: [[{ id: 7, archived: true }]] })

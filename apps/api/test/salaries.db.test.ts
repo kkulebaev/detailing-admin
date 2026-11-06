@@ -145,7 +145,12 @@ describe('listSalaries — mapping and single rounding', () => {
     _setDbForTest(db)
 
     const rows = await listSalaries('2026-07')
-    expect(rows[0]).toMatchObject({ totalMinutes: 120, hoursSalary: 300, payoutsTotal: 0, total: 300 })
+    expect(rows[0]).toMatchObject({
+      totalMinutes: 120,
+      hoursSalary: 300,
+      payoutsTotal: 0,
+      total: 300,
+    })
   })
 
   it('keeps a master with no rate (null) and no hours (null agg) at 0 salary', async () => {
@@ -226,12 +231,27 @@ describe('createWorkHours — snapshots the current rate', () => {
     const { db, capture } = makeFakeDb({
       selectResults: [[{ hourlyRate: 150 }]], // current rate lookup
       insertResults: [
-        [{ id: 5, masterId: 1, workDate: '2026-07-10', minutes: 480, rateSnapshot: 150, note: '', createdAt: new Date() }],
+        [
+          {
+            id: 5,
+            masterId: 1,
+            workDate: '2026-07-10',
+            minutes: 480,
+            rateSnapshot: 150,
+            note: '',
+            createdAt: new Date(),
+          },
+        ],
       ],
     })
     _setDbForTest(db)
 
-    const row = await createWorkHours({ masterId: 1, workDate: '2026-07-10', minutes: 480, note: '' })
+    const row = await createWorkHours({
+      masterId: 1,
+      workDate: '2026-07-10',
+      minutes: 480,
+      note: '',
+    })
     expect(row.rateSnapshot).toBe(150)
     expect(capture.values[0]).toMatchObject({ masterId: 1, minutes: 480, rateSnapshot: 150 })
   })
@@ -249,7 +269,17 @@ describe('updateWorkHours / deleteWorkHours', () => {
   it('updates day/minutes/note without touching the rate snapshot', async () => {
     const { db, capture } = makeFakeDb({
       updateResults: [
-        [{ id: 5, masterId: 1, workDate: '2026-07-11', minutes: 300, rateSnapshot: 150, note: 'fix', createdAt: new Date() }],
+        [
+          {
+            id: 5,
+            masterId: 1,
+            workDate: '2026-07-11',
+            minutes: 300,
+            rateSnapshot: 150,
+            note: 'fix',
+            createdAt: new Date(),
+          },
+        ],
       ],
     })
     _setDbForTest(db)
@@ -261,7 +291,19 @@ describe('updateWorkHours / deleteWorkHours', () => {
 
   it('returns the current row for an empty patch (no .set({}))', async () => {
     const { db, capture } = makeFakeDb({
-      selectResults: [[{ id: 5, masterId: 1, workDate: '2026-07-11', minutes: 300, rateSnapshot: 150, note: '', createdAt: new Date() }]],
+      selectResults: [
+        [
+          {
+            id: 5,
+            masterId: 1,
+            workDate: '2026-07-11',
+            minutes: 300,
+            rateSnapshot: 150,
+            note: '',
+            createdAt: new Date(),
+          },
+        ],
+      ],
     })
     _setDbForTest(db)
 
@@ -285,8 +327,23 @@ describe('updateWorkHours / deleteWorkHours', () => {
 
 describe('listMasterEntries', () => {
   it('returns hours and payouts separately, in one call', async () => {
-    const hoursRow = { id: 5, masterId: 1, workDate: '2026-07-10', minutes: 480, rateSnapshot: 150, note: '', createdAt: new Date() }
-    const payoutRow = { id: 3, masterId: 1, payoutDate: '2026-07-12', amount: -2000, note: '', createdAt: new Date() }
+    const hoursRow = {
+      id: 5,
+      masterId: 1,
+      workDate: '2026-07-10',
+      minutes: 480,
+      rateSnapshot: 150,
+      note: '',
+      createdAt: new Date(),
+    }
+    const payoutRow = {
+      id: 3,
+      masterId: 1,
+      payoutDate: '2026-07-12',
+      amount: -2000,
+      note: '',
+      createdAt: new Date(),
+    }
     const { db } = makeFakeDb({ selectResults: [[hoursRow], [payoutRow]] })
     _setDbForTest(db)
 
@@ -303,14 +360,32 @@ describe('createPayout — no rate required', () => {
     const { db, capture } = makeFakeDb({
       selectResults: [[{ id: 1 }]],
       insertResults: [
-        [{ id: 3, masterId: 1, payoutDate: '2026-07-12', amount: -2000, note: 'штраф', createdAt: new Date() }],
+        [
+          {
+            id: 3,
+            masterId: 1,
+            payoutDate: '2026-07-12',
+            amount: -2000,
+            note: 'штраф',
+            createdAt: new Date(),
+          },
+        ],
       ],
     })
     _setDbForTest(db)
 
-    const row = await createPayout({ masterId: 1, payoutDate: '2026-07-12', amount: -2000, note: 'штраф' })
+    const row = await createPayout({
+      masterId: 1,
+      payoutDate: '2026-07-12',
+      amount: -2000,
+      note: 'штраф',
+    })
     expect(row.amount).toBe(-2000)
-    expect(capture.values[0]).toMatchObject({ masterId: 1, payoutDate: '2026-07-12', amount: -2000 })
+    expect(capture.values[0]).toMatchObject({
+      masterId: 1,
+      payoutDate: '2026-07-12',
+      amount: -2000,
+    })
   })
 
   it('throws master_not_found for an unknown master and never inserts', async () => {
@@ -328,7 +403,16 @@ describe('updatePayout / deletePayout', () => {
   it('updates only the supplied fields', async () => {
     const { db, capture } = makeFakeDb({
       updateResults: [
-        [{ id: 3, masterId: 1, payoutDate: '2026-07-13', amount: 700, note: 'fix', createdAt: new Date() }],
+        [
+          {
+            id: 3,
+            masterId: 1,
+            payoutDate: '2026-07-13',
+            amount: 700,
+            note: 'fix',
+            createdAt: new Date(),
+          },
+        ],
       ],
     })
     _setDbForTest(db)
@@ -339,7 +423,18 @@ describe('updatePayout / deletePayout', () => {
 
   it('returns the current row for an empty patch (no .set({}))', async () => {
     const { db, capture } = makeFakeDb({
-      selectResults: [[{ id: 3, masterId: 1, payoutDate: '2026-07-12', amount: 500, note: '', createdAt: new Date() }]],
+      selectResults: [
+        [
+          {
+            id: 3,
+            masterId: 1,
+            payoutDate: '2026-07-12',
+            amount: 500,
+            note: '',
+            createdAt: new Date(),
+          },
+        ],
+      ],
     })
     _setDbForTest(db)
 

@@ -34,9 +34,7 @@ describe('downloadFile', () => {
 
   it('fetches with credentials, creates an object URL and clicks a download link', async () => {
     fetchMock.mockResolvedValue(okBlobResponse())
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => {})
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
     await downloadFile('/api/bookings/export?master=Иван', 'bookings-2026-08-06.csv')
 
@@ -54,9 +52,7 @@ describe('downloadFile', () => {
 
   it('throws on a non-ok response without triggering a download', async () => {
     fetchMock.mockResolvedValue(errorResponse(503))
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => {})
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
     await expect(downloadFile('/api/clients/export', 'clients.csv')).rejects.toThrow()
     expect(createObjectURL).not.toHaveBeenCalled()

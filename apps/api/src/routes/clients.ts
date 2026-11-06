@@ -77,7 +77,13 @@ function toWireClient(
   row: { id: string; phone: string; name: string; createdAt: Date },
   cars: Car[] = [],
 ) {
-  return { id: row.id, phone: row.phone, name: row.name, createdAt: row.createdAt.toISOString(), cars }
+  return {
+    id: row.id,
+    phone: row.phone,
+    name: row.name,
+    createdAt: row.createdAt.toISOString(),
+    cars,
+  }
 }
 
 function unavailable(c: Context) {
@@ -103,7 +109,10 @@ function clientErrorFallback(c: Context, err: unknown) {
     { message: err instanceof Error ? err.message : String(err) },
     'Client mutation failed',
   )
-  return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+  return c.json(
+    { ok: false as const, error: 'internal' as const },
+    StatusCodes.INTERNAL_SERVER_ERROR,
+  )
 }
 
 // Boilerplate shrunk via these response-shape constants.
@@ -175,7 +184,10 @@ const listClientsRoute = createRoute({
   tags: ['clients'],
   request: { query: listQuerySchema },
   responses: {
-    200: { description: 'Clients list', content: { 'application/json': { schema: listOkResponse } } },
+    200: {
+      description: 'Clients list',
+      content: { 'application/json': { schema: listOkResponse } },
+    },
     400: respValidation,
     500: respInternal,
     503: respDbUnavailable,
@@ -231,7 +243,10 @@ const deleteClientRoute = createRoute({
   tags: ['clients'],
   request: { params: idParamSchema },
   responses: {
-    200: { description: 'Client deleted', content: { 'application/json': { schema: deleteOkResponse } } },
+    200: {
+      description: 'Client deleted',
+      content: { 'application/json': { schema: deleteOkResponse } },
+    },
     400: respValidation,
     404: respNotFound,
     // `deleteClient` throws `has_bookings` when a booking FK still references
@@ -296,7 +311,10 @@ router.openapi(lookupClientRoute, async (c) => {
       },
       'Client lookup failed',
     )
-    return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    return c.json(
+      { ok: false as const, error: 'internal' as const },
+      StatusCodes.INTERNAL_SERVER_ERROR,
+    )
   }
 })
 
@@ -335,7 +353,13 @@ router
         'Client detail',
       )
       return c.json(
-        { ok: true as const, client: toWireClient(client, cars), stats, bookings, bookingsTruncated },
+        {
+          ok: true as const,
+          client: toWireClient(client, cars),
+          stats,
+          bookings,
+          bookingsTruncated,
+        },
         StatusCodes.OK,
       )
     } catch (err) {
@@ -348,7 +372,10 @@ router
         },
         'Client detail query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(listClientsRoute, async (c) => {
@@ -391,7 +418,10 @@ router
         },
         'Clients query failed',
       )
-      return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+      return c.json(
+        { ok: false as const, error: 'internal' as const },
+        StatusCodes.INTERNAL_SERVER_ERROR,
+      )
     }
   })
   .openapi(createClientRoute, async (c) => {
@@ -521,7 +551,13 @@ async function clientsExportHandler(c: Context) {
 
     const truncated = items.length >= EXPORT_CAP
     baseLogger[truncated ? 'warn' : 'info'](
-      { event: 'clients.export', request_id: requestId, count: items.length, truncated, status: 200 },
+      {
+        event: 'clients.export',
+        request_id: requestId,
+        count: items.length,
+        truncated,
+        status: 200,
+      },
       truncated ? 'Clients export truncated at cap' : 'Clients exported',
     )
 
@@ -540,7 +576,10 @@ async function clientsExportHandler(c: Context) {
       },
       'Clients export failed',
     )
-    return c.json({ ok: false as const, error: 'internal' as const }, StatusCodes.INTERNAL_SERVER_ERROR)
+    return c.json(
+      { ok: false as const, error: 'internal' as const },
+      StatusCodes.INTERNAL_SERVER_ERROR,
+    )
   }
 }
 

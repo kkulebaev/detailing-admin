@@ -62,21 +62,21 @@ describe('buildSeriesQuery (AC2)', () => {
     const { sql: text } = buildSeriesQuery(db, { ...RANGE, granularity: 'day' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('group by')
-    expect(low).toContain("to_char(\"date_from\"::date, 'yyyy-mm-dd')")
+    expect(low).toContain('to_char("date_from"::date, \'yyyy-mm-dd\')')
   })
 
   it('groups by date_trunc(week) for weekly granularity', () => {
     const { sql: text } = buildSeriesQuery(db, { ...RANGE, granularity: 'week' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('group by')
-    expect(low).toContain("date_trunc('week', \"date_from\"::date)")
+    expect(low).toContain('date_trunc(\'week\', "date_from"::date)')
   })
 
   it('groups by the YYYY-MM bucket for monthly granularity', () => {
     const { sql: text } = buildSeriesQuery(db, { ...RANGE, granularity: 'month' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('group by')
-    expect(low).toContain("to_char(\"date_from\"::date, 'yyyy-mm')")
+    expect(low).toContain('to_char("date_from"::date, \'yyyy-mm\')')
   })
 
   it('keeps series revenue under «Выдана» but counts volume without a filter (AC12)', () => {

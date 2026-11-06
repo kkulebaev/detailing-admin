@@ -18,12 +18,13 @@ import type { GetApiAnalyticsOverviewParams } from '@/lib/analytics-api'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartCrosshair, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+  ChartContainer,
+  ChartCrosshair,
+  ChartTooltip,
+  type ChartConfig,
+} from '@/components/ui/chart'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RangeCalendar } from '@/components/ui/range-calendar'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -35,11 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 // ── Period ────────────────────────────────────────────────────────────────
 // Unlike BookingsPage, the period here has no «all months» state — the API
@@ -174,9 +171,7 @@ const { data: queryData, error: queryError, asyncStatus } = useAnalyticsOverview
 // Skeleton only on the very first load — background refetches keep the
 // previous period's numbers on screen (placeholderData), so `loading` is
 // false then.
-const loading = computed(
-  () => asyncStatus.value === 'loading' && queryData.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 // Delay the skeleton so a fast load doesn't flash it.
 const showSkeleton = ref(false)
@@ -311,7 +306,14 @@ function xTickTextAlign(_v: number, i: number, values: number[]): 'left' | 'cent
 function niceStep(rawStep: number): number {
   const magnitude = 10 ** Math.floor(Math.log10(rawStep))
   const residual = rawStep / magnitude
-  const factor = residual >= Math.sqrt(50) ? 10 : residual >= Math.sqrt(10) ? 5 : residual >= Math.sqrt(2) ? 2 : 1
+  const factor =
+    residual >= Math.sqrt(50)
+      ? 10
+      : residual >= Math.sqrt(10)
+        ? 5
+        : residual >= Math.sqrt(2)
+          ? 2
+          : 1
   return factor * magnitude
 }
 
@@ -424,7 +426,9 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
         </PopoverTrigger>
         <PopoverContent class="w-auto p-0" align="start">
           <div class="flex flex-col sm:flex-row">
-            <div class="grid grid-cols-2 gap-1 border-b border-border p-2 sm:flex sm:flex-col sm:border-r sm:border-b-0">
+            <div
+              class="grid grid-cols-2 gap-1 border-b border-border p-2 sm:flex sm:flex-col sm:border-r sm:border-b-0"
+            >
               <Button
                 v-for="p in monthPresets"
                 :key="p.key"
@@ -435,7 +439,12 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
               >
                 {{ p.label }}
               </Button>
-              <Button variant="ghost" size="sm" class="justify-start" @click="pickPreset(() => applyYear(currentYear))">
+              <Button
+                variant="ghost"
+                size="sm"
+                class="justify-start"
+                @click="pickPreset(() => applyYear(currentYear))"
+              >
                 {{ currentYear }}
               </Button>
             </div>
@@ -506,7 +515,9 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
           <Card>
             <CardHeader>
               <CardDescription>Выручка</CardDescription>
-              <CardTitle class="text-2xl tabular-nums">{{ formatAmount(revenueTotal) }} ₽</CardTitle>
+              <CardTitle class="text-2xl tabular-nums"
+                >{{ formatAmount(revenueTotal) }} ₽</CardTitle
+              >
             </CardHeader>
             <CardContent>
               <p class="text-xs text-muted-foreground">По записям со статусом «Выдана»</p>
@@ -519,9 +530,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
               <CardTitle class="text-2xl tabular-nums">{{ formatAmount(avgCheck) }} ₽</CardTitle>
             </CardHeader>
             <CardContent>
-              <p class="text-xs text-muted-foreground">
-                Выручка / количество выданных машин
-              </p>
+              <p class="text-xs text-muted-foreground">Выручка / количество выданных машин</p>
             </CardContent>
           </Card>
 
@@ -538,7 +547,10 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
           <Card>
             <CardHeader>
               <CardDescription>Δ к предыдущему периоду</CardDescription>
-              <CardTitle class="flex items-center gap-1.5 text-2xl tabular-nums" :class="deltaClass">
+              <CardTitle
+                class="flex items-center gap-1.5 text-2xl tabular-nums"
+                :class="deltaClass"
+              >
                 <component :is="deltaIcon" class="size-5" />
                 {{ formatPct(revenuePct) }}
               </CardTitle>
@@ -685,11 +697,15 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
                     <TableCell class="max-w-32 px-2 whitespace-normal sm:max-w-56 sm:px-4">
                       {{ row.name || '—' }}
                     </TableCell>
-                    <TableCell class="px-2 tabular-nums sm:px-4">{{ formatPhone(row.phone) }}</TableCell>
+                    <TableCell class="px-2 tabular-nums sm:px-4">{{
+                      formatPhone(row.phone)
+                    }}</TableCell>
                     <TableCell class="px-2 text-right tabular-nums sm:px-4">
                       {{ formatAmount(row.sum) }}
                     </TableCell>
-                    <TableCell class="px-2 text-right tabular-nums sm:px-4">{{ row.visits }}</TableCell>
+                    <TableCell class="px-2 text-right tabular-nums sm:px-4">{{
+                      row.visits
+                    }}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

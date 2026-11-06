@@ -95,10 +95,7 @@ function onSelect(value: unknown) {
       <DropdownMenuLabel class="text-xs font-normal text-muted-foreground">
         Готовность
       </DropdownMenuLabel>
-      <DropdownMenuRadioGroup
-        :model-value="props.readiness || NONE"
-        @update:model-value="onSelect"
-      >
+      <DropdownMenuRadioGroup :model-value="props.readiness || NONE" @update:model-value="onSelect">
         <!-- Индикатор выбора — галочка, а не штатный залитый кружок: тот читался
              как ещё одна цветовая метка статуса. -->
         <DropdownMenuRadioItem

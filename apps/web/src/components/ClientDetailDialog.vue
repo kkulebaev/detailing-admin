@@ -81,7 +81,9 @@ watch(
 )
 onUnmounted(() => clearTimeout(entranceTimer))
 
-const showSkeleton = computed(() => isLoading.value || (detail.value !== null && !entranceDone.value))
+const showSkeleton = computed(
+  () => isLoading.value || (detail.value !== null && !entranceDone.value),
+)
 
 // ── Close navigation ────────────────────────────────────────────────────────
 // If the previous history entry is the list, step back (so the browser «назад»
@@ -180,113 +182,110 @@ const displayName = computed(() => {
       <div>
         <!-- Error (503 / network): retryable. -->
         <div v-if="errorMessage" class="p-4">
-        <Alert variant="destructive">
-          <AlertTitle>Не удалось загрузить карточку</AlertTitle>
-          <AlertDescription>{{ errorMessage }}</AlertDescription>
-        </Alert>
-        <Button variant="outline" size="sm" class="mt-3" @click="refetch()">Повторить</Button>
-      </div>
+          <Alert variant="destructive">
+            <AlertTitle>Не удалось загрузить карточку</AlertTitle>
+            <AlertDescription>{{ errorMessage }}</AlertDescription>
+          </Alert>
+          <Button variant="outline" size="sm" class="mt-3" @click="refetch()">Повторить</Button>
+        </div>
 
-      <!-- Not found (stale bookmark / client deleted between list load and click). -->
-      <div v-else-if="notFound" class="p-4">
-        <Alert>
-          <AlertTitle>Клиент не найден</AlertTitle>
-          <AlertDescription>
-            Возможно, он был удалён. Вернитесь к списку клиентов.
-          </AlertDescription>
-        </Alert>
-        <Button variant="outline" size="sm" class="mt-3" @click="close">К списку клиентов</Button>
-      </div>
+        <!-- Not found (stale bookmark / client deleted between list load and click). -->
+        <div v-else-if="notFound" class="p-4">
+          <Alert>
+            <AlertTitle>Клиент не найден</AlertTitle>
+            <AlertDescription>
+              Возможно, он был удалён. Вернитесь к списку клиентов.
+            </AlertDescription>
+          </Alert>
+          <Button variant="outline" size="sm" class="mt-3" @click="close">К списку клиентов</Button>
+        </div>
 
-      <!-- Loading: skeleton tiles + history. Also covers the brief window
+        <!-- Loading: skeleton tiles + history. Also covers the brief window
            after data arrives but before the entrance animation finishes. -->
-      <div v-else-if="showSkeleton" class="space-y-6 p-4">
-        <div class="grid grid-cols-2 gap-3">
-          <Skeleton v-for="i in 2" :key="i" class="h-20 w-full" />
+        <div v-else-if="showSkeleton" class="space-y-6 p-4">
+          <div class="grid grid-cols-2 gap-3">
+            <Skeleton v-for="i in 2" :key="i" class="h-20 w-full" />
+          </div>
+          <div class="space-y-3">
+            <Skeleton v-for="i in 4" :key="i" class="h-16 w-full" />
+          </div>
         </div>
-        <div class="space-y-3">
-          <Skeleton v-for="i in 4" :key="i" class="h-16 w-full" />
-        </div>
-      </div>
 
-      <!-- Content. -->
-      <div v-else-if="detail" class="space-y-6 p-4">
-        <!-- Cars -->
-        <section>
-          <h3 class="mb-2 text-sm font-medium text-muted-foreground">Машины</h3>
-          <p v-if="detail.client.cars.length === 0" class="text-sm text-muted-foreground">
-            Нет машин
-          </p>
-          <ul v-else class="space-y-1 text-sm">
-            <li v-for="car in detail.client.cars" :key="car.id">{{ formatCar(car) }}</li>
-          </ul>
-        </section>
+        <!-- Content. -->
+        <div v-else-if="detail" class="space-y-6 p-4">
+          <!-- Cars -->
+          <section>
+            <h3 class="mb-2 text-sm font-medium text-muted-foreground">Машины</h3>
+            <p v-if="detail.client.cars.length === 0" class="text-sm text-muted-foreground">
+              Нет машин
+            </p>
+            <ul v-else class="space-y-1 text-sm">
+              <li v-for="car in detail.client.cars" :key="car.id">{{ formatCar(car) }}</li>
+            </ul>
+          </section>
 
-        <!-- Stat tiles. «Выручка» is the lifetime «Выдана» sum (money actually
+          <!-- Stat tiles. «Выручка» is the lifetime «Выдана» sum (money actually
              earned) — labelled «за всё время» to distinguish it from the
              period-scoped revenue on the Analytics page; «Количество записей»
              counts the history rows shown (all statuses), so it matches the list
              below rather than the delivered-only visitCount. Two short numbers sit
              side by side even on the narrowest phone (as on AnalyticsPage). -->
-        <section class="grid grid-cols-2 gap-3">
-          <Card>
-            <CardHeader class="p-3">
-              <CardDescription class="text-sm">Выручка за всё время</CardDescription>
-              <CardTitle class="text-xl tabular-nums">
-                {{ formatAmount(detail.stats.totalSpent) }} ₽
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader class="p-3">
-              <CardDescription class="text-sm">Количество записей</CardDescription>
-              <CardTitle class="text-xl tabular-nums">{{ detail.bookings.length }}</CardTitle>
-            </CardHeader>
-          </Card>
-        </section>
+          <section class="grid grid-cols-2 gap-3">
+            <Card>
+              <CardHeader class="p-3">
+                <CardDescription class="text-sm">Выручка за всё время</CardDescription>
+                <CardTitle class="text-xl tabular-nums">
+                  {{ formatAmount(detail.stats.totalSpent) }} ₽
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader class="p-3">
+                <CardDescription class="text-sm">Количество записей</CardDescription>
+                <CardTitle class="text-xl tabular-nums">{{ detail.bookings.length }}</CardTitle>
+              </CardHeader>
+            </Card>
+          </section>
 
-        <!-- History (all statuses) -->
-        <section>
-          <div class="mb-2 flex items-baseline justify-between">
-            <h3 class="text-sm font-medium text-muted-foreground">История</h3>
-            <span
-              v-if="detail.bookingsTruncated"
-              class="text-xs text-muted-foreground"
-            >
-              показаны последние {{ detail.bookings.length }}
-            </span>
-          </div>
+          <!-- History (all statuses) -->
+          <section>
+            <div class="mb-2 flex items-baseline justify-between">
+              <h3 class="text-sm font-medium text-muted-foreground">История</h3>
+              <span v-if="detail.bookingsTruncated" class="text-xs text-muted-foreground">
+                показаны последние {{ detail.bookings.length }}
+              </span>
+            </div>
 
-          <p
-            v-if="detail.bookings.length === 0"
-            class="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground"
-          >
-            Нет записей
-          </p>
-          <ul v-else class="space-y-2">
-            <li
-              v-for="row in detail.bookings"
-              :key="row.id"
-              class="rounded-md border border-border p-3 text-sm"
+            <p
+              v-if="detail.bookings.length === 0"
+              class="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground"
             >
-              <div class="flex items-start justify-between gap-2">
-                <span class="tabular-nums font-medium">{{ formatBookingDate(row) }}</span>
-                <Badge variant="secondary" :class="readinessBadgeClass(row.readiness)">
-                  {{ row.readiness || 'нет статуса' }}
-                </Badge>
-              </div>
-              <p v-if="row.service" class="mt-1 whitespace-pre-line leading-snug">
-                {{ row.service }}
-              </p>
-              <div class="mt-1 flex items-start justify-between gap-2 text-muted-foreground">
-                <span>{{ row.master.length ? row.master.join(', ') : '—' }}</span>
-                <span v-if="row.amount != null" class="tabular-nums whitespace-nowrap">
-                  {{ formatAmount(row.amount) }} ₽
-                </span>
-              </div>
-            </li>
-          </ul>
-        </section>
+              Нет записей
+            </p>
+            <ul v-else class="space-y-2">
+              <li
+                v-for="row in detail.bookings"
+                :key="row.id"
+                class="rounded-md border border-border p-3 text-sm"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <span class="tabular-nums font-medium">{{ formatBookingDate(row) }}</span>
+                  <Badge variant="secondary" :class="readinessBadgeClass(row.readiness)">
+                    {{ row.readiness || 'нет статуса' }}
+                  </Badge>
+                </div>
+                <p v-if="row.service" class="mt-1 whitespace-pre-line leading-snug">
+                  {{ row.service }}
+                </p>
+                <div class="mt-1 flex items-start justify-between gap-2 text-muted-foreground">
+                  <span>{{ row.master.length ? row.master.join(', ') : '—' }}</span>
+                  <span v-if="row.amount != null" class="tabular-nums whitespace-nowrap">
+                    {{ formatAmount(row.amount) }} ₽
+                  </span>
+                </div>
+              </li>
+            </ul>
+          </section>
         </div>
       </div>
     </DialogContent>

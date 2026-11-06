@@ -41,9 +41,7 @@ watch(
   { immediate: true },
 )
 
-const loading = computed(
-  () => asyncStatus.value === 'loading' && queryData.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 const error = computed<string | null>(() => {
   if (queryError.value) return 'Сетевая ошибка при загрузке мастеров'
@@ -87,9 +85,7 @@ async function move(index: number, dir: -1 | 1) {
     const result = await apiReorderMasters(ids)
     if (!result.ok) {
       const message =
-        result.error === 'unavailable'
-          ? result.message
-          : 'Не удалось изменить порядок'
+        result.error === 'unavailable' ? result.message : 'Не удалось изменить порядок'
       toast.error(message)
       await invalidateMasters()
     }
@@ -240,11 +236,7 @@ async function confirmDelete() {
       </div>
     </div>
 
-    <MasterFormDialog
-      v-model:open="dialogOpen"
-      :editing="editing"
-      @saved="invalidateMasters"
-    />
+    <MasterFormDialog v-model:open="dialogOpen" :editing="editing" @saved="invalidateMasters" />
 
     <AlertDialog :open="deleteDialogOpen" @update:open="onDeleteDialogOpenChange">
       <AlertDialogContent>
@@ -252,7 +244,8 @@ async function confirmDelete() {
           <AlertDialogTitle>Удалить мастера?</AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget">
-              Мастер «{{ deleteTarget.name }}» пропадёт из списков, а его записи и зарплата сохранятся. Вернуть мастера можно только через базу данных
+              Мастер «{{ deleteTarget.name }}» пропадёт из списков, а его записи и зарплата
+              сохранятся. Вернуть мастера можно только через базу данных
             </template>
           </AlertDialogDescription>
         </AlertDialogHeader>

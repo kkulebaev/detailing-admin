@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, gte, isNull, isNotNull, lte, notInArray, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  isNull,
+  isNotNull,
+  lte,
+  notInArray,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import type { AnalyticsGranularity } from '@detailing-admin/shared'
 import { getDb, type Db } from './client.js'
 import { bookings, clients } from './schema.js'
@@ -104,10 +116,7 @@ export function buildRetentionQuery(db: Db, p: RangeParams) {
       })
       .from(bookings)
       .where(
-        and(
-          isNotNull(bookings.clientId),
-          notInArray(bookings.readiness, [...NON_VISIT_READINESS]),
-        ),
+        and(isNotNull(bookings.clientId), notInArray(bookings.readiness, [...NON_VISIT_READINESS])),
       )
       .groupBy(bookings.clientId),
   )
@@ -142,22 +151,24 @@ export function buildRetentionQuery(db: Db, p: RangeParams) {
 export function buildTopQuery(db: Db, p: RangeParams) {
   const sumExpr = sql<string>`coalesce(sum(${bookings.amount}), 0)`
   const visitsExpr = sql<string>`count(*)`
-  return db
-    .select({
-      clientId: bookings.clientId,
-      name: clients.name,
-      phone: clients.phone,
-      sum: sumExpr,
-      visits: visitsExpr,
-    })
-    .from(bookings)
-    .innerJoin(clients, eq(clients.id, bookings.clientId))
-    .where(and(dateRange(p.fromIso, p.toIso), revenueCond))
-    .groupBy(bookings.clientId, clients.name, clients.phone)
-    // Secondary key breaks ties deterministically — without it, equal sums leave
-    // the LIMIT 10 cutoff up to Postgres' arbitrary row order.
-    .orderBy(desc(sumExpr), asc(bookings.clientId))
-    .limit(10)
+  return (
+    db
+      .select({
+        clientId: bookings.clientId,
+        name: clients.name,
+        phone: clients.phone,
+        sum: sumExpr,
+        visits: visitsExpr,
+      })
+      .from(bookings)
+      .innerJoin(clients, eq(clients.id, bookings.clientId))
+      .where(and(dateRange(p.fromIso, p.toIso), revenueCond))
+      .groupBy(bookings.clientId, clients.name, clients.phone)
+      // Secondary key breaks ties deterministically — without it, equal sums leave
+      // the LIMIT 10 cutoff up to Postgres' arbitrary row order.
+      .orderBy(desc(sumExpr), asc(bookings.clientId))
+      .limit(10)
+  )
 }
 
 export interface AnalyticsParams extends SeriesParams {
@@ -197,7 +208,12 @@ export async function getAnalyticsOverview(p: AnalyticsParams): Promise<RawAnaly
 
   return {
     // An aggregate with no matching rows still returns one row (with COALESCE'd 0s).
-    totals: totalsRow ?? { total: '0', completedCount: '0', bookingsCount: '0', noClientCount: '0' },
+    totals: totalsRow ?? {
+      total: '0',
+      completedCount: '0',
+      bookingsCount: '0',
+      noClientCount: '0',
+    },
     prevTotal: prevRow?.total ?? '0',
     series,
     retention: retentionRow ?? { newCount: '0', returningCount: '0' },

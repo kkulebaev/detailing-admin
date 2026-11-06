@@ -14,16 +14,9 @@ import {
 } from './generated/bookings/bookings'
 import type { GetApiBookingsParams, PatchApiBookingsIdBody } from './generated/model'
 
-export type {
-  BookingRow,
-  BookingsListResponse,
-  GetApiBookingsParams,
-  PatchApiBookingsIdBody,
-}
+export type { BookingRow, BookingsListResponse, GetApiBookingsParams, PatchApiBookingsIdBody }
 
-export function fetchBookings(
-  params: GetApiBookingsParams,
-): Promise<BookingsListResponse> {
+export function fetchBookings(params: GetApiBookingsParams): Promise<BookingsListResponse> {
   return unwrap<BookingsListResponse>(() => getApiBookings(params))
 }
 

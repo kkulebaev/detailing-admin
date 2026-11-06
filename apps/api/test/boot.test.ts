@@ -102,7 +102,9 @@ describe('boot.init', () => {
     expect(errorEvents.filter((e) => e === 'boot.headers.mismatch')).toHaveLength(1)
     const mismatchCall = vi
       .mocked(baseLogger.error)
-      .mock.calls.find(([obj]) => (obj as Record<string, unknown>).event === 'boot.headers.mismatch')
+      .mock.calls.find(
+        ([obj]) => (obj as Record<string, unknown>).event === 'boot.headers.mismatch',
+      )
     expect(mismatchCall).toBeTruthy()
     const [logObj] = mismatchCall as [Record<string, unknown>, unknown]
     expect(logObj.column_index).toBe(8)

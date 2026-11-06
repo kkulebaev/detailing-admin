@@ -12,16 +12,8 @@ import {
   type WorkHours,
 } from '@detailing-admin/shared'
 import { calToDdmmyyyy } from '@/lib/date'
-import {
-  createWorkHours,
-  updateWorkHours,
-  type WorkHoursMutationResult,
-} from '@/lib/salaries-api'
-import {
-  createMyWorkHours,
-  updateMyWorkHours,
-  type MyWorkHoursMutationResult,
-} from '@/lib/me-api'
+import { createWorkHours, updateWorkHours, type WorkHoursMutationResult } from '@/lib/salaries-api'
+import { createMyWorkHours, updateMyWorkHours, type MyWorkHoursMutationResult } from '@/lib/me-api'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -34,11 +26,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -171,7 +159,11 @@ async function submit() {
   }
 
   if (props.self) {
-    const parsed = selfWorkHoursInputSchema.safeParse({ workDate, hours: hoursNum, note: trimmedNote })
+    const parsed = selfWorkHoursInputSchema.safeParse({
+      workDate,
+      hours: hoursNum,
+      note: trimmedNote,
+    })
     if (!parsed.success) {
       applyIssues(parsed.error.issues)
       return
@@ -366,10 +358,7 @@ function handleResult(
           </p>
         </div>
 
-        <p
-          v-if="error && Object.keys(fieldErrors).length === 0"
-          class="text-sm text-destructive"
-        >
+        <p v-if="error && Object.keys(fieldErrors).length === 0" class="text-sm text-destructive">
           {{ error }}
         </p>
 

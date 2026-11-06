@@ -295,7 +295,13 @@ describe('/api/users', () => {
 
   it('lists accounts for an admin', async () => {
     const accounts = [
-      { id: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f', login: 'petr', role: 'employee' as const, firstName: 'Пётр', lastName: '' },
+      {
+        id: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f',
+        login: 'petr',
+        role: 'employee' as const,
+        firstName: 'Пётр',
+        lastName: '',
+      },
     ]
     vi.mocked(listAccounts).mockResolvedValue(accounts)
     const res = await req('/api/users', 'GET', undefined, await adminCookie())

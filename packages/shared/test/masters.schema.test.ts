@@ -15,12 +15,20 @@ describe('masterInputSchema', () => {
   })
 
   it('rejects a payload missing canBeResponsible — no default, so PATCH omission cannot resurrect it', () => {
-    const r = masterInputSchema.safeParse({ name: 'Пётр Новый', paidSalary: true, telegramId: null })
+    const r = masterInputSchema.safeParse({
+      name: 'Пётр Новый',
+      paidSalary: true,
+      telegramId: null,
+    })
     expect(r.success).toBe(false)
   })
 
   it('rejects a payload missing paidSalary — no default', () => {
-    const r = masterInputSchema.safeParse({ name: 'Пётр Новый', canBeResponsible: true, telegramId: null })
+    const r = masterInputSchema.safeParse({
+      name: 'Пётр Новый',
+      canBeResponsible: true,
+      telegramId: null,
+    })
     expect(r.success).toBe(false)
   })
 
@@ -64,7 +72,13 @@ describe('masterInputSchema', () => {
   })
 
   it('accepts a null telegramId', () => {
-    const r = masterInputSchema.safeParse({ name: 'Иван Содель', canBeResponsible: true, paidSalary: true, telegramId: null, userId: null })
+    const r = masterInputSchema.safeParse({
+      name: 'Иван Содель',
+      canBeResponsible: true,
+      paidSalary: true,
+      telegramId: null,
+      userId: null,
+    })
     assert(r.success)
     expect(r.data.telegramId).toBeNull()
   })
@@ -72,7 +86,9 @@ describe('masterInputSchema', () => {
   it('accepts a linked account id and refuses a non-uuid one', () => {
     const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
     expect(masterInputSchema.safeParse({ name: 'Иван', ...base, userId }).success).toBe(true)
-    expect(masterInputSchema.safeParse({ name: 'Иван', ...base, userId: 'emp' }).success).toBe(false)
+    expect(masterInputSchema.safeParse({ name: 'Иван', ...base, userId: 'emp' }).success).toBe(
+      false,
+    )
   })
 
   it('requires userId on full-replace, so PATCH cannot silently unlink', () => {

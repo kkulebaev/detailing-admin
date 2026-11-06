@@ -36,7 +36,11 @@ interface ServicePrices {
 }
 
 function toPrices(s: SeedService): ServicePrices {
-  function one(min: number | undefined, max: number | null | undefined, legacy: number | undefined) {
+  function one(
+    min: number | undefined,
+    max: number | null | undefined,
+    legacy: number | undefined,
+  ) {
     const resolvedMin = min ?? legacy
     if (typeof resolvedMin !== 'number') {
       throw new Error(`service "${s.name}" is missing a price field`)
@@ -87,10 +91,7 @@ async function main(): Promise<void> {
   let serviceCount = 0
 
   for (const sec of seed.sections) {
-    const [insertedSection] = await db
-      .insert(sections)
-      .values({ name: sec.name })
-      .returning()
+    const [insertedSection] = await db.insert(sections).values({ name: sec.name }).returning()
     if (!insertedSection) throw new Error(`failed to insert section "${sec.name}"`)
     sectionCount++
 

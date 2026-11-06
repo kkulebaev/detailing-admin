@@ -4,8 +4,18 @@
 export const PLATE_LETTERS = new Set(['А', 'В', 'Е', 'К', 'М', 'Н', 'О', 'Р', 'С', 'Т', 'У', 'Х'])
 
 const LATIN_TO_CYRILLIC: Record<string, string> = {
-  A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н',
-  O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
+  A: 'А',
+  B: 'В',
+  E: 'Е',
+  K: 'К',
+  M: 'М',
+  H: 'Н',
+  O: 'О',
+  P: 'Р',
+  C: 'С',
+  T: 'Т',
+  Y: 'У',
+  X: 'Х',
 }
 
 export function maskLicensePlate(raw: string): string {

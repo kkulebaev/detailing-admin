@@ -13,7 +13,8 @@ vi.mock('../src/stores/auth', () => ({
 }))
 
 const passwordInput = () => page.getByLabelText('Пароль')
-const inputGroup = () => passwordInput().element().closest<HTMLElement>('[data-slot="input-group"]')!
+const inputGroup = () =>
+  passwordInput().element().closest<HTMLElement>('[data-slot="input-group"]')!
 
 function mountPage() {
   mount(LoginPage, { attachTo: document.body })

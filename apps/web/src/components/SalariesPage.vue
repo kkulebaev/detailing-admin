@@ -12,11 +12,7 @@ import {
   type WorkHours,
 } from '@detailing-admin/shared'
 import { deletePayout, deleteWorkHours } from '@/lib/salaries-api'
-import {
-  useSalariesQuery,
-  useInvalidateSalaries,
-  useInvalidateSalaryEntries,
-} from '@/lib/queries'
+import { useSalariesQuery, useInvalidateSalaries, useInvalidateSalaryEntries } from '@/lib/queries'
 import { buildMonthOptions, currentMonthKey, formatMonthAccusative } from '@/lib/month-options'
 import { formatAmount, formatSigned } from '@/lib/money'
 import MasterEntries from './MasterEntries.vue'
@@ -34,13 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import {
   Select,
   SelectContent,
@@ -89,9 +79,7 @@ const monthTotal = computed(() => rows.value.reduce((acc, r) => acc + r.total, 0
 
 // Skeleton only on the very first load — month switches keep the previous rows
 // visible (placeholderData in useSalariesQuery), so `loading` is false then.
-const loading = computed(
-  () => asyncStatus.value === 'loading' && queryData.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 const showSkeleton = ref(false)
 let skeletonTimer: ReturnType<typeof setTimeout> | undefined
@@ -178,9 +166,7 @@ watch(
     if (data?.ok && data.month !== seededMonth) {
       seededMonth = data.month
       expanded.value = new Set(
-        data.rows
-          .filter((r) => r.totalMinutes > 0 || r.payoutsTotal !== 0)
-          .map((r) => r.masterId),
+        data.rows.filter((r) => r.totalMinutes > 0 || r.payoutsTotal !== 0).map((r) => r.masterId),
       )
     }
   },
@@ -216,9 +202,7 @@ const eligibleMasters = computed(() =>
 )
 
 // Payouts need no rate, so the toolbar payout dialog offers every row.
-const allMasters = computed(() =>
-  rows.value.map((r) => ({ id: r.masterId, name: r.masterName })),
-)
+const allMasters = computed(() => rows.value.map((r) => ({ id: r.masterId, name: r.masterName })))
 
 function openAddHours(row: SalaryRow) {
   hoursEditing.value = null
@@ -297,9 +281,7 @@ async function confirmDelete() {
   try {
     const result = isPayout ? await deletePayout(target.id) : await deleteWorkHours(target.id)
     if (result.ok || result.error === 'not_found') {
-      toast.success(
-        `${isPayout ? 'Выплата' : 'Запись'} ${result.ok ? 'удалена' : 'уже удалена'}`,
-      )
+      toast.success(`${isPayout ? 'Выплата' : 'Запись'} ${result.ok ? 'удалена' : 'уже удалена'}`)
       deleteDialogOpen.value = false
       await Promise.all([invalidateSalaries(), invalidateSalaryEntries()])
       return
@@ -511,7 +493,11 @@ async function confirmDelete() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      :title="expanded.has(row.masterId) ? 'Скрыть часы и выплаты' : 'Показать часы и выплаты'"
+                      :title="
+                        expanded.has(row.masterId)
+                          ? 'Скрыть часы и выплаты'
+                          : 'Показать часы и выплаты'
+                      "
                       :aria-label="`${expanded.has(row.masterId) ? 'Скрыть' : 'Показать'} часы и выплаты — ${row.masterName}`"
                       @click="toggleExpand(row.masterId)"
                     >
@@ -584,9 +570,7 @@ async function confirmDelete() {
                       :class="row.hourlyRate != null ? 'text-foreground' : ''"
                     >
                       {{
-                        row.hourlyRate != null
-                          ? `${formatAmount(row.hourlyRate)} ₽/ч`
-                          : 'не задана'
+                        row.hourlyRate != null ? `${formatAmount(row.hourlyRate)} ₽/ч` : 'не задана'
                       }}
                     </span>
                     <Button
@@ -610,9 +594,7 @@ async function confirmDelete() {
                   </span>
                   <span v-if="row.payoutsTotal !== 0" class="tabular-nums">
                     Разовые
-                    <span
-                      :class="row.payoutsTotal < 0 ? 'text-destructive' : 'text-foreground'"
-                    >
+                    <span :class="row.payoutsTotal < 0 ? 'text-destructive' : 'text-foreground'">
                       {{ formatSigned(row.payoutsTotal) }} ₽
                     </span>
                   </span>
@@ -708,8 +690,8 @@ async function confirmDelete() {
           <AlertDialogDescription>
             <template v-if="deleteTarget">
               {{ deleteTarget.kind === 'payout' ? 'Выплата' : 'Запись' }} за
-              {{ formatDate(salaryEntryDate(deleteTarget)) }} будет удалена. Итоги
-              пересчитаются. Действие нельзя отменить
+              {{ formatDate(salaryEntryDate(deleteTarget)) }} будет удалена. Итоги пересчитаются.
+              Действие нельзя отменить
             </template>
           </AlertDialogDescription>
         </AlertDialogHeader>

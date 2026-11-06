@@ -145,9 +145,7 @@ const total = computed(() => {
 
 // Skeleton only on the very first load — background refetches keep the previous
 // rows visible (placeholderData in useClientsQuery), so `loading` is false then.
-const loading = computed(
-  () => asyncStatus.value === 'loading' && queryData.value === undefined,
-)
+const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 // Delay the skeleton so a fast first load doesn't flash it — only show it if the
 // initial load is genuinely slow (>200ms).
@@ -193,7 +191,6 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
   if (state === 'desc') return 'descending'
   return 'none'
 }
-
 
 // ── Empty / reset ───────────────────────────────────────────────────────────
 const isEmpty = computed(
@@ -336,9 +333,7 @@ async function confirmDelete() {
         <div class="flex flex-1 flex-col gap-1">
           <span class="text-xs text-muted-foreground">Поиск</span>
           <div class="relative">
-            <Search
-              class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
+            <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               v-model="searchInput"
               type="search"
@@ -435,11 +430,7 @@ async function confirmDelete() {
               <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
             </TableRow>
           </template>
-          <TableEmpty
-            v-else-if="isEmpty"
-            :colspan="COLUMN_COUNT"
-            class="whitespace-normal"
-          >
+          <TableEmpty v-else-if="isEmpty" :colspan="COLUMN_COUNT" class="whitespace-normal">
             <Empty class="gap-4 p-0">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -662,25 +653,18 @@ async function confirmDelete() {
       />
     </div>
 
-    <ClientFormDialog
-      v-model:open="dialogOpen"
-      :client="editing"
-      @saved="invalidateClients"
-    />
+    <ClientFormDialog v-model:open="dialogOpen" :client="editing" @saved="invalidateClients" />
 
     <ClientDetailDialog :open="detailOpen" :client-id="detailId" />
 
-    <AlertDialog
-      :open="deleteDialogOpen"
-      @update:open="onDeleteDialogOpenChange"
-    >
+    <AlertDialog :open="deleteDialogOpen" @update:open="onDeleteDialogOpenChange">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Удалить клиента?</AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget">
-              Клиент «{{ deleteTarget.name || formatPhone(deleteTarget.phone) }}»
-              будет удалён. Действие нельзя отменить
+              Клиент «{{ deleteTarget.name || formatPhone(deleteTarget.phone) }}» будет удалён.
+              Действие нельзя отменить
             </template>
           </AlertDialogDescription>
         </AlertDialogHeader>

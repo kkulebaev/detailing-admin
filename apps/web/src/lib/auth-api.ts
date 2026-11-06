@@ -61,7 +61,9 @@ export async function updateProfile(payload: UpdateProfileRequest): Promise<Upda
   return parseResponse(updateProfileResponseSchema, envelope)
 }
 
-export async function changePassword(payload: ChangePasswordRequest): Promise<ChangePasswordResult> {
+export async function changePassword(
+  payload: ChangePasswordRequest,
+): Promise<ChangePasswordResult> {
   const envelope = await orvalFetch<OrvalEnvelope<unknown>>('/api/auth/change-password', {
     method: 'POST',
     headers: JSON_HEADERS,

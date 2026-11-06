@@ -112,7 +112,9 @@ describe('BookingsPage default period', () => {
     await expect.element(page.getByText('Записей пока нет')).toBeVisible()
     expect(captured.params.value.dateFrom).toBeUndefined()
     await expect.element(button('Сбросить')).not.toBeInTheDocument()
-    await expect.element(page.getByRole('button', { name: /Показать все записи/ })).not.toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: /Показать все записи/ }))
+      .not.toBeInTheDocument()
   })
 
   it('returns to the default on «С сегодня»', async () => {

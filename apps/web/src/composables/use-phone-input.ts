@@ -61,11 +61,7 @@ function caretPosForDigits(formatted: string, n: number): number {
   if (!formatted) return 0
   if (!formatted.startsWith(PHONE_PREFIX)) return formatted.length
   if (n === 0) return PHONE_PREFIX.length
-  const pos
-    = n <= 3 ? 4 + n
-      : n <= 6 ? 6 + n
-        : n <= 8 ? 7 + n
-          : 8 + n
+  const pos = n <= 3 ? 4 + n : n <= 6 ? 6 + n : n <= 8 ? 7 + n : 8 + n
   return Math.min(pos, formatted.length)
 }
 
