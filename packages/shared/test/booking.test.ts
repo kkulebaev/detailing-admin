@@ -162,10 +162,11 @@ describe('bookingSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('responsible: rejects when omitted', () => {
+  it('responsible: rejects when omitted, with the same message as an empty value', () => {
     const { responsible: _omit, ...withoutResponsible } = validBase
     const result = bookingSchema.safeParse(withoutResponsible)
-    expect(result.success).toBe(false)
+    assert(!result.success)
+    expect(result.error.issues[0]?.message).toBe('Выберите ответственного')
   })
 
   it('rejects time field longer than 5 chars even when regex would otherwise match', () => {

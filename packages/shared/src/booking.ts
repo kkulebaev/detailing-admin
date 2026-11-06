@@ -73,8 +73,9 @@ export const bookingSchema = z
           .min(1, 'Выберите хотя бы одного мастера')
           .max(MAX_MASTERS),
       ),
+    // The form starts this field as undefined, which `.min()` below never sees.
     responsible: z
-      .string()
+      .string({ error: 'Выберите ответственного' })
       .trim()
       .min(1, 'Выберите ответственного')
       .max(120)

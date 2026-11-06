@@ -46,6 +46,17 @@ test('saves a booking to the sheet and the mirror, and notifies the master', asy
   await expect(page.getByText('Анна').first()).toBeVisible()
 })
 
+test('explains every missing field in Russian', async ({ page }) => {
+  await login(page, 'e2e-admin')
+  const rowsBefore = (await fakesState()).sheetRows.length
+
+  await page.getByRole('button', { name: 'Сохранить запись' }).click()
+
+  await expect(page.getByText('Выберите ответственного')).toBeVisible()
+  await expect(page.getByText(/Invalid input/)).toHaveCount(0)
+  expect((await fakesState()).sheetRows).toHaveLength(rowsBefore)
+})
+
 test('recognises a returning client by phone', async ({ page }) => {
   await login(page, 'e2e-admin')
   await fillBooking(page, { phone: '9160000002', name: 'Борис', car: 'Lada Vesta' })
