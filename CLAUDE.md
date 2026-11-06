@@ -19,6 +19,7 @@ pnpm build                # vue-tsc + vite build (web); tsup (api)
 pnpm test                 # vitest in all packages
 pnpm typecheck            # tsc/vue-tsc --noEmit in all packages
 pnpm lint                 # eslint over the whole workspace
+pnpm test:e2e             # Playwright, not part of the hook (needs docker compose postgres)
 ```
 
 A lefthook pre-commit hook runs `lint`, `typecheck` and `test` in parallel whenever a `.ts`/`.vue` file is staged. There is no CI — the hook is the gate.
@@ -65,6 +66,10 @@ pnpm --filter @detailing-admin/api user:reset-password --login <login>
 ```
 
 Local dev needs `apps/api/.env` (copy from `apps/api/.env.example`). Required: `GOOGLE_SERVICE_ACCOUNT_JSON_B64`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET` (≥32 chars); `DATABASE_URL` already points at the docker-compose instance. A missing/invalid required var makes `env.ts` throw at import — this is the one failure that does stop the process. API runs migrations automatically on boot. Accounts are created only via `user:create` (no self-registration); see `apps/api/AUTH.md`. Web `.env.local` is optional — Vite dev server proxies `/api` to `localhost:3000` by default; override with `VITE_API_PROXY_TARGET` to point dev at a remote API.
+
+### E2E tests
+
+`pnpm test:e2e` (`apps/web/playwright.config.ts`, specs in `apps/web/e2e/`) drives a phone-sized Chromium against the real API and Vite on their own ports (3100, 5174), so `pnpm dev` can stay up. `apps/api/e2e/server.ts` recreates the `detailing_e2e` database on every start, seeds it, and replaces only Sheets and Telegram with in-memory fakes; it sets all env itself and never reads `.env`, so a run can't reach the real spreadsheet, bot or the `detailing` database. Specs read what reached the fakes through `GET /__e2e/state`, which exists only in that entry point. Seeded logins: `e2e-admin`, `e2e-booker`, `e2e-employee`.
 
 ### `db:sync-prod` — refresh local from prod
 

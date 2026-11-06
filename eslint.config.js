@@ -74,6 +74,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['**/e2e/**/*.ts'],
+    rules: { '@typescript-eslint/consistent-type-assertions': 'off' },
+  },
+  {
     ...vitest.configs.recommended,
     files: TEST_FILES,
     rules: {

@@ -264,6 +264,7 @@ pnpm test        # vitest во всех пакетах (Sheets и Telegram за�
 pnpm typecheck   # tsc / vue-tsc -b --noEmit во всех пакетах
 pnpm lint        # eslint
 pnpm build       # tsup (api) + vue-tsc + vite build (web)
+pnpm test:e2e    # Playwright, нужен `docker compose up -d postgres`
 ```
 
 Тесты `apps/web` работают в Chromium (Vitest Browser Mode). После первой установки зависимостей выполните один раз:
@@ -283,7 +284,6 @@ pnpm --filter @detailing-admin/web exec playwright install --only-shell chromium
 - Кросс-инстанс дедупликация (Redis-backed idempotency) — пока API работает в одном экземпляре
 - PWA-манифест, офлайн-режим, service worker
 - Мультилетняя поддержка (сейчас только `Запись 2026`)
-- E2E-тесты (Playwright/Cypress)
 - Загрузка фотографий (до/после)
 - Международные номера телефонов (только `+7`)
 - Журнал изменений («кто именно редактировал»)

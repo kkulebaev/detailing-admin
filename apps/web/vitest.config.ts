@@ -18,6 +18,8 @@ export default defineConfig({
     },
   },
   test: {
+    // The default glob would also run Playwright's e2e/*.spec.ts.
+    include: ['test/**/*.test.ts'],
     setupFiles: ['./test/setup.ts'],
     browser: {
       enabled: true,
