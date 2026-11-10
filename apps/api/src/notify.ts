@@ -32,13 +32,13 @@ export function formatMasterNotification(b: Booking): string {
 // Best-effort уведомление в Telegram каждому назначенному мастеру. Никогда не бросает —
 // любой сбой сводится к `{ attempted: true, delivered: false, reason }`, чтобы
 // вызывающий код мог показать предупреждение, не проваливая запись. Chat id каждого
-// мастера определяется на сервере по имени (имена уникальны), а не берётся на веру
+// мастера определяется на сервере по имени (имена уникальны), а не берется на веру
 // от клиента, поэтому запрос не может адресовать произвольный чат.
 //
 // В записи может быть несколько мастеров с общим чатом в Telegram, поэтому chat id
 // перед отправкой дедуплицируются. N результатов по мастерам сводятся в один:
-// `delivered` равен true, если дошло хотя бы одно сообщение, а `reason` несёт
-// первый встреченный сбой (контракт остаётся одним NotificationResult).
+// `delivered` равен true, если дошло хотя бы одно сообщение, а `reason` несет
+// первый встреченный сбой (контракт остается одним NotificationResult).
 export async function notifyMaster(booking: Booking): Promise<NotificationResult> {
   if (!isDbReady()) {
     return { attempted: true, delivered: false, reason: 'db_unavailable' }

@@ -1,4 +1,4 @@
-// Сбрасывает пароль существующей учётной записи. Использование:
+// Сбрасывает пароль существующей учетной записи. Использование:
 //   pnpm --filter @detailing-admin/api user:reset-password --login <login>
 // Запрашивает новый пароль (скрытый ввод). Прод: добавьте в начало `railway run`.
 import { getArg, readHidden, loadLocalEnv, fail } from './user-cli.js'

@@ -4,14 +4,14 @@
 
 Админка детейлинг-мастерской «Dazzle Detailing», рассчитанная в первую очередь на телефон.
 
-Главный сценарий — форма записи клиента: одна отправка формы → одна строка в Google Sheets (лист `Запись 2026`). Для новых записей Sheets остаётся источником истины. Параллельно запись best-effort дублируется в Postgres, и вокруг этой базы построена остальная админка:
+Главный сценарий — форма записи клиента: одна отправка формы → одна строка в Google Sheets (лист `Запись 2026`). Для новых записей Sheets остается источником истины. Параллельно запись best-effort дублируется в Postgres, и вокруг этой базы построена остальная админка:
 
 | Раздел | Кто видит | Что умеет |
 |--------|-----------|-----------|
-| Запись клиента (`/`) | admin, booker | Форма записи: подстановка клиента и его машин по телефону, услуги из прайса с расчётом суммы по классу кузова, несколько мастеров, уведомление мастеру в Telegram |
+| Запись клиента (`/`) | admin, booker | Форма записи: подстановка клиента и его машин по телефону, услуги из прайса с расчетом суммы по классу кузова, несколько мастеров, уведомление мастеру в Telegram |
 | Записи (`/bookings`) | admin, booker, employee | Список с фильтрами и поиском, экспорт в CSV. Редактирование, удаление и статус готовности — только admin. Роль employee не видит суммы |
 | Клиенты (`/clients`) | admin | Справочник клиентов и их машин, карточка с историей визитов, экспорт в CSV |
-| Прайс-лист (`/pricelist`) | admin | Разделы и услуги, цены по четырём классам кузова |
+| Прайс-лист (`/pricelist`) | admin | Разделы и услуги, цены по четырем классам кузова |
 | Мастера (`/masters`) | admin | Список, порядок, Telegram ID, признаки «может быть ответственным» и «получает зарплату» |
 | Зарплаты (`/salaries`) | admin | Почасовые ставки, отработанные часы, премии и вычеты |
 | Аналитика (`/analytics`) | admin | Выручка, динамика, удержание клиентов, топ клиентов |
@@ -108,7 +108,7 @@ pnpm --filter @detailing-admin/api user:create --login admin --role admin
 | `TELEGRAM_BOT_TOKEN` | токен бота от @BotFather |
 | `JWT_SECRET` | не короче 32 символов: `openssl rand -base64 48` |
 
-`.env.local` для web не нужен: dev-сервер Vite проксирует `/api` на `localhost:3000`. Чтобы направить локальный фронт на удалённый API, задайте `VITE_API_PROXY_TARGET` в `apps/web/.env.local`.
+`.env.local` для web не нужен: dev-сервер Vite проксирует `/api` на `localhost:3000`. Чтобы направить локальный фронт на удаленный API, задайте `VITE_API_PROXY_TARGET` в `apps/web/.env.local`.
 
 Открыть `http://localhost:5173` в браузере. Для мобильного вьюпорта: DevTools → Toggle device toolbar (Ctrl+Shift+M / Cmd+Shift+M).
 
@@ -124,7 +124,7 @@ pnpm --filter @detailing-admin/api db:migrate
 # Drizzle Studio — браузерный просмотр содержимого
 pnpm --filter @detailing-admin/api db:studio
 
-# Скопировать прод-базу в локальную (локальная БД будет стёрта).
+# Скопировать прод-базу в локальную (локальная БД будет стерта).
 # Нужен PROD_DATABASE_URL в apps/api/.env.prod — шаблон в .env.prod.example
 pnpm --filter @detailing-admin/api db:sync-prod
 
@@ -184,9 +184,9 @@ pnpm --filter @detailing-admin/web gen:client
 
 - Создать аккаунт на [railway.app](https://railway.app), подключить репозиторий.
 - Создать один **проект** и внутри него три ресурса: сервисы `detailing-api`, `detailing-web` и **Postgres** (New → Database → PostgreSQL).
-- В сервисе `detailing-api` в **Settings → Variables** связать переменную `DATABASE_URL` с Postgres через **+ New Variable Reference → Postgres.DATABASE_URL**. Это даст приватный URL внутри проекта и переживёт перезапуск БД.
+- В сервисе `detailing-api` в **Settings → Variables** связать переменную `DATABASE_URL` с Postgres через **+ New Variable Reference → Postgres.DATABASE_URL**. Это даст приватный URL внутри проекта и переживет перезапуск БД.
 
-Браузер ходит только в `detailing-web`: web-контейнер (nginx) сам проксирует `/api` в `detailing-api` по внутренней сети Railway. Так auth-cookie остаётся first-party (`SameSite=Lax`).
+Браузер ходит только в `detailing-web`: web-контейнер (nginx) сам проксирует `/api` в `detailing-api` по внутренней сети Railway. Так auth-cookie остается first-party (`SameSite=Lax`).
 
 ---
 
@@ -213,7 +213,7 @@ pnpm --filter @detailing-admin/web gen:client
    Остальные `AUTH_*` (время жизни сессии, SameSite) описаны в `apps/api/AUTH.md`.
 
    > **КРИТИЧНО:** `GOOGLE_SERVICE_ACCOUNT_JSON_B64` вставляется **без внешних кавычек**.  
-   > Railway их не срезает — ведущая `"` приведёт к ошибке `JSON.parse` на старте с невнятным сообщением. Значение должно начинаться прямо с `eyJ…` (начало base64-encoded JSON).
+   > Railway их не срезает — ведущая `"` приведет к ошибке `JSON.parse` на старте с невнятным сообщением. Значение должно начинаться прямо с `eyJ…` (начало base64-encoded JSON).
 
 3. Создать первого администратора — на свежей базе пользователей нет, войти будет невозможно:
    ```bash
@@ -234,7 +234,7 @@ pnpm --filter @detailing-admin/web gen:client
    | `VITE_API_PROXY_TARGET` | внутренний URL API, например `http://detailing-admin-api.railway.internal:<PORT>` |
 
    > Без `VITE_API_PROXY_TARGET` контейнер намеренно падает на старте — иначе каждый запрос к `/api` отдавал бы 502.  
-   > `VITE_API_BASE_URL` в проде **не задавать**: запросы на чужой origin делают cookie third-party, и браузеры её отбрасывают.
+   > `VITE_API_BASE_URL` в проде **не задавать**: запросы на чужой origin делают cookie third-party, и браузеры ее отбрасывают.
 
 3. Выдать публичный домен: **Settings → Networking → Generate Domain**.
 
@@ -248,7 +248,7 @@ pnpm --filter @detailing-admin/web gen:client
 # API healthcheck (по внутреннему или публичному адресу API)
 curl https://<detailing-api>/healthz
 # Ожидаемый ответ: {"ok":true,"time":"..."}
-# 503 значит, что API жив, но не прошёл проверку на старте
+# 503 значит, что API жив, но не прошел проверку на старте
 # (заголовки листа или доступ к Sheets) — причина в логе boot.*
 
 # Web

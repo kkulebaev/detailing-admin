@@ -105,8 +105,8 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
     .leftJoin(masterRates, eq(masterRates.masterId, masters.id))
     .leftJoin(agg, eq(agg.masterId, masters.id))
     .leftJoin(payoutAgg, eq(payoutAgg.masterId, masters.id))
-    // Архивный мастер остаётся в любом месяце, где у него есть часы или выплаты:
-    // если его убрать, скроются деньги, которые ещё должны за месяц ухода.
+    // Архивный мастер остается в любом месяце, где у него есть часы или выплаты:
+    // если его убрать, скроются деньги, которые еще должны за месяц ухода.
     .where(
       and(
         eq(masters.paidSalary, true),
@@ -121,7 +121,7 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
 
   // postgres-js возвращает SUM() строкой (numeric/bigint); приводим через Number.
   // У мастера без часов столбцы agg равны null → 0 минут, 0 зарплаты. У мастера
-  // без ставки hourlyRate равен null (так и остаётся, не приводится к 0). null в
+  // без ставки hourlyRate равен null (так и остается, не приводится к 0). null в
   // payouts_sum превращается в 0 — «нет строк» и «строки взаимно погасились» здесь
   // по задумке одно и то же состояние.
   return rows.map((r) => {
@@ -260,7 +260,7 @@ export async function createPayout(input: CreatePayoutInput): Promise<PayoutRow>
   const db = getDb()
   // Сначала проверяем мастера: иначе FK отклонил бы неизвестный masterId невнятным
   // 500. master_rates намеренно НЕ читается — выплата самодостаточна, поэтому
-  // её может получить и мастер без ставки.
+  // ее может получить и мастер без ставки.
   const [master] = await db
     .select({ id: masters.id })
     .from(masters)

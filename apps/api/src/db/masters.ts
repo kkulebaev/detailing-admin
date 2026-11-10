@@ -49,7 +49,7 @@ async function assertNameFree(name: string, masterId?: number) {
 
 // Имена уникальны (см. ограничение unique на `name`), поэтому находится не больше
 // одной строки. Используется, чтобы найти chat id мастера в Telegram по свободному
-// имени, сохранённому в записи.
+// имени, сохраненному в записи.
 export async function findMasterByName(name: string): Promise<Master | undefined> {
   const db = getDb()
   const [row] = await db.select().from(masters).where(eq(masters.name, name)).limit(1)
@@ -142,7 +142,7 @@ export async function updateMaster(id: number, patch: MasterPatch): Promise<Mast
 
 // Мягкое удаление: записи, часы и выплаты должны и дальше указывать на эту строку.
 // Аккаунт отвязывается, потому что иначе UNIQUE-связь не дала бы привязать его к другому
-// мастеру из-за строки, которую админ больше не видит, и потому что удалённый мастер
+// мастеру из-за строки, которую админ больше не видит, и потому что удаленный мастер
 // не должен продолжать вносить часы в «Мои часы».
 export async function deleteMaster(id: number): Promise<void> {
   const db = getDb()

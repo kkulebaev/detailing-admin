@@ -13,23 +13,23 @@ describe('хеширование паролей', () => {
     expect(await verifyPassword('wrong-password', stored)).toBe(false)
   })
 
-  it('выдаёт разную соль (и хеш) при каждом вызове', async () => {
+  it('выдает разную соль (и хеш) при каждом вызове', async () => {
     const a = await hashPassword('same')
     const b = await hashPassword('same')
     expect(a).not.toBe(b)
-    // Но оба всё равно проходят проверку.
+    // Но оба все равно проходят проверку.
     expect(await verifyPassword('same', a)).toBe(true)
     expect(await verifyPassword('same', b)).toBe(true)
   })
 
-  it('возвращает false (без исключения) для испорченной сохранённой строки', async () => {
+  it('возвращает false (без исключения) для испорченной сохраненной строки', async () => {
     expect(await verifyPassword('x', 'not-a-hash')).toBe(false)
     expect(await verifyPassword('x', 'scrypt:16384:8:1:onlyfour')).toBe(false)
     expect(await verifyPassword('x', 'bcrypt:1:2:3:aa:bb')).toBe(false)
   })
 
-  it('не бросает, если вычисленный и сохранённый буферы разной длины', async () => {
-    // Сохранённый hashHex декодируется в 2 байта, а реальное вычисление даёт 64 —
+  it('не бросает, если вычисленный и сохраненный буферы разной длины', async () => {
+    // Сохраненный hashHex декодируется в 2 байта, а реальное вычисление дает 64 —
     // проверка длины должна вернуть false, а не дать timingSafeEqual бросить.
     const malformed = `scrypt:16384:8:1:${'0'.repeat(32)}:abcd`
     await expect(verifyPassword('whatever', malformed)).resolves.toBe(false)

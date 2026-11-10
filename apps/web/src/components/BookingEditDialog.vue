@@ -252,7 +252,7 @@ async function submit() {
   }
 
   // transform повторно выполняется на бэкенде; отправляем входную форму данных, без
-  // автоматически выведенной формулы (ручная правка её сбрасывает) и флага notify.
+  // автоматически выведенной формулы (ручная правка ее сбрасывает) и флага notify.
   const payload: PatchApiBookingsIdBody = {
     dateFrom: parsed.data.dateFrom,
     dateTo: parsed.data.dateTo,

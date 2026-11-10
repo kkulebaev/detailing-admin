@@ -35,15 +35,15 @@ const BOOKING = {
   note: '',
   amount: 5000,
   readiness: '',
-  master: ['Пётр'],
-  responsible: 'Пётр',
+  master: ['Петр'],
+  responsible: 'Петр',
   carClass: 3,
   notify: true,
 } as unknown as Booking
 
 const MASTER = {
   id: 1,
-  name: 'Пётр',
+  name: 'Петр',
   position: 0,
   canBeResponsible: true,
   paidSalary: true,
@@ -122,11 +122,11 @@ describe('notifyMaster', () => {
     expect(result).toEqual({ attempted: true, delivered: false, reason: 'timeout' })
   })
 
-  const MULTI = { ...BOOKING, master: ['Пётр', 'Иван'] } as unknown as Booking
+  const MULTI = { ...BOOKING, master: ['Петр', 'Иван'] } as unknown as Booking
 
   it('отправляет в чат каждого мастера и сводит итог к одному delivered', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
-      name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
+      name === 'Петр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
     const result = await notifyMaster(MULTI)
     expect(result).toEqual({ attempted: true, delivered: true })
@@ -145,7 +145,7 @@ describe('notifyMaster', () => {
 
   it('сводит итог к delivered, если сообщение получил хотя бы один мастер', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
-      name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
+      name === 'Петр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
     vi.mocked(sendTelegramMessage).mockImplementation(async (chatId: string) =>
       chatId === '55555' ? { ok: false, reason: 'timeout' } : { ok: true },
@@ -156,7 +156,7 @@ describe('notifyMaster', () => {
 
   it('сообщает причину первого сбоя, если все отправки неудачны', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
-      name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
+      name === 'Петр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
     vi.mocked(sendTelegramMessage).mockImplementation(async (chatId: string) =>
       chatId === '55555' ? { ok: false, reason: 'timeout' } : { ok: false, reason: 'blocked' },

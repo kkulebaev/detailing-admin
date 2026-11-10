@@ -5,7 +5,7 @@ import { signToken, verifyToken } from '../src/auth/jwt.js'
 // Совпадает с JWT_SECRET из test/setup.ts (здесь используется настоящий модуль env).
 const SECRET = 'test-jwt-secret-at-least-32-chars-long'
 
-// Достаёт claim `exp` из подписанного JWT без проверки подписи — этого хватает,
+// Достает claim `exp` из подписанного JWT без проверки подписи — этого хватает,
 // чтобы проверить TTL, с которым выпущен токен.
 function decodeExp(token: string): number {
   const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
@@ -29,13 +29,13 @@ describe('jwt', () => {
     expect(decoded).toEqual(CLAIMS)
   })
 
-  it('передаёт pwdChangedAt в payload', async () => {
+  it('передает pwdChangedAt в payload', async () => {
     const token = await signToken({ ...CLAIMS, pwdChangedAt: 42 })
     const decoded = await verifyToken(token)
     expect(decoded?.pwdChangedAt).toBe(42)
   })
 
-  it('передаёт флаг remember и при нём ставит более долгий exp', async () => {
+  it('передает флаг remember и при нем ставит более долгий exp', async () => {
     const now = Math.floor(Date.now() / 1000)
     // TTL по умолчанию 86400 с против 2592000 с для remember (дефолты env).
     expect(decodeExp(await signToken({ ...CLAIMS, remember: false }))).toBeLessThan(now + 86400 + 5)

@@ -24,7 +24,7 @@ import {
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
-// Числовой path-параметр — тот же приём «формат, затем преобразование», что в pricelist/clients.
+// Числовой path-параметр — тот же прием «формат, затем преобразование», что в pricelist/clients.
 const idParamSchema = z.object({
   id: z
     .string()
@@ -317,7 +317,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       // Обрабатываем на месте: общий маппер расширил бы union кодом 409, который этот
-      // маршрут не отдаёт и не объявляет.
+      // маршрут не отдает и не объявляет.
       if (err instanceof MasterError && err.code === 'not_found') {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }

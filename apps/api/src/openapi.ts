@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import type { z } from '@hono/zod-openapi'
 import { StatusCodes } from '@detailing-admin/shared'
 
-// Единственный источник формы ответа об ошибке валидации, которую отдаёт
+// Единственный источник формы ответа об ошибке валидации, которую отдает
 // `defaultHook` в OpenAPIHono, когда не проходит валидация `createRoute`.
 // Формат совпадает со старым выводом zValidator: `{ ok:false, error:'validation', issues:[...] }`.
 export function defaultValidationHook(

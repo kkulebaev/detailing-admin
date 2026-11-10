@@ -20,7 +20,7 @@ export interface MonthOption {
   label: string
 }
 
-// Скользящее окно `YYYY-MM`: от `ahead` месяцев вперёд до `back`
+// Скользящее окно `YYYY-MM`: от `ahead` месяцев вперед до `back`
 // месяцев назад, новые первыми. Общее для фильтра записей и выбора месяца
 // на странице зарплат, чтобы оба предлагали одинаковый набор месяцев с подписями ru-RU.
 export function buildMonthOptions(ahead = 1, back = 12): MonthOption[] {

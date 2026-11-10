@@ -23,7 +23,7 @@ function mountPage() {
 enableAutoUnmount(afterEach)
 
 describe('LoginPage — поле пароля', () => {
-  it('переключает видимость, не теряя введённое значение', async () => {
+  it('переключает видимость, не теряя введенное значение', async () => {
     mountPage()
     await passwordInput().fill('secret-123')
     await expect.element(passwordInput()).toHaveAttribute('type', 'password')

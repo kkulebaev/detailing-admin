@@ -55,13 +55,13 @@ describe('usePhoneInput', () => {
       expect(phoneRaw.value).toBe(PHONE_PREFIX)
     })
 
-    it('одиночный + остаётся +', () => {
+    it('одиночный + остается +', () => {
       const { phoneRaw, onPhoneInput } = usePhoneInput()
       onPhoneInput(makeInputEvent('+'))
       expect(phoneRaw.value).toBe('+')
     })
 
-    it('пустой ввод даёт пустую строку', () => {
+    it('пустой ввод дает пустую строку', () => {
       const { phoneRaw, onPhoneInput } = usePhoneInput()
       onPhoneInput(makeInputEvent(''))
       expect(phoneRaw.value).toBe('')
@@ -92,7 +92,7 @@ describe('usePhoneInput', () => {
   })
 
   describe('стирание через onPhoneInput', () => {
-    it('backspace в +7 (912 даёт +7 (91', () => {
+    it('backspace в +7 (912 дает +7 (91', () => {
       const { phoneRaw, onPhoneInput } = usePhoneInput()
       onPhoneInput(makeInputEvent('912'))
       expect(phoneRaw.value).toBe('+7 (912')
@@ -139,13 +139,13 @@ describe('usePhoneInput', () => {
       onPhoneInput(makeInputEvent('9123456789'))
       expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
       // Каретка после "1" в "+7 (91|2) 345-67-89" — это позиция 6.
-      // Delete удаляет "2" → "+7 (91) 345-67-89", каретка остаётся на 6.
+      // Delete удаляет "2" → "+7 (91) 345-67-89", каретка остается на 6.
       const evt = makeInputEvent('+7 (91) 345-67-89', 6)
       onPhoneInput(evt)
       expect(getCaret(evt)).toBe(6)
     })
 
-    it('Backspace в середине ставит каретку перед позицией удалённой цифры', () => {
+    it('Backspace в середине ставит каретку перед позицией удаленной цифры', () => {
       const { phoneRaw, onPhoneInput } = usePhoneInput()
       onPhoneInput(makeInputEvent('9123456789'))
       expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
@@ -160,7 +160,7 @@ describe('usePhoneInput', () => {
       onPhoneInput(makeInputEvent('9123456789'))
       expect(phoneRaw.value).toBe('+7 (912) 345-67-89')
       // Каретка после "3" в "+7 (912) 3|45-67-89" — позиция 10.
-      // Delete удаляет "4" → "+7 (912) 35-67-89", каретка остаётся 10.
+      // Delete удаляет "4" → "+7 (912) 35-67-89", каретка остается 10.
       const evt = makeInputEvent('+7 (912) 35-67-89', 10)
       onPhoneInput(evt)
       expect(getCaret(evt)).toBe(10)
@@ -290,7 +290,7 @@ describe('usePhoneInput', () => {
       expect(evt.preventDefault).toHaveBeenCalled()
     })
 
-    it('11 цифр без 7/8 в начале берёт последние 10', () => {
+    it('11 цифр без 7/8 в начале берет последние 10', () => {
       const { phoneRaw, onPhonePaste } = usePhoneInput()
       onPhonePaste(makePasteEvent('19123456789'))
       expect(phoneRaw.value).toBe('+7 (912) 345-67-89')

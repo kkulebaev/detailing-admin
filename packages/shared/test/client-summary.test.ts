@@ -38,7 +38,7 @@ describe('missedBookings', () => {
     expect(missedBookings(history)).toEqual({ cancelled: 2, noShow: 1, lastDate: '2026-10-01' })
   })
 
-  it('не считает перенесённую запись', () => {
+  it('не считает перенесенную запись', () => {
     expect(missedBookings([row('Перенос', 'Мойка'), row('Выдана', 'Мойка')])).toBeNull()
   })
 })

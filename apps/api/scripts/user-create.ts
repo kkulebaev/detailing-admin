@@ -1,4 +1,4 @@
-// Создаёт учётную запись для входа. Использование:
+// Создает учетную запись для входа. Использование:
 //   pnpm --filter @detailing-admin/api user:create --login <login> --role <admin|booker|employee>
 //     [--first-name <name>] [--last-name <surname>]
 // Флаги имени необязательны (пользователь может заполнить их позже на странице профиля).

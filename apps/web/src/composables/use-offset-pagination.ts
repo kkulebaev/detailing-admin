@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 
 // Pagination из reka-ui работает с номерами страниц от 1, а запросы списков —
-// со смещением. Этот мост даёт страницам списков один общий контракт пагинации
+// со смещением. Этот мост дает страницам списков один общий контракт пагинации
 // (диапазон «N–M из total» вычисляется в TablePagination).
 export function useOffsetPagination(limit = 50) {
   const offset = ref(0)

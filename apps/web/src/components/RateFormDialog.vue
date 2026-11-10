@@ -70,7 +70,7 @@ async function submit() {
     if (result.error === 'validation') {
       error.value = result.issues[0]?.message ?? 'Неверные данные'
     } else if (result.error === 'not_found') {
-      error.value = 'Мастер не найден — возможно, был удалён'
+      error.value = 'Мастер не найден — возможно, был удален'
     } else if (result.error === 'unavailable') {
       error.value = result.message
     } else {

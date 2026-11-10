@@ -22,7 +22,7 @@ import {
   buildTotalsQuery,
 } from '../src/db/analytics.js'
 
-// НЕПОДКЛЮЧЁННЫЙ экземпляр drizzle: postgres() ленив (сокета нет, пока не выполнится
+// НЕПОДКЛЮЧЕННЫЙ экземпляр drizzle: postgres() ленив (сокета нет, пока не выполнится
 // запрос), а toSQL() лишь собирает текст, поэтому эти тесты проверяют ВЕСЬ генерируемый
 // SQL — FILTER/GROUP BY/CTE/LIMIT — без Postgres. fakeDb НЕ используется: его
 // .groupBy() — сквозная заглушка, которая не генерирует SQL.
@@ -40,7 +40,7 @@ describe('buildTotalsQuery (AC1, AC12)', () => {
     const { sql: text, params } = buildTotalsQuery(db, RANGE).toSQL()
     const low = text.toLowerCase()
 
-    // Сумма выручки и число завершённых — обе под FILTER по позитивному равенству
+    // Сумма выручки и число завершенных — обе под FILTER по позитивному равенству
     // «Выдана», без логики исключения через «not in (…)» для денег.
     expect(low).toContain('filter (where')
     expect(low).not.toContain('not in')
@@ -52,7 +52,7 @@ describe('buildTotalsQuery (AC1, AC12)', () => {
     expect(params).toContain('2026-07-01')
     expect(params).toContain('2026-07-31')
 
-    // bookingsCount — голый count(*) (объём — все статусы).
+    // bookingsCount — голый count(*) (объем — все статусы).
     expect(low).toContain('count(*)')
   })
 })
@@ -79,12 +79,12 @@ describe('buildSeriesQuery (AC2)', () => {
     expect(low).toContain('to_char("date_from"::date, \'yyyy-mm\')')
   })
 
-  it('держит выручку серии под «Выдана», а объём считает без фильтра (AC12)', () => {
+  it('держит выручку серии под «Выдана», а объем считает без фильтра (AC12)', () => {
     const { sql: text, params } = buildSeriesQuery(db, { ...RANGE, granularity: 'day' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('filter (where')
     expect(params).toContain('Выдана')
-    // count(*) без фильтра — объём корзины.
+    // count(*) без фильтра — объем корзины.
     expect(low).toContain('count(*)')
   })
 })

@@ -27,7 +27,7 @@ export function set(key: string, result: BookingApiResult): void {
   cache.set(key, { at: Date.now(), result })
 }
 
-/** Удаляет ключ из кэша. Подчёркивание в конце имени — потому что `delete` зарезервировано. */
+/** Удаляет ключ из кэша. Подчеркивание в конце имени — потому что `delete` зарезервировано. */
 export function delete_(key: string): void {
   cache.delete(key)
 }

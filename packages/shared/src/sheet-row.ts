@@ -46,8 +46,8 @@ export function bookingToRow(b: Booking): (string | number)[] {
     joinCar(b.car, b.plate), // E — Машина (марка/модель + гос. номер)
     b.service, // F — Услуга
     b.note, // G — Примечание
-    // H — Сумма, ₽: арифметическая формула (Sheets вычисляет её под
-    // USER_ENTERED), если клиент её прислал, иначе голое число.
+    // H — Сумма, ₽: арифметическая формула (Sheets вычисляет ее под
+    // USER_ENTERED), если клиент ее прислал, иначе голое число.
     b.amountFormula ?? b.amount,
 
     b.readiness, // I — Готовность (после парсинга всегда строка; '' если пусто)

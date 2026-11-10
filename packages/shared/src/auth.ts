@@ -11,7 +11,7 @@ export const roleSchema = z.enum(ROLES)
 export type Role = (typeof ROLES)[number]
 
 // `users.role` — обычный varchar, поэтому случайное значение не должно ничего давать:
-// всё, что не является известной ролью, сводится к наименее привилегированной.
+// все, что не является известной ролью, сводится к наименее привилегированной.
 export function toRole(value: string): Role {
   const parsed = roleSchema.safeParse(value)
   return parsed.success ? parsed.data : 'employee'
@@ -56,7 +56,7 @@ export const loginRequestSchema = z.object({
   password: z.string().min(1, 'Укажите пароль').max(200),
   // "Запомнить меня": true → длинная сессия (AUTH_REMEMBER_TTL_SECONDS),
   // false/отсутствует → обычный TTL. Необязательное (не .default()): @vee-validate/zod
-  // ломается на ZodDefault под Zod 4, а дефолт всё равно применяется на сервере.
+  // ломается на ZodDefault под Zod 4, а дефолт все равно применяется на сервере.
   remember: z.boolean().optional(),
 })
 export type LoginRequest = z.infer<typeof loginRequestSchema>

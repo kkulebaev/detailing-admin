@@ -95,9 +95,9 @@ function formatClassPrice(svc: PricelistService, cls: CarClass): string {
 }
 
 // Соседние классы с одинаковой ценой сливаются в одну строку: почти треть услуг
-// стоит одинаково во всех четырёх классах, ещё у трети совпадают I–II и III–IV,
-// и в карточке сетка из четырёх одинаковых чисел только мешает читать.
-// Сравниваем готовые строки — одинаковая пара min/max даёт одинаковый текст.
+// стоит одинаково во всех четырех классах, еще у трети совпадают I–II и III–IV,
+// и в карточке сетка из четырех одинаковых чисел только мешает читать.
+// Сравниваем готовые строки — одинаковая пара min/max дает одинаковый текст.
 function priceGroups(svc: PricelistService): { label: string; price: string }[] {
   const groups: { classes: CarClass[]; price: string }[] = []
   for (const cls of CLASS_COLUMNS) {
@@ -119,8 +119,8 @@ function priceGroups(svc: PricelistService): { label: string; price: string }[] 
 }
 
 // Девять разделов и почти сотня услуг — на телефоне это бесконечная лента,
-// поэтому в компактной раскладке разделы свёрнуты и работают как оглавление.
-// На широком экране состояние не используется: таблица всегда развёрнута.
+// поэтому в компактной раскладке разделы свернуты и работают как оглавление.
+// На широком экране состояние не используется: таблица всегда развернута.
 const openSections = ref<Set<number>>(new Set())
 
 function toggleSection(sectionId: number) {
@@ -144,7 +144,7 @@ function openCreateService(defaultSectionId: number | null) {
   serviceEditing.value = null
   serviceDefaultSectionId.value = defaultSectionId
   serviceDialogOpen.value = true
-  // Иначе в компактной раскладке новая услуга уедет в свёрнутый раздел и
+  // Иначе в компактной раскладке новая услуга уедет в свернутый раздел и
   // сохранение будет выглядеть как «ничего не произошло».
   if (defaultSectionId != null && !openSections.value.has(defaultSectionId)) {
     toggleSection(defaultSectionId)
@@ -172,7 +172,7 @@ function askDeleteService(svc: PricelistService) {
 function onDeleteDialogOpenChange(v: boolean) {
   // Не очищаем deleteTarget здесь — AlertDialogAction из Reka синхронно
   // эмитит update:open(false) вместе со своим @click, и порядок не
-  // гарантирован; очистка здесь может обнулить цель до того, как её
+  // гарантирован; очистка здесь может обнулить цель до того, как ее
   // прочитает confirmDelete. Закрытый диалог скрыт, так что устаревшая
   // цель ничему не мешает до следующего ask*().
   deleteDialogOpen.value = v
@@ -190,7 +190,7 @@ async function confirmDelete() {
         : await apiDeleteService(target.id)
 
     if (result.ok) {
-      toast.success(target.kind === 'section' ? 'Раздел удалён' : 'Услуга удалена')
+      toast.success(target.kind === 'section' ? 'Раздел удален' : 'Услуга удалена')
       deleteDialogOpen.value = false
       await invalidatePricelist()
       return
@@ -204,7 +204,7 @@ async function confirmDelete() {
       return
     }
 
-    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нем.
     if (result.error === 'conflict' && result.reason === 'has_services') {
       deleteError.value = 'Сначала удалите услуги из раздела'
     } else if (result.error === 'unavailable') {
@@ -391,7 +391,7 @@ async function confirmDelete() {
       </div>
 
       <!-- Компактная раскладка: раздел — сворачиваемая группа, услуга — карточка
-           с ценами по классам сеткой 2×2 под названием. Примечание остаётся под
+           с ценами по классам сеткой 2×2 под названием. Примечание остается под
            кнопкой: у большинства услуг это несколько строк текста. -->
       <div v-else class="overflow-hidden rounded-md border border-border">
         <template v-if="loading">
@@ -568,8 +568,8 @@ async function confirmDelete() {
           </AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget?.kind === 'section'">
-              Раздел «{{ deleteTarget.name }}» будет удалён. Действие нельзя отменить. Удалить
-              раздел можно только если в нём не осталось услуг
+              Раздел «{{ deleteTarget.name }}» будет удален. Действие нельзя отменить. Удалить
+              раздел можно только если в нем не осталось услуг
             </template>
             <template v-else-if="deleteTarget">
               Услуга «{{ deleteTarget.name }}» будет удалена. Действие нельзя отменить
@@ -580,7 +580,7 @@ async function confirmDelete() {
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
           <!-- Обычный Button (не AlertDialogAction), чтобы диалог оставался открытым,
-               пока запрос не завершится. Намеренно НЕ disabled: на отключённой кнопке
+               пока запрос не завершится. Намеренно НЕ disabled: на отключенной кнопке
                в фокусе focus scope из reka-ui закрывается с задержкой ~1 с — от
                двойной отправки защищает guard повторного входа в confirmDelete. -->
           <Button @click="confirmDelete">

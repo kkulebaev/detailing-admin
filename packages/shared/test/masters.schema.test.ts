@@ -16,7 +16,7 @@ describe('masterInputSchema', () => {
 
   it('отклоняет payload без canBeResponsible — дефолта нет, поэтому пропуск в PATCH не воскресит его', () => {
     const r = masterInputSchema.safeParse({
-      name: 'Пётр Новый',
+      name: 'Петр Новый',
       paidSalary: true,
       telegramId: null,
     })
@@ -25,7 +25,7 @@ describe('masterInputSchema', () => {
 
   it('отклоняет payload без paidSalary — дефолта нет', () => {
     const r = masterInputSchema.safeParse({
-      name: 'Пётр Новый',
+      name: 'Петр Новый',
       canBeResponsible: true,
       telegramId: null,
     })

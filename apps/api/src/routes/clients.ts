@@ -71,8 +71,8 @@ const mutationOkResponse = z.object({ ok: z.literal(true), client: clientSchema 
 const deleteOkResponse = z.object({ ok: z.literal(true) })
 
 // В строке БД `createdAt` — Date, а в wire-схеме — ISO-строка.
-// `cars` по умолчанию [], но каждый путь передаёт явный набор: список — результат
-// сгруппированной выборки, create/update — согласованный набор, возвращённый слоем БД.
+// `cars` по умолчанию [], но каждый путь передает явный набор: список — результат
+// сгруппированной выборки, create/update — согласованный набор, возвращенный слоем БД.
 function toWireClient(
   row: { id: string; phone: string; name: string; createdAt: Date },
   cars: Car[] = [],
@@ -98,7 +98,7 @@ function unavailable(c: Context) {
   )
 }
 
-// not_found → 404, всё остальное → 500. Conflict обрабатывается на каждом месте вызова,
+// not_found → 404, все остальное → 500. Conflict обрабатывается на каждом месте вызова,
 // потому что литерал `reason` у маршрутов разный (duplicate_phone для
 // create/update, has_bookings для delete) и каждый маршрут фиксирует один литерал.
 function clientErrorFallback(c: Context, err: unknown) {
@@ -141,8 +141,8 @@ const respConflictHasBookings = {
   content: { 'application/json': { schema: conflictHasBookingsSchema } },
 }
 
-// Жёсткий лимит истории, которую возвращает карточка; на практике у одного клиента
-// записей немного, так что это лишь защита от аномалии. Берём cap+1, чтобы отметить усечение.
+// Жесткий лимит истории, которую возвращает карточка; на практике у одного клиента
+// записей немного, так что это лишь защита от аномалии. Берем cap+1, чтобы отметить усечение.
 const CLIENT_HISTORY_CAP = 500
 
 const lookupClientRoute = createRoute({
@@ -249,7 +249,7 @@ const deleteClientRoute = createRoute({
     },
     400: respValidation,
     404: respNotFound,
-    // `deleteClient` бросает `has_bookings`, когда на клиента ещё ссылается FK записи;
+    // `deleteClient` бросает `has_bookings`, когда на клиента еще ссылается FK записи;
     // `clientErrorResponse` превращает это в данный вариант 409.
     409: respConflictHasBookings,
     500: respInternal,
@@ -282,7 +282,7 @@ router.openapi(lookupClientRoute, async (c) => {
       getClientStats(client.id),
       listBookingsByClientId(client.id, CLIENT_HISTORY_CAP),
     ])
-    // Запрос берёт на одну строку больше, чтобы отметить усечение для карточки.
+    // Запрос берет на одну строку больше, чтобы отметить усечение для карточки.
     const history = historyRows.slice(0, CLIENT_HISTORY_CAP)
     const isAdmin = c.get('user')?.role === 'admin'
     return c.json(
@@ -331,8 +331,8 @@ router
       if (!client) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      // Карточка одного клиента: машины, статистика «Выдана» за всё время и ограниченная
-      // история (все статусы) параллельно — без N+1 на трёх чтениях.
+      // Карточка одного клиента: машины, статистика «Выдана» за все время и ограниченная
+      // история (все статусы) параллельно — без N+1 на трех чтениях.
       const [cars, stats, historyRows] = await Promise.all([
         listCarsByClient(id),
         getClientStats(id),

@@ -8,7 +8,7 @@ import {
 
 // Строгая календарная дата ISO (YYYY-MM-DD). Regex фиксирует форму; refine
 // отсекает невозможные даты (напр. 2026-02-31): прогоняет через Date туда и обратно
-// и проверяет, что части уцелели, — тот же приём, что в parseDdmmyyyy.
+// и проверяет, что части уцелели, — тот же прием, что в parseDdmmyyyy.
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата должна быть в формате ГГГГ-ММ-ДД')
@@ -25,12 +25,12 @@ export const monthSchema = z
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Месяц должен быть в формате ГГГГ-ММ')
 
 const workHoursNote = z.string().max(500)
-// Шаг в 15 минут сохраняет точность пересчёта минуты↔часы туда и обратно в UI.
+// Шаг в 15 минут сохраняет точность пересчета минуты↔часы туда и обратно в UI.
 const workHours = z.number().positive().max(24).multipleOf(0.25)
 
 const payoutNote = z.string().max(500)
 // Целые рубли со знаком. min/max попадают в OpenAPI как minimum/maximum и заодно
-// страхуют от случайно вписанной лишней цифры. Правило «не ноль» живёт в refine
+// страхуют от случайно вписанной лишней цифры. Правило «не ноль» живет в refine
 // (который в спецификацию не попадает) и продублировано CHECK в БД.
 const payoutAmount = z
   .number()
@@ -42,7 +42,7 @@ const payoutAmount = z
 export const rateInputSchema = z.object({
   masterId: z.number().int().positive(),
   // min(1): нулевая ставка молча обнулила бы зарплату через нулевой снапшот; состояние
-  // «ставки нет» кодируется отсутствием строки в master_rates, но никогда не нулём.
+  // «ставки нет» кодируется отсутствием строки в master_rates, но никогда не нулем.
   hourlyRate: z.number().int().min(1),
 })
 
@@ -67,7 +67,7 @@ export const workHoursUpdateSchema = z.object({
 
 export type WorkHoursUpdate = z.infer<typeof workHoursUpdateSchema>
 
-// Сотрудник вносит свои часы: мастер берётся из привязки аккаунта, а не из тела
+// Сотрудник вносит свои часы: мастер берется из привязки аккаунта, а не из тела
 // запроса, поэтому один аккаунт не может внести часы за кого-то другого.
 export const selfWorkHoursInputSchema = workHoursInputSchema.omit({ masterId: true })
 
@@ -98,12 +98,12 @@ export type PayoutUpdate = z.infer<typeof payoutUpdateSchema>
 export const salaryRowSchema = z.object({
   masterId: z.number().int(),
   masterName: z.string(),
-  // null, когда у мастера ещё нет строки ставки — это не то же, что ставка 0.
+  // null, когда у мастера еще нет строки ставки — это не то же, что ставка 0.
   hourlyRate: z.number().int().nullable(),
   totalMinutes: z.number().int(),
   // Оплата часов: round(Σ(minutes × rate_snapshot) / 60), одно округление на
   // месяц. Называется `hoursSalary`, а не `salary`, потому что это уже не вся
-  // зарплата — только её почасовая часть.
+  // зарплата — только ее почасовая часть.
   hoursSalary: z.number().int(),
   // Сумма разовых выплат за месяц; 0 значит и «строк нет», и «строки взаимно
   // погасились» — единое соглашение для «нет строк за период».
@@ -113,7 +113,7 @@ export const salaryRowSchema = z.object({
 
 export type SalaryRow = z.infer<typeof salaryRowSchema>
 
-// Сохранённая запись work_hours со снапшотом ставки, снятым при вставке.
+// Сохраненная запись work_hours со снапшотом ставки, снятым при вставке.
 // `createdAt` после JSON-сериализации — строка ISO datetime.
 export const workHoursSchema = z.object({
   id: z.number().int(),
@@ -127,7 +127,7 @@ export const workHoursSchema = z.object({
 
 export type WorkHours = z.infer<typeof workHoursSchema>
 
-// Сохранённая запись payouts. Снапшота ставки нет по построению.
+// Сохраненная запись payouts. Снапшота ставки нет по построению.
 export const payoutSchema = z.object({
   id: z.number().int(),
   masterId: z.number().int(),
@@ -153,7 +153,7 @@ export type HoursEntry = z.infer<typeof hoursEntrySchema>
 export type PayoutEntry = z.infer<typeof payoutEntrySchema>
 export type SalaryEntry = z.infer<typeof salaryEntrySchema>
 
-// Предусловие POST /hours: добавление часов мастеру, у которого ещё нет ставки. Доменная
+// Предусловие POST /hours: добавление часов мастеру, у которого еще нет ставки. Доменная
 // ошибка, отдаваемая как ответ в духе валидации с литералом `reason` —
 // той же формы, что invalid_order у мастеров (не список issues от zod).
 export const workHoursNoRateSchema = z.object({
@@ -305,7 +305,7 @@ export function salaryFromMinutesRateSum(minutesRateSum: number): number {
   return Math.round(minutesRateSum / 60)
 }
 
-// Зарплата из детальных строк, округлённая ОДИН раз по итогу месяца — чтобы итоги в шапке
+// Зарплата из детальных строк, округленная ОДИН раз по итогу месяца — чтобы итоги в шапке
 // совпадали с суммой детальных составляющих. Две строки по 25 мин при 100 ₽/ч должны дать
 // round(5000/60)=83, а не round(2500/60)*2=84.
 export function computeSalary(entries: Array<{ minutes: number; rate: number }>): number {

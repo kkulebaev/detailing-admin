@@ -33,7 +33,7 @@ describe('toRole', () => {
     expect(toRole('employee')).toBe('employee')
   })
 
-  it('сводит всё остальное к наименее привилегированной роли', () => {
+  it('сводит все остальное к наименее привилегированной роли', () => {
     expect(toRole('superuser')).toBe('employee')
     expect(toRole('')).toBe('employee')
   })

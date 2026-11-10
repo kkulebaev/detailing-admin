@@ -25,7 +25,7 @@ function isPasswordField(v: unknown): v is PasswordField {
 const confirmPassword = ref('')
 const confirmError = ref<string | null>(null)
 // Перемонтирование полей после успешной смены снова скрывает их, чтобы следующий
-// введённый здесь пароль не отображался открытым текстом.
+// введенный здесь пароль не отображался открытым текстом.
 const inputsGeneration = ref(0)
 
 const { handleSubmit, resetForm, setFieldError, isSubmitting } = useForm({
@@ -42,7 +42,7 @@ const onSubmit = handleSubmit(async (values) => {
 
   const result = await changePassword(values)
   if (result.ok) {
-    toast.success('Пароль изменён')
+    toast.success('Пароль изменен')
     resetForm()
     confirmPassword.value = ''
     inputsGeneration.value++
@@ -50,7 +50,7 @@ const onSubmit = handleSubmit(async (values) => {
   }
 
   if (result.error === 'conflict' && result.reason === 'stale_password') {
-    toast.error('Пароль уже был изменён в другой сессии — попробуйте ещё раз')
+    toast.error('Пароль уже был изменен в другой сессии — попробуйте еще раз')
   } else if (result.error === 'unauthorized') {
     toast.error('Сессия истекла — войдите снова')
   } else if (result.error === 'validation') {

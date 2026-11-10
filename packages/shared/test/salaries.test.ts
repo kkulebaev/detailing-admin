@@ -59,7 +59,7 @@ describe('computeSalary — одно округление на месяц', () =
     expect(computeSalary(entries)).toBe(300)
   })
 
-  it('даёт ноль без записей', () => {
+  it('дает ноль без записей', () => {
     expect(computeSalary([])).toBe(0)
   })
 

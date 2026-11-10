@@ -77,7 +77,7 @@ describe('GET /api/analytics/overview', () => {
     vi.mocked(getAnalyticsOverview).mockResolvedValue(RAW)
   })
 
-  it('возвращает 200 с приведёнными числами, производными метриками и серией, заполненной нулями (AC5, AC13, AC14)', async () => {
+  it('возвращает 200 с приведенными числами, производными метриками и серией, заполненной нулями (AC5, AC13, AC14)', async () => {
     const res = await get(app, '?from=01.07.2026&to=03.07.2026&granularity=day', { Cookie: cookie })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -149,7 +149,7 @@ describe('GET /api/analytics/overview', () => {
     expect(vi.mocked(getAnalyticsOverview)).not.toHaveBeenCalled()
   })
 
-  it('по умолчанию берёт гранулярность day, если она не указана', async () => {
+  it('по умолчанию берет гранулярность day, если она не указана', async () => {
     await get(app, '?from=01.07.2026&to=03.07.2026', { Cookie: cookie })
     expect(vi.mocked(getAnalyticsOverview)).toHaveBeenCalledWith(
       expect.objectContaining({ granularity: 'day', fromIso: '2026-07-01', toIso: '2026-07-03' }),

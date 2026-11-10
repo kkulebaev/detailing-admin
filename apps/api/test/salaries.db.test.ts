@@ -60,7 +60,7 @@ function makeFakeDb(opts: {
     c.returning = passthrough
     c.onConflictDoUpdate = passthrough
     // Алиас подзапроса — на его колонки ссылаются (agg.masterId, ...), но сквозной
-    // select их игнорирует, так что подойдёт любая заглушка.
+    // select их игнорирует, так что подойдет любая заглушка.
     c.as = () => new Proxy({}, { get: () => ({}) })
     c.set = (v: Record<string, unknown>) => {
       capture.sets.push(v)
@@ -93,7 +93,7 @@ describe('listSalaries — маппинг и единственное округ
   it('округляет итог за месяц один раз (нецелый случай): SUM=5000 ₽·мин → 83, а не 84', () => {
     // Две строки по 25 мин @100 ₽/ч в SQL агрегируются в minutes_rate_sum=5000. Если
     // делить в SQL как int/int, здесь по случайности отбросится дробь до 83, но
-    // округление каждой строки дало бы 84. Единственное округление в JS даёт 83.
+    // округление каждой строки дало бы 84. Единственное округление в JS дает 83.
     const { db } = makeFakeDb({
       selectResults: [
         [
@@ -159,7 +159,7 @@ describe('listSalaries — маппинг и единственное округ
         [
           {
             masterId: 2,
-            masterName: 'Пётр',
+            masterName: 'Петр',
             hourlyRate: null,
             totalMinutes: null,
             minutesRateSum: null,
@@ -173,7 +173,7 @@ describe('listSalaries — маппинг и единственное округ
     const rows = await listSalaries('2026-07')
     expect(rows[0]).toEqual({
       masterId: 2,
-      masterName: 'Пётр',
+      masterName: 'Петр',
       hourlyRate: null,
       totalMinutes: 0,
       hoursSalary: 0,

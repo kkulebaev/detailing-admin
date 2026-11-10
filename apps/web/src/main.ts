@@ -18,7 +18,7 @@ app.use(createPinia())
 app.use(PiniaColada, { plugins: [PiniaColadaRetry()] })
 app.use(router)
 
-// Подключается здесь, а не внутри orval-mutator.ts: auth-api.ts (и всё, что его
+// Подключается здесь, а не внутри orval-mutator.ts: auth-api.ts (и все, что его
 // вызывает) лежит ниже этого модуля, а store/router, которым нужно реагировать
 // на 401, — выше; статический импорт в любую сторону дал бы
 // цикл.
@@ -27,11 +27,11 @@ setUnauthorizedHandler(() => {
   void router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
 })
 
-// Монтируем только после того, как завершится первая навигация. Её guard ждёт
+// Монтируем только после того, как завершится первая навигация. Ее guard ждет
 // `fetchMe()`, поэтому первая отрисовка — уже итоговый маршрут; без этого
 // приложение на один кадр показывает авторизованный лейаут/сайдбар (у START
 // location пустой `meta`, и `App.vue` считает его непубличным), пока
-// GET /api/auth/me ещё в полёте, а затем резко переключается на голую страницу /login.
+// GET /api/auth/me еще в полете, а затем резко переключается на голую страницу /login.
 async function mountWhenReady() {
   try {
     await router.isReady()

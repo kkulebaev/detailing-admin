@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   // Dev-сервер: по умолчанию локальный API; можно переопределить, чтобы /api-прокси
-  // смотрел на удалённый бэкенд (например, VITE_API_PROXY_TARGET=https://…railway.app),
+  // смотрел на удаленный бэкенд (например, VITE_API_PROXY_TARGET=https://…railway.app),
   // не трогая клиент.
   const devProxyTarget = env.VITE_API_PROXY_TARGET || DEFAULT_API_PROXY_TARGET
   if (devProxyTarget !== DEFAULT_API_PROXY_TARGET) {

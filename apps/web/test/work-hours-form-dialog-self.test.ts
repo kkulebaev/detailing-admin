@@ -4,8 +4,8 @@ import { page } from 'vitest/browser'
 import { calendarDay } from './helpers/calendar'
 
 // В self-режиме диалог должен ходить через /api/me и никогда не указывать мастера:
-// сервер берёт мастера из сессии, поэтому masterId в payload в лучшем случае
-// проигнорируется, а в худшем — намекнёт, что клиент может его выбирать.
+// сервер берет мастера из сессии, поэтому masterId в payload в лучшем случае
+// проигнорируется, а в худшем — намекнет, что клиент может его выбирать.
 
 const createWorkHoursMock = vi.fn()
 const createMyWorkHoursMock = vi.fn()
@@ -35,7 +35,7 @@ const button = (name: string) => page.getByRole('button', { name })
 function mountDialog() {
   mount(WorkHoursFormDialog, {
     attachTo: document.body,
-    props: { open: true, editing: null, masterId: 4, masterName: 'Пётр', self: WINDOW },
+    props: { open: true, editing: null, masterId: 4, masterName: 'Петр', self: WINDOW },
   })
 }
 
@@ -48,7 +48,7 @@ beforeEach(() => {
 })
 
 describe('WorkHoursFormDialog — self-режим', () => {
-  it('создаёт запись через /api/me без masterId', async () => {
+  it('создает запись через /api/me без masterId', async () => {
     mountDialog()
 
     await button('ДД.ММ.ГГГГ').click()

@@ -14,7 +14,7 @@ vi.mock('../src/env.js', () => ({
 
 // Изолируем логику строки клиента: syncClientCars/listCarsByClient проверяются
 // в client-cars.db.test.ts. Здесь лишь убеждаемся, что createClient/updateClient
-// передают машины дальше и возвращают сверенный набор, который отдаёт слой машин.
+// передают машины дальше и возвращают сверенный набор, который отдает слой машин.
 vi.mock('../src/db/client-cars.js', () => ({
   syncClientCars: vi.fn().mockResolvedValue(undefined),
   listCarsByClient: vi.fn().mockResolvedValue([]),
@@ -64,7 +64,7 @@ afterEach(() => {
 })
 
 describe('deleteClient', () => {
-  it('бросает has_bookings, если на клиента ещё ссылается запись', async () => {
+  it('бросает has_bookings, если на клиента еще ссылается запись', async () => {
     // Проверка нашла связанную запись → отказываем, не пытаясь удалить.
     _setDbForTest(makeFakeDb({ selectResults: [[{ id: 'booking-1' }]], deleteResults: [] }))
 
@@ -80,7 +80,7 @@ describe('deleteClient', () => {
     await expect(deleteClient(CLIENT_ID)).rejects.toMatchObject({ code: 'not_found' })
   })
 
-  it('завершается успешно, если у клиента нет записей и он удалён', async () => {
+  it('завершается успешно, если у клиента нет записей и он удален', async () => {
     _setDbForTest(makeFakeDb({ selectResults: [[]], deleteResults: [[{ id: CLIENT_ID }]] }))
 
     await expect(deleteClient(CLIENT_ID)).resolves.toBeUndefined()
@@ -153,8 +153,8 @@ describe('createClient', () => {
 })
 
 describe('getClientStats', () => {
-  it('для клиента без строк «Выдана» отдаёт нули/null', async () => {
-    // Условие «Выдана» не даёт строк → агрегат равен 0/0/null/null.
+  it('для клиента без строк «Выдана» отдает нули/null', async () => {
+    // Условие «Выдана» не дает строк → агрегат равен 0/0/null/null.
     _setDbForTest(
       makeFakeDb({
         selectResults: [[{ totalSpent: '0', visitCount: '0', lastVisit: null, firstVisit: null }]],

@@ -10,7 +10,7 @@ import CommandHarness from './fixtures/CommandHarness.vue'
 // прямо посреди слова. См. apps/web/src/components/ui/command/CommandInput.vue.
 
 const ITEMS = [
-  { value: 1, label: 'Демонтаж плёнки' },
+  { value: 1, label: 'Демонтаж пленки' },
   { value: 2, label: 'Полная полировка кузова' },
   { value: 3, label: 'Комплексная химчистка интерьера' },
 ]
@@ -22,7 +22,7 @@ function visibleLabels(wrapper: ReturnType<typeof mount>): string[] {
 async function mountHarness() {
   const wrapper = mount(CommandHarness, { props: { items: ITEMS }, attachTo: document.body })
   await wrapper.vm.$nextTick()
-  // Пункты регистрируют текст для фильтра в onMounted — даём этому отработать.
+  // Пункты регистрируют текст для фильтра в onMounted — даем этому отработать.
   await new Promise((r) => setTimeout(r, 0))
   return wrapper
 }
@@ -47,7 +47,7 @@ describe('CommandInput — фильтрация во время IME-композ
     await wrapper.vm.$nextTick()
 
     const labels = visibleLabels(wrapper)
-    expect(labels).toEqual(['Демонтаж плёнки'])
+    expect(labels).toEqual(['Демонтаж пленки'])
     wrapper.unmount()
   })
 

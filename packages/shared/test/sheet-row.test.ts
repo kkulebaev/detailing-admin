@@ -33,7 +33,7 @@ describe('EXPECTED_HEADERS', () => {
 })
 
 describe('bookingToRow', () => {
-  it('даёт ровно 11 ячеек', () => {
+  it('дает ровно 11 ячеек', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row).toHaveLength(11)
   })
@@ -78,8 +78,8 @@ describe('bookingToRow', () => {
   })
 
   it('несколько мастеров → ячейка J склеивает имена через ", "', () => {
-    const row = bookingToRow(parseBooking({ ...baseInput, master: ['Иван', 'Пётр'] }))
-    expect(row[9]).toBe('Иван, Пётр')
+    const row = bookingToRow(parseBooking({ ...baseInput, master: ['Иван', 'Петр'] }))
+    expect(row[9]).toBe('Иван, Петр')
   })
 
   it('сумма 200000 → число 200000 в ячейке H', () => {

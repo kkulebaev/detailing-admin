@@ -10,7 +10,7 @@
 - **Статус:** реализовано (в `main`). Диалог `ClientDetailDialog.vue` + роут `/clients/:id` + эндпоинт `GET /api/clients/{id}`.
 - **Ценность:** `/clients` показывает контакт и машины, но не историю. Мастер на телефоне не видит, что клиент уже приезжал и на что.
 - **Сложность:** M — диалог/страница + новый роут «записи клиента».
-- **Тех. заметки:** только Postgres (`bookings.clientId`, `clientCars`). Индекс `bookings_client_id_idx` уже есть — запрос дешёвый. Sheets не трогаем.
+- **Тех. заметки:** только Postgres (`bookings.clientId`, `clientCars`). Индекс `bookings_client_id_idx` уже есть — запрос дешевый. Sheets не трогаем.
 
 ## UX формы записи
 
@@ -20,10 +20,10 @@
 - **Статус:** реализовано (в `main`). Frontend-only: composable `use-client-lookup` поверх `GET /api/clients?q=`; при совпадении перезаписывает имя и первую машину, остальные машины — чипами под «Марка и модель». Телефон — первое поле секции.
 - **Ценность:** повторный клиент вводится заново; растут опечатки в имени/авто и дубли в данных.
 - **Сложность:** S–M — в форме уже есть работа с телефоном; нужен lookup-запрос по нормализованному номеру.
-- **Тех. заметки:** Postgres (`clients` uniq по phone, `clientCars`). `normalizePhone` уже даёт E.164 для поиска. На запись в Sheets не влияет.
+- **Тех. заметки:** Postgres (`clients` uniq по phone, `clientCars`). `normalizePhone` уже дает E.164 для поиска. На запись в Sheets не влияет.
 
 ### 5.2. Экспорт записей/клиентов в CSV ✅ Выполнено
-Кнопка «Экспорт» на `/bookings` и `/clients` с учётом текущих фильтров.
+Кнопка «Экспорт» на `/bookings` и `/clients` с учетом текущих фильтров.
 
 - **Статус:** реализовано (в `main`). Server-side `GET /api/bookings/export` и `/api/clients/export` → `text/csv` (UTF-8 BOM + `;` + CRLF, RFC-quoting, OWASP-санитизация инъекций); суммы только admin, clients admin-only; фронт — `downloadFile` (raw-fetch → blob) + кнопки. CSV — снимок зеркала (не Sheets).
 - **Ценность:** данные из Postgres-зеркала нельзя выгрузить для бухгалтерии/анализа вне Sheets.

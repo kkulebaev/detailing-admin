@@ -34,7 +34,7 @@ describe('ddmmyyyyToIso', () => {
     expect(ddmmyyyyToIso('31.12.2025')).toBe('2025-12-31')
   })
 
-  it('бросает ошибку на невалидной дате, а не выдаёт битую ISO-строку', () => {
+  it('бросает ошибку на невалидной дате, а не выдает битую ISO-строку', () => {
     expect(() => ddmmyyyyToIso('32.01.2026')).toThrow()
     expect(() => ddmmyyyyToIso('01.13.2026')).toThrow()
   })

@@ -220,7 +220,7 @@ async function submit() {
         <div class="grid min-w-0 gap-2">
           <Label for="service-section">Раздел</Label>
           <Select v-model="sectionId" :disabled="submitting">
-            <!-- Названия разделов длинные; без min-w-0 триггер с nowrap задаёт min-content ширину
+            <!-- Названия разделов длинные; без min-w-0 триггер с nowrap задает min-content ширину
                  трека сетки и растягивает диалог шире его максимальной ширины. -->
             <SelectTrigger
               id="service-section"

@@ -57,8 +57,8 @@ function formatHours(minutes: number): string {
 // Сколько стоит эта запись: минуты × ставка / 60, намеренно БЕЗ округления по
 // строке. Итог месяца округляется один раз (salaryFromMinutesRateSum), поэтому
 // при округлении каждой строки сумма строк разошлась бы с «За часы» мастера.
-// Дробь видна только в одном случае — четверть часа при нечётной ставке;
-// ru-RU выводит её через запятую.
+// Дробь видна только в одном случае — четверть часа при нечетной ставке;
+// ru-RU выводит ее через запятую.
 function formatEntryAmount(minutes: number, rate: number): string {
   return ((minutes * rate) / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }

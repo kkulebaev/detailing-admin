@@ -29,7 +29,7 @@ import MyHoursPage from '@/pages/MyHoursPage.vue'
 const linked: MySalaryOk = {
   ok: true,
   month: '2026-10',
-  master: { id: 4, name: 'Пётр' },
+  master: { id: 4, name: 'Петр' },
   hourlyRate: 300,
   totalMinutes: 960,
   hoursSalary: 4800,
@@ -98,7 +98,7 @@ describe('MyHoursPage', () => {
     const w = mountPage()
     await expect.element(addHours()).toBeVisible()
     const text = w.text()
-    expect(text).toContain('Пётр')
+    expect(text).toContain('Петр')
     expect(text).toContain('4 800 ₽')
     expect(text).toContain('−500 ₽')
     expect(text).toContain('4 300 ₽')
@@ -122,6 +122,6 @@ describe('MyHoursPage', () => {
     data.value = { ...linked, hourlyRate: null }
     mountPage()
     await expect.element(addHours()).toBeDisabled()
-    await expect.element(page.getByText(/Ставка ещё не задана/)).toBeVisible()
+    await expect.element(page.getByText(/Ставка еще не задана/)).toBeVisible()
   })
 })

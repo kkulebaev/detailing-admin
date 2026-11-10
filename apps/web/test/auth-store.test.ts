@@ -34,7 +34,7 @@ describe('стор auth', () => {
     expect(store.ready).toBe(true)
   })
 
-  it('fetchMe при 401 сбрасывает пользователя, но всё равно отмечает ready', async () => {
+  it('fetchMe при 401 сбрасывает пользователя, но все равно отмечает ready', async () => {
     meMock.mockResolvedValue({ ok: false, error: 'unauthorized' })
     const store = useAuthStore()
     await store.fetchMe()

@@ -82,7 +82,7 @@ import { adminCookie, employeeCookie } from './auth-helpers.js'
 
 const ORIGIN = 'http://localhost:5173'
 
-// Сохранённый пользователь с настоящим scrypt-хешем 'secret123'.
+// Сохраненный пользователь с настоящим scrypt-хешем 'secret123'.
 let adminUser: {
   id: string
   login: string
@@ -129,7 +129,7 @@ describe('POST /api/auth/login', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('верные учётные данные → 200 с пользователем и Set-Cookie', async () => {
+  it('верные учетные данные → 200 с пользователем и Set-Cookie', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     const res = await json(app, '/api/auth/login', 'POST', {
       login: 'admin',
@@ -384,7 +384,7 @@ describe('PATCH /api/auth/me', () => {
     expect(vi.mocked(updateProfile)).not.toHaveBeenCalled()
   })
 
-  it('валидные данные → 200 с обновлённым пользователем и перевыпущенной cookie', async () => {
+  it('валидные данные → 200 с обновленным пользователем и перевыпущенной cookie', async () => {
     vi.mocked(updateProfile).mockResolvedValue({
       ...adminUser,
       firstName: 'Иван',
@@ -511,7 +511,7 @@ describe('последствия ADR (stateless-сессии)', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('ранее выданный JWT остаётся валидным до истечения TTL после смены пароля', async () => {
+  it('ранее выданный JWT остается валидным до истечения TTL после смены пароля', async () => {
     const oldCookie = await adminCookie()
 
     // Выполняем успешную смену пароля в этой сессии.
@@ -538,13 +538,13 @@ describe('последствия ADR (stateless-сессии)', () => {
   it('после logout очищенная cookie больше не аутентифицирует → 401', async () => {
     const logout = await json(app, '/api/auth/logout', 'POST')
     expect(logout.status).toBe(200)
-    // Браузер удалил/опустошил auth_token; следующий запрос не несёт валидного токена.
+    // Браузер удалил/опустошил auth_token; следующий запрос не несет валидного токена.
     const res = await json(app, '/api/auth/me', 'GET', undefined, { Cookie: 'auth_token=' })
     expect(res.status).toBe(401)
   })
 })
 
-describe('/healthz остаётся публичным', () => {
+describe('/healthz остается публичным', () => {
   it('авторизация не требуется', async () => {
     const app = createApp()
     const res = await app.request('/healthz')

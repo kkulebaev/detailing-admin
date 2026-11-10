@@ -66,7 +66,7 @@ const CLIENT_A = {
 const CLIENT_B = {
   id: 'bbbbbbbb-2222-2222-2222-222222222222',
   phone: '+79007654321',
-  name: 'Пётр',
+  name: 'Петр',
   createdAt: new Date('2026-06-02T12:00:00.000Z'),
 }
 
@@ -133,7 +133,7 @@ describe('GET /api/clients/export', () => {
     expect(text).toContain("'+79001234567")
   })
 
-  it('передаёт q/sort/dir в listClients с лимитом экспорта и без пагинации', async () => {
+  it('передает q/sort/dir в listClients с лимитом экспорта и без пагинации', async () => {
     await getExport('?q=%D0%98%D0%B2%D0%B0%D0%BD&sort=phone&dir=desc')
     expect(vi.mocked(listClients)).toHaveBeenCalledWith({
       limit: 10000,
@@ -177,7 +177,7 @@ describe('мутации клиентов возвращают сверенны�
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('передаёт машины в createClient и возвращает фактический набор', async () => {
+  it('передает машины в createClient и возвращает фактический набор', async () => {
     vi.mocked(createClient).mockResolvedValue({ client: CLIENT_A, cars: [CAR] })
     const res = await app.request('/api/clients', {
       method: 'POST',
@@ -196,7 +196,7 @@ describe('мутации клиентов возвращают сверенны�
     ])
   })
 
-  it('передаёт машины в updateClient и возвращает фактический набор', async () => {
+  it('передает машины в updateClient и возвращает фактический набор', async () => {
     vi.mocked(updateClient).mockResolvedValue({ client: CLIENT_A, cars: [CAR] })
     const res = await app.request(`/api/clients/${CLIENT_A.id}`, {
       method: 'PATCH',

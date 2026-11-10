@@ -72,7 +72,7 @@ export const clientDeleteResponseSchema = z.union([
   internalErrorSchema,
 ])
 
-// Агрегаты за всё время только по «Выдана» для карточки клиента. `totalSpent`/`visitCount`
+// Агрегаты за все время только по «Выдана» для карточки клиента. `totalSpent`/`visitCount`
 // считаются по тому же правилу «Выдана», что и аналитика, но без окна периода, поэтому
 // числа не обязаны совпадать с `/analytics` за период. `lastVisit`/`firstVisit` —
 // ISO `YYYY-MM-DD` (или null, если у клиента нет выданных записей). API приводит
@@ -86,9 +86,9 @@ export const clientStatsSchema = z.object({
 
 export type ClientStats = z.infer<typeof clientStatsSchema>
 
-// Данные карточки клиента: клиент (с машинами), статистика за всё время и полная
+// Данные карточки клиента: клиент (с машинами), статистика за все время и полная
 // история записей (все статусы) на общей `bookingRowSchema`.
-// `bookingsTruncated` отмечает, что история упёрлась в серверный лимит.
+// `bookingsTruncated` отмечает, что история уперлась в серверный лимит.
 export const clientDetailOkSchema = z.object({
   ok: z.literal(true),
   client: clientSchema,
@@ -142,8 +142,8 @@ export const clientLookupResponseSchema = z.union([
   internalErrorSchema,
 ])
 
-// Одна машина в том виде, в каком её отправляет диалог клиента. В отличие от `carSchema`
-// (сохранённая строка с `id`), это форма для записи: без id, номер необязателен. db-слой
+// Одна машина в том виде, в каком ее отправляет диалог клиента. В отличие от `carSchema`
+// (сохраненная строка с `id`), это форма для записи: без id, номер необязателен. db-слой
 // нормализует и дедуплицирует — здесь проверяется только непустая марка/модель.
 export const carInputSchema = z.object({
   makeModel: z.string().trim().min(1, 'Укажите марку и модель').max(200),

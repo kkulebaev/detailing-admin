@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 
 // Отдельный компонент (а не часть ProfilePage), потому что `useForm` из vee-validate
-// передаёт контекст формы вложенным FormField — второй `useForm` в том же
+// передает контекст формы вложенным FormField — второй `useForm` в том же
 // компоненте перекрыл бы этот контекст и незаметно привязал бы эти поля
 // к другой форме. Одна форма на компонент держит контексты раздельно.
 const auth = useAuthStore()
@@ -32,7 +32,7 @@ const onSubmit = handleSubmit(async (values) => {
   const result = await auth.updateProfile(values)
   if (result.ok) {
     toast.success('Данные сохранены')
-    // Обновляем исходные значения, чтобы форма не считалась изменённой относительно сохранённых.
+    // Обновляем исходные значения, чтобы форма не считалась измененной относительно сохраненных.
     resetForm({ values: { firstName: result.user.firstName, lastName: result.user.lastName } })
     return
   }

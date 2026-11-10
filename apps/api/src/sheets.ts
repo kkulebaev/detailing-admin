@@ -14,7 +14,7 @@ function parseUpdatedRow(updatedRange: string): number {
   return match ? Number.parseInt(match[1], 10) : 0
 }
 
-// Ленивая инициализация: не декодируем учётные данные при загрузке модуля (облегчает тесты).
+// Ленивая инициализация: не декодируем учетные данные при загрузке модуля (облегчает тесты).
 let _client: ReturnType<typeof google.sheets> | null = null
 
 function getClient(): ReturnType<typeof google.sheets> {

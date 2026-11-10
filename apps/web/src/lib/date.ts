@@ -10,7 +10,7 @@ export function calToDdmmyyyy(d: DateValue): string {
 }
 
 // Даты из БД приходят в ISO `YYYY-MM-DD`; везде, где данные соотносятся с листом,
-// показываем DD.MM.YYYY. Общее для таблицы записей и её диалога с деталями.
+// показываем DD.MM.YYYY. Общее для таблицы записей и ее диалога с деталями.
 export function isoToDdmmyyyy(iso: string): string {
   const [y, m, d] = iso.split('-')
   if (!y || !m || !d) return iso

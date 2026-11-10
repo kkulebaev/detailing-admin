@@ -57,7 +57,7 @@ vi.mock('../src/db/client-cars.js', () => ({
 }))
 
 // Частичный мок: в БД ходит только listBookingsByClientId, его и подменяем; чистый
-// маппер toBookingRow остаётся настоящим, чтобы роут проверял реальный wire-маппинг
+// маппер toBookingRow остается настоящим, чтобы роут проверял реальный wire-маппинг
 // (id-ссылки отбрасываются, сумма есть в карточке только для админа, живые имена проходят).
 vi.mock('../src/db/bookings.js', async (importActual) => {
   const actual = await importActual<typeof import('../src/db/bookings.js')>()
@@ -80,7 +80,7 @@ const CLIENT = {
 
 const CAR = { id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА77' }
 
-// Сохранённая строка записи (в форме schema.$inferSelect). В `master` уже лежит
+// Сохраненная строка записи (в форме schema.$inferSelect). В `master` уже лежит
 // актуальное имя — withLiveMasterNames работает внутри замоканного
 // listBookingsByClientId, так что роут просто пропускает его дальше.
 const BOOKING_ROW: Booking = {
@@ -99,8 +99,8 @@ const BOOKING_ROW: Booking = {
   timeFrom: '10:00',
   timeTo: null,
   readiness: 'Выдана',
-  master: ['Пётр (актуальное имя)'],
-  responsible: 'Пётр',
+  master: ['Петр (актуальное имя)'],
+  responsible: 'Петр',
   responsibleId: 7,
   carId: 'car-uuid-1',
   carClass: 2,
@@ -142,7 +142,7 @@ describe('GET /api/clients/{id}', () => {
     expect(body.bookings).toHaveLength(1)
     const row = body.bookings[0]
     // Актуальное имя мастера проходит без изменений.
-    expect(row.master).toEqual(['Пётр (актуальное имя)'])
+    expect(row.master).toEqual(['Петр (актуальное имя)'])
     // Карточка только для админа → сумма присутствует.
     expect(row.amount).toBe(5000)
     // Внутренние id-ссылки никогда не уходят в ответ.
@@ -153,7 +153,7 @@ describe('GET /api/clients/{id}', () => {
     expect(vi.mocked(listBookingsByClientId)).toHaveBeenCalledWith(CLIENT.id, 500)
   })
 
-  it('пустая история даёт [] и не обрезана', async () => {
+  it('пустая история дает [] и не обрезана', async () => {
     vi.mocked(listBookingsByClientId).mockResolvedValue([])
     const res = await app.request(`/api/clients/${CLIENT.id}`, { headers: { Cookie: cookie } })
     expect(res.status).toBe(200)
@@ -227,7 +227,7 @@ describe('GET /api/clients/lookup', () => {
     ])
   })
 
-  it('отдаёт booker клиента и сводку без денег', async () => {
+  it('отдает booker клиента и сводку без денег', async () => {
     const res = await lookup(await bookerCookie())
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -255,7 +255,7 @@ describe('GET /api/clients/lookup', () => {
     expect(await res.json()).toEqual({ ok: true, match: null })
   })
 
-  it('отклоняет всё, кроме полного телефона, чтобы нельзя было перебирать клиентов', async () => {
+  it('отклоняет все, кроме полного телефона, чтобы нельзя было перебирать клиентов', async () => {
     const res = await lookup(await bookerCookie(), '+7916')
     expect(res.status).toBe(400)
     expect(vi.mocked(getClientByPhone)).not.toHaveBeenCalledWith('+7916')

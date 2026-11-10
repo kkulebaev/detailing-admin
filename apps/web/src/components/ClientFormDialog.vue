@@ -130,7 +130,7 @@ async function submit() {
       : await createClient(payload)
 
     if (result.ok) {
-      toast.success(isEdit.value ? 'Клиент обновлён' : 'Клиент добавлен')
+      toast.success(isEdit.value ? 'Клиент обновлен' : 'Клиент добавлен')
       emit('saved')
       emit('update:open', false)
       return
@@ -148,7 +148,7 @@ async function submit() {
       fieldErrors.value = { phone: 'Клиент с таким телефоном уже есть' }
       error.value = 'Клиент с таким телефоном уже есть'
     } else if (result.error === 'not_found') {
-      error.value = 'Клиент не найден — возможно, был удалён'
+      error.value = 'Клиент не найден — возможно, был удален'
     } else if (result.error === 'unavailable') {
       error.value = result.message
     } else {

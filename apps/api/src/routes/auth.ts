@@ -136,7 +136,7 @@ router.use('/*', async (c, next) => {
 // обернуть этот обработчик; `.use()` посреди цепочки `.openapi()` расширил бы тип до
 // обычного Hono и потерял `.openapi()` (по той же причине server.ts собирается императивно).
 router.use('/change-password', requireAuth)
-// PATCH /me (правка профиля) требует сессию; GET /me остаётся публичным (сам читает
+// PATCH /me (правка профиля) требует сессию; GET /me остается публичным (сам читает
 // cookie). Проверка метода ограничивает это PATCH, чтобы геттер не затрагивался.
 router.use('/me', async (c, next) => {
   if (c.req.method !== 'PATCH') return next()
@@ -271,7 +271,7 @@ router
 
     const current = await findByLogin(user.login)
     if (!current) {
-      // Сессия валидна, но аккаунт исчез (удалён между входом и текущим моментом).
+      // Сессия валидна, но аккаунт исчез (удален между входом и текущим моментом).
       return c.json(
         { ok: false as const, error: 'unauthorized' as const },
         StatusCodes.UNAUTHORIZED,
@@ -329,7 +329,7 @@ router
 
     const updated = await updateProfile(user.sub, { firstName, lastName })
     if (!updated) {
-      // Сессия валидна, но аккаунт исчез (удалён между входом и текущим моментом).
+      // Сессия валидна, но аккаунт исчез (удален между входом и текущим моментом).
       return c.json(
         { ok: false as const, error: 'unauthorized' as const },
         StatusCodes.UNAUTHORIZED,

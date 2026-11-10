@@ -17,7 +17,7 @@ export const pricelistServiceSchema = z.object({
   sectionId: z.number().int(),
   name: z.string(),
   description: z.string().nullable(),
-  // Штучная услуга — в форме записи получает счётчик количества.
+  // Штучная услуга — в форме записи получает счетчик количества.
   countable: z.boolean(),
   priceClass1Min: z.number(),
   priceClass1Max: z.number().nullable(),
@@ -73,7 +73,7 @@ export function servicePriceForClass(svc: ServicePrices, carClass: CarClass): Pr
 }
 
 // Конфликты прайс-листа бывают двух видов: дубль названия раздела и «в разделе
-// ещё есть услуги» (защита удаления). У услуг бывает только вариант с дублем.
+// еще есть услуги» (защита удаления). У услуг бывает только вариант с дублем.
 const pricelistConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
@@ -122,8 +122,8 @@ export const sectionInputSchema = z.object({
 
 export type SectionInput = z.infer<typeof sectionInputSchema>
 
-// Пары имён полей Min/Max для каждого класса кузова — общие для проверки диапазона
-// во входной схеме и для потребителей, которым нужно пройти по всем четырём классам.
+// Пары имен полей Min/Max для каждого класса кузова — общие для проверки диапазона
+// во входной схеме и для потребителей, которым нужно пройти по всем четырем классам.
 export const PRICE_CLASS_FIELDS = [
   ['priceClass1Min', 'priceClass1Max'],
   ['priceClass2Min', 'priceClass2Max'],

@@ -40,7 +40,7 @@ import type { PayoutRow, WorkHoursRow } from '../db/schema.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
-// Числовой path-параметр — тот же приём «формат, затем преобразование», что и в других маршрутах.
+// Числовой path-параметр — тот же прием «формат, затем преобразование», что и в других маршрутах.
 const idParamSchema = z.object({
   id: z
     .string()
@@ -80,7 +80,7 @@ function unavailable(c: Context) {
   )
 }
 
-// not_found → 404, всё остальное → 500. Доменные конфликты
+// not_found → 404, все остальное → 500. Доменные конфликты
 // (no_rate в POST /hours, master_not_found в PATCH /rates) задают свой статус
 // в каждом маршруте и обрабатываются прямо на месте вызова.
 function salaryErrorFallback(c: Context, err: unknown) {
@@ -97,7 +97,7 @@ function salaryErrorFallback(c: Context, err: unknown) {
   )
 }
 
-// not_found → 404; всё остальное неожиданно → 500. Отдельно от
+// not_found → 404; все остальное неожиданно → 500. Отдельно от
 // salaryErrorFallback, чтобы события выплат несли payout_id и собственный тег.
 // Сумма и примечание никогда не логируются.
 function payoutErrorFallback(
@@ -218,7 +218,7 @@ const createWorkHoursRoute = createRoute({
       content: { 'application/json': { schema: workHoursMutationOk } },
     },
     // Собственный 400 обработчика — это предусловие no_rate. Ошибка zod-валидации тела
-    // тоже даёт 400 (через defaultHook) в форме validation — то же соглашение
+    // тоже дает 400 (через defaultHook) в форме validation — то же соглашение
     // «один статус / одна схема», что в reorder у masters (invalid_order).
     400: respNoRate,
     500: respInternal,
@@ -435,7 +435,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     } catch (err) {
       // Единственная доменная ошибка create — no_rate (400). Обрабатывается на месте, а не
       // через salaryErrorFallback, который расширил бы union кодом 404, который этот
-      // маршрут не отдаёт и не объявляет.
+      // маршрут не отдает и не объявляет.
       if (err instanceof SalaryError && err.code === 'no_rate') {
         return c.json(
           { ok: false as const, error: 'validation' as const, reason: 'no_rate' as const },
@@ -517,7 +517,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       )
       return c.json({ ok: true as const, payout: payoutToWire(row) }, StatusCodes.CREATED)
     } catch (err) {
-      // Единственная доменная ошибка create — master_not_found (404); строки ещё
+      // Единственная доменная ошибка create — master_not_found (404); строки еще
       // нет, поэтому пометить сбой payout_id нечем.
       if (err instanceof SalaryError && err.code === 'master_not_found') {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)

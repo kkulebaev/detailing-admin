@@ -53,7 +53,7 @@ describe('verifyHeaders', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('возвращает ok:false с верным column_index, если один заголовок изменён', async () => {
+  it('возвращает ok:false с верным column_index, если один заголовок изменен', async () => {
     const mutated = [...EXPECTED_HEADERS] as string[]
     mutated[8] = 'Готовнсть' // опечатка в столбце I
     mock.spreadsheets.values.get.mockResolvedValue({

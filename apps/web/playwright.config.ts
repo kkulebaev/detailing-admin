@@ -26,7 +26,7 @@ export default defineConfig({
     {
       command: 'pnpm exec vite --port 5174 --strictPort',
       url: WEB_URL,
-      // Vite пересылает сюда каждый console.warn браузера, и отчёт о тестах в них тонет.
+      // Vite пересылает сюда каждый console.warn браузера, и отчет о тестах в них тонет.
       stderr: 'ignore',
       env: { VITE_API_PROXY_TARGET: API_URL },
     },

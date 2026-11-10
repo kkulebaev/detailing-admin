@@ -37,7 +37,7 @@ const {
 } = useClientDetailQuery(clientIdRef)
 
 // Плитки и историю питает только payload с ok:true — устаревшая прямая ссылка,
-// которая вернула not_found/unavailable, никогда не протечёт в них undefined.
+// которая вернула not_found/unavailable, никогда не протечет в них undefined.
 const detail = computed(() => {
   const r = queryData.value
   return r && r.ok ? r : null
@@ -56,7 +56,7 @@ const errorMessage = computed<string | null>(() => {
   return 'Не удалось загрузить карточку клиента'
 })
 
-// Скелетоны только при самой первой загрузке конкретного клиента (данных ещё нет).
+// Скелетоны только при самой первой загрузке конкретного клиента (данных еще нет).
 const isLoading = computed(
   () => asyncStatus.value === 'loading' && queryData.value === undefined && !queryError.value,
 )
@@ -64,9 +64,9 @@ const isLoading = computed(
 // ── Ожидание анимации появления ──────────────────────────────────────────────
 // Диалог проявляется/увеличивается за `duration-200`. На localhost запрос часто
 // завершается внутри этого окна; замена скелетон→детали (машины + 3 плитки + N
-// карточек записей) посреди анимации вызывает тяжёлый layout/paint на анимируемом
+// карточек записей) посреди анимации вызывает тяжелый layout/paint на анимируемом
 // слое. Придерживаем замену контента до конца появления, чтобы она пришлась на
-// свободный кадр; под анимацией вместо этого анимируется дешёвый скелетон.
+// свободный кадр; под анимацией вместо этого анимируется дешевый скелетон.
 const entranceDone = ref(false)
 let entranceTimer: ReturnType<typeof setTimeout> | undefined
 watch(
@@ -189,12 +189,12 @@ const displayName = computed(() => {
           <Button variant="outline" size="sm" class="mt-3" @click="refetch()">Повторить</Button>
         </div>
 
-        <!-- Не найден (устаревшая закладка / клиент удалён между загрузкой списка и кликом). -->
+        <!-- Не найден (устаревшая закладка / клиент удален между загрузкой списка и кликом). -->
         <div v-else-if="notFound" class="p-4">
           <Alert>
             <AlertTitle>Клиент не найден</AlertTitle>
             <AlertDescription>
-              Возможно, он был удалён. Вернитесь к списку клиентов.
+              Возможно, он был удален. Вернитесь к списку клиентов.
             </AlertDescription>
           </Alert>
           <Button variant="outline" size="sm" class="mt-3" @click="close">К списку клиентов</Button>
@@ -224,8 +224,8 @@ const displayName = computed(() => {
             </ul>
           </section>
 
-          <!-- Плитки статистики. «Выручка» — сумма «Выдана» за всё время (реально
-             заработанные деньги) — подписана «за всё время», чтобы отличать её от
+          <!-- Плитки статистики. «Выручка» — сумма «Выдана» за все время (реально
+             заработанные деньги) — подписана «за все время», чтобы отличать ее от
              выручки за период на странице аналитики; «Количество записей»
              считает показанные строки истории (все статусы), поэтому совпадает со списком
              ниже, а не с visitCount только по выданным. Два коротких числа стоят
@@ -233,7 +233,7 @@ const displayName = computed(() => {
           <section class="grid grid-cols-2 gap-3">
             <Card>
               <CardHeader class="p-3">
-                <CardDescription class="text-sm">Выручка за всё время</CardDescription>
+                <CardDescription class="text-sm">Выручка за все время</CardDescription>
                 <CardTitle class="text-xl tabular-nums">
                   {{ formatAmount(detail.stats.totalSpent) }} ₽
                 </CardTitle>

@@ -27,7 +27,7 @@ RUN pnpm -F @detailing-admin/api build
 # `pnpm deploy` — корректный для workspace способ получить только прод-node_modules:
 # `pnpm prune --prod` в монорепах молча сносит симлинки отдельных пакетов
 # (выживает только корневое хранилище .pnpm, и Node не может разрезолвить, например,
-# @hono/node-server из dist/main.js). deploy выдаёт плоскую директорию с
+# @hono/node-server из dist/main.js). deploy выдает плоскую директорию с
 # package.json + node_modules + исходниками/dist пакета, с поднятыми зависимостями.
 FROM builder AS deployer
 

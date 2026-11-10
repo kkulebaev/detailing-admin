@@ -7,7 +7,7 @@ import {
   validationErrorSchema,
 } from './api.js'
 
-// Форма сохранённой записи на проводе, как её отдаёт `GET /api/bookings`. Повторяет
+// Форма сохраненной записи на проводе, как ее отдает `GET /api/bookings`. Повторяет
 // таблицу `bookings` без внутреннего `idempotencyKey`. Даты — ISO-строки
 // (`YYYY-MM-DD`); `createdAt` после JSON-сериализации — ISO datetime.
 export const bookingRowSchema = z.object({
@@ -86,9 +86,9 @@ export type BookingReadinessInput = z.infer<typeof bookingReadinessInputSchema>
 
 // ── Аналитика (GET /api/analytics/overview) ────────────────────────────────
 // Контракт на проводе для страницы аналитики (только для админа). Каждое числовое
-// поле — обычный `number`: API приводит строковые агрегаты, которые отдаёт postgres-js
+// поле — обычный `number`: API приводит строковые агрегаты, которые отдает postgres-js
 // (SUM/COUNT приходят строками), через Number() до сборки ответа — с объявленным
-// типом `number` веб-клиент ведёт арифметику (avgCheck, Δ%, repeatRate, расчёты
+// типом `number` веб-клиент ведет арифметику (avgCheck, Δ%, repeatRate, расчеты
 // графиков), и строковый операнд молча испортил бы результат.
 
 export const analyticsGranularitySchema = z.enum(['day', 'week', 'month'])
@@ -96,7 +96,7 @@ export const analyticsGranularitySchema = z.enum(['day', 'week', 'month'])
 export type AnalyticsGranularity = z.infer<typeof analyticsGranularitySchema>
 
 // Одна точка ряда выручки, дополненного нулями. `revenue` учитывает только записи
-// «Выдана»; `count` — объём (все статусы) в корзине — знаменатели намеренно
+// «Выдана»; `count` — объем (все статусы) в корзине — знаменатели намеренно
 // разные (см. db-слой API).
 export const analyticsSeriesPointSchema = z.object({
   bucket: z.string(),
@@ -107,7 +107,7 @@ export const analyticsSeriesPointSchema = z.object({
 export type AnalyticsSeriesPoint = z.infer<typeof analyticsSeriesPointSchema>
 
 // Строка топа клиентов. Группировка ограничена строками «Выдана», поэтому клиент без
-// выданных машин за период в топ не попадает (а период без выдач даёт пустой топ).
+// выданных машин за период в топ не попадает (а период без выдач дает пустой топ).
 export const analyticsTopClientSchema = z.object({
   clientId: z.string().uuid(),
   name: z.string(),

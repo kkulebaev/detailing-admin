@@ -109,7 +109,7 @@ async function submit() {
       : await createMaster(payload)
 
     if (result.ok) {
-      toast.success(isEdit.value ? 'Мастер обновлён' : 'Мастер добавлен')
+      toast.success(isEdit.value ? 'Мастер обновлен' : 'Мастер добавлен')
       emit('saved')
       emit('update:open', false)
       return
@@ -127,13 +127,13 @@ async function submit() {
       fieldErrors.value = { name: 'Мастер с таким именем уже существует' }
       error.value = 'Мастер с таким именем уже существует'
     } else if (result.error === 'conflict' && result.reason === 'archived_name') {
-      fieldErrors.value = { name: 'Это имя занято удалённым мастером. Укажите другое' }
-      error.value = 'Это имя занято удалённым мастером. Укажите другое'
+      fieldErrors.value = { name: 'Это имя занято удаленным мастером. Укажите другое' }
+      error.value = 'Это имя занято удаленным мастером. Укажите другое'
     } else if (result.error === 'conflict' && result.reason === 'duplicate_user') {
       fieldErrors.value = { userId: 'Этот аккаунт уже привязан к другому мастеру' }
       error.value = 'Этот аккаунт уже привязан к другому мастеру'
     } else if (result.error === 'not_found') {
-      error.value = 'Мастер не найден — возможно, был удалён'
+      error.value = 'Мастер не найден — возможно, был удален'
     } else if (result.error === 'unavailable') {
       error.value = result.message
     } else {

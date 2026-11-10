@@ -93,7 +93,7 @@ describe('createMaster (T2)', () => {
     ).rejects.toBeInstanceOf(MasterError)
   })
 
-  it('вставляет новую строку с position=max+1, если имя ещё не встречалось', async () => {
+  it('вставляет новую строку с position=max+1, если имя еще не встречалось', async () => {
     const { db, capture } = makeFakeDb({
       selectResults: [
         [], // существующей строки нет
@@ -141,7 +141,7 @@ describe('createMaster (T2)', () => {
         [
           {
             id: 10,
-            name: 'Пётр',
+            name: 'Петр',
             position: 1,
             canBeResponsible: true,
             paidSalary: true,
@@ -153,7 +153,7 @@ describe('createMaster (T2)', () => {
     _setDbForTest(db)
 
     const row = await createMaster({
-      name: 'Пётр',
+      name: 'Петр',
       canBeResponsible: true,
       paidSalary: true,
       telegramId: '777',
@@ -167,7 +167,7 @@ describe('createMaster (T2)', () => {
 
 describe('привязка аккаунта', () => {
   const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
-  const input = { name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: null, userId }
+  const input = { name: 'Петр', canBeResponsible: true, paidSalary: true, telegramId: null, userId }
 
   it('бросает unknown_user, если аккаунта нет', async () => {
     // проверка имени → свободно; проверка пользователя → не найден.
@@ -230,7 +230,7 @@ describe('deleteMaster', () => {
 
 describe('имя, занятое архивным мастером', () => {
   const input = {
-    name: 'Пётр',
+    name: 'Петр',
     canBeResponsible: true,
     paidSalary: true,
     telegramId: null,
@@ -246,12 +246,12 @@ describe('имя, занятое архивным мастером', () => {
   it('отклоняется с archived_name при переименовании', async () => {
     const { db } = makeFakeDb({ selectResults: [[{ id: 7, archived: true }]] })
     _setDbForTest(db)
-    await expect(updateMaster(1, { name: 'Пётр' })).rejects.toMatchObject({ code: 'archived_name' })
+    await expect(updateMaster(1, { name: 'Петр' })).rejects.toMatchObject({ code: 'archived_name' })
   })
 })
 
 describe('resolveMasterIds', () => {
-  // Запоминает условие `where` (чтобы проверить параметры) и отдаёт на select
+  // Запоминает условие `where` (чтобы проверить параметры) и отдает на select
   // строки из очереди. `throwingDb` доказывает, что при пустом вводе ранний выход
   // не трогает БД.
   function resolverDb(rows: { id: number; name: string }[], captured: unknown[] = []): Db {
@@ -267,10 +267,10 @@ describe('resolveMasterIds', () => {
     return chain as unknown as Db
   }
 
-  it('сопоставляет с id только найденную часть имён', async () => {
-    _setDbForTest(resolverDb([{ id: 1, name: 'Пётр' }]))
-    const map = await resolveMasterIds(['Пётр', 'Неизвестный'])
-    expect(map.get('Пётр')).toBe(1)
+  it('сопоставляет с id только найденную часть имен', async () => {
+    _setDbForTest(resolverDb([{ id: 1, name: 'Петр' }]))
+    const map = await resolveMasterIds(['Петр', 'Неизвестный'])
+    expect(map.get('Петр')).toBe(1)
     expect(map.has('Неизвестный')).toBe(false)
     expect(map.size).toBe(1)
   })
@@ -287,7 +287,7 @@ describe('resolveMasterIds', () => {
     expect(map.size).toBe(0)
   })
 
-  it('возвращает пустой map, если после отсева имён из одних пробелов ничего не осталось', async () => {
+  it('возвращает пустой map, если после отсева имен из одних пробелов ничего не осталось', async () => {
     const throwingDb = {
       select: () => {
         throw new Error('should not query when nothing to look up')
@@ -298,7 +298,7 @@ describe('resolveMasterIds', () => {
     expect(map.size).toBe(0)
   })
 
-  it('обрезает пробелы и убирает дубли имён до запроса (один параметр на уникальное имя)', async () => {
+  it('обрезает пробелы и убирает дубли имен до запроса (один параметр на уникальное имя)', async () => {
     const captured: unknown[] = []
     _setDbForTest(resolverDb([{ id: 5, name: 'Костя' }], captured))
     await resolveMasterIds(['  Костя  ', 'Костя'])

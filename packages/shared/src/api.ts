@@ -93,7 +93,7 @@ export type ValidationIssue = z.infer<typeof validationIssueSchema>
 export type NotificationResult = z.infer<typeof notificationResultSchema>
 export type BookingApiResult = z.infer<typeof bookingApiResultSchema>
 
-// Устаревший обобщённый алиас — оставлен, чтобы старые места импорта компилировались.
+// Устаревший обобщенный алиас — оставлен, чтобы старые места импорта компилировались.
 // Предпочитайте схемы конкретных роутов рядом с их доменом (напр. clientMutationResponseSchema).
 export type ApiResult<T> =
   | ({ ok: true } & T)

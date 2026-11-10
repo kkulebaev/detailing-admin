@@ -64,8 +64,8 @@ function option(label: string): HTMLElement | undefined {
   return options().find((el) => el.textContent?.trim() === label)
 }
 
-// Gboard: композиция открывается на первом нажатии и остаётся открытой — никакого
-// compositionend, пока пользователь не введёт пробел или не примет подсказку.
+// Gboard: композиция открывается на первом нажатии и остается открытой — никакого
+// compositionend, пока пользователь не введет пробел или не примет подсказку.
 async function composeInto(w: VueWrapper, el: HTMLInputElement, text: string) {
   el.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
   el.value = text

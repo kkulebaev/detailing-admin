@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/sonner'
 import AppLayout from '@/components/AppLayout.vue'
 
 // /login рендерится без сайдбара и обвязки лейаута — пока сессии нет,
-// переходить всё равно некуда.
+// переходить все равно некуда.
 const route = useRoute()
 const isPublic = computed(() => route.meta.public === true)
 </script>

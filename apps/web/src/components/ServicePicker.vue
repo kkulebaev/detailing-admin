@@ -94,7 +94,7 @@ function formatServicePrice(svc: PricelistService): string {
 // По умолчанию — цена класса (нижняя граница для диапазонов).
 const rawPrices = ref<Record<number, string>>({})
 
-// Количество по услугам, ключ — id услуги. Счётчик есть только у «штучных»
+// Количество по услугам, ключ — id услуги. Счетчик есть только у «штучных»
 // услуг; по умолчанию у каждой 1, а сумма строки — цена за единицу
 // × количество.
 const quantities = ref<Record<number, number>>({})
@@ -116,7 +116,7 @@ function decQty(id: number) {
   setQty(id, qtyFor(id) - 1)
 }
 
-// Сумма строки (цена за единицу × количество) для выбранной услуги — из неё
+// Сумма строки (цена за единицу × количество) для выбранной услуги — из нее
 // строятся и подсказка «N × цена = сумма», и эмитимый итог.
 function lineTotal(id: number): number {
   const unit = parseInt(priceDigits(rawPrices.value[id] ?? ''), 10) || 0
@@ -202,7 +202,7 @@ function emitModelValue() {
 }
 
 // Восстанавливает выбор из CSV родителя (например, при восстановлении черновика
-// или clearForm). Несовпавшие названия отбрасываются — затем отдаём обратно
+// или clearForm). Несовпавшие названия отбрасываются — затем отдаем обратно
 // канонический CSV, чтобы значение формы отражало то, что реально можно выбрать.
 function syncSelectionFromString() {
   if (sections.value.length === 0) return
@@ -324,7 +324,7 @@ function pluralize(n: number, forms: [string, string, string]): string {
 // данные.
 //
 // Зачем одноразовый guard: Colada по умолчанию перезапрашивает при фокусе, и
-// каждый перезапрос даёт новую ссылку `sections`. Без guard'а каждая
+// каждый перезапрос дает новую ссылку `sections`. Без guard'а каждая
 // фокусировка заново переводила бы (возможно, устаревший) CSV родителя в
 // `selectedIds`, споря с только что сделанными локальными правками.
 let synced = false
@@ -388,7 +388,7 @@ watch(() => props.modelValue, syncSelectionFromString)
           <CommandInput placeholder="Найти услугу…" />
           <CommandList>
             <CommandEmpty>
-              Услуга не найдена. Добавьте её в
+              Услуга не найдена. Добавьте ее в
               <router-link to="/pricelist" class="underline">прайс-лист</router-link>.
             </CommandEmpty>
             <CommandGroup v-for="sec in sections" :key="sec.id" :heading="sec.name">
@@ -420,7 +420,7 @@ watch(() => props.modelValue, syncSelectionFromString)
          компоненту componentField из vee-validate, его проброшенные DOM-обработчики
          `onInput`/`onChange` на корневом div поймают всплывающие из полей цены
          события (input при вводе, change на blur) и перезапишут значение
-         `service` формы введённой ценой. -->
+         `service` формы введенной ценой. -->
     <div v-if="selectedIds.length" class="mt-3 space-y-3" @input.stop @change.stop>
       <fieldset
         v-for="group in selectedGroups"
@@ -432,19 +432,19 @@ watch(() => props.modelValue, syncSelectionFromString)
         </legend>
         <div>
           <div v-for="s in group.rows" :key="s.id" class="px-3 py-2">
-            <!-- Всё в один ряд: название (сжимается и переносится) + счётчик +
+            <!-- Все в один ряд: название (сжимается и переносится) + счетчик +
                  цена + удаление. Контролы облегчены, чтобы уместиться на 375px. -->
             <div class="flex items-center gap-1.5">
               <!-- line-clamp-2 + break-words: длинные названия штучных услуг
                    (напр. «Ремни безопасности 1 шт.») в узкой колонке рядом со
-                   счётчиком не влезают — обрезаем до 2 строк с многоточием,
+                   счетчиком не влезают — обрезаем до 2 строк с многоточием,
                    полное название доступно в title. -->
               <span
                 class="flex-1 min-w-0 text-xs leading-tight line-clamp-2 break-words"
                 :title="s.name"
                 >{{ s.name }}</span
               >
-              <!-- Штучная услуга: счётчик количества. Цена в поле справа — за единицу. -->
+              <!-- Штучная услуга: счетчик количества. Цена в поле справа — за единицу. -->
               <div
                 v-if="s.countable"
                 class="inline-flex h-8 shrink-0 items-center rounded-md border border-input"

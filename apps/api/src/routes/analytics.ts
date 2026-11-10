@@ -17,7 +17,7 @@ import { defaultValidationHook } from '../openapi.js'
 type Vars = { requestId: string }
 
 const overviewQuerySchema = z.object({
-  // UI шлёт DD.MM.YYYY; до слоя БД переводим в ISO. Неверный формат — 400.
+  // UI шлет DD.MM.YYYY; до слоя БД переводим в ISO. Неверный формат — 400.
   from: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/),
   to: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/),
   granularity: z.enum(['day', 'week', 'month']).default('day'),
@@ -119,7 +119,7 @@ function enumerateBuckets(fromIso: string, toIso: string, g: AnalyticsGranularit
 function mapTop(t: RawTopClient) {
   return {
     // Non-null assertion: INNER JOIN по clients гарантирует связанный id клиента
-    // (столбец nullable, но null никогда не прошёл бы join).
+    // (столбец nullable, но null никогда не прошел бы join).
     clientId: t.clientId!,
     name: t.name,
     phone: t.phone,

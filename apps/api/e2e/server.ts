@@ -1,6 +1,6 @@
 // Настоящий API на настоящем Postgres для Playwright: подменены только Sheets и Telegram.
 // Все переменные задаются здесь, а не читаются из `.env`, поэтому у прогона нет
-// учётных данных, способных дотянуться до настоящей таблицы, бота или базы.
+// учетных данных, способных дотянуться до настоящей таблицы, бота или базы.
 import { serve } from '@hono/node-server'
 import postgres from 'postgres'
 import { EXPECTED_HEADERS } from '@detailing-admin/shared'
@@ -72,7 +72,7 @@ await account('e2e-booker', 'booker')
 const employee = await account('e2e-employee', 'employee')
 
 await createMaster({
-  name: 'Мастер Пётр',
+  name: 'Мастер Петр',
   canBeResponsible: true,
   paidSalary: true,
   telegramId: '100',
@@ -90,7 +90,7 @@ await createService({
 })
 
 const app = createApp()
-// Даёт спекам проверить, что дошло до фейков. Есть только в этой точке входа.
+// Дает спекам проверить, что дошло до фейков. Есть только в этой точке входа.
 app.get('/__e2e/state', (c) => c.json({ sheetRows, telegramMessages }))
 
 serve({ fetch: app.fetch, port: PORT })

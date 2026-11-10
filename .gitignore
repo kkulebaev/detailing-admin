@@ -21,7 +21,7 @@ packages/shared/src/**/*.js
 !apps/web/src/vite-env.d.ts
 **/*.tsbuildinfo
 
-# Файлы сервисного аккаунта / учётных данных (никогда не коммитить)
+# Файлы сервисного аккаунта / учетных данных (никогда не коммитить)
 service-account*.json
 *-credentials.json
 *.pem

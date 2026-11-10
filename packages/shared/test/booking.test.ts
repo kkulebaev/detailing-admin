@@ -35,13 +35,13 @@ describe('bookingSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('transform телефона даёт канонический вид E.164', () => {
+  it('transform телефона дает канонический вид E.164', () => {
     const result = bookingSchema.safeParse({ ...validBase, phone: '8 999 123 45 67' })
     assert(result.success)
     expect(result.data.phone).toBe('+79991234567')
   })
 
-  it('мусор в телефоне даёт ZodIssue по пути ["phone"]', () => {
+  it('мусор в телефоне дает ZodIssue по пути ["phone"]', () => {
     const result = bookingSchema.safeParse({ ...validBase, phone: '123' })
     assert(!result.success)
     const phoneIssue = result.error.issues.find(
@@ -121,22 +121,22 @@ describe('bookingSchema', () => {
   it('принимает произвольное имя мастера вне прежнего enum', () => {
     const result = bookingSchema.safeParse({
       ...validBase,
-      master: ['Пётр Новый'],
-      responsible: 'Пётр Новый',
+      master: ['Петр Новый'],
+      responsible: 'Петр Новый',
     })
     expect(result.success).toBe(true)
   })
 
   it('принимает несколько мастеров', () => {
-    const result = bookingSchema.safeParse({ ...validBase, master: ['Иван', 'Пётр'] })
+    const result = bookingSchema.safeParse({ ...validBase, master: ['Иван', 'Петр'] })
     assert(result.success)
-    expect(result.data.master).toEqual(['Иван', 'Пётр'])
+    expect(result.data.master).toEqual(['Иван', 'Петр'])
   })
 
   it('убирает повторы мастеров, сохраняя порядок первого вхождения', () => {
-    const result = bookingSchema.safeParse({ ...validBase, master: ['Пётр', 'Иван', 'Пётр'] })
+    const result = bookingSchema.safeParse({ ...validBase, master: ['Петр', 'Иван', 'Петр'] })
     assert(result.success)
-    expect(result.data.master).toEqual(['Пётр', 'Иван'])
+    expect(result.data.master).toEqual(['Петр', 'Иван'])
   })
 
   it('отклоняет больше MAX_MASTERS мастеров', () => {

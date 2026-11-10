@@ -87,7 +87,7 @@ const NOW = new Date('2026-10-26T09:00:00.000Z')
 
 const MASTER = {
   id: 4,
-  name: 'Пётр',
+  name: 'Петр',
   position: 0,
   canBeResponsible: true,
   paidSalary: true,
@@ -157,7 +157,7 @@ describe('/api/me', () => {
     expect(vi.mocked(listMasterEntries)).toHaveBeenCalledWith(MASTER.id, '2026-10')
     expect(body).toMatchObject({
       ok: true,
-      master: { id: MASTER.id, name: 'Пётр' },
+      master: { id: MASTER.id, name: 'Петр' },
       hourlyRate: 300,
       totalMinutes: 570,
       hoursSalary: 2850,
@@ -293,13 +293,13 @@ describe('/api/users', () => {
     expect(vi.mocked(listAccounts)).not.toHaveBeenCalled()
   })
 
-  it('отдаёт админу список аккаунтов', async () => {
+  it('отдает админу список аккаунтов', async () => {
     const accounts = [
       {
         id: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f',
         login: 'petr',
         role: 'employee' as const,
-        firstName: 'Пётр',
+        firstName: 'Петр',
         lastName: '',
       },
     ]

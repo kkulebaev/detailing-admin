@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildMonthOptions, currentMonthKey, MONTH_NAMES } from '@/lib/month-options'
 
 describe('buildMonthOptions', () => {
-  it('охватывает скользящее окно от новых к старым (1 вперёд … 12 назад = 14 месяцев)', () => {
+  it('охватывает скользящее окно от новых к старым (1 вперед … 12 назад = 14 месяцев)', () => {
     const opts = buildMonthOptions()
     expect(opts).toHaveLength(14)
     // Сначала новые: каждое значение строго больше следующего.
@@ -11,7 +11,7 @@ describe('buildMonthOptions', () => {
     }
   })
 
-  it('выдаёт значения YYYY-MM с подписями месяцев в ru-RU', () => {
+  it('выдает значения YYYY-MM с подписями месяцев в ru-RU', () => {
     const opts = buildMonthOptions()
     for (const o of opts) {
       expect(o.value).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/)

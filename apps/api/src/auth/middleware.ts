@@ -3,7 +3,7 @@ import { StatusCodes, canCreateBookings, canEditBookings, type Role } from '@det
 import { getAuthToken } from './cookie.js'
 import { verifyToken, type AuthTokenClaims } from './jwt.js'
 
-// Дополняет каждый контекст Hono декодированной сессией. Её кладёт `requireAuth`,
+// Дополняет каждый контекст Hono декодированной сессией. Ее кладет `requireAuth`,
 // последующие обработчики читают через `c.get('user')`.
 declare module 'hono' {
   interface ContextVariableMap {

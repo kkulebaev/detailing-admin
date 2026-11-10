@@ -29,7 +29,7 @@ beforeEach(() => {
 })
 
 describe('auth-guard роутера', () => {
-  it('уводит анонимного посетителя с защищённого маршрута на /login', async () => {
+  it('уводит анонимного посетителя с защищенного маршрута на /login', async () => {
     meMock.mockResolvedValue({ ok: false, error: 'unauthorized' })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/clients')
@@ -44,7 +44,7 @@ describe('auth-guard роутера', () => {
     expect(router.currentRoute.value.name).toBe('employee')
   })
 
-  it('пускает подходящую роль на защищённый маршрут', async () => {
+  it('пускает подходящую роль на защищенный маршрут', async () => {
     meMock.mockResolvedValue({ ok: true, user: admin() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/clients')

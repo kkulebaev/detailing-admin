@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, nextTick, type Ref } from 'vue'
 import type { Client, ClientLookupMatch } from '@/lib/clients-api'
 
-// Перехватываем ref `e164`, который composable передаёт в запрос, и отдаём
+// Перехватываем ref `e164`, который composable передает в запрос, и отдаем
 // управляемый ref `data` — так проверяются фильтрация телефона и проброс данных
-// в composable без поднятия pinia-colada. Тихая обработка ошибок живёт
+// в composable без поднятия pinia-colada. Тихая обработка ошибок живет
 // в `lookupClientByPhone` (покрыта отдельно).
 let capturedE164: Ref<string | null> | null = null
 const data = ref<ClientLookupMatch | null>(null)
@@ -32,13 +32,13 @@ describe('useClientLookup', () => {
     data.value = null
   })
 
-  it('для полного телефона по маске передаёт в запрос нормализованный E.164', () => {
+  it('для полного телефона по маске передает в запрос нормализованный E.164', () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
     useClientLookup(phoneRaw)
     expect(capturedE164?.value).toBe('+79161234567')
   })
 
-  it('отдаёт найденного клиента и его сводку из данных запроса', async () => {
+  it('отдает найденного клиента и его сводку из данных запроса', async () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
     const { matchedClient, matchedClientSummary } = useClientLookup(phoneRaw)
     const summary = { visitCount: 1, lastVisit: '2026-09-12', lastService: 'Мойка', missed: null }
@@ -48,7 +48,7 @@ describe('useClientLookup', () => {
     expect(matchedClientSummary.value).toEqual(summary)
   })
 
-  it('оставляет e164 равным null для неполного телефона (запрос остаётся выключенным)', () => {
+  it('оставляет e164 равным null для неполного телефона (запрос остается выключенным)', () => {
     const phoneRaw = ref('+7 (916) 12')
     const { matchedClient } = useClientLookup(phoneRaw)
     expect(capturedE164?.value).toBeNull()
@@ -61,7 +61,7 @@ describe('useClientLookup', () => {
     expect(capturedE164?.value).toBeNull()
   })
 
-  it('возвращает null, если запрос ничего не нашёл', () => {
+  it('возвращает null, если запрос ничего не нашел', () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
     const { matchedClient } = useClientLookup(phoneRaw)
     expect(matchedClient.value).toBeNull()

@@ -15,7 +15,7 @@ describe('orvalFetch', () => {
 
   beforeEach(() => {
     // Свежий реестр модулей на каждый тест: `unauthorizedHandler` — изменяемое
-    // состояние уровня модуля (задаётся через `setUnauthorizedHandler`), и тесты
+    // состояние уровня модуля (задается через `setUnauthorizedHandler`), и тесты
     // не должны видеть обработчик, зарегистрированный предыдущим тестом.
     vi.resetModules()
     fetchMock = vi.fn()
@@ -36,7 +36,7 @@ describe('orvalFetch', () => {
     )
   })
 
-  it('вызывает unauthorized-обработчик на 401 вне путей, освобождённых от авторизации', async () => {
+  it('вызывает unauthorized-обработчик на 401 вне путей, освобожденных от авторизации', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(StatusCodes.UNAUTHORIZED, { ok: false, error: 'unauthorized' }),
     )

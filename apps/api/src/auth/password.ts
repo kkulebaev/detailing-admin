@@ -1,6 +1,6 @@
 import { randomBytes, scrypt as scryptCb, timingSafeEqual, type ScryptOptions } from 'node:crypto'
 
-// Промис-обёртка написана руками, а не через promisify(): promisify берёт только
+// Промис-обертка написана руками, а не через promisify(): promisify берет только
 // 3-аргументную перегрузку scrypt и теряет параметр `options` (N/r/p).
 function scrypt(
   password: string,
@@ -17,7 +17,7 @@ function scrypt(
 }
 
 // Нижняя граница на 2026 год. Параметры хранятся прямо в хэше, поэтому после будущего
-// повышения старые хэши всё равно проверяются (каждый хэш несёт свои N/r/p).
+// повышения старые хэши все равно проверяются (каждый хэш несет свои N/r/p).
 const N = 16384
 const R = 8
 const P = 1
@@ -25,7 +25,7 @@ const KEYLEN = 64
 const SALT_BYTES = 16
 
 // N=16384,r=8,p=1 требует ~16 МБ; дефолтного maxmem в Node (32 МБ) хватает, но
-// передаём его явно, чтобы будущее повышение параметров не начало молча бросать ошибки.
+// передаем его явно, чтобы будущее повышение параметров не начало молча бросать ошибки.
 const MAXMEM = 64 * 1024 * 1024
 
 async function derive(password: string, salt: Buffer, keylen: number): Promise<Buffer> {
@@ -49,7 +49,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
   const salt = Buffer.from(saltHex, 'hex')
   const expected = Buffer.from(hashHex, 'hex')
-  // Выводим ключ длины сохранённого хэша, чтобы timingSafeEqual получил буферы
+  // Выводим ключ длины сохраненного хэша, чтобы timingSafeEqual получил буферы
   // одинаковой длины (при несовпадении он бросает ошибку), а старые хэши с другим
   // keylen по-прежнему проверялись.
   const actual = await scrypt(password, salt, expected.length, {

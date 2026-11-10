@@ -81,7 +81,7 @@ function formatHours(minutes: number): string {
 }
 
 // Без округления по строке, как в подробностях у админа: итог месяца
-// округляется один раз, и округлённые строки не сложились бы в «За часы».
+// округляется один раз, и округленные строки не сложились бы в «За часы».
 function formatEntryAmount(minutes: number, rate: number): string {
   return ((minutes * rate) / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
@@ -201,7 +201,7 @@ async function confirmDelete() {
         </div>
 
         <p v-if="salary && salary.hourlyRate == null" class="mb-4 text-sm text-muted-foreground">
-          Ставка ещё не задана — внести часы можно будет после того, как администратор её укажет.
+          Ставка еще не задана — внести часы можно будет после того, как администратор ее укажет.
         </p>
 
         <section class="mb-6 grid grid-cols-2 gap-3">

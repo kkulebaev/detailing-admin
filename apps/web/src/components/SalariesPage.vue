@@ -69,7 +69,7 @@ const rows = computed<SalaryRow[]>(() => {
   return r?.ok ? r.rows : []
 })
 
-// Месяц, который реально описывают строки на экране; отстаёт от `month`, пока
+// Месяц, который реально описывают строки на экране; отстает от `month`, пока
 // placeholderData держит на экране предыдущий месяц.
 const dataMonth = computed(() => (queryData.value?.ok ? queryData.value.month : ''))
 
@@ -116,7 +116,7 @@ function formatHours(minutes: number): string {
   return minutesToHours(minutes).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
 
-// "2026-01-22" → "22 января 2026 г." Date на локальную полночь не даёт дню съехать из-за UTC.
+// "2026-01-22" → "22 января 2026 г." Date на локальную полночь не дает дню съехать из-за UTC.
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   if (!y || !m || !d) return iso
@@ -174,7 +174,7 @@ watch(
   { immediate: true },
 )
 
-// Свёрнутая строка спрятала бы только что добавленную запись: итоги в строке
+// Свернутая строка спрятала бы только что добавленную запись: итоги в строке
 // мастера обновились бы, а сама запись осталась бы вне поля зрения.
 function ensureExpanded(masterId: number) {
   if (expanded.value.has(masterId)) return
@@ -246,7 +246,7 @@ async function onPayoutSaved(masterId: number) {
 }
 
 // ── Правка из ленты подробностей ───────────────────────────────────────────────
-// Лента — один список обоих видов; страница направляет каждую запись в её диалог.
+// Лента — один список обоих видов; страница направляет каждую запись в ее диалог.
 function openEditEntry(entry: SalaryEntry) {
   const master = rows.value.find((r) => r.masterId === entry.masterId)
   if (entry.kind === 'hours') {
@@ -303,7 +303,7 @@ async function confirmDelete() {
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Зарплаты</h1>
 
-        <!-- Подпись берётся из `dataMonth`, а не `month`: пока на экране ещё прошлый
+        <!-- Подпись берется из `dataMonth`, а не `month`: пока на экране еще прошлый
              месяц, она говорит, к какому месяцу относится это число. -->
         <div v-if="!error" class="flex flex-col items-end gap-1">
           <span class="text-xs text-muted-foreground">
@@ -457,9 +457,9 @@ async function confirmDelete() {
                 </TableCell>
                 <TableCell class="px-4 align-middle text-right">
                   <div class="inline-flex gap-1">
-                    <!-- Ставки ещё нет: без неё часы не внести, поэтому строка
-                         предлагает её задать вместо мёртвого отключённого «+».
-                         Выплате ставка не нужна, так что её кнопка есть всегда. -->
+                    <!-- Ставки еще нет: без нее часы не внести, поэтому строка
+                         предлагает ее задать вместо мертвого отключенного «+».
+                         Выплате ставка не нужна, так что ее кнопка есть всегда. -->
                     <Button
                       v-if="row.hourlyRate == null"
                       variant="outline"
@@ -489,7 +489,7 @@ async function confirmDelete() {
                     >
                       <Coins class="size-3.5" />
                     </Button>
-                    <!-- Намеренно вне ветки со ставкой: у мастера без ставки всё равно
+                    <!-- Намеренно вне ветки со ставкой: у мастера без ставки все равно
                          могут быть выплаты, и строку нужно уметь сворачивать. -->
                     <Button
                       variant="ghost"

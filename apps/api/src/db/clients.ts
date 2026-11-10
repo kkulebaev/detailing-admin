@@ -27,7 +27,7 @@ export interface ListClientsParams {
   limit: number
   offset: number
   /** Свободный поиск по имени/телефону/машине. Похожий на телефон запрос нормализуется
-   * в E.164 перед сравнением с сохранённым (E.164) телефоном; ветка машин сравнивает
+   * в E.164 перед сравнением с сохраненным (E.164) телефоном; ветка машин сравнивает
    * марку/модель и госномер в `client_cars`. */
   q?: string
   /** Столбец сортировки. По умолчанию — имя. */
@@ -45,7 +45,7 @@ export async function listClients(
   if (q) {
     const textLike = `%${q}%`
     // Телефон хранится в E.164, а сотрудники вводят `8XXX`; нормализуем, чтобы поиск
-    // по телефону всё равно находил. На не-телефоне normalizePhone бросает ошибку — тогда
+    // по телефону все равно находил. На не-телефоне normalizePhone бросает ошибку — тогда
     // откатываемся к сравнению по сырому тексту.
     let phoneLike = textLike
     try {
@@ -56,7 +56,7 @@ export async function listClients(
     }
     // Машины лежат в дочерней таблице с *нормализованным* ключом, поэтому запрос
     // перед сравнением нормализуется так же — госномер хранится без пробелов,
-    // и сырой «А 123 АА 77» никогда не нашёл бы «А123АА77».
+    // и сырой «А 123 АА 77» никогда не нашел бы «А123АА77».
     const carLike = `%${normalizeCarKey(q)}%`
     const plateLike = `%${normalizeCarKey(q, true)}%`
     where = or(
@@ -136,7 +136,7 @@ export async function upsertClient(phone: string, name: string): Promise<UpsertR
   return { outcome: 'unchanged', client: after ?? null }
 }
 
-// Возвращает сохранённого клиента вместе с его актуальными машинами (после синхронизации),
+// Возвращает сохраненного клиента вместе с его актуальными машинами (после синхронизации),
 // чтобы маршрут мог вернуть согласованный набор обратно в диалог.
 export async function createClient(
   phone: string,
@@ -182,7 +182,7 @@ export async function getClientByPhone(phone: string): Promise<Client | null> {
   return row ?? null
 }
 
-// Агрегаты за всё время только по «Выдана» для карточки клиента. Тот же предикат
+// Агрегаты за все время только по «Выдана» для карточки клиента. Тот же предикат
 // REVENUE_READINESS, что в аналитике (а не литерал, захардкоженный дважды), но без окна периода.
 // postgres-js возвращает SUM/COUNT строками → Number(); MAX/MIN(date_from) приходят
 // как 'YYYY-MM-DD' (или null). Оговорка: date_from — плановая дата услуги, а не факт
@@ -211,7 +211,7 @@ export async function getClientStats(clientId: string): Promise<ClientStats> {
 
 export async function deleteClient(id: string): Promise<void> {
   const db = getDb()
-  // На этого клиента ещё ссылается FK записи (bookings.client_id) — Postgres
+  // На этого клиента еще ссылается FK записи (bookings.client_id) — Postgres
   // отклонил бы удаление. Отказываем явно, чтобы маршрут мог вернуть 409, а не
   // общий 500; зеркало записей сохраняется намеренно.
   const [linked] = await db

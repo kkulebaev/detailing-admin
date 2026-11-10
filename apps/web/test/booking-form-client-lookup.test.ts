@@ -102,9 +102,9 @@ describe('BookingForm — автозаполнение клиента', () => {
     await expect.element(page.getByText('Найден клиент с именем: Иван')).toBeVisible()
   })
 
-  it('при совпадении перезаписывает имя, уже введённое оператором', async () => {
+  it('при совпадении перезаписывает имя, уже введенное оператором', async () => {
     await mountReadyForm()
-    await nameField().fill('Пётр')
+    await nameField().fill('Петр')
     matched.value = client
     await expect.element(nameField()).toHaveValue('Иван')
   })
@@ -116,7 +116,7 @@ describe('BookingForm — автозаполнение клиента', () => {
     await expect.element(plateField()).toHaveValue('А123АА777')
   })
 
-  it('переключает «Марка и модель» на другую машину по тапу на её чип', async () => {
+  it('переключает «Марка и модель» на другую машину по тапу на ее чип', async () => {
     await mountReadyForm()
     matched.value = client
     // Первая машина (Toyota) подставлена сама; тапаем чип второй, чтобы переключиться.
@@ -135,7 +135,7 @@ describe('BookingForm — автозаполнение клиента', () => {
     await expect.element(carChip('Toyota Camry')).not.toBeInTheDocument()
   })
 
-  it('без совпадения не показывает подсказку и чипы, а отправка остаётся доступной', async () => {
+  it('без совпадения не показывает подсказку и чипы, а отправка остается доступной', async () => {
     await mountReadyForm()
     await expect.element(page.getByText(/Найден клиент/)).not.toBeInTheDocument()
     await expect.element(carChip('Toyota Camry')).not.toBeInTheDocument()
@@ -146,10 +146,10 @@ describe('BookingForm — автозаполнение клиента', () => {
   it('при совпадении перезаписывает имя из восстановленного черновика и показывает чипы', async () => {
     localStorage.setItem(
       DRAFT_KEY,
-      JSON.stringify({ phoneRaw: '+7 (916) 123-45-67', name: 'Пётр' }),
+      JSON.stringify({ phoneRaw: '+7 (916) 123-45-67', name: 'Петр' }),
     )
     await mountReadyForm()
-    await expect.element(nameField()).toHaveValue('Пётр')
+    await expect.element(nameField()).toHaveValue('Петр')
     matched.value = client
     await expect.element(nameField()).toHaveValue('Иван')
     await expect.element(carChip('Toyota Camry')).toBeVisible()
@@ -179,7 +179,7 @@ describe('BookingForm — автозаполнение клиента', () => {
     expect(w.findComponent(RouterLinkStub).exists()).toBe(false)
   })
 
-  it('сообщает, если у известного клиента ещё нет завершённых визитов', async () => {
+  it('сообщает, если у известного клиента еще нет завершенных визитов', async () => {
     await mountReadyForm()
     matched.value = client
     summary.value = {
@@ -189,7 +189,7 @@ describe('BookingForm — автозаполнение клиента', () => {
       lastService: null,
       missed: null,
     }
-    await expect.element(page.getByText('Завершённых визитов ещё не было')).toBeVisible()
+    await expect.element(page.getByText('Завершенных визитов еще не было')).toBeVisible()
     await expect.element(page.getByText(/Потрачено/)).not.toBeInTheDocument()
   })
 

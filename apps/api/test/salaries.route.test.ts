@@ -140,7 +140,7 @@ describe('/api/salaries', () => {
     expect(vi.mocked(listSalaries)).not.toHaveBeenCalled()
   })
 
-  it('GET отдаёт зарплаты за месяц → 200', async () => {
+  it('GET отдает зарплаты за месяц → 200', async () => {
     vi.mocked(listSalaries).mockResolvedValue([
       {
         masterId: 1,
@@ -171,7 +171,7 @@ describe('/api/salaries', () => {
     expect(vi.mocked(listSalaries)).not.toHaveBeenCalled()
   })
 
-  it('PATCH /rates задаёт ставку методом PATCH → 200', async () => {
+  it('PATCH /rates задает ставку методом PATCH → 200', async () => {
     vi.mocked(setMasterRate).mockResolvedValue(undefined)
     const res = await req('/rates', 'PATCH', { masterId: 1, hourlyRate: 500 })
     expect(res.status).toBe(200)
@@ -231,7 +231,7 @@ describe('/api/salaries', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
-    // Сначала выплата за 05.07; за 10.07 строка часов идёт раньше выплаты.
+    // Сначала выплата за 05.07; за 10.07 строка часов идет раньше выплаты.
     expect(body.entries.map((e: { kind: string; id: number }) => [e.kind, e.id])).toEqual([
       ['payout', 9],
       ['hours', 5],
@@ -378,7 +378,7 @@ describe('/api/salaries', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(body.payout.amount).toBe(3000)
-    // masterId при редактировании не передаётся.
+    // masterId при редактировании не передается.
     expect(vi.mocked(updatePayout)).toHaveBeenCalledWith(9, { amount: 3000, note: 'премия' })
   })
 

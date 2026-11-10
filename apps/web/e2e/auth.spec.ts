@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { login, PASSWORD } from './helpers'
 
-test('отклоняет неверный пароль и остаётся на странице входа', async ({ page }) => {
+test('отклоняет неверный пароль и остается на странице входа', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('Логин', { exact: true }).fill('e2e-admin')
   await page.getByLabel('Пароль', { exact: true }).fill(`${PASSWORD}-wrong`)
@@ -22,7 +22,7 @@ test('после входа возвращает на запрошенную с�
   await expect(page).toHaveURL(/\/clients$/)
 })
 
-test('сохраняет сессию после перезагрузки и завершает её при выходе', async ({ page }) => {
+test('сохраняет сессию после перезагрузки и завершает ее при выходе', async ({ page }) => {
   await login(page, 'e2e-admin')
   await page.reload()
   await expect(page).not.toHaveURL(/\/login/)

@@ -7,7 +7,7 @@ test('сотрудник попадает на свои часы и не мож�
   await login(page, 'e2e-employee')
   await expect(page).toHaveURL(/\/employee$/)
   await expect(page.getByRole('heading', { name: 'Мои часы' })).toBeVisible()
-  await expect(page.getByText('Мастер Пётр')).toBeVisible()
+  await expect(page.getByText('Мастер Петр')).toBeVisible()
 
   await page.goto('/')
   await expect(page).toHaveURL(/\/employee$/)

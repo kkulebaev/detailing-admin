@@ -1,7 +1,7 @@
 import { defineConfig } from 'orval'
 
 // Генерирует типизированный клиент на `fetch` из документа OpenAPI, закоммиченного
-// в apps/web/openapi.json. Сам документ создаёт
+// в apps/web/openapi.json. Сам документ создает
 // `pnpm --filter @detailing-admin/api gen:openapi` — перегенерируйте его при любом
 // изменении роута, схемы запроса или ответа, затем запустите `pnpm gen:client`.
 //
@@ -20,7 +20,7 @@ export default defineConfig({
       clean: true,
       baseUrl: '',
       override: {
-        // Генерируем `type X = 'A' | 'B'` / `type X = 1 | 2 | 3 | 4` вместо приёма
+        // Генерируем `type X = 'A' | 'B'` / `type X = 1 | 2 | 3 | 4` вместо приема
         // по умолчанию `const X = { ... } as const` + `typeof X[keyof typeof X]` —
         // мы никогда не обращаемся к рантайм-объекту констант напрямую.
         enumGenerationType: 'union',

@@ -145,7 +145,7 @@ describe('upsertClientCarReturningId', () => {
     })
   })
 
-  it('при конфликте берёт существующий id, сопоставляя по тому же нормализованному ключу', async () => {
+  it('при конфликте берет существующий id, сопоставляя по тому же нормализованному ключу', async () => {
     const { db, captured } = makeUpsertConflictDb([{ id: 'existing-car-id' }])
     _setDbForTest(db)
 
@@ -154,8 +154,8 @@ describe('upsertClientCarReturningId', () => {
     expect(id).toBe('existing-car-id')
     // Insert записал нормализованные значения…
     expect(captured.insertValues).toMatchObject({ makeModel: 'Toyota Camry', plate: 'А123АА77' })
-    // …и select-fallback идёт по тем же нормализованным колонкам (иначе id никогда
-    // не нашёлся бы). Отрендеренный SQL несёт нормализованные параметры.
+    // …и select-fallback идет по тем же нормализованным колонкам (иначе id никогда
+    // не нашелся бы). Отрендеренный SQL несет нормализованные параметры.
     const rendered = new PgDialect().sqlToQuery(captured.selectWhere as never)
     expect(rendered.params).toContain('Toyota Camry')
     expect(rendered.params).toContain('А123АА77')
@@ -330,7 +330,7 @@ describe('syncClientCars', () => {
       { makeModel: 'Kia Rio', plate: '' },
     ])
 
-    // Toyota остаётся → повторно не вставляется; вставляется только Kia.
+    // Toyota остается → повторно не вставляется; вставляется только Kia.
     expect(captured.insertValues).toEqual([
       { clientId: CLIENT_ID, makeModel: 'Kia Rio', plate: '' },
     ])

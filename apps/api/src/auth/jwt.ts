@@ -11,7 +11,7 @@ export interface AuthTokenClaims {
   // токен перевыпускается при правке профиля, чтобы изменение было видно без перелогина.
   firstName: string
   lastName: string
-  // Unix-секунды последней смены пароля аккаунта. Передаётся уже сейчас, чтобы будущий
+  // Unix-секунды последней смены пароля аккаунта. Передается уже сейчас, чтобы будущий
   // механизм отзыва мог отклонять токены, выпущенные до сброса пароля, без миграции
   // формата токена (план авторизации, §3, вариант C).
   pwdChangedAt: number
@@ -38,7 +38,7 @@ export async function signToken(claims: AuthTokenClaims): Promise<string> {
   return sign(payload, env.JWT_SECRET, 'HS256')
 }
 
-/** Возвращает claims валидного неистёкшего токена; `null` при любой ошибке. */
+/** Возвращает claims валидного неистекшего токена; `null` при любой ошибке. */
 export async function verifyToken(token: string): Promise<AuthTokenClaims | null> {
   try {
     const payload = await verify(token, env.JWT_SECRET, 'HS256')
@@ -65,7 +65,7 @@ export async function verifyToken(token: string): Promise<AuthTokenClaims | null
       remember: payload.remember === true,
     }
   } catch {
-    // Истёк / плохая подпись / битый формат — всё сводится к «нет сессии».
+    // Истек / плохая подпись / битый формат — все сводится к «нет сессии».
     return null
   }
 }

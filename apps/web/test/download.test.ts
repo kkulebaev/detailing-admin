@@ -32,7 +32,7 @@ describe('downloadFile', () => {
     vi.restoreAllMocks()
   })
 
-  it('делает fetch с credentials, создаёт object URL и кликает по ссылке скачивания', async () => {
+  it('делает fetch с credentials, создает object URL и кликает по ссылке скачивания', async () => {
     fetchMock.mockResolvedValue(okBlobResponse())
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 

@@ -40,9 +40,9 @@ function formatPhone(input: string, isDeleting = false): string {
   return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8)}`
 }
 
-// Считает значащие цифры (всё после поглощённого ведущего префикса 7/8),
+// Считает значащие цифры (все после поглощенного ведущего префикса 7/8),
 // стоящие левее `pos` в сыром вводе. Нужно для восстановления каретки, чтобы
-// правка в середине не отбрасывала её в конец строки после переформатирования.
+// правка в середине не отбрасывала ее в конец строки после переформатирования.
 function countSignificantDigits(input: string, pos: number): number {
   const slice = input.slice(0, Math.max(0, Math.min(pos, input.length)))
   const before = slice.replace(/\D/g, '')
@@ -67,7 +67,7 @@ function caretPosForDigits(formatted: string, n: number): number {
 
 // Вставленные строки могут содержать код страны, разделители или вообще не иметь префикса.
 // Сводим к 10 значащим цифрам, прежде чем переиспользовать formatPhone, — ввод с клавиатуры
-// идёт другим путём, где нельзя безопасно отрезать «ведущую 7/8» дважды.
+// идет другим путем, где нельзя безопасно отрезать «ведущую 7/8» дважды.
 export function formatPastedPhone(input: string): string {
   const digits = input.replace(/\D/g, '')
   let ten = digits
@@ -83,8 +83,8 @@ export function usePhoneInput() {
   const phoneRaw = ref('')
 
   // Возвращает значение телефона для отправки:
-  //   '', если пользователь не ввёл ни одной реальной цифры после префикса,
-  //   иначе — сырую строку с маской (серверный transform нормализует её до E.164).
+  //   '', если пользователь не ввел ни одной реальной цифры после префикса,
+  //   иначе — сырую строку с маской (серверный transform нормализует ее до E.164).
   function effectivePhone(): string {
     const digits = phoneRaw.value.replace(/\D/g, '')
     return digits.length <= 1 ? '' : phoneRaw.value

@@ -1,7 +1,7 @@
 import { StatusCodes } from '@detailing-admin/shared'
 import { getApiBase } from './api-base'
 
-// Своя обёртка над `fetch`, которую orval вызывает вместо встроенного `fetch()` в
+// Своя обертка над `fetch`, которую orval вызывает вместо встроенного `fetch()` в
 // каждом сгенерированном эндпоинте. Задачи:
 //   1. Подставить базовый URL API из env, если URL запроса относительный.
 //   2. Отправлять auth-cookie с каждым запросом (`credentials: 'include'`).
@@ -26,14 +26,14 @@ type UnauthorizedHandler = () => void
 let unauthorizedHandler: UnauthorizedHandler | null = null
 
 // Регистрируется лениво из main.ts, а не импортируется сюда напрямую: auth-api.ts (и
-// всё, что его вызывает) лежит ниже этого модуля, а store/router,
+// все, что его вызывает) лежит ниже этого модуля, а store/router,
 // которым нужно реагировать на 401, — выше; статический импорт в любую
 // сторону дал бы цикл.
 export function setUnauthorizedHandler(handler: UnauthorizedHandler): void {
   unauthorizedHandler = handler
 }
 
-// `/login` показывает своё сообщение «неверный пароль», а не редиректит
+// `/login` показывает свое сообщение «неверный пароль», а не редиректит
 // сам на себя; `/me` отвечает 401 каждому анонимному посетителю при первой загрузке, и это
 // нормально, а не истечение сессии (считать его таковым — значит зациклить редирект);
 // `/logout` очищает cookie по определению.

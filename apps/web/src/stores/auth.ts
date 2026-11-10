@@ -29,7 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
   const canEditBookings = computed(() => !!role.value && roleCanEditBookings(role.value))
 
   // Полное имя, когда пользователь его заполнил; иначе — логин, для
-  // аккаунтов, заведённых до появления имён (пустые firstName/lastName).
+  // аккаунтов, заведенных до появления имен (пустые firstName/lastName).
   const displayName = computed(() => {
     const u = user.value
     if (!u) return ''
@@ -69,14 +69,14 @@ export const useAuthStore = defineStore('auth', () => {
       await apiLogout()
     } catch {
       // Best-effort: при успехе cookie очищается на сервере,
-      // но при сетевой ошибке UI всё равно должен перейти в разлогиненное состояние.
+      // но при сетевой ошибке UI все равно должен перейти в разлогиненное состояние.
     } finally {
       user.value = null
     }
   }
 
   // Вызывается глобальным обработчиком 401 (orval-mutator.ts), когда любой
-  // авторизованный запрос отклонён, — очищает локальное состояние без ещё одного
+  // авторизованный запрос отклонен, — очищает локальное состояние без еще одного
   // запроса, ведь сервер уже отверг cookie.
   function clearSession() {
     user.value = null

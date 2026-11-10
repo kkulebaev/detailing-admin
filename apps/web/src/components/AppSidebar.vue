@@ -39,7 +39,7 @@ interface NavItem {
 }
 
 // Сотрудники видят список записей и свои часы, букер дополнительно получает
-// форму записи; всё остальное — только для админа.
+// форму записи; все остальное — только для админа.
 const NAV_ITEMS: readonly NavItem[] = [
   {
     to: { name: 'booking' },
@@ -63,7 +63,7 @@ const NAV_ITEMS: readonly NavItem[] = [
 
 // Общий вид активного состояния для всех пунктов сайдбара (навигация + профиль в футере):
 // по умолчанию активный SidebarMenuButton — бледный акцент, а нам нужно, чтобы
-// выбранный пункт везде выглядел сплошным тёмным брендовым primary.
+// выбранный пункт везде выглядел сплошным темным брендовым primary.
 const ACTIVE_CLASS =
   'transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:font-semibold data-[active=true]:hover:bg-sidebar-primary data-[active=true]:hover:text-sidebar-primary-foreground'
 

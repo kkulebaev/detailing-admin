@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   test: {
-    // Glob по умолчанию запустил бы ещё и e2e/*.spec.ts от Playwright.
+    // Glob по умолчанию запустил бы еще и e2e/*.spec.ts от Playwright.
     include: ['test/**/*.test.ts'],
     setupFiles: ['./test/setup.ts'],
     browser: {

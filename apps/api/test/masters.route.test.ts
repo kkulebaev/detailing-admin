@@ -85,7 +85,7 @@ const master = (over: Partial<Record<string, unknown>> = {}) => ({
   ...over,
 })
 
-// Задаётся в beforeEach — каждый запрос идёт с валидной cookie сессии админа.
+// Задается в beforeEach — каждый запрос идет с валидной cookie сессии админа.
 let authCookie = ''
 
 function req(
@@ -96,7 +96,7 @@ function req(
   cookie: string = authCookie,
 ): Response | Promise<Response> {
   // Роуты списка/создания смонтированы ровно на '/api/masters' — со слэшем на конце
-  // (`/api/masters/`) строгий матчинг Hono отдаёт 404.
+  // (`/api/masters/`) строгий матчинг Hono отдает 404.
   const suffix = path === '/' ? '' : path
   return app.request(`/api/masters${suffix}`, {
     method,
@@ -122,7 +122,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(listMasters)).not.toHaveBeenCalled()
   })
 
-  it('GET / с сессией employee отдаёт список мастеров (только чтение, все роли)', async () => {
+  it('GET / с сессией employee отдает список мастеров (только чтение, все роли)', async () => {
     vi.mocked(listMasters).mockResolvedValue([master()])
     const res = await req(app, '/', 'GET', undefined, await employeeCookie())
     expect(res.status).toBe(200)
@@ -145,10 +145,10 @@ describe('/api/masters', () => {
     expect(vi.mocked(createMaster)).not.toHaveBeenCalled()
   })
 
-  it('GET / отдаёт список мастеров', async () => {
+  it('GET / отдает список мастеров', async () => {
     vi.mocked(listMasters).mockResolvedValue([
       master(),
-      master({ id: 2, name: 'Пётр Новый', position: 1 }),
+      master({ id: 2, name: 'Петр Новый', position: 1 }),
     ])
     const res = await req(app, '/', 'GET')
     expect(res.status).toBe(200)
@@ -158,7 +158,7 @@ describe('/api/masters', () => {
     expect(res.headers.get('X-Request-Id')).toBeTruthy()
   })
 
-  it('POST / создаёт мастера → 201', async () => {
+  it('POST / создает мастера → 201', async () => {
     vi.mocked(createMaster).mockResolvedValue(master({ id: 3, name: 'Новый Мастер' }))
     const res = await req(app, '/', 'POST', {
       name: 'Новый Мастер',
@@ -291,7 +291,7 @@ describe('/api/masters', () => {
   it('PATCH /{id} для несуществующей строки → 404', async () => {
     vi.mocked(updateMaster).mockRejectedValue(new MasterError('not_found'))
     const res = await req(app, '/999', 'PATCH', {
-      name: 'Пётр Новый',
+      name: 'Петр Новый',
       canBeResponsible: true,
       paidSalary: true,
       telegramId: null,

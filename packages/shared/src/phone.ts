@@ -1,5 +1,5 @@
 export function normalizePhone(raw: string): string {
-  // Выкидываем всё, кроме цифр и +
+  // Выкидываем все, кроме цифр и +
   const stripped = raw.replace(/[^\d+]/g, '')
 
   if (!stripped) return ''

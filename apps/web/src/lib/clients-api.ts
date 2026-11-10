@@ -69,7 +69,7 @@ const EXPORT_OMIT = new Set(['limit', 'offset'])
 
 // Строит URL CSV-экспорта из ТЕХ ЖЕ параметров фильтра/сортировки, что и список, поэтому
 // скачанный файл совпадает с тем, что на экране. Сериализуется как в сгенерированном orval
-// построителе URL (URLSearchParams, undefined пропускаются). Этот роут живёт вне
+// построителе URL (URLSearchParams, undefined пропускаются). Этот роут живет вне
 // OpenAPI/orval (CSV, а не JSON) и запрашивается по URL через downloadFile.
 export function clientsExportUrl(params: GetApiClientsParams): string {
   const qs = new URLSearchParams()

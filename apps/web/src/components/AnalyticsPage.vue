@@ -54,7 +54,7 @@ function monthRange(key: string): [CalendarDate, CalendarDate] {
 }
 
 // Период по умолчанию — с начала месяца (1-е число текущего месяца → сегодня), а не
-// весь календарный месяц: по оставшимся дням отчитываться ещё не о чем.
+// весь календарный месяц: по оставшимся дням отчитываться еще не о чем.
 const initTo = today(getLocalTimeZone())
 const initFrom = new CalendarDate(initTo.year, initTo.month, 1)
 // shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
@@ -119,13 +119,13 @@ const rangeLabel = computed(() => {
 })
 
 const rangeOpen = ref(false)
-// Незавершённый выбор хранится отдельно от dateFromCal/dateToCal, чтобы
+// Незавершенный выбор хранится отдельно от dateFromCal/dateToCal, чтобы
 // недоделанный диапазон (выбран только `start`) не попал в `params` и не
 // отправил запрос — фиксируется только полный диапазон, чуть ниже.
 const pendingRange = shallowRef<DateRange>({ start: dateFromCal.value, end: dateToCal.value })
 
 watch(rangeOpen, (open) => {
-  // При каждом открытии поповера заново заполняем pending-диапазон из применённого,
+  // При каждом открытии поповера заново заполняем pending-диапазон из примененного,
   // чтобы брошенный на полпути выбор не просочился в следующее открытие.
   if (open) pendingRange.value = { start: dateFromCal.value, end: dateToCal.value }
 })
@@ -134,7 +134,7 @@ watch(
   pendingRange,
   (r) => {
     if (!r.start || !r.end) return
-    // Перезаполнение при открытии делает pendingRange равным применённому; без
+    // Перезаполнение при открытии делает pendingRange равным примененному; без
     // этой проверки такое эхо сразу закоммитилось бы и захлопнуло поповер
     // в момент открытия. Закрывает его только реально отличающийся диапазон.
     if (r.start.compare(dateFromCal.value) === 0 && r.end.compare(dateToCal.value) === 0) return
@@ -153,7 +153,7 @@ function pickPreset(apply: () => void) {
 const GRANULARITIES = ['day', 'week', 'month'] as const satisfies readonly AnalyticsGranularity[]
 const granularity = ref<AnalyticsGranularity>('day')
 
-// Tabs отдаёт сырой StringOrNumber, который принимает примитив reka-ui; сужаем
+// Tabs отдает сырой StringOrNumber, который принимает примитив reka-ui; сужаем
 // его обратно до enum, а не доверяем приведению типа.
 function onGranularityChange(v: string | number) {
   const next = GRANULARITIES.find((g) => g === String(v))
@@ -202,7 +202,7 @@ const overview = computed(() => {
 
 // ── Ряд KPI ──────────────────────────────────────────────────────────────
 // У «Выручка», «Средний чек» и «Кол-во выдач» общий знаменатель только по «Выдана»
-// (completedCount) — выручка и объём считаются на одной базе.
+// (completedCount) — выручка и объем считаются на одной базе.
 const revenueTotal = computed(() => overview.value?.revenue.total ?? 0)
 const avgCheck = computed(() => overview.value?.revenue.avgCheck ?? 0)
 const completedCount = computed(() => overview.value?.revenue.completedCount ?? 0)
@@ -251,7 +251,7 @@ function yAccessor(d: AnalyticsSeriesPoint): number {
 }
 
 // Нативный SVG-текст тиков оси Y подавлен: числа вместо этого рисуются
-// HTML-оверлеем внутри области графика, так что у графика остаётся узкий
+// HTML-оверлеем внутри области графика, так что у графика остается узкий
 // левый отступ, а не широкое поле под подписи (см. ниже).
 const noTick = () => ''
 
@@ -259,13 +259,13 @@ const noTick = () => ''
 // Несколько равномерно расставленных подписей бакетов под графиком, а не по одной
 // на точку (при дневной гранулярности бакетов может быть 30+). На узких экранах
 // их меньше, чтобы подписи не толпились; `tickTextHideOverlapping` ниже — вторая
-// линия защиты для того количества, что всё равно не влезает.
+// линия защиты для того количества, что все равно не влезает.
 const isDesktopViewport = useMediaQuery('(min-width: 640px)')
 const xTickCount = computed(() => (isDesktopViewport.value ? 6 : 4))
 
-// Выбирает `count` индексов, равномерно распределённых по [0, n-1] (тот же домен
-// индексов, по которому строит xAccessor). При n <= count берёт все индексы и
-// убирает дубли округлённых позиций, чтобы при малом n тики не повторялись.
+// Выбирает `count` индексов, равномерно распределенных по [0, n-1] (тот же домен
+// индексов, по которому строит xAccessor). При n <= count берет все индексы и
+// убирает дубли округленных позиций, чтобы при малом n тики не повторялись.
 function evenIndices(n: number, count: number): number[] {
   if (n <= 0) return []
   if (n <= count) return Array.from({ length: n }, (_, i) => i)
@@ -322,7 +322,7 @@ const Y_TICK_COUNT = 5
 // Считается один раз здесь (а не через собственный авто-тикинг unovis), чтобы
 // одни и те же значения управляли и линиями сетки VisAxis, и HTML-оверлеем
 // подписей ниже — иначе они разъедутся. `domainMax` получает ~10% запаса над
-// верхним тиком, чтобы линия и её подпись не обрезались о верх
+// верхним тиком, чтобы линия и ее подпись не обрезались о верх
 // области графика.
 const yScale = computed(() => {
   const maxRevenue = Math.max(0, ...series.value.map((d) => d.revenue))
@@ -351,7 +351,7 @@ function trimTrailingZero(n: number): string {
 }
 
 // ── Тултип при наведении ─────────────────────────────────────────────────
-// `bucket` — это 'YYYY-MM-DD' для дня/недели (неделя — её понедельник) или 'YYYY-MM'
+// `bucket` — это 'YYYY-MM-DD' для дня/недели (неделя — ее понедельник) или 'YYYY-MM'
 // для месяца — форматируем каждый в понятную подпись для тултипа crosshair.
 function formatDdmm(y: number, m: number, d: number): string {
   return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.${y}`
@@ -373,7 +373,7 @@ function formatBucketLabel(bucket: string, g: AnalyticsGranularity): string {
   return formatDdmm(y, m, d)
 }
 
-// Crosshair примагничивается к ближайшему AnalyticsSeriesPoint и передаёт его сюда
+// Crosshair примагничивается к ближайшему AnalyticsSeriesPoint и передает его сюда
 // как есть (см. xAccessor/yAccessor выше — те же accessor'ы crosshair наследует от
 // VisLine). Цвета берутся из тех же дизайн-токенов, что и в ChartTooltipContent,
 // поэтому тултип корректно выглядит в обеих темах.
@@ -462,7 +462,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
     <template v-else>
       <!-- Скелетон повторяет обвязку карточек загруженного макета (заголовок +
            контент с отступами), чтобы его высота совпадала с реальными секциями —
-           голый блок-заглушка был бы ниже карточек графика/KPI и дёргал бы
+           голый блок-заглушка был бы ниже карточек графика/KPI и дергал бы
            страницу вниз при первой загрузке. -->
       <template v-if="showSkeleton">
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -587,7 +587,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
               <ChartContainer :config="chartConfig" class="h-80" cursor>
                 <!-- autoMargin (в unovis по умолчанию true) дополнительно
                      увеличивает нижний отступ под текст тиков оси X, как только
-                     тот перестаёт быть пустым, молча перекрывая `margin.bottom`
+                     тот перестает быть пустым, молча перекрывая `margin.bottom`
                      ниже и рассинхронизируя его с отступом `bottom-7` у
                      Y-оверлея. Отключение оставляет главным `margin`. -->
                 <VisXYContainer

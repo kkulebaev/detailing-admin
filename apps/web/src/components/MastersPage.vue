@@ -115,19 +115,19 @@ async function confirmDelete() {
   try {
     const result = await apiDeleteMaster(target.id)
     if (result.ok) {
-      toast.success('Мастер удалён')
+      toast.success('Мастер удален')
       deleteDialogOpen.value = false
       await invalidateMasters()
       return
     }
     if (result.error === 'not_found') {
       // Уже удалено — пользователь этого и хотел; закрываем и обновляем.
-      toast.error('Мастер уже удалён')
+      toast.error('Мастер уже удален')
       deleteDialogOpen.value = false
       await invalidateMasters()
       return
     }
-    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нем.
     deleteError.value =
       result.error === 'unavailable' ? result.message : 'Не удалось удалить мастера'
   } catch {
@@ -244,7 +244,7 @@ async function confirmDelete() {
           <AlertDialogTitle>Удалить мастера?</AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget">
-              Мастер «{{ deleteTarget.name }}» пропадёт из списков, а его записи и зарплата
+              Мастер «{{ deleteTarget.name }}» пропадет из списков, а его записи и зарплата
               сохранятся. Вернуть мастера можно только через базу данных
             </template>
           </AlertDialogDescription>
@@ -253,7 +253,7 @@ async function confirmDelete() {
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
           <!-- Обычный Button (не AlertDialogAction), чтобы диалог оставался открытым,
-               пока запрос не завершится. Намеренно НЕ disabled: на отключённой кнопке
+               пока запрос не завершится. Намеренно НЕ disabled: на отключенной кнопке
                в фокусе focus scope из reka-ui закрывается с задержкой ~1 с — от
                двойной отправки защищает guard повторного входа в confirmDelete. -->
           <Button @click="confirmDelete">

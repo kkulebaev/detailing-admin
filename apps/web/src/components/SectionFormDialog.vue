@@ -60,7 +60,7 @@ async function submit() {
       : await createSection({ name: trimmed })
 
     if (result.ok) {
-      toast.success(isEdit.value ? 'Раздел обновлён' : 'Раздел добавлен')
+      toast.success(isEdit.value ? 'Раздел обновлен' : 'Раздел добавлен')
       emit('saved')
       emit('update:open', false)
       return
@@ -71,7 +71,7 @@ async function submit() {
     } else if (result.error === 'conflict' && result.reason === 'duplicate_name') {
       error.value = 'Раздел с таким названием уже есть'
     } else if (result.error === 'not_found') {
-      error.value = 'Раздел не найден — возможно, был удалён'
+      error.value = 'Раздел не найден — возможно, был удален'
     } else if (result.error === 'unavailable') {
       error.value = result.message
     } else {

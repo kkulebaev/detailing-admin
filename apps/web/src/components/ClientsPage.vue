@@ -71,7 +71,7 @@ const isWideScreen = useMediaQuery('(min-width: 640px)')
 // ── Состояние фильтров / сортировки / пагинации ─────────────────────────────
 const searchInput = ref('')
 // Ручной debounce (вместо refDebounced), чтобы `resetFilters` мог сбросить его
-// синхронно — иначе запрос ещё 300 мс держит устаревший поисковый запрос после
+// синхронно — иначе запрос еще 300 мс держит устаревший поисковый запрос после
 // сброса, и таблица мелькает пустым состоянием до загрузки настоящих строк.
 const searchDebounced = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -114,7 +114,7 @@ const { data: queryData, error: queryError, asyncStatus } = useClientsQuery(para
 const invalidateClients = useInvalidateClients()
 
 // ── Карточка клиента (Sheet, управляемый маршрутом) ─────────────────────────
-// `/clients` и `/clients/:id` рендерят один и тот же компонент, поэтому список остаётся
+// `/clients` и `/clients/:id` рендерят один и тот же компонент, поэтому список остается
 // смонтированным (фильтры/страница сохраняются), пока поверх выезжает Sheet. `detailId`
 // повторяет параметр маршрута, чтобы прямая ссылка на /clients/:id открывала Sheet.
 const route = useRoute()
@@ -291,19 +291,19 @@ async function confirmDelete() {
   try {
     const result = await apiDeleteClient(target.id)
     if (result.ok) {
-      toast.success('Клиент удалён')
+      toast.success('Клиент удален')
       deleteDialogOpen.value = false
       await invalidateClients()
       return
     }
     if (result.error === 'not_found') {
       // Клиента уже нет — пользователь этого и хотел; закрываем и обновляем.
-      toast.error('Клиент уже удалён')
+      toast.error('Клиент уже удален')
       deleteDialogOpen.value = false
       await invalidateClients()
       return
     }
-    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нем.
     if (result.error === 'conflict') {
       deleteError.value =
         'У клиента есть записи. Сначала удалите или перенесите его записи, затем удалите клиента.'
@@ -357,7 +357,7 @@ async function confirmDelete() {
              внутри поля уже его очищает.
 
              Выгрузка CSV на телефоне бесполезна и занимает место в панели, так
-             что кнопка живёт только на широком экране — как на «Записях». -->
+             что кнопка живет только на широком экране — как на «Записях». -->
         <Button
           v-if="isWideScreen"
           variant="outline"
@@ -369,7 +369,7 @@ async function confirmDelete() {
           <Download class="size-4" /> {{ exporting ? 'Экспорт…' : 'Экспорт' }}
         </Button>
 
-        <!-- Единственная кнопка, которая остаётся на узком экране, поэтому она
+        <!-- Единственная кнопка, которая остается на узком экране, поэтому она
              умещается в строку с поиском: поле растягивается на остаток. -->
         <Button variant="outline" size="sm" @click="openCreate">
           <Plus class="size-4" /> Клиент
@@ -589,7 +589,7 @@ async function confirmDelete() {
 
         <!-- Вся карточка — одна тап-зона: на тач вложенные цели (копирование
              телефона, поповер машин) срабатывают вместо открытия карточки,
-             поэтому копирование живёт в самой карточке клиента, а список машин
+             поэтому копирование живет в самой карточке клиента, а список машин
              просто перечислен и обрезан по ширине. Кнопки правки и удаления
              остаются: в карточке клиента их нет. -->
         <div
@@ -663,7 +663,7 @@ async function confirmDelete() {
           <AlertDialogTitle>Удалить клиента?</AlertDialogTitle>
           <AlertDialogDescription>
             <template v-if="deleteTarget">
-              Клиент «{{ deleteTarget.name || formatPhone(deleteTarget.phone) }}» будет удалён.
+              Клиент «{{ deleteTarget.name || formatPhone(deleteTarget.phone) }}» будет удален.
               Действие нельзя отменить
             </template>
           </AlertDialogDescription>

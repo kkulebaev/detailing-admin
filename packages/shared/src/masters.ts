@@ -6,7 +6,7 @@ import {
   validationErrorSchema,
 } from './api.js'
 
-// Доменный объект — повторяет строку таблицы `masters` в том виде, как её сериализует API.
+// Доменный объект — повторяет строку таблицы `masters` в том виде, как ее сериализует API.
 export const masterSchema = z.object({
   id: z.number().int(),
   name: z.string(),
@@ -34,7 +34,7 @@ const masterName = z
 // Семантика полной замены намеренна: у `canBeResponsible` нет `.default()`. Эта
 // схема обслуживает и POST, и PATCH /api/masters/{id} — пропущенный флаг в PATCH
 // должен проваливать валидацию, а не молча воскрешаться в `true`. Форма всегда
-// шлёт флаг, так что UX создания не меняется. `telegramId` принимает null
+// шлет флаг, так что UX создания не меняется. `telegramId` принимает null
 // (или строку) — refine от инъекций не нужен, в лист он не попадает.
 export const masterInputSchema = z.object({
   name: masterName,
@@ -53,8 +53,8 @@ export const reorderInputSchema = z.object({
 export type ReorderInput = z.infer<typeof reorderInputSchema>
 
 // duplicate_user: аккаунт уже привязан к другому мастеру — один аккаунт вносит
-// часы ровно за одного мастера. archived_name: имя принадлежит удалённому
-// мастеру, чья строка остаётся в таблице.
+// часы ровно за одного мастера. archived_name: имя принадлежит удаленному
+// мастеру, чья строка остается в таблице.
 export const masterConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),

@@ -24,10 +24,10 @@ describe('bookingsExportUrl', () => {
     expect(qs.has('offset')).toBe(false)
   })
 
-  it('отбрасывает неопределённые фильтры', () => {
-    const url = bookingsExportUrl({ limit: 100, offset: 0, master: 'Пётр' })
+  it('отбрасывает неопределенные фильтры', () => {
+    const url = bookingsExportUrl({ limit: 100, offset: 0, master: 'Петр' })
     const qs = new URLSearchParams(url.split('?')[1])
-    expect(qs.get('master')).toBe('Пётр')
+    expect(qs.get('master')).toBe('Петр')
     expect(qs.has('dateFrom')).toBe(false)
     expect(qs.has('q')).toBe(false)
   })

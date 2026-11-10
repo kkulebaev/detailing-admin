@@ -34,7 +34,7 @@ type Direction = 'accrual' | 'deduction'
 
 const props = defineProps<{
   open: boolean
-  // Если задан, диалог редактирует эту выплату; иначе создаёт новую.
+  // Если задан, диалог редактирует эту выплату; иначе создает новую.
   editing: Payout | null
   // Целевой мастер. Фиксирован при добавлении из строки и при редактировании
   // (редактирование мастера не меняет). Null в сценарии «добавить из тулбара»,
@@ -48,7 +48,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:open', v: boolean): void
-  // Несёт мастера, к которому попала запись, — из ответа сервера, а не из prop,
+  // Несет мастера, к которому попала запись, — из ответа сервера, а не из prop,
   // потому что в сценарии тулбара мастер выбирается в самом диалоге.
   (e: 'saved', masterId: number): void
 }>()
@@ -63,8 +63,8 @@ const effectiveMasterId = computed(() => props.masterId ?? selectedMasterId.valu
 // shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dateCal = shallowRef<DateValue | undefined>(undefined)
 const dateOpen = ref(false)
-// Знак задаётся этим переключателем и никогда не вводится: `inputmode="numeric"`
-// не даёт клавиши минуса на Android, а без inputmode включится IME-композиция,
+// Знак задается этим переключателем и никогда не вводится: `inputmode="numeric"`
+// не дает клавиши минуса на Android, а без inputmode включится IME-композиция,
 // с которой в других местах борются маски ввода.
 const direction = ref<Direction>('accrual')
 const amount = ref('')
@@ -99,7 +99,7 @@ watch(
     fieldErrors.value = {}
     selectedMasterId.value = null
     dateCal.value = e ? isoToCal(e.payoutDate) : undefined
-    // Сохранённая сумма со знаком; форма раскладывает её обратно на направление и
+    // Сохраненная сумма со знаком; форма раскладывает ее обратно на направление и
     // модуль, чтобы в поле всегда было положительное число.
     direction.value = e && e.amount < 0 ? 'deduction' : 'accrual'
     amount.value = e ? String(Math.abs(e.amount)) : ''
@@ -128,7 +128,7 @@ async function submit() {
   error.value = null
 
   // Дата выбирается в календаре, а не вводится, поэтому пустое поле значит
-  // «ещё не выбрана». Если отдать это схеме, она сообщит о формате ГГГГ-ММ-ДД,
+  // «еще не выбрана». Если отдать это схеме, она сообщит о формате ГГГГ-ММ-ДД,
   // который пользователь никогда не вводит — триггер показывает
   // ДД.ММ.ГГГГ.
   if (!dateCal.value) {
@@ -138,7 +138,7 @@ async function submit() {
   const payoutDate = calToIso(dateCal.value)
   const trimmedNote = note.value.trim()
   // Пустое поле читается здесь как 0, и та же проверка его отклоняет — знак
-  // никогда не берётся из этого числа, только модуль.
+  // никогда не берется из этого числа, только модуль.
   const magnitude = Number(amount.value)
   if (!Number.isFinite(magnitude) || magnitude <= 0) {
     fieldErrors.value = { amount: 'Укажите сумму больше нуля' }
@@ -220,11 +220,11 @@ function handleResult(result: PayoutMutationResult, successMsg: string) {
     }
     error.value = 'Неверные данные'
   } else if (result.error === 'not_found') {
-    // POST /payouts отвечает 404 только на неизвестного мастера (выплаты ещё
+    // POST /payouts отвечает 404 только на неизвестного мастера (выплаты еще
     // нет); PATCH — на саму выплату.
     error.value = isEdit.value
       ? 'Выплата не найдена — возможно, была удалена'
-      : 'Мастер не найден — возможно, был удалён'
+      : 'Мастер не найден — возможно, был удален'
   } else if (result.error === 'unavailable') {
     error.value = result.message ?? 'База данных недоступна'
   } else {
