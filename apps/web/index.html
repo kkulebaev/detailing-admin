@@ -11,17 +11,17 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- Render-blocking so the boot splash below is styled from the first frame,
-         before the app bundle / globals.css load. Styles live in the file, not
-         inline here. -->
+    <!-- Блокирует рендер, чтобы заставка загрузки ниже была стилизована с первого кадра,
+         до загрузки бандла приложения / globals.css. Стили лежат в файле, а не
+         инлайном здесь. -->
     <link rel="stylesheet" href="/splash.css" />
     <title>Dazzle Detailing</title>
   </head>
   <body>
     <div id="app">
-      <!-- Boot splash: Vue replaces #app on mount. main.ts mounts only after the
-           initial navigation (auth `fetchMe`) settles, so this fills that gap
-           instead of a blank/flashing frame. -->
+      <!-- Заставка загрузки: Vue заменяет #app при монтировании. main.ts монтирует
+           приложение только после завершения начальной навигации (auth `fetchMe`),
+           поэтому заставка заполняет этот промежуток вместо пустого/мигающего кадра. -->
       <div id="app-splash" role="status" aria-label="Загрузка">
         <div class="spinner"></div>
         <div class="label">Dazzle Detailing</div>

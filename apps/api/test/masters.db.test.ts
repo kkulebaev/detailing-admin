@@ -23,9 +23,9 @@ import {
   MasterError,
 } from '../src/db/masters.js'
 
-// Minimal thenable query-builder fake. Terminal methods resolve to a queued
-// result; `.set()` / `.values()` payloads are captured for assertions. Results
-// are dequeued in call order, so tests seed them to match the code's chains.
+// Минимальный thenable-фейк query builder. Терминальные методы отдают результат
+// из очереди; payload'ы `.set()` / `.values()` сохраняются для проверок. Результаты
+// разбираются в порядке вызовов, поэтому тесты заполняют их под цепочки в коде.
 interface Capture {
   sets: Array<Record<string, unknown>>
   values: Array<Record<string, unknown>>
@@ -78,7 +78,7 @@ afterEach(() => {
 })
 
 describe('createMaster (T2)', () => {
-  it('throws duplicate_name when the name already exists', async () => {
+  it('бросает duplicate_name, если такое имя уже есть', async () => {
     const { db } = makeFakeDb({ selectResults: [[{ id: 1 }]] })
     _setDbForTest(db)
 
@@ -93,10 +93,10 @@ describe('createMaster (T2)', () => {
     ).rejects.toBeInstanceOf(MasterError)
   })
 
-  it('inserts a new row at position=max+1 when the name is unseen', async () => {
+  it('вставляет новую строку с position=max+1, если имя ещё не встречалось', async () => {
     const { db, capture } = makeFakeDb({
       selectResults: [
-        [], // no existing row
+        [], // существующей строки нет
         [{ max: 4 }], // nextPosition
       ],
       insertResults: [
@@ -131,10 +131,10 @@ describe('createMaster (T2)', () => {
     })
   })
 
-  it('persists a supplied telegramId on insert', async () => {
+  it('сохраняет переданный telegramId при вставке', async () => {
     const { db, capture } = makeFakeDb({
       selectResults: [
-        [], // no existing row
+        [], // существующей строки нет
         [{ max: 0 }], // nextPosition
       ],
       insertResults: [
@@ -165,12 +165,12 @@ describe('createMaster (T2)', () => {
   })
 })
 
-describe('linking an account', () => {
+describe('привязка аккаунта', () => {
   const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
   const input = { name: 'Пётр', canBeResponsible: true, paidSalary: true, telegramId: null, userId }
 
-  it('throws unknown_user when the account does not exist', async () => {
-    // name probe → free; user probe → missing.
+  it('бросает unknown_user, если аккаунта нет', async () => {
+    // проверка имени → свободно; проверка пользователя → не найден.
     const { db } = makeFakeDb({ selectResults: [[], []] })
     _setDbForTest(db)
 
@@ -179,8 +179,8 @@ describe('linking an account', () => {
     expect(err.code).toBe('unknown_user')
   })
 
-  it('throws duplicate_user when another master already holds the account', async () => {
-    // name probe → free; user exists; linked to master 2.
+  it('бросает duplicate_user, если аккаунт уже занят другим мастером', async () => {
+    // проверка имени → свободно; пользователь есть; привязан к мастеру 2.
     const { db } = makeFakeDb({ selectResults: [[], [{ id: userId }], [{ id: 2 }]] })
     _setDbForTest(db)
 
@@ -189,8 +189,8 @@ describe('linking an account', () => {
     expect(err.code).toBe('duplicate_user')
   })
 
-  it('lets a master keep its own account on update', async () => {
-    // name probe → itself; user exists; linked to this very master.
+  it('позволяет мастеру сохранить свой аккаунт при обновлении', async () => {
+    // проверка имени → он сам; пользователь есть; привязан к этому же мастеру.
     const { db, capture } = makeFakeDb({
       selectResults: [[{ id: 1 }], [{ id: userId }], [{ id: 1 }]],
       updateResults: [[{ id: 1, ...input }]],
@@ -201,7 +201,7 @@ describe('linking an account', () => {
     expect(capture.sets[0]).toMatchObject({ userId })
   })
 
-  it('skips the probes when unlinking', async () => {
+  it('пропускает проверки при отвязке', async () => {
     const { db, capture } = makeFakeDb({
       selectResults: [[]],
       updateResults: [[{ id: 1, ...input, userId: null }]],
@@ -214,21 +214,21 @@ describe('linking an account', () => {
 })
 
 describe('deleteMaster', () => {
-  it('archives the row and releases the account instead of removing it', async () => {
+  it('архивирует строку и освобождает аккаунт вместо удаления', async () => {
     const { db, capture } = makeFakeDb({ selectResults: [], updateResults: [[{ id: 1 }]] })
     _setDbForTest(db)
     await deleteMaster(1)
     expect(capture.sets).toEqual([{ archived: true, userId: null }])
   })
 
-  it('throws not_found when the master is missing or already archived', async () => {
+  it('бросает not_found, если мастера нет или он уже в архиве', async () => {
     const { db } = makeFakeDb({ selectResults: [], updateResults: [[]] })
     _setDbForTest(db)
     await expect(deleteMaster(1)).rejects.toMatchObject({ code: 'not_found' })
   })
 })
 
-describe('a name held by an archived master', () => {
+describe('имя, занятое архивным мастером', () => {
   const input = {
     name: 'Пётр',
     canBeResponsible: true,
@@ -237,13 +237,13 @@ describe('a name held by an archived master', () => {
     userId: null,
   }
 
-  it('is refused with archived_name on create', async () => {
+  it('отклоняется с archived_name при создании', async () => {
     const { db } = makeFakeDb({ selectResults: [[{ id: 7, archived: true }]] })
     _setDbForTest(db)
     await expect(createMaster(input)).rejects.toMatchObject({ code: 'archived_name' })
   })
 
-  it('is refused with archived_name on rename', async () => {
+  it('отклоняется с archived_name при переименовании', async () => {
     const { db } = makeFakeDb({ selectResults: [[{ id: 7, archived: true }]] })
     _setDbForTest(db)
     await expect(updateMaster(1, { name: 'Пётр' })).rejects.toMatchObject({ code: 'archived_name' })
@@ -251,9 +251,9 @@ describe('a name held by an archived master', () => {
 })
 
 describe('resolveMasterIds', () => {
-  // Records the `where` condition (for param inspection) and resolves the select
-  // to the queued rows. `throwingDb` proves the empty-input short-circuit never
-  // touches the DB.
+  // Запоминает условие `where` (чтобы проверить параметры) и отдаёт на select
+  // строки из очереди. `throwingDb` доказывает, что при пустом вводе ранний выход
+  // не трогает БД.
   function resolverDb(rows: { id: number; name: string }[], captured: unknown[] = []): Db {
     const chain: Record<string, unknown> = {
       select: () => chain,
@@ -267,7 +267,7 @@ describe('resolveMasterIds', () => {
     return chain as unknown as Db
   }
 
-  it('maps only the matched subset of names to ids', async () => {
+  it('сопоставляет с id только найденную часть имён', async () => {
     _setDbForTest(resolverDb([{ id: 1, name: 'Пётр' }]))
     const map = await resolveMasterIds(['Пётр', 'Неизвестный'])
     expect(map.get('Пётр')).toBe(1)
@@ -275,8 +275,8 @@ describe('resolveMasterIds', () => {
     expect(map.size).toBe(1)
   })
 
-  it('returns an empty map without querying for empty input', async () => {
-    // A db whose select throws — proves the short-circuit fires before any query.
+  it('для пустого ввода возвращает пустой map без запроса', async () => {
+    // БД, у которой select бросает, — доказывает, что ранний выход срабатывает до запроса.
     const throwingDb = {
       select: () => {
         throw new Error('should not query on empty input')
@@ -287,7 +287,7 @@ describe('resolveMasterIds', () => {
     expect(map.size).toBe(0)
   })
 
-  it('returns an empty map when whitespace-only names filter out to nothing', async () => {
+  it('возвращает пустой map, если после отсева имён из одних пробелов ничего не осталось', async () => {
     const throwingDb = {
       select: () => {
         throw new Error('should not query when nothing to look up')
@@ -298,20 +298,20 @@ describe('resolveMasterIds', () => {
     expect(map.size).toBe(0)
   })
 
-  it('trims and dedups names before querying (one param per distinct trimmed name)', async () => {
+  it('обрезает пробелы и убирает дубли имён до запроса (один параметр на уникальное имя)', async () => {
     const captured: unknown[] = []
     _setDbForTest(resolverDb([{ id: 5, name: 'Костя' }], captured))
     await resolveMasterIds(['  Костя  ', 'Костя'])
     const rendered = new PgDialect().sqlToQuery(captured[0] as never)
-    // Both inputs collapse to the single trimmed «Костя».
+    // Оба значения схлопываются в одно обрезанное «Костя».
     expect(rendered.params).toEqual(['Костя'])
   })
 })
 
-describe('reorderMasters invariant (T3)', () => {
-  it('rejects a set that does not match the full id set', async () => {
+describe('инвариант reorderMasters (T3)', () => {
+  it('отклоняет набор, не совпадающий с полным набором id', async () => {
     const { db } = makeFakeDb({
-      selectResults: [[{ id: 1 }, { id: 2 }, { id: 3 }]], // existing ids
+      selectResults: [[{ id: 1 }, { id: 2 }, { id: 3 }]], // существующие id
     })
     _setDbForTest(db)
 
@@ -320,15 +320,15 @@ describe('reorderMasters invariant (T3)', () => {
     expect(err.code).toBe('invalid_order')
   })
 
-  it('assigns dense positions 0..n-1 in posted order for a full set', async () => {
+  it('для полного набора назначает плотные позиции 0..n-1 в присланном порядке', async () => {
     const final = [
       { id: 2, name: 'b', position: 0, canBeResponsible: true, paidSalary: true, telegramId: null },
       { id: 1, name: 'a', position: 1, canBeResponsible: true, paidSalary: true, telegramId: null },
     ]
     const { db, capture } = makeFakeDb({
       selectResults: [
-        [{ id: 1 }, { id: 2 }], // existing ids
-        final, // final ordered list
+        [{ id: 1 }, { id: 2 }], // существующие id
+        final, // итоговый упорядоченный список
       ],
       updateResults: [[], []],
     })
@@ -336,7 +336,7 @@ describe('reorderMasters invariant (T3)', () => {
 
     const rows = await reorderMasters([2, 1])
     expect(rows).toEqual(final)
-    // Positions assigned densely in posted order.
+    // Позиции назначены плотно в присланном порядке.
     expect(capture.sets).toEqual([{ position: 0 }, { position: 1 }])
   })
 })

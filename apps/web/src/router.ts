@@ -14,8 +14,8 @@ const APP_NAME = 'Dazzle Detailing'
 declare module 'vue-router' {
   interface RouteMeta {
     title?: string
-    // A route with neither flag stays open by default — none exist today,
-    // but `requiresAuth` is explicit so that isn't a silent trap.
+    // Маршрут без обоих флагов по умолчанию открыт — сейчас таких нет,
+    // но `requiresAuth` задан явно, чтобы это не стало тихой ловушкой.
     public?: boolean
     requiresAuth?: boolean
     roles?: Role[]
@@ -52,10 +52,10 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Клиенты', requiresAuth: true, roles: ['admin'] },
   },
   {
-    // Flat, not nested: ClientsPage has no inner <router-view>. Both /clients
-    // and /clients/:id resolve to the SAME component, so vue-router reuses the
-    // mounted instance — the list stays alive (filters/page preserved) while the
-    // detail Sheet slides over it and deep links open it directly.
+    // Плоско, без вложенности: у ClientsPage нет внутреннего <router-view>. И /clients,
+    // и /clients/:id указывают на ОДИН компонент, поэтому vue-router переиспользует
+    // смонтированный экземпляр — список остаётся живым (фильтры/страница сохраняются),
+    // а Sheet с деталями выезжает поверх него, и прямые ссылки открывают его сразу.
     path: '/clients/:id',
     name: 'client-detail',
     component: () => import('@/components/ClientsPage.vue'),
@@ -100,16 +100,16 @@ export const routes: RouteRecordRaw[] = [
   { path: '/:pathMatch(.*)*', redirect: { name: 'booking' } },
 ]
 
-// Factory instead of a bare singleton so tests can spin up an isolated
-// router (memory history + fresh guard closures) per case; `router` below is
-// the one instance the app itself mounts.
+// Фабрика вместо голого синглтона, чтобы тесты могли поднимать изолированный
+// роутер (memory history + свежие замыкания guard'ов) на каждый кейс; `router` ниже —
+// единственный экземпляр, который монтирует само приложение.
 export function createAppRouter(history: RouterHistory = createWebHistory()): Router {
   const appRouter = createRouter({ history, routes })
 
   appRouter.beforeEach(async (to) => {
     const auth = useAuthStore()
-    // Resolves once per app load — later navigations reuse the session
-    // `fetchMe()` (or a prior login) already settled.
+    // Резолвится один раз за загрузку приложения — последующие навигации
+    // переиспользуют сессию, которую уже установил `fetchMe()` (или предыдущий логин).
     if (!auth.ready) {
       await auth.fetchMe()
     }

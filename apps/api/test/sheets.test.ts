@@ -2,7 +2,7 @@ import { assert, describe, it, expect, vi, beforeEach } from 'vitest'
 import type { sheets_v4 } from 'googleapis'
 import { EXPECTED_HEADERS } from '@detailing-admin/shared/sheet-row'
 
-// Mock env before importing sheets
+// Мокаем env до импорта sheets
 vi.mock('../src/env.js', () => ({
   env: {
     PORT: 3000,
@@ -44,7 +44,7 @@ describe('verifyHeaders', () => {
     _setClientForTest(mock as unknown as ReturnType<typeof import('googleapis').google.sheets>)
   })
 
-  it('returns ok:true when headers match EXPECTED_HEADERS exactly', async () => {
+  it('возвращает ok:true, если заголовки точно совпадают с EXPECTED_HEADERS', async () => {
     mock.spreadsheets.values.get.mockResolvedValue({
       data: { values: [[...EXPECTED_HEADERS]] },
       status: 200,
@@ -53,9 +53,9 @@ describe('verifyHeaders', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('returns ok:false with correct column_index when one header is mutated', async () => {
+  it('возвращает ok:false с верным column_index, если один заголовок изменён', async () => {
     const mutated = [...EXPECTED_HEADERS] as string[]
-    mutated[8] = 'Готовнсть' // typo in column I
+    mutated[8] = 'Готовнсть' // опечатка в столбце I
     mock.spreadsheets.values.get.mockResolvedValue({
       data: { values: [mutated] },
       status: 200,
@@ -67,7 +67,7 @@ describe('verifyHeaders', () => {
     expect(result.observed).toBe('Готовнсть')
   })
 
-  it('returns ok:false when row is empty (all headers missing)', async () => {
+  it('возвращает ok:false, если строка пустая (все заголовки отсутствуют)', async () => {
     mock.spreadsheets.values.get.mockResolvedValue({
       data: { values: [[]] },
       status: 200,
@@ -86,7 +86,7 @@ describe('appendBooking', () => {
     _setClientForTest(mock as unknown as ReturnType<typeof import('googleapis').google.sheets>)
   })
 
-  it('returns ok:true with updatedRange on success', async () => {
+  it('при успехе возвращает ok:true с updatedRange', async () => {
     mock.spreadsheets.values.append.mockResolvedValue({
       data: { updates: { updatedRange: 'Запись 2026!A5' } },
       status: 200,
@@ -98,7 +98,7 @@ describe('appendBooking', () => {
     expect(typeof result.latencyMs).toBe('number')
   })
 
-  it('parses updatedRow from a range like Запись 2026!A12:K12', async () => {
+  it('разбирает updatedRow из диапазона вида Запись 2026!A12:K12', async () => {
     mock.spreadsheets.values.append.mockResolvedValue({
       data: { updates: { updatedRange: 'Запись 2026!A12:K12' } },
       status: 200,
@@ -108,7 +108,7 @@ describe('appendBooking', () => {
     expect(result.updatedRow).toBe(12)
   })
 
-  it('URI-encodes Запись 2026 in the range argument passed to the API', async () => {
+  it('URI-кодирует Запись 2026 в аргументе range, передаваемом в API', async () => {
     mock.spreadsheets.values.append.mockResolvedValue({
       data: { updates: { updatedRange: 'Запись 2026!A2' } },
       status: 200,
@@ -116,15 +116,15 @@ describe('appendBooking', () => {
     await appendBooking(['04.06.2026', '10:00', '', '', '', '', '', '', '', '', ''])
     const call = mock.spreadsheets.values.append.mock
       .calls[0]?.[0] as sheets_v4.Params$Resource$Spreadsheets$Values$Append
-    // The range passed to googleapis should contain the sheet name exactly as-is;
-    // googleapis handles URL-encoding internally.
+    // Диапазон, передаваемый в googleapis, должен содержать имя листа как есть;
+    // URL-кодирование googleapis выполняет сам.
     expect(call.range).toBe('Запись 2026!A1')
     expect(call.spreadsheetId).toBe('test-spreadsheet-id')
     expect(call.valueInputOption).toBe('USER_ENTERED')
     expect(call.insertDataOption).toBe('INSERT_ROWS')
   })
 
-  it('returns ok:false with errorCode on API failure', async () => {
+  it('при сбое API возвращает ok:false с errorCode', async () => {
     mock.spreadsheets.values.append.mockRejectedValue({
       code: 403,
       errors: [{ reason: 'forbidden' }],

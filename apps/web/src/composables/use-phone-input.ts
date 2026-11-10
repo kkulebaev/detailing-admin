@@ -3,8 +3,8 @@ import { toast } from 'vue-sonner'
 
 export const PHONE_PREFIX = '+7 ('
 
-// Minimal surface of HTMLInputElement that the input handler touches. The
-// duck-typed predicate accepts both real DOM inputs and the test mocks.
+// Минимальная часть HTMLInputElement, которую трогает обработчик ввода.
+// Утиная проверка принимает и настоящие DOM-поля, и моки из тестов.
 interface InputLike {
   value: string
   selectionStart: number | null
@@ -23,12 +23,12 @@ function isInputLike(target: unknown): target is InputLike {
 
 function formatPhone(input: string, isDeleting = false): string {
   const digits = input.replace(/\D/g, '')
-  // strip leading 7 or 8 — they're absorbed into the +7 prefix
+  // отбрасываем ведущие 7 или 8 — они поглощаются префиксом +7
   let base = digits
   if (base.startsWith('7') || base.startsWith('8')) base = base.slice(1)
   const d = base.slice(0, 10)
   if (d.length === 0) {
-    // Backspace through the prefix should clear the field, not re-expand it.
+    // Backspace через префикс должен очищать поле, а не разворачивать его заново.
     if (isDeleting) return ''
     if (digits === '7' || digits === '8') return PHONE_PREFIX
     if (input.includes('+')) return '+'
@@ -40,9 +40,9 @@ function formatPhone(input: string, isDeleting = false): string {
   return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8)}`
 }
 
-// Count significant digits (everything after the absorbed leading 7/8 prefix)
-// that sit to the left of `pos` in the raw input. Drives caret restoration so
-// editing in the middle doesn't jump to end-of-string after reformatting.
+// Считает значащие цифры (всё после поглощённого ведущего префикса 7/8),
+// стоящие левее `pos` в сыром вводе. Нужно для восстановления каретки, чтобы
+// правка в середине не отбрасывала её в конец строки после переформатирования.
 function countSignificantDigits(input: string, pos: number): number {
   const slice = input.slice(0, Math.max(0, Math.min(pos, input.length)))
   const before = slice.replace(/\D/g, '')
@@ -54,9 +54,9 @@ function countSignificantDigits(input: string, pos: number): number {
   return before.length
 }
 
-// Map "caret after N significant digits" to the absolute position in the
-// formatted string. Mask layout:
-//   '+7 (DDD) DDD-DD-DD'  positions 4-6, 9-11, 13-14, 16-17.
+// Переводит «каретка после N значащих цифр» в абсолютную позицию в
+// отформатированной строке. Раскладка маски:
+//   '+7 (DDD) DDD-DD-DD'  позиции 4-6, 9-11, 13-14, 16-17.
 function caretPosForDigits(formatted: string, n: number): number {
   if (!formatted) return 0
   if (!formatted.startsWith(PHONE_PREFIX)) return formatted.length
@@ -65,9 +65,9 @@ function caretPosForDigits(formatted: string, n: number): number {
   return Math.min(pos, formatted.length)
 }
 
-// Pasted strings may carry a country code, separators, or no prefix at all.
-// Reduce to the 10 significant digits before reusing formatPhone — typing
-// goes through a different path that can't safely strip a "leading 7/8" twice.
+// Вставленные строки могут содержать код страны, разделители или вообще не иметь префикса.
+// Сводим к 10 значащим цифрам, прежде чем переиспользовать formatPhone, — ввод с клавиатуры
+// идёт другим путём, где нельзя безопасно отрезать «ведущую 7/8» дважды.
 export function formatPastedPhone(input: string): string {
   const digits = input.replace(/\D/g, '')
   let ten = digits
@@ -82,18 +82,18 @@ export function formatPastedPhone(input: string): string {
 export function usePhoneInput() {
   const phoneRaw = ref('')
 
-  // Returns the phone value to send on submit:
-  //   '' when the user hasn't typed any real digits past the prefix,
-  //   the raw masked string otherwise (server transform normalises to E.164).
+  // Возвращает значение телефона для отправки:
+  //   '', если пользователь не ввёл ни одной реальной цифры после префикса,
+  //   иначе — сырую строку с маской (серверный transform нормализует её до E.164).
   function effectivePhone(): string {
     const digits = phoneRaw.value.replace(/\D/g, '')
     return digits.length <= 1 ? '' : phoneRaw.value
   }
 
   function onPhoneInput(e: Event) {
-    // Duck-type the target instead of `instanceof HTMLInputElement` so the
-    // jsdom-free vitest mocks (plain object with `value` + `setSelectionRange`)
-    // still flow through; real DOM input elements satisfy the same predicate.
+    // Проверяем target по утиной типизации вместо `instanceof HTMLInputElement`, чтобы
+    // моки vitest без jsdom (простой объект с `value` + `setSelectionRange`)
+    // тоже проходили; настоящие DOM-поля удовлетворяют тому же предикату.
     const target = e.target
     if (!isInputLike(target)) return
     const isDeleting = target.value.length < phoneRaw.value.length
@@ -110,10 +110,10 @@ export function usePhoneInput() {
     }
   }
 
-  // Pressing Backspace or Delete on a phone field that only holds the
-  // auto-injected prefix should wipe it instantly, no matter where the
-  // caret is — otherwise a Delete at end-of-string would do nothing
-  // (no character to the right) and leave the user stuck with '+7 ('.
+  // Backspace или Delete в поле телефона, где есть только
+  // автоматически подставленный префикс, должны сразу его стирать, где бы ни
+  // стояла каретка, — иначе Delete в конце строки ничего бы не делал
+  // (справа нет символа) и пользователь застрял бы с '+7 ('.
   function onPhoneKeydown(e: KeyboardEvent) {
     if (e.key !== 'Backspace' && e.key !== 'Delete') return
     if (phoneRaw.value === PHONE_PREFIX || phoneRaw.value === '+') {

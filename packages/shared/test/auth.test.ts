@@ -11,36 +11,36 @@ import {
 } from '../src/auth.js'
 
 describe('roleSchema', () => {
-  it('accepts the known roles', () => {
+  it('принимает известные роли', () => {
     expect(roleSchema.parse('admin')).toBe('admin')
     expect(roleSchema.parse('booker')).toBe('booker')
     expect(roleSchema.parse('employee')).toBe('employee')
   })
 
-  it('rejects unknown roles', () => {
+  it('отклоняет неизвестные роли', () => {
     expect(roleSchema.safeParse('superuser').success).toBe(false)
   })
 
-  it('ROLES is the single source of the enum', () => {
+  it('ROLES — единственный источник enum', () => {
     expect([...ROLES]).toEqual(['admin', 'booker', 'employee'])
   })
 })
 
 describe('toRole', () => {
-  it('keeps known roles', () => {
+  it('сохраняет известные роли', () => {
     expect(toRole('admin')).toBe('admin')
     expect(toRole('booker')).toBe('booker')
     expect(toRole('employee')).toBe('employee')
   })
 
-  it('collapses anything else to the least privileged role', () => {
+  it('сводит всё остальное к наименее привилегированной роли', () => {
     expect(toRole('superuser')).toBe('employee')
     expect(toRole('')).toBe('employee')
   })
 })
 
-describe('role permissions', () => {
-  it('lets admin and booker create, edit and see amounts of bookings, not employee', () => {
+describe('права ролей', () => {
+  it('разрешает admin и booker создавать и править записи и видеть суммы, а employee — нет', () => {
     for (const can of [canCreateBookings, canEditBookings, canSeeAmounts]) {
       expect(can('admin')).toBe(true)
       expect(can('booker')).toBe(true)
@@ -50,32 +50,32 @@ describe('role permissions', () => {
 })
 
 describe('loginRequestSchema', () => {
-  it('accepts a valid credential pair', () => {
+  it('принимает валидную пару логин/пароль', () => {
     expect(loginRequestSchema.safeParse({ login: 'ivan', password: 'secret' }).success).toBe(true)
   })
 
-  it('rejects an empty login', () => {
+  it('отклоняет пустой логин', () => {
     expect(loginRequestSchema.safeParse({ login: '', password: 'secret' }).success).toBe(false)
   })
 
-  it('rejects an empty password', () => {
+  it('отклоняет пустой пароль', () => {
     expect(loginRequestSchema.safeParse({ login: 'ivan', password: '' }).success).toBe(false)
   })
 
-  it('allows omitting remember (defaulted to false server-side)', () => {
+  it('разрешает не передавать remember (на сервере по умолчанию false)', () => {
     const r = loginRequestSchema.safeParse({ login: 'ivan', password: 'secret' })
     expect(r.success).toBe(true)
     expect(r.success && r.data.remember).toBeUndefined()
   })
 
-  it('keeps an explicit remember flag', () => {
+  it('сохраняет явно переданный флаг remember', () => {
     const r = loginRequestSchema.safeParse({ login: 'ivan', password: 'secret', remember: true })
     expect(r.success && r.data.remember).toBe(true)
   })
 })
 
 describe('changePasswordRequestSchema', () => {
-  it('accepts a change to a distinct 8+ char password', () => {
+  it('принимает смену на другой пароль от 8 символов', () => {
     const r = changePasswordRequestSchema.safeParse({
       currentPassword: 'old-secret',
       newPassword: 'brand-new-secret',
@@ -83,7 +83,7 @@ describe('changePasswordRequestSchema', () => {
     expect(r.success).toBe(true)
   })
 
-  it('rejects a new password shorter than 8 chars', () => {
+  it('отклоняет новый пароль короче 8 символов', () => {
     const r = changePasswordRequestSchema.safeParse({
       currentPassword: 'old-secret',
       newPassword: 'short',
@@ -91,7 +91,7 @@ describe('changePasswordRequestSchema', () => {
     expect(r.success).toBe(false)
   })
 
-  it('rejects a new password equal to the current one', () => {
+  it('отклоняет новый пароль, совпадающий с текущим', () => {
     const r = changePasswordRequestSchema.safeParse({
       currentPassword: 'same-secret',
       newPassword: 'same-secret',

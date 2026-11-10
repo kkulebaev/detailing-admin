@@ -20,67 +20,67 @@ import {
 } from './auth/middleware.js'
 
 export function createApp() {
-  // Built imperatively rather than chained so the OpenAPIHono type survives
-  // through `.notFound()` (the chained form widens to plain Hono, which then
-  // loses `.doc()`). The web client is orval-generated off the OpenAPI doc
-  // rather than `hc<AppType>`, so chained AppType inference doesn't matter here.
+  // Собирается императивно, а не цепочкой, чтобы тип OpenAPIHono пережил
+  // `.notFound()` (в цепочке он расширяется до обычного Hono, который теряет
+  // `.doc()`). Веб-клиент генерирует orval по OpenAPI-документу, а не
+  // `hc<AppType>`, так что вывод AppType из цепочки здесь не важен.
   const app = new OpenAPIHono()
 
   app.use(
     '/api/*',
     cors({
       origin: env.WEB_ORIGIN.split(',').map((o) => o.trim()),
-      // credentials:true so the browser attaches/accepts the auth cookie. The
-      // Allow-Credentials header rides even on 401s (CORS runs before auth), so
-      // the SPA can read a rejected response. First-party topology (plan §3-bis)
-      // means this is belt-and-suspenders, not load-bearing.
+      // credentials:true, чтобы браузер прикладывал и принимал cookie авторизации.
+      // Заголовок Allow-Credentials уходит даже с 401 (CORS идёт до auth), поэтому
+      // SPA может прочитать отклонённый ответ. При first-party топологии (план, §3-bis)
+      // это перестраховка, а не несущая конструкция.
       credentials: true,
       allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key'],
       exposeHeaders: ['X-Request-Id'],
     }),
   )
-  // Defence-in-depth: cap any /api/* body at 64 KB (largest legitimate
-  // booking is ~4 KB; on overflow Hono returns the default 413).
+  // Эшелонированная защита: тело любого /api/* ограничено 64 КБ (самая большая
+  // легитимная запись ~4 КБ; при превышении Hono отдаёт стандартный 413).
   app.use('/api/*', bodyLimit({ maxSize: 64 * 1024 }))
 
-  // Auth endpoints stay outside the guards: login/logout/me are public by
-  // construction; change-password guards itself internally. Registered before
-  // the guards so the wildcards below never shadow it.
+  // Эндпоинты авторизации остаются вне guard'ов: login/logout/me публичны по замыслу,
+  // change-password защищает себя сам. Регистрируются до guard'ов, чтобы
+  // wildcard'ы ниже их не перекрывали.
   app.route('/api/auth', authRouter)
 
-  // Everything else under /api is admin-only. The `/*` wildcard also covers the
-  // bare collection path (POST /api/bookings) under Hono's matching, and the
-  // stateless requireAuth keeps the booking flow independent of Postgres.
-  // The bookings list (GET) is available to any authenticated role — the handler
-  // hides amounts by role. POST is the booking form; edit, delete and readiness
-  // follow `canEditBookings`.
+  // Всё остальное под /api — только для админа. При матчинге Hono wildcard `/*` покрывает
+  // и голый путь коллекции (POST /api/bookings), а stateless requireAuth сохраняет
+  // независимость записи от Postgres.
+  // Список записей (GET) доступен любой авторизованной роли — обработчик скрывает
+  // суммы по роли. POST — это форма записи; правка, удаление и готовность
+  // подчиняются `canEditBookings`.
   app.use('/api/bookings/*', requireAuth)
   app.use('/api/bookings/*', (c, next) => {
     if (c.req.method === 'GET') return next()
     return c.req.method === 'POST' ? requireBookingAccess(c, next) : requireBookingEdit(c, next)
   })
-  // The form's autofill is the only part of the clients API a booker may reach:
-  // the list, the card and the export stay admin-only.
+  // Автозаполнение формы — единственная часть API клиентов, доступная booker'у:
+  // список, карточка и экспорт остаются только для админа.
   app.use('/api/clients/*', requireAuth, (c, next) =>
     c.req.method === 'GET' && c.req.path === '/api/clients/lookup'
       ? requireBookingAccess(c, next)
       : requireAdmin(c, next),
   )
-  // The form prices services from the pricelist; editing it stays admin-only.
+  // Форма берёт цены услуг из прайса; редактировать его может только админ.
   app.use('/api/pricelist/*', requireAuth, (c, next) =>
     c.req.method === 'GET' ? requireBookingAccess(c, next) : requireAdmin(c, next),
   )
   app.use('/api/salaries/*', requireAuth, requireAdmin)
-  // Analytics exposes revenue sums — admin-only, like the other sensitive reads.
+  // Аналитика показывает суммы выручки — только для админа, как и прочие чувствительные чтения.
   app.use('/api/analytics/*', requireAuth, requireAdmin)
-  // Accounts are listed only to link them to masters on the admin's Masters page.
+  // Аккаунты перечисляются только для привязки к мастерам на админской странице «Мастера».
   app.use('/api/users/*', requireAuth, requireAdmin)
-  // Self-service for any role: the handlers scope every read and write to the
-  // master linked to the session's account.
+  // Самообслуживание для любой роли: обработчики ограничивают каждое чтение и запись
+  // мастером, привязанным к аккаунту сессии.
   app.use('/api/me/*', requireAuth)
-  // Reading masters (GET) is open to any authenticated role so the bookings
-  // filter works for employees; managing them (POST/PATCH/DELETE) stays admin-only.
+  // Чтение мастеров (GET) открыто любой авторизованной роли, чтобы фильтр записей работал
+  // у сотрудников; управление ими (POST/PATCH/DELETE) остаётся только для админа.
   app.use('/api/masters/*', requireAuth)
   app.use('/api/masters/*', (c, next) => (c.req.method === 'GET' ? next() : requireAdmin(c, next)))
 
@@ -96,8 +96,8 @@ export function createApp() {
 
   app.notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
 
-  // OpenAPI document served at `/openapi.json`. Drives the orval-generated
-  // web client; also handy for manual inspection in dev.
+  // OpenAPI-документ, отдаётся по `/openapi.json`. По нему orval генерирует
+  // веб-клиент; ещё удобен для ручного просмотра в dev.
   app.doc('/openapi.json', {
     openapi: '3.0.0',
     info: {

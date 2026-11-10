@@ -36,9 +36,9 @@ import { SHOP_TIMEZONE } from '../export.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
-// «Мои часы»: the signed-in account works on the master it is linked to
-// (masters.userId) and nothing else. The master is resolved per request from the
-// session's `sub`, never taken from the client.
+// «Мои часы»: вошедший аккаунт работает только с привязанным к нему мастером
+// (masters.userId) и ни с чем больше. Мастер определяется на каждый запрос по `sub`
+// из сессии и никогда не берётся от клиента.
 
 const idParamSchema = z.object({
   id: z
@@ -50,8 +50,8 @@ const idParamSchema = z.object({
 const workHoursMutationOk = z.object({ ok: z.literal(true), hours: workHoursSchema })
 const deleteOk = z.object({ ok: z.literal(true) })
 
-// The edit window is a calendar rule, so «today» is the shop's day, not the
-// server's UTC day — near midnight the two differ.
+// Окно редактирования — календарное правило, поэтому «сегодня» — это день студии,
+// а не UTC-день сервера: около полуночи они расходятся.
 function shopToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: SHOP_TIMEZONE }).format(new Date())
 }
@@ -99,8 +99,8 @@ function toWire<T extends { createdAt: Date }>(row: T) {
   return { ...row, createdAt: row.createdAt.toISOString() }
 }
 
-// Someone else's record answers 404, not 403: an employee has no business
-// learning which ids exist.
+// На чужую запись отвечаем 404, а не 403: сотруднику незачем знать,
+// какие id существуют.
 async function ownRecord(master: Master, id: number): Promise<WorkHoursRow | undefined> {
   const row = await getWorkHoursById(id)
   return row && row.masterId === master.id ? row : undefined
@@ -153,7 +153,7 @@ const createHoursRoute = createRoute({
       description: 'Work hours added',
       content: { 'application/json': { schema: workHoursMutationOk } },
     },
-    // A zod body failure is also a 400, with the issues shape.
+    // Ошибка zod-валидации тела — тоже 400, в форме с issues.
     400: respSelfError,
     500: respInternal,
     503: respDbUnavailable,
@@ -309,8 +309,8 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       if (!master) return selfError(c, 'not_linked')
       const existing = await ownRecord(master, id)
       if (!existing) return notFound(c)
-      // Both ends are checked: an old record can't be pulled into the window,
-      // and a fresh one can't be pushed out of it.
+      // Проверяются обе даты: старую запись нельзя затащить в окно,
+      // а свежую — вытолкнуть из него.
       if (!isInSelfEditWindow(existing.workDate, today)) return selfError(c, 'outside_window')
       if (input.workDate !== undefined && !isInSelfEditWindow(input.workDate, today)) {
         return selfError(c, 'outside_window')

@@ -1,9 +1,9 @@
 /**
- * Dev-only: insert a handful of varied bookings straight into Postgres so the
- * `/bookings` page has data to show. Bypasses the API on purpose — the POST
- * route dual-writes to the authoritative Google Sheet, which must not get test
- * rows. Idempotent: fixed `idempotencyKey`s + onConflictDoNothing, so re-running
- * never duplicates.
+ * Только для разработки: вставляет горстку разнообразных записей прямо в Postgres,
+ * чтобы странице `/bookings` было что показать. API обходится намеренно — POST-роут
+ * пишет и в авторитетную Google-таблицу, куда тестовые строки попадать не должны.
+ * Идемпотентно: фиксированные `idempotencyKey` + onConflictDoNothing, поэтому
+ * повторный запуск не создаёт дублей.
  *
  *   pnpm --filter @detailing-admin/api exec tsx --env-file=.env scripts/seed-bookings-dev.ts
  */
@@ -11,7 +11,7 @@ import { bookingSchema } from '@detailing-admin/shared/booking'
 import { insertBooking } from '../src/db/bookings.js'
 import { closeDb } from '../src/db/client.js'
 
-// Real master names from the local `masters` table so the master filter works.
+// Настоящие имена мастеров из локальной таблицы `masters`, чтобы работал фильтр по мастеру.
 const SAMPLES = [
   {
     key: 'dev-seed-01',

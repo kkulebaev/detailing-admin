@@ -28,9 +28,9 @@ afterEach(() => {
   _setDbForTest(null)
 })
 
-// Fake insert chain: insert().values(v).onConflictDoNothing(opts).returning() —
-// captures the values/conflict target and resolves to `returningRows` (default a
-// fresh id, so the upsert's select-fallback branch is not exercised).
+// Фейковая цепочка insert: insert().values(v).onConflictDoNothing(opts).returning() —
+// запоминает values/цель конфликта и резолвится в `returningRows` (по умолчанию новый
+// id, так что ветка select-fallback в upsert не задействуется).
 function makeInsertDb(returningRows: unknown[] = [{ id: 'new-car-id' }]) {
   const captured: { values?: Record<string, unknown>; conflict?: unknown } = {}
   const insert = vi.fn(() => ({
@@ -47,7 +47,7 @@ function makeInsertDb(returningRows: unknown[] = [{ id: 'new-car-id' }]) {
   return { db: { insert } as unknown as Db, insert, captured }
 }
 
-// Fake select chain: select({...}).from(t).where(cond) resolves to preset rows.
+// Фейковая цепочка select: select({...}).from(t).where(cond) резолвится в заданные строки.
 function makeSelectDb(rows: unknown[]) {
   const select = vi.fn(() => ({
     from: () => ({ where: () => Promise.resolve(rows) }),
@@ -55,9 +55,9 @@ function makeSelectDb(rows: unknown[]) {
   return { db: { select } as unknown as Db, select }
 }
 
-// Fake insert-then-select db for upsertClientCarReturningId's conflict path: the
-// insert returns no row (conflict) and the select-fallback resolves the existing
-// id. Captures the where predicate so the normalized lookup key is inspectable.
+// Фейковая БД «insert, затем select» для конфликтной ветки upsertClientCarReturningId:
+// insert не возвращает строку (конфликт), а select-fallback находит существующий id.
+// Запоминает предикат where, чтобы можно было проверить нормализованный ключ поиска.
 function makeUpsertConflictDb(selectRows: unknown[]) {
   const captured: { insertValues?: Record<string, unknown>; selectWhere?: unknown } = {}
   const insert = vi.fn(() => ({
@@ -79,8 +79,8 @@ function makeUpsertConflictDb(selectRows: unknown[]) {
   return { db: { insert, select } as unknown as Db, insert, select, captured }
 }
 
-// Fake select-with-limit chain for selectCarId: select().from().where(cond)
-// .limit(n) resolves to preset rows; captures the where predicate.
+// Фейковая цепочка select с limit для selectCarId: select().from().where(cond)
+// .limit(n) резолвится в заданные строки; запоминает предикат where.
 function makeSelectLimitDb(rows: unknown[]) {
   const captured: { where?: unknown } = {}
   const select = vi.fn(() => ({
@@ -95,7 +95,7 @@ function makeSelectLimitDb(rows: unknown[]) {
 }
 
 describe('upsertClientCar', () => {
-  it('inserts normalized make/model and plate', async () => {
+  it('вставляет нормализованные марку/модель и номер', async () => {
     const { db, captured } = makeInsertDb()
     _setDbForTest(db)
 
@@ -108,7 +108,7 @@ describe('upsertClientCar', () => {
     })
   })
 
-  it('is a no-op (no insert) on an empty make/model', async () => {
+  it('ничего не делает (без insert) при пустой марке/модели', async () => {
     const { db, insert } = makeInsertDb()
     _setDbForTest(db)
 
@@ -117,27 +117,27 @@ describe('upsertClientCar', () => {
     expect(insert).not.toHaveBeenCalled()
   })
 
-  it('dedupes via onConflictDoNothing on the (clientId, makeModel, plate) uniq', async () => {
+  it('дедуплицирует через onConflictDoNothing по уникальному ключу (clientId, makeModel, plate)', async () => {
     const { db, captured } = makeInsertDb()
     _setDbForTest(db)
 
     await upsertClientCar(CLIENT_ID, 'Toyota Camry', '')
 
-    // Empty plate is stored as '' (never NULL) so the UNIQUE index dedupes it.
+    // Пустой номер хранится как '' (никогда не NULL), чтобы UNIQUE-индекс его дедуплицировал.
     expect(captured.values).toMatchObject({ plate: '' })
     expect(captured.conflict).toMatchObject({ target: expect.any(Array) })
   })
 })
 
 describe('upsertClientCarReturningId', () => {
-  it('returns the new id when the insert lands a fresh row', async () => {
+  it('возвращает новый id, когда insert добавляет новую строку', async () => {
     const { db, captured } = makeInsertDb([{ id: 'fresh-car-id' }])
     _setDbForTest(db)
 
     const id = await upsertClientCarReturningId(CLIENT_ID, 'Toyota  Camry', 'а 123 аа 77')
 
     expect(id).toBe('fresh-car-id')
-    // Normalized before insert (make/model collapsed, plate upper + space-stripped).
+    // Нормализуется до insert (марка/модель схлопнута, номер в верхнем регистре и без пробелов).
     expect(captured.values).toMatchObject({
       clientId: CLIENT_ID,
       makeModel: 'Toyota Camry',
@@ -145,24 +145,24 @@ describe('upsertClientCarReturningId', () => {
     })
   })
 
-  it('falls back to the existing id on a conflict, matching the same normalized key', async () => {
+  it('при конфликте берёт существующий id, сопоставляя по тому же нормализованному ключу', async () => {
     const { db, captured } = makeUpsertConflictDb([{ id: 'existing-car-id' }])
     _setDbForTest(db)
 
     const id = await upsertClientCarReturningId(CLIENT_ID, 'Toyota  Camry', 'а 123 аа 77')
 
     expect(id).toBe('existing-car-id')
-    // The insert wrote the normalized values…
+    // Insert записал нормализованные значения…
     expect(captured.insertValues).toMatchObject({ makeModel: 'Toyota Camry', plate: 'А123АА77' })
-    // …and the select-fallback runs against the same normalized columns (else the
-    // id would never be found). Rendered SQL carries the normalized params.
+    // …и select-fallback идёт по тем же нормализованным колонкам (иначе id никогда
+    // не нашёлся бы). Отрендеренный SQL несёт нормализованные параметры.
     const rendered = new PgDialect().sqlToQuery(captured.selectWhere as never)
     expect(rendered.params).toContain('Toyota Camry')
     expect(rendered.params).toContain('А123АА77')
     expect(rendered.params).toContain(CLIENT_ID)
   })
 
-  it('returns null on an empty make/model without touching the DB', async () => {
+  it('возвращает null при пустой марке/модели, не обращаясь к БД', async () => {
     const { db, insert } = makeInsertDb()
     _setDbForTest(db)
 
@@ -172,7 +172,7 @@ describe('upsertClientCarReturningId', () => {
     expect(insert).not.toHaveBeenCalled()
   })
 
-  it('returns null when the conflict select finds nothing', async () => {
+  it('возвращает null, если select после конфликта ничего не находит', async () => {
     const { db } = makeUpsertConflictDb([])
     _setDbForTest(db)
 
@@ -182,7 +182,7 @@ describe('upsertClientCarReturningId', () => {
 })
 
 describe('selectCarId', () => {
-  it('returns the id of a car already in client_cars (read-only, normalized key)', async () => {
+  it('возвращает id машины, уже лежащей в client_cars (только чтение, нормализованный ключ)', async () => {
     const { db, captured, select } = makeSelectLimitDb([{ id: 'existing-car-id' }])
     _setDbForTest(db)
 
@@ -196,14 +196,14 @@ describe('selectCarId', () => {
     expect(rendered.params).toContain(CLIENT_ID)
   })
 
-  it('returns null when no car matches', async () => {
+  it('возвращает null, если ни одна машина не подходит', async () => {
     const { db } = makeSelectLimitDb([])
     _setDbForTest(db)
 
     expect(await selectCarId(CLIENT_ID, 'Kia Rio', '')).toBeNull()
   })
 
-  it('returns null on an empty make/model without querying (never inserts)', async () => {
+  it('возвращает null при пустой марке/модели без запроса (никогда не вставляет)', async () => {
     const { db, select } = makeSelectLimitDb([{ id: 'x' }])
     _setDbForTest(db)
 
@@ -214,7 +214,7 @@ describe('selectCarId', () => {
 })
 
 describe('listCarsByClientIds', () => {
-  it('groups cars by clientId', async () => {
+  it('группирует машины по clientId', async () => {
     const rows = [
       { id: 'car-1', clientId: 'a', makeModel: 'Toyota Camry', plate: 'А123АА77' },
       { id: 'car-2', clientId: 'a', makeModel: 'BMW X5', plate: '' },
@@ -232,7 +232,7 @@ describe('listCarsByClientIds', () => {
     expect(map.get('b')).toEqual([{ id: 'car-3', makeModel: 'Kia Rio', plate: 'В001ВВ99' }])
   })
 
-  it('returns an empty map without querying on empty ids', async () => {
+  it('возвращает пустую map без запроса при пустом списке id', async () => {
     const { db, select } = makeSelectDb([])
     _setDbForTest(db)
 
@@ -243,9 +243,9 @@ describe('listCarsByClientIds', () => {
   })
 })
 
-// Fake tx for syncClientCars: select() → existing rows; delete().where() and
-// insert().values().onConflictDoNothing() capture their inputs. transaction()
-// invokes the callback with this same fake (single connection is enough).
+// Фейковая транзакция для syncClientCars: select() → существующие строки; delete().where()
+// и insert().values().onConflictDoNothing() запоминают свои аргументы. transaction()
+// вызывает колбэк с этим же фейком (одного соединения достаточно).
 function makeSyncDb(existing: { id: string; makeModel: string; plate: string }[]) {
   const captured: {
     deleteWhere: unknown
@@ -274,7 +274,7 @@ function makeSyncDb(existing: { id: string; makeModel: string; plate: string }[]
 }
 
 describe('syncClientCars', () => {
-  it('inserts the missing normalized pairs when the client has none', async () => {
+  it('вставляет недостающие нормализованные пары, когда у клиента их нет', async () => {
     const { db, captured } = makeSyncDb([])
     _setDbForTest(db)
 
@@ -289,7 +289,7 @@ describe('syncClientCars', () => {
     ])
   })
 
-  it('dedupes pairs that normalize to the same key', async () => {
+  it('дедуплицирует пары, которые нормализуются в один ключ', async () => {
     const { db, captured } = makeSyncDb([])
     _setDbForTest(db)
 
@@ -303,7 +303,7 @@ describe('syncClientCars', () => {
     ])
   })
 
-  it('skips empty make/model entries', async () => {
+  it('пропускает записи с пустой маркой/моделью', async () => {
     const { db, captured } = makeSyncDb([])
     _setDbForTest(db)
 
@@ -317,8 +317,8 @@ describe('syncClientCars', () => {
     ])
   })
 
-  it('deletes rows no longer desired and keeps survivors (no re-insert)', async () => {
-    // Keep Toyota, drop BMW, add Kia.
+  it('удаляет больше не нужные строки и сохраняет оставшиеся (без повторного insert)', async () => {
+    // Оставляем Toyota, убираем BMW, добавляем Kia.
     const { db, captured } = makeSyncDb([
       { id: 'row-toyota', makeModel: 'Toyota Camry', plate: 'А123АА77' },
       { id: 'row-bmw', makeModel: 'BMW X5', plate: '' },
@@ -330,14 +330,14 @@ describe('syncClientCars', () => {
       { makeModel: 'Kia Rio', plate: '' },
     ])
 
-    // Toyota survives → not re-inserted; only Kia is inserted.
+    // Toyota остаётся → повторно не вставляется; вставляется только Kia.
     expect(captured.insertValues).toEqual([
       { clientId: CLIENT_ID, makeModel: 'Kia Rio', plate: '' },
     ])
     expect(captured.deleteWhere).toBeDefined()
   })
 
-  it('is idempotent: re-sync of the current set inserts and deletes nothing', async () => {
+  it('идемпотентен: повторная синхронизация текущего набора ничего не вставляет и не удаляет', async () => {
     const { db, captured } = makeSyncDb([
       { id: 'row-toyota', makeModel: 'Toyota Camry', plate: 'А123АА77' },
     ])
@@ -349,7 +349,7 @@ describe('syncClientCars', () => {
     expect(captured.deleteWhere).toBeUndefined()
   })
 
-  it('clears all rows when given an empty list', async () => {
+  it('удаляет все строки, если передан пустой список', async () => {
     const { db, captured } = makeSyncDb([
       { id: 'row-toyota', makeModel: 'Toyota Camry', plate: 'А123АА77' },
     ])

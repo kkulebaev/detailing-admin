@@ -49,9 +49,9 @@ vi.mock('../src/db/client-cars.js', () => ({
   selectCarId: vi.fn(),
 }))
 
-// Partial mock: the DB-hitting functions are stubbed, but the pure toBookingRow
-// mapper stays real — the GET list regression assertions (id-links dropped,
-// amount hidden for non-admin) exercise the extracted mapper through the route.
+// Частичный мок: функции, обращающиеся к БД, заглушены, а чистый маппер toBookingRow
+// остаётся настоящим — регрессионные проверки GET-списка (id-ссылки отброшены, сумма
+// скрыта от не-админа) прогоняют вынесенный маппер через маршрут.
 vi.mock('../src/db/bookings.js', async (importActual) => {
   const actual = await importActual<typeof import('../src/db/bookings.js')>()
   return {
@@ -112,7 +112,7 @@ const APPEND_SUCCESS = {
   statusCode: 200,
 }
 
-// Set in beforeEach — every protected request rides a valid admin session cookie.
+// Выставляется в beforeEach — каждый защищённый запрос идёт с валидной cookie admin-сессии.
 let authCookie = ''
 
 function post(
@@ -148,7 +148,7 @@ describe('POST /api/bookings', () => {
     vi.useRealTimers()
   })
 
-  it('returns 201 with ok:true and X-Request-Id on valid payload', async () => {
+  it('возвращает 201 с ok:true и X-Request-Id на валидный payload', async () => {
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'key-1' })
     expect(res.status).toBe(201)
     expect(res.headers.get('X-Request-Id')).toBeTruthy()
@@ -160,12 +160,12 @@ describe('POST /api/bookings', () => {
     expect(body.updatedRow).toBeGreaterThanOrEqual(2)
   })
 
-  it('calls Sheets exactly once for first request', async () => {
+  it('вызывает Sheets ровно один раз на первый запрос', async () => {
     await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'key-once' })
     expect(vi.mocked(appendBooking)).toHaveBeenCalledTimes(1)
   })
 
-  it('same Idempotency-Key within TTL returns idempotent:true with only one Sheets call', async () => {
+  it('тот же Idempotency-Key в пределах TTL возвращает idempotent:true при единственном вызове Sheets', async () => {
     const key = 'idem-key'
     const r1 = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': key })
     const r2 = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': key })
@@ -181,13 +181,13 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(appendBooking)).toHaveBeenCalledTimes(1)
   })
 
-  it('different Idempotency-Keys produce two Sheets calls', async () => {
+  it('разные Idempotency-Key дают два вызова Sheets', async () => {
     await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'key-a' })
     await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'key-b' })
     expect(vi.mocked(appendBooking)).toHaveBeenCalledTimes(2)
   })
 
-  it('after TTL expiry same key re-hits Sheets', async () => {
+  it('после истечения TTL тот же ключ снова идёт в Sheets', async () => {
     vi.useFakeTimers()
     const key = 'ttl-key'
 
@@ -200,7 +200,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(appendBooking)).toHaveBeenCalledTimes(2)
   })
 
-  it('missing Idempotency-Key returns 400 validation error', async () => {
+  it('без Idempotency-Key возвращает 400 с ошибкой валидации', async () => {
     const res = await post(app, VALID_PAYLOAD)
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -211,7 +211,7 @@ describe('POST /api/bookings', () => {
     ).toBe(true)
   })
 
-  it('invalid time field returns 400 with issue at path ["time"]', async () => {
+  it('невалидное поле time возвращает 400 с ошибкой по пути ["time"]', async () => {
     const res = await post(
       app,
       { dateFrom: '04.06.2026', time: '25:99' },
@@ -224,14 +224,14 @@ describe('POST /api/bookings', () => {
     expect(issue).toBeTruthy()
   })
 
-  it('missing dateFrom returns 400 validation error', async () => {
+  it('без dateFrom возвращает 400 с ошибкой валидации', async () => {
     const res = await post(app, { time: '10:00' }, { 'Idempotency-Key': 'k' })
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toBe('validation')
   })
 
-  it('bootState === headers_mismatch returns 503 unavailable with no Sheets call', async () => {
+  it('при bootState === headers_mismatch возвращает 503 unavailable без вызова Sheets', async () => {
     vi.mocked(getBootState).mockReturnValue('headers_mismatch')
     vi.mocked(getBootHeadersMismatch).mockReturnValue({
       column_index: 8,
@@ -251,7 +251,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(appendBooking)).not.toHaveBeenCalled()
   })
 
-  it('boot-blocked 503 path emits no per-request log (plan §7)', async () => {
+  it('503 из-за блокировки boot не пишет лог на каждый запрос (plan §7)', async () => {
     vi.mocked(getBootState).mockReturnValue('headers_mismatch')
     vi.mocked(getBootHeadersMismatch).mockReturnValue({
       column_index: 8,
@@ -269,7 +269,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(baseLogger.error)).not.toHaveBeenCalled()
   })
 
-  it('bootState === not_configured returns 503 with reason:not_configured and message', async () => {
+  it('при bootState === not_configured возвращает 503 с reason:not_configured и сообщением', async () => {
     vi.mocked(getBootState).mockReturnValue('not_configured')
     vi.mocked(getBootHeadersMismatch).mockReturnValue(null)
     vi.mocked(getBootNotConfiguredMessage).mockReturnValue('Invalid base64 credentials')
@@ -285,7 +285,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(appendBooking)).not.toHaveBeenCalled()
   })
 
-  it('Idempotency-Key longer than 128 chars returns 400 validation error', async () => {
+  it('Idempotency-Key длиннее 128 символов возвращает 400 с ошибкой валидации', async () => {
     const longKey = 'k'.repeat(200)
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': longKey })
     expect(res.status).toBe(400)
@@ -300,7 +300,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(appendBooking)).not.toHaveBeenCalled()
   })
 
-  it('cache hit with a leaked non-ok entry is evicted, not returned', async () => {
+  it('просочившаяся в кэш не-ok запись при попадании вытесняется, а не возвращается', async () => {
     const key = 'leaked-error-key'
     setIdempotency(key, {
       ok: false,
@@ -310,11 +310,11 @@ describe('POST /api/bookings', () => {
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.ok).toBe(true)
-    // The leaked entry was evicted, so Sheets was called fresh.
+    // Просочившаяся запись вытеснена, поэтому Sheets вызван заново.
     expect(vi.mocked(appendBooking)).toHaveBeenCalledTimes(1)
   })
 
-  it('Sheets failure returns 502 with error:sheets', async () => {
+  it('сбой Sheets возвращает 502 с error:sheets', async () => {
     vi.mocked(appendBooking).mockResolvedValue({
       ok: false,
       latencyMs: 5,
@@ -329,7 +329,7 @@ describe('POST /api/bookings', () => {
     expect(body.error).toBe('sheets')
   })
 
-  it('upserts client with normalized phone and name after successful Sheets append', async () => {
+  it('делает upsert клиента с нормализованными телефоном и именем после успешного append в Sheets', async () => {
     await post(
       app,
       { ...VALID_PAYLOAD, phone: '8 (900) 123-45-67', name: 'Иван' },
@@ -339,7 +339,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(upsertClient)).toHaveBeenCalledWith('+79001234567', 'Иван')
   })
 
-  it('does not call upsertClient when DB is not ready (best-effort)', async () => {
+  it('не вызывает upsertClient, если БД не готова (best-effort)', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await post(
       app,
@@ -350,12 +350,12 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(upsertClient)).not.toHaveBeenCalled()
   })
 
-  it('does not notify the master when notify is absent', async () => {
+  it('не уведомляет мастера, если notify не передан', async () => {
     await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-no-notify' })
     expect(vi.mocked(notifyMaster)).not.toHaveBeenCalled()
   })
 
-  it('notifies the master and echoes a delivered result when notify is true', async () => {
+  it('уведомляет мастера и возвращает результат доставки, когда notify равен true', async () => {
     const res = await post(
       app,
       { ...VALID_PAYLOAD, notify: true },
@@ -367,7 +367,7 @@ describe('POST /api/bookings', () => {
     expect(body.notification).toEqual({ attempted: true, delivered: true })
   })
 
-  it('booking still succeeds and reports a failed notification (best-effort)', async () => {
+  it('запись всё равно создаётся и сообщает о неудачном уведомлении (best-effort)', async () => {
     vi.mocked(notifyMaster).mockResolvedValue({
       attempted: true,
       delivered: false,
@@ -388,18 +388,18 @@ describe('POST /api/bookings', () => {
     })
   })
 
-  it('idempotent replay returns the cached notification without re-sending', async () => {
+  it('идемпотентный повтор возвращает закэшированное уведомление без повторной отправки', async () => {
     const key = 'k-notify-replay'
     await post(app, { ...VALID_PAYLOAD, notify: true }, { 'Idempotency-Key': key })
     const res = await post(app, { ...VALID_PAYLOAD, notify: true }, { 'Idempotency-Key': key })
     const body = await res.json()
     expect(body.idempotent).toBe(true)
     expect(body.notification).toEqual({ attempted: true, delivered: true })
-    // Replay must not re-send — notifyMaster was called only on the first hit.
+    // Повтор не должен отправлять заново — notifyMaster вызван только при первом запросе.
     expect(vi.mocked(notifyMaster)).toHaveBeenCalledTimes(1)
   })
 
-  it('booking still succeeds when upsertClient throws (best-effort)', async () => {
+  it('запись всё равно создаётся, если upsertClient падает (best-effort)', async () => {
     vi.mocked(upsertClient).mockRejectedValueOnce(new Error('db connection refused'))
     const res = await post(
       app,
@@ -415,7 +415,7 @@ describe('POST /api/bookings', () => {
     )
   })
 
-  it('mirrors the booking into the DB with client link, car link and Sheets coords', async () => {
+  it('зеркалирует запись в БД со ссылками на клиента и машину и координатами в Sheets', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'inserted',
       client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
@@ -439,14 +439,14 @@ describe('POST /api/bookings', () => {
     )
   })
 
-  it('does not mirror the booking when DB is not ready (best-effort)', async () => {
+  it('не зеркалирует запись, если БД не готова (best-effort)', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-no-mirror' })
     expect(res.status).toBe(201)
     expect(vi.mocked(insertBooking)).not.toHaveBeenCalled()
   })
 
-  it('mirrors the booking with a null client link when upsertClient throws', async () => {
+  it('зеркалирует запись с пустой ссылкой на клиента, если upsertClient падает', async () => {
     vi.mocked(upsertClient).mockRejectedValueOnce(new Error('db connection refused'))
     await post(
       app,
@@ -457,7 +457,7 @@ describe('POST /api/bookings', () => {
       expect.any(Object),
       expect.objectContaining({
         clientId: null,
-        // No client → the car is never resolved either (Fork 5).
+        // Нет клиента → машина тоже не резолвится (Fork 5).
         carId: null,
         idempotencyKey: 'k-mirror-null-client',
       }),
@@ -465,7 +465,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(upsertClientCarReturningId)).not.toHaveBeenCalled()
   })
 
-  it('booking still succeeds when the mirror insert throws (best-effort)', async () => {
+  it('запись всё равно создаётся, если insert в зеркало падает (best-effort)', async () => {
     vi.mocked(insertBooking).mockRejectedValueOnce(new Error('unique violation'))
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-mirror-fail' })
     expect(res.status).toBe(201)
@@ -477,7 +477,7 @@ describe('POST /api/bookings', () => {
     )
   })
 
-  it('ingests the client car and links car_id after a successful booking (best-effort)', async () => {
+  it('сохраняет машину клиента и проставляет car_id после успешной записи (best-effort)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'inserted',
       client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
@@ -494,28 +494,28 @@ describe('POST /api/bookings', () => {
       'Toyota Camry',
       'А123АА77',
     )
-    // The resolved car id is threaded into the mirror insert.
+    // Найденный id машины передаётся в insert зеркала.
     expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ carId: 'car-uuid-9' }),
     )
   })
 
-  it('does not ingest the car when DB is not ready (best-effort)', async () => {
+  it('не сохраняет машину, если БД не готова (best-effort)', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-no-db' })
     expect(res.status).toBe(201)
     expect(vi.mocked(upsertClientCarReturningId)).not.toHaveBeenCalled()
   })
 
-  it('does not ingest the car when no client is linked (null clientId)', async () => {
+  it('не сохраняет машину, если клиент не привязан (clientId равен null)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'skipped', client: null })
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-no-client' })
     expect(res.status).toBe(201)
     expect(vi.mocked(upsertClientCarReturningId)).not.toHaveBeenCalled()
   })
 
-  it('a failing car ingest does not suppress the mirror insert and links car_id=null', async () => {
+  it('сбой сохранения машины не отменяет insert в зеркало и проставляет car_id=null', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'inserted',
       client: { id: 'client-uuid-1', phone: '+79001234567', name: 'Иван', createdAt: new Date() },
@@ -524,7 +524,7 @@ describe('POST /api/bookings', () => {
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-car-fail' })
     expect(res.status).toBe(201)
     expect((await res.json()).ok).toBe(true)
-    // The mirror insert must still run despite the car failure, with a null link.
+    // Insert в зеркало должен выполниться несмотря на сбой с машиной, с пустой ссылкой.
     expect(vi.mocked(insertBooking)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
       expect.any(Object),
@@ -536,7 +536,7 @@ describe('POST /api/bookings', () => {
     )
   })
 
-  it('lets a booker submit the booking form', async () => {
+  it('позволяет booker отправить форму записи', async () => {
     const res = await post(app, VALID_PAYLOAD, {
       'Idempotency-Key': 'k-booker-write',
       Cookie: await bookerCookie(),
@@ -545,7 +545,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(appendBooking)).toHaveBeenCalled()
   })
 
-  it('rejects a booking write from a role without booking access', async () => {
+  it('отклоняет создание записи от роли без доступа к записям', async () => {
     const res = await post(app, VALID_PAYLOAD, {
       'Idempotency-Key': 'k-emp-write',
       Cookie: await employeeCookie(),
@@ -597,7 +597,7 @@ describe('GET /api/bookings', () => {
     return app.request(`/api/bookings${query}`, { method: 'GET', headers })
   }
 
-  it('returns 200 with items and total for admin, without the idempotency key', async () => {
+  it('возвращает 200 с items и total для admin, без ключа идемпотентности', async () => {
     const res = await getList()
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -607,18 +607,18 @@ describe('GET /api/bookings', () => {
     expect(body.items[0].id).toBe(SAMPLE_ROW.id)
     expect(body.items[0].createdAt).toBe('2026-06-01T12:00:00.000Z')
     expect(body.items[0].idempotencyKey).toBeUndefined()
-    // The derived id-links are internal and must never reach the wire (AC9).
+    // Производные id-ссылки — внутренние и никогда не должны уходить в ответ (AC9).
     expect(body.items[0].responsibleId).toBeUndefined()
     expect(body.items[0].responsible_id).toBeUndefined()
     expect(body.items[0].carId).toBeUndefined()
     expect(body.items[0].car_id).toBeUndefined()
-    // Byte-level guard: the derived id must not leak under any key spelling.
+    // Проверка на уровне байтов: производный id не должен утечь ни под каким написанием ключа.
     expect(JSON.stringify(body.items[0])).not.toContain('car-uuid-1')
-    // Admins see the amount.
+    // Админы видят сумму.
     expect(body.items[0].amount).toBe(SAMPLE_ROW.amount)
   })
 
-  it('converts DD.MM.YYYY date filters to ISO and forwards paging/search', async () => {
+  it('конвертирует фильтры дат DD.MM.YYYY в ISO и пробрасывает пагинацию/поиск', async () => {
     const qs = new URLSearchParams({
       dateFrom: '04.06.2026',
       dateTo: '05.06.2026',
@@ -640,18 +640,18 @@ describe('GET /api/bookings', () => {
     })
   })
 
-  it('forwards an ascending sort', async () => {
+  it('пробрасывает сортировку по возрастанию', async () => {
     await getList('?sort=asc')
     expect(vi.mocked(listBookings)).toHaveBeenCalledWith(expect.objectContaining({ sort: 'asc' }))
   })
 
-  it('rejects an unknown sort → 400', async () => {
+  it('отклоняет неизвестную сортировку → 400', async () => {
     const res = await getList('?sort=sideways')
     expect(res.status).toBe(400)
     expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
   })
 
-  it('returns 503 when DB is not ready, without querying', async () => {
+  it('возвращает 503, если БД не готова, не выполняя запросов', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await getList()
     expect(res.status).toBe(503)
@@ -660,32 +660,32 @@ describe('GET /api/bookings', () => {
     expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
   })
 
-  it('returns 401 without an auth cookie', async () => {
+  it('возвращает 401 без auth-cookie', async () => {
     const res = await getList('', {})
     expect(res.status).toBe(401)
   })
 
-  it('lets a non-admin role read the list but strips the amount fields', async () => {
+  it('позволяет роли не-админа читать список, но вырезает поля с суммами', async () => {
     const res = await getList('', { Cookie: await employeeCookie() })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(body.items).toHaveLength(1)
-    // Non-amount fields stay visible…
+    // Поля, не связанные с суммами, остаются видимыми…
     expect(body.items[0].name).toBe(SAMPLE_ROW.name)
-    // …but amounts are admin-only.
+    // …а суммы — только для админа.
     expect(body.items[0].amount).toBeUndefined()
     expect(body.items[0].amountFormula).toBeUndefined()
   })
 
-  it('shows amounts to a booker', async () => {
+  it('показывает суммы booker', async () => {
     const res = await getList('', { Cookie: await bookerCookie() })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.items[0].amount).toBe(SAMPLE_ROW.amount)
   })
 
-  it('returns 400 for a malformed date filter', async () => {
+  it('возвращает 400 при некорректном фильтре по дате', async () => {
     const res = await getList('?dateFrom=2026-06-04')
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -733,25 +733,25 @@ describe('GET /api/bookings/export', () => {
   const getExport = (query = '', headers: Record<string, string> = { Cookie: cookie }) =>
     app.request(`/api/bookings/export${query}`, { method: 'GET', headers })
 
-  it('returns 200 text/csv with BOM and Content-Disposition for admin', async () => {
+  it('возвращает 200 text/csv с BOM и Content-Disposition для admin', async () => {
     const res = await getExport()
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toContain('text/csv')
     expect(res.headers.get('Content-Disposition')).toMatch(
       /attachment; filename="bookings-\d{4}-\d{2}-\d{2}\.csv"/,
     )
-    // Read the raw bytes: res.text() decodes UTF-8 and strips a leading BOM, so
-    // the BOM must be asserted on the wire bytes (EF BB BF).
+    // Читаем сырые байты: res.text() декодирует UTF-8 и срезает ведущий BOM, поэтому
+    // BOM нужно проверять по байтам ответа (EF BB BF).
     const buf = new Uint8Array(await res.arrayBuffer())
     expect(Array.from(buf.slice(0, 3))).toEqual([0xef, 0xbb, 0xbf])
     const text = new TextDecoder('utf-8').decode(buf)
-    // Admin sees the money column; the phone is injection-neutralized ('+7…).
+    // Админ видит колонку с деньгами; телефон обезврежен от инъекций ('+7…).
     expect(text).toContain('Сумма')
     expect(text).toContain('Иван')
     expect(text).toContain("'+79991234567")
   })
 
-  it('omits the Сумма column for a non-admin role', async () => {
+  it('не выводит колонку Сумма для роли не-админа', async () => {
     const res = await getExport('', { Cookie: await employeeCookie() })
     expect(res.status).toBe(200)
     const text = await res.text()
@@ -759,13 +759,13 @@ describe('GET /api/bookings/export', () => {
     expect(text).toContain('Иван')
   })
 
-  it('includes the Сумма column for a booker', async () => {
+  it('выводит колонку Сумма для booker', async () => {
     const res = await getExport('', { Cookie: await bookerCookie() })
     expect(res.status).toBe(200)
     expect(await res.text()).toContain('Сумма')
   })
 
-  it('forwards filters to listBookings with the export cap and no paging', async () => {
+  it('пробрасывает фильтры в listBookings с лимитом экспорта и без пагинации', async () => {
     const qs = new URLSearchParams({
       dateFrom: '04.06.2026',
       dateTo: '05.06.2026',
@@ -787,21 +787,21 @@ describe('GET /api/bookings/export', () => {
     })
   })
 
-  it('returns 503 when DB is not ready, without querying', async () => {
+  it('возвращает 503, если БД не готова, не выполняя запросов', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await getExport()
     expect(res.status).toBe(503)
     expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
   })
 
-  it('returns 400 for a malformed date filter', async () => {
+  it('возвращает 400 при некорректном фильтре по дате', async () => {
     const res = await getExport('?dateFrom=2026-06-04')
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe('validation')
     expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
   })
 
-  it('returns 401 without an auth cookie', async () => {
+  it('возвращает 401 без auth-cookie', async () => {
     const res = await getExport('', {})
     expect(res.status).toBe(401)
   })
@@ -857,7 +857,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   const del = (headers: Record<string, string> = { Cookie: cookie }) =>
     app.request(`/api/bookings/${ID}`, { method: 'DELETE', headers })
 
-  it('PATCH updates a booking for admin → 200 with the updated row (no idempotency key)', async () => {
+  it('PATCH обновляет запись для admin → 200 с обновлённой строкой (без ключа идемпотентности)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'updated',
       client: { id: 'client-uuid-1', phone: '+79991234567', name: 'Иван', createdAt: new Date() },
@@ -869,15 +869,15 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect(body.booking.id).toBe(ID)
     expect(body.booking.amount).toBe(7000)
     expect(body.booking.idempotencyKey).toBeUndefined()
-    // The derived id-links are internal and must never reach the wire (AC9).
+    // Производные id-ссылки — внутренние и никогда не должны уходить в ответ (AC9).
     expect(body.booking.responsibleId).toBeUndefined()
     expect(body.booking.responsible_id).toBeUndefined()
     expect(body.booking.carId).toBeUndefined()
     expect(body.booking.car_id).toBeUndefined()
     expect(JSON.stringify(body.booking)).not.toContain('car-uuid-1')
     expect(vi.mocked(updateBooking)).toHaveBeenCalled()
-    // The car link is resolved read-only (selectCarId, not an upsert) and threaded
-    // into updateBooking so a PATCH never accumulates client_cars rows.
+    // Ссылка на машину резолвится только чтением (selectCarId, а не upsert) и передаётся
+    // в updateBooking, чтобы PATCH никогда не накапливал строки client_cars.
     expect(vi.mocked(selectCarId)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(
       ID,
@@ -887,7 +887,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     )
   })
 
-  it('PATCH still returns 200 with a null car link when selectCarId throws (best-effort)', async () => {
+  it('PATCH всё равно возвращает 200 с пустой ссылкой на машину, если selectCarId падает (best-effort)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'updated',
       client: { id: 'client-uuid-1', phone: '+79991234567', name: 'Иван', createdAt: new Date() },
@@ -903,7 +903,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     )
   })
 
-  it('PATCH resolves no car link when the client is null (never calls selectCarId)', async () => {
+  it('PATCH не резолвит ссылку на машину, если клиент равен null (selectCarId не вызывается)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'skipped', client: null })
     const res = await patch(VALID_PAYLOAD)
     expect(res.status).toBe(200)
@@ -911,61 +911,61 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(ID, expect.any(Object), null, null)
   })
 
-  it('PATCH a missing booking → 404', async () => {
+  it('PATCH несуществующей записи → 404', async () => {
     vi.mocked(updateBooking).mockResolvedValue(null)
     const res = await patch(VALID_PAYLOAD)
     expect(res.status).toBe(404)
     expect((await res.json()).error).toBe('not_found')
   })
 
-  it('PATCH with an invalid body → 400', async () => {
+  it('PATCH с невалидным телом → 400', async () => {
     const res = await patch({ ...VALID_PAYLOAD, time: '99:99' })
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe('validation')
   })
 
-  it('PATCH from a booker → 200', async () => {
+  it('PATCH от booker → 200', async () => {
     const res = await patch(VALID_PAYLOAD, { Cookie: await bookerCookie() })
     expect(res.status).toBe(200)
     expect(vi.mocked(updateBooking)).toHaveBeenCalled()
   })
 
-  it('PATCH from an employee → 403', async () => {
+  it('PATCH от employee → 403', async () => {
     const res = await patch(VALID_PAYLOAD, { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(updateBooking)).not.toHaveBeenCalled()
   })
 
-  it('PATCH returns 503 when DB is not ready', async () => {
+  it('PATCH возвращает 503, если БД не готова', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     expect((await patch(VALID_PAYLOAD)).status).toBe(503)
   })
 
-  it('DELETE removes a booking for admin → 200', async () => {
+  it('DELETE удаляет запись для admin → 200', async () => {
     const res = await del()
     expect(res.status).toBe(200)
     expect((await res.json()).ok).toBe(true)
     expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID)
   })
 
-  it('DELETE a missing booking → 404', async () => {
+  it('DELETE несуществующей записи → 404', async () => {
     vi.mocked(deleteBooking).mockResolvedValue(false)
     expect((await del()).status).toBe(404)
   })
 
-  it('DELETE from a booker → 200', async () => {
+  it('DELETE от booker → 200', async () => {
     const res = await del({ Cookie: await bookerCookie() })
     expect(res.status).toBe(200)
     expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID)
   })
 
-  it('DELETE from an employee → 403', async () => {
+  it('DELETE от employee → 403', async () => {
     const res = await del({ Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(deleteBooking)).not.toHaveBeenCalled()
   })
 
-  it('DELETE returns 503 when DB is not ready', async () => {
+  it('DELETE возвращает 503, если БД не готова', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     expect((await del()).status).toBe(503)
   })
@@ -977,13 +977,13 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
       body: JSON.stringify(body),
     })
 
-  it('PATCH readiness updates just the status for admin → 200', async () => {
+  it('PATCH readiness обновляет только статус для admin → 200', async () => {
     const res = await patchReadiness({ readiness: 'В работе' })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(body.booking.id).toBe(ID)
-    // The derived id-links never reach the wire (AC9).
+    // Производные id-ссылки никогда не уходят в ответ (AC9).
     expect(body.booking.responsibleId).toBeUndefined()
     expect(body.booking.carId).toBeUndefined()
     expect(body.booking.car_id).toBeUndefined()
@@ -991,37 +991,37 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе')
   })
 
-  it('PATCH readiness accepts an empty value (cleared status) → 200', async () => {
+  it('PATCH readiness принимает пустое значение (сброшенный статус) → 200', async () => {
     const res = await patchReadiness({ readiness: '' })
     expect(res.status).toBe(200)
     expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, '')
   })
 
-  it('PATCH readiness rejects an invalid value → 400', async () => {
+  it('PATCH readiness отклоняет невалидное значение → 400', async () => {
     const res = await patchReadiness({ readiness: 'НеСуществует' })
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe('validation')
     expect(vi.mocked(updateBookingReadiness)).not.toHaveBeenCalled()
   })
 
-  it('PATCH readiness on a missing booking → 404', async () => {
+  it('PATCH readiness несуществующей записи → 404', async () => {
     vi.mocked(updateBookingReadiness).mockResolvedValue(null)
     expect((await patchReadiness({ readiness: 'Готова к выдаче' })).status).toBe(404)
   })
 
-  it('PATCH readiness from a booker → 200', async () => {
+  it('PATCH readiness от booker → 200', async () => {
     const res = await patchReadiness({ readiness: 'В работе' }, { Cookie: await bookerCookie() })
     expect(res.status).toBe(200)
     expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе')
   })
 
-  it('PATCH readiness from an employee → 403', async () => {
+  it('PATCH readiness от employee → 403', async () => {
     const res = await patchReadiness({ readiness: 'В работе' }, { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(updateBookingReadiness)).not.toHaveBeenCalled()
   })
 
-  it('PATCH readiness returns 503 when DB is not ready', async () => {
+  it('PATCH readiness возвращает 503, если БД не готова', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     expect((await patchReadiness({ readiness: 'В работе' })).status).toBe(503)
   })
@@ -1036,7 +1036,7 @@ describe('GET /healthz', () => {
     vi.mocked(getBootHeadersMismatch).mockReturnValue(null)
   })
 
-  it('returns 200 ok:true when boot is ok', async () => {
+  it('возвращает 200 ok:true, когда boot в порядке', async () => {
     const res = await app.request('/healthz')
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -1044,7 +1044,7 @@ describe('GET /healthz', () => {
     expect(typeof body.time).toBe('string')
   })
 
-  it('returns 503 unavailable when bootState is headers_mismatch', async () => {
+  it('возвращает 503 unavailable, когда bootState равен headers_mismatch', async () => {
     vi.mocked(getBootState).mockReturnValue('headers_mismatch')
     vi.mocked(getBootHeadersMismatch).mockReturnValue({
       column_index: 8,
@@ -1060,8 +1060,8 @@ describe('GET /healthz', () => {
   })
 })
 
-describe('404 fallback', () => {
-  it('returns 404 for unknown routes', async () => {
+describe('фолбэк 404', () => {
+  it('возвращает 404 для неизвестных маршрутов', async () => {
     const app = createApp()
     const res = await app.request('/unknown-path')
     expect(res.status).toBe(404)

@@ -32,7 +32,7 @@ describe('downloadFile', () => {
     vi.restoreAllMocks()
   })
 
-  it('fetches with credentials, creates an object URL and clicks a download link', async () => {
+  it('делает fetch с credentials, создаёт object URL и кликает по ссылке скачивания', async () => {
     fetchMock.mockResolvedValue(okBlobResponse())
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
@@ -44,13 +44,13 @@ describe('downloadFile', () => {
     )
     expect(createObjectURL).toHaveBeenCalledTimes(1)
     expect(clickSpy).toHaveBeenCalledTimes(1)
-    // Blob is freed after the click.
+    // После клика Blob освобождается.
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock')
-    // The temporary anchor must not linger in the DOM.
+    // Временная ссылка не должна оставаться в DOM.
     expect(document.querySelector('a[download]')).toBeNull()
   })
 
-  it('throws on a non-ok response without triggering a download', async () => {
+  it('бросает исключение на не-ok ответе и не запускает скачивание', async () => {
     fetchMock.mockResolvedValue(errorResponse(503))
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 

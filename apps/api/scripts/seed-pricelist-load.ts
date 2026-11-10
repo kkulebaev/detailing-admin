@@ -3,9 +3,9 @@ import { resolve } from 'node:path'
 import { closeDb, getDb } from '../src/db/client.js'
 import { sections, services } from '../src/db/schema.js'
 
-// Legacy seed files carry a single price per class (priceClassN); current ones
-// carry min/max pairs (priceClassNMin/priceClassNMax). Legacy values load as
-// fixed prices (max = null).
+// В старых сид-файлах одна цена на класс (priceClassN); в текущих — пары min/max
+// (priceClassNMin/priceClassNMax). Старые значения загружаются как фиксированные
+// цены (max = null).
 interface SeedService {
   name: string
   description: string | null
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
 
   const db = getDb()
 
-  // Full replace — pricelist seed is authoritative.
+  // Полная замена — сид прайс-листа авторитетен.
   await db.delete(services)
   await db.delete(sections)
 

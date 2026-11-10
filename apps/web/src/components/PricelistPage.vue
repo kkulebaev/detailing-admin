@@ -170,11 +170,11 @@ function askDeleteService(svc: PricelistService) {
 }
 
 function onDeleteDialogOpenChange(v: boolean) {
-  // Don't clear deleteTarget here — Reka's AlertDialogAction emits
-  // update:open(false) synchronously alongside its @click, and the order
-  // isn't guaranteed; clearing here can null out the target before
-  // confirmDelete reads it. The dialog is hidden when closed, so leaving
-  // the stale target around is harmless until the next ask*().
+  // Не очищаем deleteTarget здесь — AlertDialogAction из Reka синхронно
+  // эмитит update:open(false) вместе со своим @click, и порядок не
+  // гарантирован; очистка здесь может обнулить цель до того, как её
+  // прочитает confirmDelete. Закрытый диалог скрыт, так что устаревшая
+  // цель ничему не мешает до следующего ask*().
   deleteDialogOpen.value = v
 }
 
@@ -197,14 +197,14 @@ async function confirmDelete() {
     }
 
     if (result.error === 'not_found') {
-      // Already gone — the outcome the user wanted; close and refresh.
+      // Уже удалено — пользователь этого и хотел; закрываем и обновляем.
       toast.error('Запись уже удалена')
       deleteDialogOpen.value = false
       await invalidatePricelist()
       return
     }
 
-    // Real failure — keep the dialog open and surface the reason inside it.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
     if (result.error === 'conflict' && result.reason === 'has_services') {
       deleteError.value = 'Сначала удалите услуги из раздела'
     } else if (result.error === 'unavailable') {
@@ -579,10 +579,10 @@ async function confirmDelete() {
         <p v-if="deleteError" class="text-sm text-destructive">{{ deleteError }}</p>
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
-          <!-- Plain Button (not AlertDialogAction) so the dialog stays open until
-               the request resolves. Deliberately NOT disabled: a disabled, focused
-               button makes reka-ui's focus scope lag the close by ~1s — a
-               re-entrancy guard in confirmDelete prevents double submits instead. -->
+          <!-- Обычный Button (не AlertDialogAction), чтобы диалог оставался открытым,
+               пока запрос не завершится. Намеренно НЕ disabled: на отключённой кнопке
+               в фокусе focus scope из reka-ui закрывается с задержкой ~1 с — от
+               двойной отправки защищает guard повторного входа в confirmDelete. -->
           <Button @click="confirmDelete">
             {{ deleting ? 'Удаление…' : 'Удалить' }}
           </Button>

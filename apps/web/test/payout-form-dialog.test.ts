@@ -3,10 +3,10 @@ import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { page } from 'vitest/browser'
 import { calendarDay } from './helpers/calendar'
 
-// The direction toggle is the only thing standing between "premium" and "fine":
-// a wrong branch there pays a bonus where a deduction was meant. These tests pin
-// the toggle → sign mapping end to end, from the rendered control to the payload
-// handed to the API wrapper.
+// Переключатель направления — единственное, что отделяет «премию» от «штрафа»:
+// ошибочная ветка там выплатит бонус вместо удержания. Эти тесты закрепляют
+// соответствие переключатель → знак от начала до конца, от отрисованного контрола
+// до payload, переданного в обёртку API.
 
 const createPayoutMock = vi.fn()
 const updatePayoutMock = vi.fn()
@@ -48,8 +48,8 @@ function mountDialog() {
   })
 }
 
-// The prefill watcher only fires on the open transition, which is how the page
-// drives the dialog — mount it closed, then open it.
+// Watcher предзаполнения срабатывает только на переходе к открытию — именно так
+// диалогом управляет страница: монтируем закрытым, затем открываем.
 async function mountEditing(editing: Payout) {
   const w = mount(PayoutFormDialog, {
     attachTo: document.body,
@@ -184,9 +184,9 @@ describe('PayoutFormDialog', () => {
     expect(createPayoutMock).not.toHaveBeenCalled()
   })
 
-  // The date is picked from a calendar, so the schema's format message would
-  // name a format (ГГГГ-ММ-ДД) the user never types — the trigger shows
-  // ДД.ММ.ГГГГ.
+  // Дата выбирается из календаря, поэтому сообщение схемы о формате назвало бы
+  // формат (ГГГГ-ММ-ДД), который пользователь никогда не вводит, — триггер
+  // показывает ДД.ММ.ГГГГ.
   it('просит указать дату, а не жалуется на её формат, пока дата не выбрана', async () => {
     mountDialog()
 

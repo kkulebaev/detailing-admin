@@ -5,8 +5,8 @@ import { createPinia } from 'pinia'
 import type { ComputedRef } from 'vue'
 import type { GetApiBookingsParams } from '@/lib/bookings-api'
 
-// Hoisted rather than exported from the mock: a browser-mode mock drops exports
-// the real module doesn't have.
+// Через hoisted, а не экспортом из мока: мок в browser mode теряет экспорты,
+// которых нет у настоящего модуля.
 const captured = vi.hoisted(() => ({}) as { params: ComputedRef<GetApiBookingsParams> })
 
 vi.mock('@/lib/queries', async () => {
@@ -46,17 +46,17 @@ function mountPage() {
 
 const button = (name: string) => page.getByRole('button', { name })
 
-// Period actions live in a popover opened from the button that names the period.
+// Действия с периодом живут в поповере, который открывается кнопкой с названием периода.
 async function choosePeriod(from: string, action: string) {
   await button(from).click()
   await button(action).click()
-  // «Все записи» is both an action in the popover and the trigger's next label.
+  // «Все записи» — это и действие в поповере, и следующая подпись триггера.
   await expect.element(page.getByRole('dialog')).not.toBeInTheDocument()
 }
 
 enableAutoUnmount(afterEach)
 
-describe('BookingsPage default period', () => {
+describe('BookingsPage — период по умолчанию', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 10, 5, 12) })
   })
@@ -65,21 +65,21 @@ describe('BookingsPage default period', () => {
     vi.useRealTimers()
   })
 
-  it('requests bookings from today with an open end', async () => {
+  it('запрашивает записи с сегодняшнего дня без конечной даты', async () => {
     mountPage()
     expect(captured.params.value.dateFrom).toBe('05.11.2026')
     expect(captured.params.value.dateTo).toBeUndefined()
     await expect.element(button('С 05.11.2026')).toBeVisible()
   })
 
-  it('keeps the default-period empty state while offering a reset', async () => {
+  it('оставляет пустое состояние периода по умолчанию и предлагает сброс', async () => {
     mountPage()
     await expect.element(page.getByText('Нет записей с сегодняшнего дня')).toBeVisible()
     await expect.element(page.getByText('Ничего не найдено')).not.toBeInTheDocument()
     await expect.element(button('Сбросить')).toBeVisible()
   })
 
-  it('switches the default period to «Все записи» on reset', async () => {
+  it('при сбросе переключает период по умолчанию на «Все записи»', async () => {
     mountPage()
 
     await button('Сбросить').click()
@@ -90,7 +90,7 @@ describe('BookingsPage default period', () => {
     await expect.element(button('С 05.11.2026')).not.toBeInTheDocument()
   })
 
-  it('switches a chosen month to «Все записи» on reset', async () => {
+  it('при сбросе переключает выбранный месяц на «Все записи»', async () => {
     mountPage()
 
     await choosePeriod('С 05.11.2026', 'Весь месяц')
@@ -104,7 +104,7 @@ describe('BookingsPage default period', () => {
     expect(captured.params.value.dateTo).toBeUndefined()
   })
 
-  it('hides the reset when «Все записи» has nothing left to clear', async () => {
+  it('прячет сброс, когда в «Все записи» сбрасывать уже нечего', async () => {
     mountPage()
 
     await choosePeriod('С 05.11.2026', 'Все записи')
@@ -117,7 +117,7 @@ describe('BookingsPage default period', () => {
       .not.toBeInTheDocument()
   })
 
-  it('returns to the default on «С сегодня»', async () => {
+  it('возвращается к умолчанию по «С сегодня»', async () => {
     mountPage()
 
     await choosePeriod('С 05.11.2026', 'Все записи')

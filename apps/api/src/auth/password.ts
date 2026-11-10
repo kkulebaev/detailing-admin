@@ -1,7 +1,7 @@
 import { randomBytes, scrypt as scryptCb, timingSafeEqual, type ScryptOptions } from 'node:crypto'
 
-// Hand-rolled promise wrapper rather than promisify(): promisify only picks
-// scrypt's 3-arg overload and drops the `options` (N/r/p) parameter.
+// Промис-обёртка написана руками, а не через promisify(): promisify берёт только
+// 3-аргументную перегрузку scrypt и теряет параметр `options` (N/r/p).
 function scrypt(
   password: string,
   salt: Buffer,
@@ -16,16 +16,16 @@ function scrypt(
   })
 }
 
-// Lower bound for 2026. Parameters are stored inline in the hash so a future
-// bump still verifies old hashes (each hash carries the N/r/p it was made with).
+// Нижняя граница на 2026 год. Параметры хранятся прямо в хэше, поэтому после будущего
+// повышения старые хэши всё равно проверяются (каждый хэш несёт свои N/r/p).
 const N = 16384
 const R = 8
 const P = 1
 const KEYLEN = 64
 const SALT_BYTES = 16
 
-// N=16384,r=8,p=1 needs ~16 MB; the Node default maxmem (32 MB) covers it, but
-// pass it explicitly so a future parameter bump doesn't silently start throwing.
+// N=16384,r=8,p=1 требует ~16 МБ; дефолтного maxmem в Node (32 МБ) хватает, но
+// передаём его явно, чтобы будущее повышение параметров не начало молча бросать ошибки.
 const MAXMEM = 64 * 1024 * 1024
 
 async function derive(password: string, salt: Buffer, keylen: number): Promise<Buffer> {
@@ -49,9 +49,9 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
   const salt = Buffer.from(saltHex, 'hex')
   const expected = Buffer.from(hashHex, 'hex')
-  // Derive to the stored hash's length so timingSafeEqual gets equal-length
-  // buffers (it throws on a length mismatch) and old hashes with a different
-  // keylen still verify.
+  // Выводим ключ длины сохранённого хэша, чтобы timingSafeEqual получил буферы
+  // одинаковой длины (при несовпадении он бросает ошибку), а старые хэши с другим
+  // keylen по-прежнему проверялись.
   const actual = await scrypt(password, salt, expected.length, {
     N: n,
     r,
@@ -62,9 +62,9 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return timingSafeEqual(actual, expected)
 }
 
-// Constant-time filler for the "login not found" path: run a real scrypt against
-// a throwaway hash so an attacker can't distinguish a missing account from a
-// wrong password by response timing (see auth plan §5).
+// Заглушка постоянного времени для ветки «логин не найден»: запускаем настоящий scrypt
+// против одноразового хэша, чтобы атакующий не отличил отсутствующий аккаунт от
+// неверного пароля по времени ответа (см. план авторизации, §5).
 const DUMMY_HASH = `scrypt:${N}:${R}:${P}:${'0'.repeat(SALT_BYTES * 2)}:${'0'.repeat(KEYLEN * 2)}`
 
 export async function dummyVerify(password: string): Promise<void> {

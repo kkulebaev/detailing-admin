@@ -4,15 +4,15 @@ import { ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import type { Client } from '@/lib/clients-api'
 
-// «Марка и модель» suggests as you type. Earlier cuts hung the pick on
-// `mousedown`/`click` and closed the list on `blur`, and Android never landed a
-// selection — an event log from an emulated Pixel showed why: the sequence is
-// pointerdown → mousedown → focusout → pointerup, and `mouseup`/`click` never
-// arrive at all because the item is gone by then. So selection rides on
-// `pointerup`, `pointerdown.prevent` keeps the focus (and the keyboard) in the
-// field, and a drag past the slop threshold scrolls instead of selecting.
-// Vue's v-model also refuses to write the DOM while Gboard holds a composition,
-// hence the explicit commit in `selectCar`.
+// «Марка и модель» подсказывает по мере набора. Ранние версии вешали выбор на
+// `mousedown`/`click` и закрывали список по `blur`, и на Android выбор так и не
+// срабатывал — лог событий с эмулированного Pixel показал почему: последовательность
+// pointerdown → mousedown → focusout → pointerup, а `mouseup`/`click` не приходят
+// вовсе, потому что пункта к тому моменту уже нет. Поэтому выбор висит на
+// `pointerup`, `pointerdown.prevent` держит фокус (и клавиатуру) в поле, а протяжка
+// дальше порога slop скроллит, а не выбирает.
+// Кроме того, v-model во Vue отказывается писать в DOM, пока Gboard держит
+// композицию, — отсюда явный коммит в `selectCar`.
 
 vi.mock('@/composables/use-client-lookup', async () => {
   const { ref: r } = await vi.importActual<typeof import('vue')>('vue')
@@ -64,8 +64,8 @@ function option(label: string): HTMLElement | undefined {
   return options().find((el) => el.textContent?.trim() === label)
 }
 
-// Gboard: composition opens on the first keystroke and stays open — no
-// compositionend until the user types a space or commits a suggestion.
+// Gboard: композиция открывается на первом нажатии и остаётся открытой — никакого
+// compositionend, пока пользователь не введёт пробел или не примет подсказку.
 async function composeInto(w: VueWrapper, el: HTMLInputElement, text: string) {
   el.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
   el.value = text

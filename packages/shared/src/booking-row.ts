@@ -7,9 +7,9 @@ import {
   validationErrorSchema,
 } from './api.js'
 
-// Wire shape of a stored booking as returned by `GET /api/bookings`. Mirrors the
-// `bookings` table minus the internal `idempotencyKey`. Dates are ISO strings
-// (`YYYY-MM-DD`); `createdAt` is an ISO datetime after JSON serialization.
+// Форма сохранённой записи на проводе, как её отдаёт `GET /api/bookings`. Повторяет
+// таблицу `bookings` без внутреннего `idempotencyKey`. Даты — ISO-строки
+// (`YYYY-MM-DD`); `createdAt` после JSON-сериализации — ISO datetime.
 export const bookingRowSchema = z.object({
   id: z.string().uuid(),
   clientId: z.string().uuid().nullable(),
@@ -18,18 +18,18 @@ export const bookingRowSchema = z.object({
   car: z.string(),
   service: z.string(),
   note: z.string(),
-  // Omitted (undefined) for non-admin roles — amounts are admin-only. Present
-  // for admins.
+  // Опускается (undefined) для ролей, кроме админа: суммы видит только админ.
+  // У админов присутствует.
   amount: z.number().int().optional(),
   amountFormula: z.string().nullable().optional(),
   dateFrom: z.string(),
   dateTo: z.string().nullable(),
   timeFrom: z.string(),
   timeTo: z.string().nullable(),
-  // Narrowed to the READINESS enum (or '' for «нет статуса») so the wire type —
-  // and the orval-generated client — carry a concrete union, not a bare string.
-  // The DB column is free text, but no route runtime-validates the response, so
-  // this is a type-level narrowing only.
+  // Сужено до enum READINESS (или '' для «нет статуса»), чтобы тип на проводе —
+  // и сгенерированный orval клиент — несли конкретный union, а не голую строку.
+  // Колонка в БД — свободный текст, но ни один роут не валидирует ответ в рантайме,
+  // так что это сужение только на уровне типов.
   readiness: z.enum(READINESS).or(z.literal('')),
   master: z.array(z.string()),
   responsible: z.string(),
@@ -77,27 +77,27 @@ export const bookingDeleteResponseSchema = z.union([
 
 export type BookingDeleteResponse = z.infer<typeof bookingDeleteResponseSchema>
 
-// Body for the quick inline readiness change (PATCH /api/bookings/{id}/readiness).
+// Тело быстрой inline-смены готовности (PATCH /api/bookings/{id}/readiness).
 export const bookingReadinessInputSchema = z.object({
   readiness: z.enum(READINESS).or(z.literal('')),
 })
 
 export type BookingReadinessInput = z.infer<typeof bookingReadinessInputSchema>
 
-// ── Analytics (GET /api/analytics/overview) ────────────────────────────────
-// Wire contract for the admin-only analytics page. Every numeric field is a
-// plain `number`: the API coerces the string aggregates postgres-js returns
-// (SUM/COUNT come back as strings) with Number() before the response is built —
-// the declared `number` type is what the web client does arithmetic on (avgCheck,
-// Δ%, repeatRate, chart math), so a string operand would silently corrupt it.
+// ── Аналитика (GET /api/analytics/overview) ────────────────────────────────
+// Контракт на проводе для страницы аналитики (только для админа). Каждое числовое
+// поле — обычный `number`: API приводит строковые агрегаты, которые отдаёт postgres-js
+// (SUM/COUNT приходят строками), через Number() до сборки ответа — с объявленным
+// типом `number` веб-клиент ведёт арифметику (avgCheck, Δ%, repeatRate, расчёты
+// графиков), и строковый операнд молча испортил бы результат.
 
 export const analyticsGranularitySchema = z.enum(['day', 'week', 'month'])
 
 export type AnalyticsGranularity = z.infer<typeof analyticsGranularitySchema>
 
-// One point of the zero-filled revenue series. `revenue` counts only «Выдана»
-// bookings; `count` is the volume (all statuses) in the bucket — deliberately
-// different denominators (see the API's db layer).
+// Одна точка ряда выручки, дополненного нулями. `revenue` учитывает только записи
+// «Выдана»; `count` — объём (все статусы) в корзине — знаменатели намеренно
+// разные (см. db-слой API).
 export const analyticsSeriesPointSchema = z.object({
   bucket: z.string(),
   revenue: z.number(),
@@ -106,8 +106,8 @@ export const analyticsSeriesPointSchema = z.object({
 
 export type AnalyticsSeriesPoint = z.infer<typeof analyticsSeriesPointSchema>
 
-// A top-client row. The grouping is restricted to «Выдана» rows, so a client with no
-// delivered cars in the period never appears (and a no-delivery period yields an empty top).
+// Строка топа клиентов. Группировка ограничена строками «Выдана», поэтому клиент без
+// выданных машин за период в топ не попадает (а период без выдач даёт пустой топ).
 export const analyticsTopClientSchema = z.object({
   clientId: z.string().uuid(),
   name: z.string(),
@@ -131,7 +131,7 @@ export const analyticsOverviewOkSchema = z.object({
     completedCount: z.number(),
     bookingsCount: z.number(),
     delta: z.object({
-      // null when the previous period earned nothing (no meaningful %).
+      // null, когда предыдущий период ничего не заработал (осмысленного % нет).
       revenuePct: z.number().nullable(),
       prevTotal: z.number(),
     }),
@@ -141,7 +141,7 @@ export const analyticsOverviewOkSchema = z.object({
     newCount: z.number(),
     returningCount: z.number(),
     noClientCount: z.number(),
-    // null when there are no attributable clients (empty denominator).
+    // null, когда нет клиентов, к которым можно отнести записи (пустой знаменатель).
     repeatRate: z.number().nullable(),
     topBySum: z.array(analyticsTopClientSchema),
   }),

@@ -23,10 +23,10 @@ async function fillBooking(page: Page, client: { phone: string; name: string; ca
   await page.getByRole('option', { name: 'Мастер Пётр' }).click()
 }
 
-test('saves a booking to the sheet and the mirror, and notifies the master', async ({ page }) => {
+test('сохраняет запись в таблицу и зеркало и уведомляет мастера', async ({ page }) => {
   await login(page, 'e2e-admin')
   await fillBooking(page, { phone: '9160000001', name: 'Анна', car: 'Kia Rio' })
-  // Switches itself on once the chosen master has a Telegram id.
+  // Включается сам, если у выбранного мастера есть Telegram id.
   await expect(page.getByRole('switch')).toBeChecked()
 
   await page.getByRole('button', { name: 'Сохранить запись' }).click()
@@ -45,7 +45,7 @@ test('saves a booking to the sheet and the mirror, and notifies the master', asy
   await expect(page.getByText('Анна').first()).toBeVisible()
 })
 
-test('explains every missing field in Russian', async ({ page }) => {
+test('поясняет каждое незаполненное поле по-русски', async ({ page }) => {
   await login(page, 'e2e-admin')
   const rowsBefore = (await fakesState()).sheetRows.length
 
@@ -56,7 +56,7 @@ test('explains every missing field in Russian', async ({ page }) => {
   expect((await fakesState()).sheetRows).toHaveLength(rowsBefore)
 })
 
-test('recognises a returning client by phone', async ({ page }) => {
+test('узнаёт вернувшегося клиента по телефону', async ({ page }) => {
   await login(page, 'e2e-admin')
   await fillBooking(page, { phone: '9160000002', name: 'Борис', car: 'Lada Vesta' })
   await page.getByRole('button', { name: 'Сохранить запись' }).click()

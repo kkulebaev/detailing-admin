@@ -7,21 +7,21 @@ export type AppendResult =
   | { ok: true; updatedRange: string; updatedRow: number; latencyMs: number; statusCode: number }
   | { ok: false; latencyMs: number; statusCode: number; errorCode?: string; message: string }
 
-/** Extract the trailing row number from an A1 range like "Sheet!A5" or "Sheet!A5:K5". */
+/** Извлекает номер строки в конце A1-диапазона вида "Sheet!A5" или "Sheet!A5:K5". */
 function parseUpdatedRow(updatedRange: string): number {
   const tail = updatedRange.split(':').pop() ?? updatedRange
   const match = /[A-Z]+(\d+)$/.exec(tail)
   return match ? Number.parseInt(match[1], 10) : 0
 }
 
-// Lazy-init to avoid decoding credentials at module load (aids testing).
+// Ленивая инициализация: не декодируем учётные данные при загрузке модуля (облегчает тесты).
 let _client: ReturnType<typeof google.sheets> | null = null
 
 function getClient(): ReturnType<typeof google.sheets> {
   if (!_client) {
     const raw = Buffer.from(env.GOOGLE_SERVICE_ACCOUNT_JSON_B64, 'base64').toString('utf-8')
-    // GoogleAuth.credentials accepts a plain JSON object; we don't reshape it
-    // before handing off, so `JSON.parse`'s default `any` is what we want here.
+    // GoogleAuth.credentials принимает обычный JSON-объект; мы не перестраиваем его
+    // перед передачей, так что дефолтный `any` из `JSON.parse` здесь как раз подходит.
     const credentials: Record<string, unknown> = JSON.parse(raw)
     const auth = new google.auth.GoogleAuth({
       credentials,
@@ -32,7 +32,7 @@ function getClient(): ReturnType<typeof google.sheets> {
   return _client
 }
 
-/** For tests only — lets tests inject a mock client. */
+/** Только для тестов — позволяет подставить mock-клиент. */
 export function _setClientForTest(mock: ReturnType<typeof google.sheets>): void {
   _client = mock
 }
@@ -80,9 +80,9 @@ export async function appendBooking(row: (string | number)[]): Promise<AppendRes
       statusCode: res.status,
     }
   } catch (err: unknown) {
-    // googleapis throws GaxiosError-like values typed as `unknown` by the
-    // catch. Narrow each field with `in` + typeof instead of asserting a
-    // bespoke error shape.
+    // googleapis бросает значения, похожие на GaxiosError, а catch типизирует их
+    // как `unknown`. Сужаем каждое поле через `in` + typeof, а не утверждаем
+    // самодельную форму ошибки.
     let statusCode: number = StatusCodes.INTERNAL_SERVER_ERROR
     let errorCode: string | undefined
     let message = 'Unknown Sheets error'

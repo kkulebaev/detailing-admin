@@ -25,22 +25,22 @@ beforeEach(() => {
   meMock.mockReset()
 })
 
-describe('/salaries access', () => {
-  it('lets an admin onto /salaries', async () => {
+describe('доступ к /salaries', () => {
+  it('пускает админа на /salaries', async () => {
     meMock.mockResolvedValue({ ok: true, user: admin() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/salaries')
     expect(router.currentRoute.value.name).toBe('salaries')
   })
 
-  it('redirects an employee away from /salaries to their home route', async () => {
+  it('уводит сотрудника с /salaries на его домашний маршрут', async () => {
     meMock.mockResolvedValue({ ok: true, user: employee() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/salaries')
     expect(router.currentRoute.value.name).toBe('employee')
   })
 
-  it('redirects an anonymous visitor from /salaries to /login', async () => {
+  it('уводит анонимного посетителя с /salaries на /login', async () => {
     meMock.mockResolvedValue({ ok: false, error: 'unauthorized' })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/salaries')

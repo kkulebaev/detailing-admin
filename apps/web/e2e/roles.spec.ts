@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { login } from './helpers'
 
-test('an employee lands on their hours and cannot reach the booking form or clients', async ({
+test('сотрудник попадает на свои часы и не может открыть форму записи или клиентов', async ({
   page,
 }) => {
   await login(page, 'e2e-employee')
@@ -16,7 +16,7 @@ test('an employee lands on their hours and cannot reach the booking form or clie
   await expect(page).toHaveURL(/\/employee$/)
 })
 
-test('a booker gets the booking form but not the admin pages', async ({ page }) => {
+test('букеру доступна форма записи, но не страницы админа', async ({ page }) => {
   await login(page, 'e2e-booker')
   await expect(page.getByRole('heading', { name: 'Новая запись' })).toBeVisible()
 
@@ -25,7 +25,7 @@ test('a booker gets the booking form but not the admin pages', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Новая запись' })).toBeVisible()
 })
 
-test('an admin reaches the admin pages', async ({ page }) => {
+test('админ открывает страницы админа', async ({ page }) => {
   await login(page, 'e2e-admin')
 
   await page.goto('/salaries')

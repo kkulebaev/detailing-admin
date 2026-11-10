@@ -68,11 +68,11 @@ const COLUMN_COUNT = 6
 // показывается карточкой. Данные, фильтры и диалоги у раскладок общие.
 const isWideScreen = useMediaQuery('(min-width: 640px)')
 
-// ── Filter / sort / paging state ────────────────────────────────────────────
+// ── Состояние фильтров / сортировки / пагинации ─────────────────────────────
 const searchInput = ref('')
-// Manual debounce (instead of refDebounced) so `resetFilters` can flush it
-// synchronously — otherwise the query keeps the stale search term for 300ms
-// after a reset and the table flashes its empty state before real rows load.
+// Ручной debounce (вместо refDebounced), чтобы `resetFilters` мог сбросить его
+// синхронно — иначе запрос ещё 300 мс держит устаревший поисковый запрос после
+// сброса, и таблица мелькает пустым состоянием до загрузки настоящих строк.
 const searchDebounced = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 watch(searchInput, (v) => {
@@ -104,8 +104,8 @@ const params = computed<GetApiClientsParams>(() => ({
   dir: dir.value,
 }))
 
-// Any filter/sort change returns to the first page; paging itself moves `offset`
-// directly and is intentionally excluded here.
+// Любое изменение фильтра/сортировки возвращает на первую страницу; пагинация сама
+// двигает `offset` напрямую и намеренно сюда не входит.
 watch([searchDebounced, sort, dir], () => {
   resetToFirstPage()
 })
@@ -113,10 +113,10 @@ watch([searchDebounced, sort, dir], () => {
 const { data: queryData, error: queryError, asyncStatus } = useClientsQuery(params)
 const invalidateClients = useInvalidateClients()
 
-// ── Detail card (route-driven Sheet) ────────────────────────────────────────
-// `/clients` and `/clients/:id` render this same component, so the list stays
-// mounted (filters/page preserved) while the Sheet slides over it. `detailId`
-// mirrors the route param so a direct deep link to /clients/:id opens the Sheet.
+// ── Карточка клиента (Sheet, управляемый маршрутом) ─────────────────────────
+// `/clients` и `/clients/:id` рендерят один и тот же компонент, поэтому список остаётся
+// смонтированным (фильтры/страница сохраняются), пока поверх выезжает Sheet. `detailId`
+// повторяет параметр маршрута, чтобы прямая ссылка на /clients/:id открывала Sheet.
 const route = useRoute()
 const router = useRouter()
 const detailId = ref<string | null>(null)
@@ -143,12 +143,12 @@ const total = computed(() => {
   return r?.ok ? r.total : 0
 })
 
-// Skeleton only on the very first load — background refetches keep the previous
-// rows visible (placeholderData in useClientsQuery), so `loading` is false then.
+// Скелетон только при самой первой загрузке — фоновые перезапросы оставляют видимыми
+// прежние строки (placeholderData в useClientsQuery), поэтому `loading` тогда false.
 const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
-// Delay the skeleton so a fast first load doesn't flash it — only show it if the
-// initial load is genuinely slow (>200ms).
+// Показываем скелетон с задержкой, чтобы он не мелькал при быстрой первой загрузке, —
+// только если начальная загрузка действительно медленная (>200 мс).
 const showSkeleton = ref(false)
 let skeletonTimer: ReturnType<typeof setTimeout> | undefined
 watch(
@@ -170,13 +170,13 @@ const error = computed<string | null>(() => {
   return 'Не удалось загрузить список клиентов'
 })
 
-// ── Sorting ─────────────────────────────────────────────────────────────────
+// ── Сортировка ──────────────────────────────────────────────────────────────
 function sortState(col: SortColumn): 'asc' | 'desc' | false {
   return sort.value === col ? dir.value : false
 }
 
-// First click on a column sorts it ascending; clicking the active column flips
-// direction. There is no "unsorted" state — the list is always ordered.
+// Первый клик по колонке сортирует по возрастанию; клик по активной колонке меняет
+// направление. Состояния «без сортировки» нет — список всегда упорядочен.
 function toggleSort(col: SortColumn) {
   if (sort.value === col) {
     dir.value = dir.value === 'asc' ? 'desc' : 'asc'
@@ -192,7 +192,7 @@ function ariaSortFor(state: false | 'asc' | 'desc'): 'ascending' | 'descending' 
   return 'none'
 }
 
-// ── Empty / reset ───────────────────────────────────────────────────────────
+// ── Пустое состояние / сброс ────────────────────────────────────────────────
 const isEmpty = computed(
   () =>
     asyncStatus.value !== 'loading' &&
@@ -205,13 +205,13 @@ const hasActiveFilters = computed(() => searchInput.value.trim() !== '')
 
 function resetFilters() {
   searchInput.value = ''
-  // Flush the debounce so the query drops the search term this tick, not 300ms
-  // later — keeps the empty state from flashing during reset.
+  // Сбрасываем debounce, чтобы запрос убрал поисковую строку в этом же тике, а не
+  // через 300 мс, — так пустое состояние не мелькает при сбросе.
   clearTimeout(searchTimer)
   searchDebounced.value = ''
 }
 
-// ── CSV export ──────────────────────────────────────────────────────────────
+// ── Экспорт CSV ─────────────────────────────────────────────────────────────
 const exporting = ref(false)
 
 async function onExport() {
@@ -226,7 +226,7 @@ async function onExport() {
   }
 }
 
-// ── Row actions / dialogs ───────────────────────────────────────────────────
+// ── Действия со строкой / диалоги ───────────────────────────────────────────
 const dialogOpen = ref(false)
 const editing = ref<Client | null>(null)
 
@@ -297,13 +297,13 @@ async function confirmDelete() {
       return
     }
     if (result.error === 'not_found') {
-      // Already gone — the outcome the user wanted; close and refresh.
+      // Клиента уже нет — пользователь этого и хотел; закрываем и обновляем.
       toast.error('Клиент уже удалён')
       deleteDialogOpen.value = false
       await invalidateClients()
       return
     }
-    // Real failure — keep the dialog open and surface the reason inside it.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
     if (result.error === 'conflict') {
       deleteError.value =
         'У клиента есть записи. Сначала удалите или перенесите его записи, затем удалите клиента.'
@@ -320,15 +320,15 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <!-- Mobile: normal page flow (few rows fit — let the whole page scroll).
-       md+: fixed-height flex column so only the rows scroll internally. -->
+  <!-- Мобильный: обычный поток страницы (строк влезает мало — пусть прокручивается вся страница).
+       md+: flex-колонка фиксированной высоты, чтобы прокручивались только строки внутри. -->
   <div class="min-h-svh bg-background text-foreground p-2 sm:p-8 md:flex md:h-svh md:flex-col">
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0">
         <h1 class="text-2xl font-semibold">Клиенты</h1>
       </header>
 
-      <!-- Filters -->
+      <!-- Фильтры -->
       <div class="mb-4 shrink-0 flex flex-wrap items-end gap-3">
         <div class="flex flex-1 flex-col gap-1">
           <span class="text-xs text-muted-foreground">Поиск</span>
@@ -671,10 +671,10 @@ async function confirmDelete() {
         <p v-if="deleteError" class="text-sm text-destructive">{{ deleteError }}</p>
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
-          <!-- Plain Button (not AlertDialogAction) so the dialog stays open until
-               the request resolves. Deliberately NOT disabled: a disabled, focused
-               button makes reka-ui's focus scope lag the close by ~1s — a
-               re-entrancy guard in confirmDelete prevents double submits instead. -->
+          <!-- Обычный Button (не AlertDialogAction), чтобы диалог оставался открытым, пока
+               запрос не завершится. Намеренно НЕ disabled: у disabled кнопки в фокусе
+               focus scope из reka-ui задерживает закрытие на ~1 с — вместо этого двойную
+               отправку предотвращает защита от повторного входа в confirmDelete. -->
           <Button @click="confirmDelete">
             {{ deleting ? 'Удаление…' : 'Удалить' }}
           </Button>

@@ -1,12 +1,12 @@
-# Dependencies — must be installed inside the image, never copied from host
+# Зависимости — ставятся внутри образа, никогда не копируются с хоста
 **/node_modules
 
-# Build outputs — generated inside the image
+# Результаты сборки — генерируются внутри образа
 **/dist
 **/*.tsbuildinfo
 
-# Environment files — NEVER ship secrets (apps/api/.env holds
-# GOOGLE_SERVICE_ACCOUNT_JSON_B64). Examples are allowed.
+# Файлы окружения — НИКОГДА не отправлять секреты (в apps/api/.env лежит
+# GOOGLE_SERVICE_ACCOUNT_JSON_B64). Примеры разрешены.
 **/.env
 **/.env.local
 **/.env.*.local
@@ -14,36 +14,36 @@
 **/.env.production
 !**/.env.example
 
-# Credential files
+# Файлы с учётными данными
 service-account*.json
 *-credentials.json
 *.pem
 *.key
 
-# Git & VCS
+# Git и VCS
 .git
 .gitignore
 .gitattributes
 
-# Editor / IDE
+# Редактор / IDE
 .idea
 .vscode
 .editorconfig
 
-# OS
+# ОС
 .DS_Store
 
-# Logs / coverage
+# Логи / покрытие
 **/*.log
 coverage
 
-# Tooling state (not needed inside the image)
+# Состояние инструментов (внутри образа не нужно)
 .claude
 **/.omc
 .turbo
 .railway
 
-# Generated typecheck artefacts (mirrors .gitignore)
+# Сгенерированные артефакты тайпчека (как в .gitignore)
 apps/web/src/**/*.vue.d.ts
 apps/web/src/**/*.vue.js
 apps/web/src/**/*.js
@@ -51,6 +51,6 @@ packages/shared/src/**/*.d.ts
 packages/shared/src/**/*.js
 !apps/web/src/vite-env.d.ts
 
-# Docs / planning — not needed in image
+# Документация / планирование — в образе не нужны
 README.md
 CLAUDE.md

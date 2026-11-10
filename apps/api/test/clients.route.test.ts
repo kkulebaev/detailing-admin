@@ -84,7 +84,7 @@ describe('GET /api/clients', () => {
     )
   })
 
-  it('embeds cars per client; a client with no cars gets []', async () => {
+  it('вкладывает машины в каждого клиента; клиент без машин получает []', async () => {
     const res = await app.request('/api/clients', { headers: { Cookie: cookie } })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -93,7 +93,7 @@ describe('GET /api/clients', () => {
     const b = body.clients.find((c: { id: string }) => c.id === CLIENT_B.id)
     expect(a.cars).toEqual([{ id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА77' }])
     expect(b.cars).toEqual([])
-    // Grouped fetch keyed by the page's client ids (no N+1).
+    // Групповая выборка по id клиентов страницы (без N+1).
     expect(vi.mocked(listCarsByClientIds)).toHaveBeenCalledWith([CLIENT_A.id, CLIENT_B.id])
   })
 })
@@ -115,25 +115,25 @@ describe('GET /api/clients/export', () => {
   const getExport = (query = '', headers: Record<string, string> = { Cookie: cookie }) =>
     app.request(`/api/clients/export${query}`, { method: 'GET', headers })
 
-  it('returns CSV (not a 400 from the /{id} collision) with BOM and headers', async () => {
+  it('возвращает CSV (а не 400 из-за коллизии с /{id}) с BOM и заголовками', async () => {
     const res = await getExport()
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toContain('text/csv')
     expect(res.headers.get('Content-Disposition')).toMatch(
       /attachment; filename="clients-\d{4}-\d{2}-\d{2}\.csv"/,
     )
-    // Read the raw bytes: res.text() decodes UTF-8 and strips a leading BOM, so
-    // the BOM must be asserted on the wire bytes (EF BB BF).
+    // Читаем сырые байты: res.text() декодирует UTF-8 и срезает BOM в начале,
+    // поэтому BOM проверяем по байтам ответа (EF BB BF).
     const buf = new Uint8Array(await res.arrayBuffer())
     expect(Array.from(buf.slice(0, 3))).toEqual([0xef, 0xbb, 0xbf])
     const text = new TextDecoder('utf-8').decode(buf)
     expect(text).toContain('Машины')
     expect(text).toContain('Toyota Camry, А123АА77')
-    // Phone is injection-neutralized ('+7…).
+    // Телефон обезврежен от инъекций ('+7…).
     expect(text).toContain("'+79001234567")
   })
 
-  it('forwards q/sort/dir to listClients with the export cap and no paging', async () => {
+  it('передаёт q/sort/dir в listClients с лимитом экспорта и без пагинации', async () => {
     await getExport('?q=%D0%98%D0%B2%D0%B0%D0%BD&sort=phone&dir=desc')
     expect(vi.mocked(listClients)).toHaveBeenCalledWith({
       limit: 10000,
@@ -144,20 +144,20 @@ describe('GET /api/clients/export', () => {
     })
   })
 
-  it('returns 503 when DB is not ready, without querying', async () => {
+  it('возвращает 503, если БД не готова, не выполняя запросов', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await getExport()
     expect(res.status).toBe(503)
     expect(vi.mocked(listClients)).not.toHaveBeenCalled()
   })
 
-  it('returns 403 for a non-admin role (admin-only guard)', async () => {
+  it('возвращает 403 для роли не админа (guard только для админа)', async () => {
     const res = await getExport('', { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(listClients)).not.toHaveBeenCalled()
   })
 
-  it('returns 400 for a malformed query (bad sort)', async () => {
+  it('возвращает 400 для некорректного запроса (плохой sort)', async () => {
     const res = await getExport('?sort=unknown')
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe('validation')
@@ -165,7 +165,7 @@ describe('GET /api/clients/export', () => {
   })
 })
 
-describe('clients mutations echo the reconciled cars', () => {
+describe('мутации клиентов возвращают сверенные машины', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''
 
@@ -177,7 +177,7 @@ describe('clients mutations echo the reconciled cars', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('forwards cars to createClient and returns the actual set', async () => {
+  it('передаёт машины в createClient и возвращает фактический набор', async () => {
     vi.mocked(createClient).mockResolvedValue({ client: CLIENT_A, cars: [CAR] })
     const res = await app.request('/api/clients', {
       method: 'POST',
@@ -196,7 +196,7 @@ describe('clients mutations echo the reconciled cars', () => {
     ])
   })
 
-  it('forwards cars to updateClient and returns the actual set', async () => {
+  it('передаёт машины в updateClient и возвращает фактический набор', async () => {
     vi.mocked(updateClient).mockResolvedValue({ client: CLIENT_A, cars: [CAR] })
     const res = await app.request(`/api/clients/${CLIENT_A.id}`, {
       method: 'PATCH',
@@ -215,7 +215,7 @@ describe('clients mutations echo the reconciled cars', () => {
     ])
   })
 
-  it('defaults cars to [] when the body omits them', async () => {
+  it('подставляет cars = [], если в теле их нет', async () => {
     vi.mocked(createClient).mockResolvedValue({ client: CLIENT_A, cars: [] })
     const res = await app.request('/api/clients', {
       method: 'POST',

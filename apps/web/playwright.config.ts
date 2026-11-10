@@ -1,16 +1,16 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// Ports of their own, so a run coexists with `pnpm dev` on 5173/3000.
+// Собственные порты, чтобы прогон уживался с `pnpm dev` на 5173/3000.
 const WEB_URL = 'http://localhost:5174'
 const API_URL = 'http://localhost:3100'
 
 export default defineConfig({
   testDir: './e2e',
-  // Specs share one API process and one database.
+  // Спеки делят один процесс API и одну базу.
   workers: 1,
   reporter: 'list',
   use: {
-    // The app is mobile-first, so its primary layout is what gets exercised.
+    // Приложение mobile-first, поэтому проверяется именно основная раскладка.
     ...devices['Pixel 7'],
     baseURL: WEB_URL,
     locale: 'ru-RU',
@@ -26,7 +26,7 @@ export default defineConfig({
     {
       command: 'pnpm exec vite --port 5174 --strictPort',
       url: WEB_URL,
-      // Vite relays every browser console.warn here, which buries the test report.
+      // Vite пересылает сюда каждый console.warn браузера, и отчёт о тестах в них тонет.
       stderr: 'ignore',
       env: { VITE_API_PROXY_TARGET: API_URL },
     },

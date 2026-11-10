@@ -12,7 +12,7 @@ const props = withDefaults(
   defineProps<{
     options: string[]
     disabled?: boolean
-    /** Max number of selectable options; unselected options disable once reached. */
+    /** Максимум выбираемых вариантов; по достижении невыбранные становятся недоступны. */
     max?: number
     placeholder?: string
     class?: HTMLAttributes['class']

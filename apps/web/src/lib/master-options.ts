@@ -1,9 +1,9 @@
 import type { Master } from '@detailing-admin/shared'
 
-// Resolves the booking form's master/responsible dropdown options from the live
-// `masters` table. Returns an empty list when the data is missing (loading / DB
-// unavailable / empty table); the form surfaces a warning in that case instead
-// of falling back to a hard-coded list.
+// Собирает варианты выпадающих списков мастера/ответственного в форме записи из актуальной
+// таблицы `masters`. Возвращает пустой список, когда данных нет (загрузка / БД
+// недоступна / таблица пуста); в этом случае форма показывает предупреждение, а
+// не откатывается на захардкоженный список.
 export function resolveMasterOptions(
   data: Master[] | undefined,
   filter: (m: Master) => boolean,

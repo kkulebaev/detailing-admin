@@ -2,9 +2,9 @@ import { resolve } from 'node:path'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import type { Db } from './client.js'
 
-// Resolved relative to process.cwd(), which is the package root in both
-// `pnpm dev` (apps/api/) and the production container (/app/, see Dockerfile).
-// Override with MIGRATIONS_FOLDER if the deployment layout differs.
+// Путь считается от process.cwd(), а это корень пакета и в `pnpm dev` (apps/api/),
+// и в production-контейнере (/app/, см. Dockerfile).
+// Если раскладка деплоя другая, переопредели через MIGRATIONS_FOLDER.
 const DEFAULT_MIGRATIONS_FOLDER = resolve(process.cwd(), 'drizzle')
 
 export async function runMigrations(db: Db, folder?: string): Promise<void> {

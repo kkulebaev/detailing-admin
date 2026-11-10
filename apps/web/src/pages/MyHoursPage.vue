@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 
-// Months ahead make no sense for hours already worked.
+// Будущие месяцы бессмысленны для уже отработанных часов.
 const monthOptions = buildMonthOptions(0)
 const month = ref(currentMonthKey())
 
@@ -80,20 +80,20 @@ function formatHours(minutes: number): string {
   return minutesToHours(minutes).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
 
-// Not rounded per row, same as the admin's detail view: the month total is
-// rounded once, so rounded rows would not add up to «За часы».
+// Без округления по строке, как в подробностях у админа: итог месяца
+// округляется один раз, и округлённые строки не сложились бы в «За часы».
 function formatEntryAmount(minutes: number, rate: number): string {
   return ((minutes * rate) / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
 
-// Built from parts (local midnight) so the day never shifts across UTC.
+// Собирается из частей (локальная полночь), чтобы день не съезжал через UTC.
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   if (!y || !m || !d) return iso
   return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
 }
 
-// ── Add / edit ─────────────────────────────────────────────────────────────
+// ── Добавление и правка ────────────────────────────────────────────────────
 const hoursDialogOpen = ref(false)
 const editingHours = ref<WorkHours | null>(null)
 
@@ -107,7 +107,7 @@ function openEdit(entry: SalaryEntry & { kind: 'hours' }) {
   hoursDialogOpen.value = true
 }
 
-// ── Delete ─────────────────────────────────────────────────────────────────
+// ── Удаление ───────────────────────────────────────────────────────────────
 const deleteDialogOpen = ref(false)
 const deleteTarget = ref<WorkHours | null>(null)
 const deleting = ref(false)

@@ -1,18 +1,18 @@
-// Rubles for the salaries tables. Both formatters live here so a row can never
-// mix minus glyphs: `formatAmount` and `formatSigned` appear side by side in the
-// same table row, and a hyphen next to a U+2212 reads as two different numbers.
+// Рубли для таблиц зарплат. Оба форматтера живут здесь, чтобы в строке никогда
+// не смешивались разные знаки минуса: `formatAmount` и `formatSigned` стоят рядом в
+// одной строке таблицы, а дефис рядом с U+2212 читается как два разных числа.
 //
-// The minus is U+2212 MINUS SIGN, not a hyphen: next to tabular digits a hyphen
-// reads as a dash and is easy to miss.
+// Минус — это U+2212 MINUS SIGN, а не дефис: рядом с табличными цифрами дефис
+// читается как тире, и его легко не заметить.
 export function formatAmount(n: number): string {
   const grouped = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
   return n < 0 ? `−${grouped}` : grouped
 }
 
-// Signed money for the one-off payment column, where the direction of a payout
-// is the whole point: an explicit "+" makes an accrual unambiguous. Extracted
-// from the SFCs so the sign handling is unit-testable — it is the one place
-// where a wrong character turns a deduction into a bonus on screen.
+// Деньги со знаком для столбца разовых выплат, где направление выплаты —
+// вся суть: явный «+» делает начисление однозначным. Вынесено
+// из SFC, чтобы обработку знака можно было покрыть юнит-тестами — это единственное место,
+// где неверный символ превращает удержание на экране в премию.
 export function formatSigned(n: number): string {
   return n > 0 ? `+${formatAmount(n)}` : formatAmount(n)
 }

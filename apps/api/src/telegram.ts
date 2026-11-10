@@ -3,25 +3,25 @@ import { baseLogger } from './log.js'
 
 export interface TelegramSendResult {
   ok: boolean
-  // Terse, PII-free failure reason (Telegram `description`, HTTP status, or
-  // 'timeout'). Never contains the message text.
+  // Краткая причина сбоя без PII (`description` от Telegram, HTTP-статус или
+  // 'timeout'). Никогда не содержит текст сообщения.
   reason?: string
 }
 
-// Injectable transport so tests never touch the network. Defaults to the global
-// fetch (Node 22+); mirrors the `_setClientForTest` seam in sheets.ts.
+// Подменяемый транспорт, чтобы тесты не ходили в сеть. По умолчанию — глобальный
+// fetch (Node 22+); устроен так же, как шов `_setClientForTest` в sheets.ts.
 type Fetcher = typeof fetch
 let _fetch: Fetcher = fetch
 
-/** For tests only — lets tests stub the HTTP transport. */
+/** Только для тестов — позволяет застабить HTTP-транспорт. */
 export function _setFetchForTest(fn: Fetcher): void {
   _fetch = fn
 }
 
 const TIMEOUT_MS = 5000
 
-// HTML parse_mode requires these three to be escaped in user-supplied text;
-// leaving them raw would break rendering or let a name inject markup.
+// HTML parse_mode требует экранировать эти три символа в пользовательском тексте;
+// без экранирования ломается отображение, а имя может внедрить разметку.
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -58,7 +58,7 @@ export async function sendTelegramMessage(
           reason = body.description
         }
       } catch {
-        // Non-JSON error body — keep the http_<status> fallback.
+        // Тело ошибки не JSON — оставляем запасной вариант http_<status>.
       }
       baseLogger.warn(
         { event: 'telegram.send_failed', status: res.status, reason },

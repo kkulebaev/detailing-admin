@@ -6,24 +6,24 @@ import {
   validationErrorSchema,
 } from './api.js'
 
-// Domain object — mirrors a row of the `masters` table serialized by the API.
+// Доменный объект — повторяет строку таблицы `masters` в том виде, как её сериализует API.
 export const masterSchema = z.object({
   id: z.number().int(),
   name: z.string(),
   position: z.number().int(),
   canBeResponsible: z.boolean(),
-  // Whether the master is paid a salary — the Зарплаты page lists only paid ones.
+  // Получает ли мастер зарплату — страница «Зарплаты» показывает только таких.
   paidSalary: z.boolean(),
-  // Nullable — reserved for future Telegram notifications; the sheet never sees it.
+  // Nullable — зарезервировано под будущие уведомления в Telegram; в лист не попадает.
   telegramId: z.string().nullable(),
-  // Login account that logs hours as this master on «Мои часы». Null = none.
+  // Аккаунт, который вносит часы за этого мастера в «Мои часы». Null — такого нет.
   userId: z.string().uuid().nullable(),
 })
 
 export type Master = z.infer<typeof masterSchema>
 
-// Same trim/min/max/refine as the booking master field — the refine is the
-// anti-injection barrier for the source-of-truth sheet (no leading =/+/-/@).
+// Те же trim/min/max/refine, что у поля мастера в записи — refine защищает от инъекций
+// лист — источник истины (никаких ведущих =/+/-/@).
 const masterName = z
   .string()
   .trim()
@@ -31,11 +31,11 @@ const masterName = z
   .max(120)
   .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя')
 
-// Full-replace semantics on purpose: no `.default()` on `canBeResponsible`. This
-// schema backs both POST and PATCH /api/masters/{id} — an omitted flag on PATCH
-// must fail validation rather than silently resurrect to `true`. The form always
-// sends the flag, so this doesn't change the create UX. `telegramId` accepts null
-// (or a string) — no anti-injection refine since it never reaches the sheet.
+// Семантика полной замены намеренна: у `canBeResponsible` нет `.default()`. Эта
+// схема обслуживает и POST, и PATCH /api/masters/{id} — пропущенный флаг в PATCH
+// должен проваливать валидацию, а не молча воскрешаться в `true`. Форма всегда
+// шлёт флаг, так что UX создания не меняется. `telegramId` принимает null
+// (или строку) — refine от инъекций не нужен, в лист он не попадает.
 export const masterInputSchema = z.object({
   name: masterName,
   canBeResponsible: z.boolean(),
@@ -52,9 +52,9 @@ export const reorderInputSchema = z.object({
 
 export type ReorderInput = z.infer<typeof reorderInputSchema>
 
-// duplicate_user: the account is already linked to another master — one account
-// logs hours for exactly one master. archived_name: the name belongs to a deleted
-// master, whose row stays in the table.
+// duplicate_user: аккаунт уже привязан к другому мастеру — один аккаунт вносит
+// часы ровно за одного мастера. archived_name: имя принадлежит удалённому
+// мастеру, чья строка остаётся в таблице.
 export const masterConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
@@ -65,8 +65,8 @@ export const masterConflictSchema = z.object({
   ]),
 })
 
-// invalid_order is a validation-flavoured error specific to reorder: the posted
-// id set doesn't match the full set of rows.
+// invalid_order — ошибка в духе валидации, специфичная для reorder: присланный
+// набор id не совпадает с полным набором строк.
 const masterInvalidOrderSchema = z.object({
   ok: z.literal(false),
   error: z.literal('validation'),

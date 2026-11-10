@@ -8,16 +8,16 @@ import { Card, CardContent } from '@/components/ui/card'
 
 const auth = useAuthStore()
 
-// Two-letter monogram: first letters of the display name's words, else the
-// first two of the login.
+// Монограмма из двух букв: первые буквы слов отображаемого имени, иначе
+// первые две буквы логина.
 const initials = computed(() => {
   const parts = auth.displayName.split(/\s+/).filter(Boolean)
   const letters = parts.length >= 2 ? [parts[0][0], parts[1][0]] : [auth.displayName.slice(0, 2)]
   return letters.join('').toUpperCase()
 })
 
-// Only show the login as a subtitle once a real name is set — otherwise
-// displayName already IS the login and repeating it reads as a duplicate.
+// Логин показываем подзаголовком, только когда задано настоящее имя — иначе
+// displayName и ЕСТЬ логин, и повтор выглядит как дубль.
 const secondaryLogin = computed(() =>
   auth.user && auth.displayName !== auth.user.login ? auth.user.login : null,
 )

@@ -56,7 +56,7 @@ export function reorderMasters(ids: number[]): Promise<MasterReorderResult> {
   return unwrap<MasterReorderResult>(() => patchApiMastersReorder({ ids }))
 }
 
-// Accounts a master can be linked to — they log hours as that master.
+// Аккаунты, к которым можно привязать мастера, — они вносят часы от имени этого мастера.
 export function fetchAccounts(): Promise<AccountsApiResult> {
   return unwrap<AccountsApiResult>(() => getApiUsers())
 }

@@ -48,14 +48,14 @@ export function updateBookingReadiness(
   return unwrap<BookingMutationResponse>(() => patchApiBookingsIdReadiness(id, { readiness }))
 }
 
-// Paging keys are dropped: export returns the whole filtered set, not a page.
+// Ключи пагинации отбрасываются: экспорт возвращает весь отфильтрованный набор, а не страницу.
 const EXPORT_OMIT = new Set(['limit', 'offset'])
 
-// Builds the CSV export URL from the SAME filter params the list uses, so the
-// download always mirrors what's on screen. The query is serialized exactly like
-// orval's generated URL builder (URLSearchParams, skip undefined) to stay in
-// step with the list request. This route lives outside OpenAPI/orval (CSV, not
-// JSON), so downloadFile hits it with a raw fetch by URL.
+// Строит URL CSV-экспорта из ТЕХ ЖЕ параметров фильтра, что и список, поэтому
+// скачанный файл всегда совпадает с тем, что на экране. Query сериализуется ровно как в
+// сгенерированном orval построителе URL (URLSearchParams, undefined пропускаются), чтобы
+// не расходиться с запросом списка. Этот роут живёт вне OpenAPI/orval (CSV, а не
+// JSON), поэтому downloadFile обращается к нему raw-fetch'ем по URL.
 export function bookingsExportUrl(params: GetApiBookingsParams): string {
   const qs = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {

@@ -6,7 +6,7 @@ function row(readiness: string, service: string, dateFrom = '2026-09-12') {
 }
 
 describe('lastDeliveredService', () => {
-  it('skips newer rows that were not delivered', () => {
+  it('пропускает более свежие строки, которые не были выданы', () => {
     const history = [
       row('Подтвердил', 'Мойка'),
       row('Отмена', 'Химчистка'),
@@ -16,18 +16,18 @@ describe('lastDeliveredService', () => {
     expect(lastDeliveredService(history)).toBe('Полировка: кузов')
   })
 
-  it('returns null when nothing was delivered', () => {
+  it('возвращает null, если ничего не выдано', () => {
     expect(lastDeliveredService([row('Перенос', 'Мойка')])).toBeNull()
     expect(lastDeliveredService([])).toBeNull()
   })
 
-  it('treats a blank service as missing', () => {
+  it('считает пустую услугу отсутствующей', () => {
     expect(lastDeliveredService([row('Выдана', '  ')])).toBeNull()
   })
 })
 
 describe('missedBookings', () => {
-  it('counts cancellations and no-shows separately, dated by the newest', () => {
+  it('считает отмены и неявки раздельно, с датой самой свежей', () => {
     const history = [
       row('Подтвердил', 'Мойка', '2026-11-02'),
       row('Не приехал', 'Химчистка', '2026-10-01'),
@@ -38,7 +38,7 @@ describe('missedBookings', () => {
     expect(missedBookings(history)).toEqual({ cancelled: 2, noShow: 1, lastDate: '2026-10-01' })
   })
 
-  it('does not count a rescheduled booking', () => {
+  it('не считает перенесённую запись', () => {
     expect(missedBookings([row('Перенос', 'Мойка'), row('Выдана', 'Мойка')])).toBeNull()
   })
 })

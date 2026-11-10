@@ -8,8 +8,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 
-// Minimal Command wired the same way ServicePicker uses it: a filter input over
-// a flat list of items. Item text is what the filter matches against.
+// Минимальный Command, собранный так же, как в ServicePicker: поле фильтра над
+// плоским списком пунктов. Фильтр сопоставляет с текстом пункта.
 defineProps<{ items: { value: number; label: string }[] }>()
 </script>
 

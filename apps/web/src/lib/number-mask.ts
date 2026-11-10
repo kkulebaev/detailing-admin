@@ -1,9 +1,9 @@
-// Caret-preserving thousand-separator mask for numeric text inputs.
+// Маска разделителя тысяч с сохранением каретки для числовых текстовых полей.
 //
-// Re-masking a value with grouping spaces normally snaps the caret to the end
-// of the string, so deleting or inserting a digit mid-number makes the caret
-// jump. `maskThousands` re-derives the caret from the count of digits to its
-// left, keeping it anchored to the same digit boundary across the reformat.
+// Повторное наложение маски с пробелами-разделителями обычно отбрасывает каретку в
+// конец строки, так что удаление или вставка цифры в середине числа заставляет её
+// прыгать. `maskThousands` заново вычисляет позицию каретки по числу цифр
+// слева от неё, удерживая её на той же границе между цифрами при переформатировании.
 
 function groupThousands(digits: string): string {
   if (!digits) return ''
@@ -24,7 +24,7 @@ export function maskThousands(
   const digits = rawValue.replace(/\D/g, '').slice(0, maxDigits)
   const value = groupThousands(digits)
 
-  // Place the caret just after the same count of digits it followed before.
+  // Ставим каретку сразу после того же числа цифр, за которым она стояла раньше.
   const anchor = Math.min(digitsBeforeCaret, digits.length)
   if (anchor === 0) return { value, caret: 0 }
   let seen = 0

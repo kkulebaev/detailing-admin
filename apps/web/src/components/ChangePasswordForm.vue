@@ -11,12 +11,12 @@ import { Label } from '@/components/ui/label'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import PasswordInput from '@/components/PasswordInput.vue'
 
-// Its own component so its `useForm` context does not collide with the profile
-// name form's (see ProfileNameForm.vue for the reasoning).
+// Отдельный компонент, чтобы его контекст `useForm` не конфликтовал с контекстом
+// формы имени в профиле (обоснование — в ProfileNameForm.vue).
 
-// The wire schema only covers currentPassword/newPassword — the confirmation
-// field is a UI-only check, so it's kept out of the typed vee-validate schema
-// and validated by hand at submit time (mirrors BookingForm's phone field).
+// Wire-схема покрывает только currentPassword/newPassword — поле подтверждения
+// проверяется только в UI, поэтому оно вынесено из типизированной схемы vee-validate
+// и валидируется вручную при отправке (так же, как поле телефона в BookingForm).
 type PasswordField = 'currentPassword' | 'newPassword'
 function isPasswordField(v: unknown): v is PasswordField {
   return v === 'currentPassword' || v === 'newPassword'
@@ -24,8 +24,8 @@ function isPasswordField(v: unknown): v is PasswordField {
 
 const confirmPassword = ref('')
 const confirmError = ref<string | null>(null)
-// Remounting the inputs after a successful change hides them again, so the next
-// password typed here doesn't appear in the clear.
+// Перемонтирование полей после успешной смены снова скрывает их, чтобы следующий
+// введённый здесь пароль не отображался открытым текстом.
 const inputsGeneration = ref(0)
 
 const { handleSubmit, resetForm, setFieldError, isSubmitting } = useForm({

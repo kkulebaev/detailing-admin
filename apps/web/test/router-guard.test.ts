@@ -28,8 +28,8 @@ beforeEach(() => {
   meMock.mockReset()
 })
 
-describe('router auth guard', () => {
-  it('redirects an anonymous visitor away from a protected route to /login', async () => {
+describe('auth-guard роутера', () => {
+  it('уводит анонимного посетителя с защищённого маршрута на /login', async () => {
     meMock.mockResolvedValue({ ok: false, error: 'unauthorized' })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/clients')
@@ -37,49 +37,49 @@ describe('router auth guard', () => {
     expect(router.currentRoute.value.query.redirect).toBe('/clients')
   })
 
-  it('redirects a role mismatch to the home route for that role', async () => {
+  it('при несовпадении роли перенаправляет на домашний маршрут этой роли', async () => {
     meMock.mockResolvedValue({ ok: true, user: employee() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/clients')
     expect(router.currentRoute.value.name).toBe('employee')
   })
 
-  it('allows a matching role onto a protected route', async () => {
+  it('пускает подходящую роль на защищённый маршрут', async () => {
     meMock.mockResolvedValue({ ok: true, user: admin() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/clients')
     expect(router.currentRoute.value.name).toBe('clients')
   })
 
-  it('redirects an admin away from /employee to their home route', async () => {
+  it('уводит админа с /employee на его домашний маршрут', async () => {
     meMock.mockResolvedValue({ ok: true, user: admin() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/employee')
     expect(router.currentRoute.value.name).toBe('booking')
   })
 
-  it('lets an employee onto /employee', async () => {
+  it('пускает сотрудника на /employee', async () => {
     meMock.mockResolvedValue({ ok: true, user: employee() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/employee')
     expect(router.currentRoute.value.name).toBe('employee')
   })
 
-  it('lets an employee onto the shared /profile route', async () => {
+  it('пускает сотрудника на общий маршрут /profile', async () => {
     meMock.mockResolvedValue({ ok: true, user: employee() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/profile')
     expect(router.currentRoute.value.name).toBe('profile')
   })
 
-  it('sends a booker home to the booking form', async () => {
+  it('отправляет букера домой — на форму записи', async () => {
     meMock.mockResolvedValue({ ok: true, user: booker() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/login')
     expect(router.currentRoute.value.name).toBe('booking')
   })
 
-  it.each(['bookings', 'employee', 'profile'])('lets a booker onto /%s', async (path) => {
+  it.each(['bookings', 'employee', 'profile'])('пускает букера на /%s', async (path) => {
     meMock.mockResolvedValue({ ok: true, user: booker() })
     const router = createAppRouter(createMemoryHistory())
     await router.push(`/${path}`)
@@ -87,7 +87,7 @@ describe('router auth guard', () => {
   })
 
   it.each(['clients', 'pricelist', 'masters', 'salaries', 'analytics'])(
-    'keeps a booker off /%s',
+    'не пускает букера на /%s',
     async (path) => {
       meMock.mockResolvedValue({ ok: true, user: booker() })
       const router = createAppRouter(createMemoryHistory())
@@ -96,28 +96,28 @@ describe('router auth guard', () => {
     },
   )
 
-  it('keeps an employee off the booking form', async () => {
+  it('не пускает сотрудника на форму записи', async () => {
     meMock.mockResolvedValue({ ok: true, user: employee() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/')
     expect(router.currentRoute.value.name).toBe('employee')
   })
 
-  it('redirects a logged-in visitor away from /login to their role home', async () => {
+  it('уводит вошедшего посетителя с /login на домашний маршрут его роли', async () => {
     meMock.mockResolvedValue({ ok: true, user: admin() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/login')
     expect(router.currentRoute.value.name).toBe('booking')
   })
 
-  it('leaves an anonymous visitor on /login', async () => {
+  it('оставляет анонимного посетителя на /login', async () => {
     meMock.mockResolvedValue({ ok: false, error: 'unauthorized' })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/login')
     expect(router.currentRoute.value.name).toBe('login')
   })
 
-  it('calls fetchMe once and reuses it across navigations (ready gate)', async () => {
+  it('вызывает fetchMe один раз и переиспользует результат между переходами (ready gate)', async () => {
     meMock.mockResolvedValue({ ok: true, user: admin() })
     const router = createAppRouter(createMemoryHistory())
     await router.push('/clients')

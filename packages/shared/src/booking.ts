@@ -12,17 +12,17 @@ const hhmm = z
   .max(5)
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Укажите время в формате ЧЧ:ММ')
 
-// Car body class (I–IV). Sent as part of `bookingSchema`; the backend currently
-// ignores it, but the pricelist stores a price range per class and the form's
-// picker uses it to show the right column.
+// Класс кузова (I–IV). Отправляется в составе `bookingSchema`; бэкенд пока его
+// игнорирует, но прайс-лист хранит диапазон цен на каждый класс, и пикер формы
+// по нему показывает нужную колонку.
 export const carClassSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)], {
   error: () => 'Выберите класс кузова',
 })
 export type CarClass = z.infer<typeof carClassSchema>
 export const DEFAULT_CAR_CLASS: CarClass = 2
 
-// Upper bound on how many masters one booking can carry. Enforced in the wire
-// schema (below) and mirrored by the multi-select UI limit.
+// Верхний предел числа мастеров в одной записи. Проверяется в схеме на проводе
+// (ниже) и продублирован лимитом мультиселекта в UI.
 export const MAX_MASTERS = 5
 
 export const bookingSchema = z
@@ -36,32 +36,32 @@ export const bookingSchema = z
     car: z.string().min(1, 'Укажите марку и модель').max(200),
     // Гос. номер — отдельным полем: форма шлёт его сырым, склейка с `car` для
     // колонки E и зеркала `bookings.car` делается на сервере через joinCar.
-    // Permissive (как остальные поля) — строгой валидации формата номера нет.
+    // Нестрогое (как остальные поля) — строгой валидации формата номера нет.
     plate: z.string().max(32).optional(),
     service: z.string().min(1, 'Укажите услугу').max(2000),
     note: z.string().max(2000).default(''),
     amount: z
       .union([z.literal(''), z.number().int().nonnegative()])
       .refine((v) => typeof v === 'number', { error: 'Укажите сумму' }),
-    // Optional arithmetic breakdown for the «Сумма» cell, e.g. "=2000+3000-950".
-    // When present it's written to column H verbatim (Sheets evaluates it under
-    // USER_ENTERED); `amount` stays the authoritative number. Constrained to
-    // digits and arithmetic operators so a client can't inject a live Sheets
-    // function (IMPORTRANGE, HYPERLINK, …) into the source-of-truth sheet.
+    // Необязательная арифметическая раскладка для ячейки «Сумма», напр. "=2000+3000-950".
+    // Если есть, пишется в колонку H как есть (Sheets вычисляет её под
+    // USER_ENTERED); авторитетным числом остаётся `amount`. Ограничена цифрами
+    // и арифметическими операторами, чтобы клиент не мог внедрить живую функцию
+    // Sheets (IMPORTRANGE, HYPERLINK, …) в лист — источник истины.
     amountFormula: z
       .string()
       .max(2000)
       .regex(/^=[\d+\-*/().\s]+$/, 'Некорректная формула суммы')
       .optional(),
     readiness: z.enum(READINESS).or(z.literal('')).default(''),
-    // Master/responsible are free-form strings sourced from the `masters` table
-    // at runtime, not a closed enum. The refine restores the anti-injection
-    // barrier the enum used to give: a leading =/+/-/@ would let a rejected
-    // dropdown value smuggle a live formula into columns J/K under USER_ENTERED.
-    // Multi-master: N masters per booking. Each element keeps the same
-    // anti-injection barrier (leading =/+/-/@ smuggles a live formula into
-    // column J under USER_ENTERED). Dedup runs before the length check so a
-    // repeated pick doesn't count toward MAX_MASTERS.
+    // Мастер/ответственный — произвольные строки, берутся в рантайме из таблицы
+    // `masters`, а не из закрытого enum. Refine возвращает защиту от инъекций,
+    // которую раньше давал enum: ведущий =/+/-/@ позволил бы отвергнутому значению
+    // из списка протащить живую формулу в колонки J/K под USER_ENTERED.
+    // Несколько мастеров: N мастеров на запись. Каждый элемент сохраняет ту же
+    // защиту от инъекций (ведущий =/+/-/@ протаскивает живую формулу в
+    // колонку J под USER_ENTERED). Дедупликация идёт до проверки длины, чтобы
+    // повторный выбор не засчитывался в MAX_MASTERS.
     master: z
       .array(
         z
@@ -73,7 +73,7 @@ export const bookingSchema = z
       )
       .transform((arr) => [...new Set(arr)])
       .pipe(z.array(z.string()).min(1, 'Выберите хотя бы одного мастера').max(MAX_MASTERS)),
-    // The form starts this field as undefined, which `.min()` below never sees.
+    // Форма начинает с undefined в этом поле, а его `.min()` ниже никогда не видит.
     responsible: z
       .string({ error: 'Выберите ответственного' })
       .trim()
@@ -81,9 +81,9 @@ export const bookingSchema = z
       .max(120)
       .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
     carClass: carClassSchema,
-    // When true, the backend sends a Telegram notification to the assigned
-    // master after the booking lands in Sheets. Best-effort — never gates the
-    // write, and it's not serialized into the sheet row (see bookingToRow).
+    // Если true, бэкенд шлёт уведомление в Telegram назначенному мастеру после
+    // того, как запись попала в Sheets. Best-effort — никогда не блокирует
+    // запись и не сериализуется в строку листа (см. bookingToRow).
     notify: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
@@ -104,8 +104,8 @@ export const bookingSchema = z
       const phone = normalizePhone(b.phone)
       const sameDay = b.dateTo && b.dateTo === b.dateFrom
       const dateTo = sameDay ? undefined : b.dateTo
-      // If we're collapsing the range to a single day, drop the end-time too —
-      // it has no place on a non-range row.
+      // Если диапазон схлопывается в один день, отбрасываем и время окончания —
+      // в строке без диапазона ему не место.
       const timeTo = sameDay ? undefined : b.timeTo
       return { ...b, phone, dateTo, timeTo }
     } catch (e) {

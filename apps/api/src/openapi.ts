@@ -2,9 +2,9 @@ import type { Context } from 'hono'
 import type { z } from '@hono/zod-openapi'
 import { StatusCodes } from '@detailing-admin/shared'
 
-// Single source of truth for the validation error wire shape that
-// OpenAPIHono's `defaultHook` emits when `createRoute` validation fails.
-// Wire format matches the legacy zValidator output: `{ ok:false, error:'validation', issues:[...] }`.
+// Единственный источник формы ответа об ошибке валидации, которую отдаёт
+// `defaultHook` в OpenAPIHono, когда не проходит валидация `createRoute`.
+// Формат совпадает со старым выводом zValidator: `{ ok:false, error:'validation', issues:[...] }`.
 export function defaultValidationHook(
   result: { success: true } | { success: false; error: z.ZodError },
   c: Context,

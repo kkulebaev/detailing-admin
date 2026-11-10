@@ -81,12 +81,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-// reka-ui Select needs a non-empty value, so «Все» rides on a sentinel that the
-// params builder maps back to `undefined` (no filter).
+// Select из reka-ui требует непустое значение, поэтому «Все» держится на значении-маркере,
+// которое сборщик params превращает обратно в `undefined` (без фильтра).
 const ALL = '__all__'
 const FROM_TODAY = '__from_today__'
 
-// «Сумма» and editing depend on the role; the API enforces the same rules.
+// «Сумма» и редактирование зависят от роли; API применяет те же правила.
 const auth = useAuthStore()
 const canEdit = computed(() => auth.canEditBookings)
 const canSeeAmounts = computed(() => auth.canSeeAmounts)
@@ -111,11 +111,11 @@ const columnCount = computed(() => {
 
 const invalidateBookings = useInvalidateBookings()
 
-// ── Inline readiness quick-change ──────────────────────────────────────────
-// reka-ui Select rejects '', so the «нет статуса» option rides on a sentinel.
+// ── Быстрая смена готовности прямо в строке ────────────────────────────────
+// Select из reka-ui не принимает '', поэтому опция «нет статуса» держится на значении-маркере.
 const READINESS_NONE = '__none__'
-// Optimistic per-row state: the picked value shows immediately while the PATCH
-// is in flight, and reverts to the server value on failure.
+// Оптимистичное состояние строки: выбранное значение показывается сразу, пока идёт
+// PATCH, а при ошибке откатывается к серверному.
 const readinessOverride = ref<Record<string, Readiness | ''>>({})
 const savingReadiness = ref<Record<string, boolean>>({})
 
@@ -134,7 +134,7 @@ function clearReadinessPending(id: string) {
 }
 
 async function onReadinessChange(row: BookingRow, selected: string) {
-  // Narrow the select value to a known Readiness (or '') without a type cast.
+  // Сужаем значение селекта до известного Readiness (или '') без приведения типа.
   const value = selected === READINESS_NONE ? '' : (READINESS.find((r) => r === selected) ?? '')
   if (value === (readinessOverride.value[row.id] ?? row.readiness)) return
   readinessOverride.value = { ...readinessOverride.value, [row.id]: value }
@@ -151,8 +151,8 @@ async function onReadinessChange(row: BookingRow, selected: string) {
   } catch {
     toast.error('Не удалось обновить готовность')
   } finally {
-    // On success the refetched row carries the value; on failure this reverts the
-    // select to the server value.
+    // При успехе значение придёт в перезапрошенной строке; при ошибке это откатывает
+    // селект к серверному значению.
     clearReadinessPending(row.id)
   }
 }
@@ -232,13 +232,13 @@ async function confirmDelete() {
       return
     }
     if (result.error === 'not_found') {
-      // Already gone — the outcome the user wanted; close and refresh.
+      // Записи уже нет — пользователь этого и хотел; закрываем и обновляем.
       toast.error('Запись уже удалена')
       deleteDialogOpen.value = false
       await invalidateBookings()
       return
     }
-    // Real failure — keep the dialog open and surface the reason inside it.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
     deleteError.value =
       result.error === 'unavailable' ? result.message : 'Не удалось удалить запись'
   } catch {
@@ -248,11 +248,11 @@ async function confirmDelete() {
   }
 }
 
-// ── Filter state ──────────────────────────────────────────────────────────────
+// ── Состояние фильтров ────────────────────────────────────────────────────────
 // Период — одно из четырёх: с сегодняшнего дня (по умолчанию), все записи, месяц
 // целиком или конкретный день. Выбранный день важнее `monthKey`.
 const monthKey = ref<string>(FROM_TODAY)
-// shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
+// shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dayCal = shallowRef<DateValue | undefined>(undefined)
 const periodOpen = ref(false)
 // Месяц, открытый в календаре. Он же решает, какой месяц заберёт «Весь месяц».
@@ -261,9 +261,9 @@ const periodPlaceholder = shallowRef<DateValue>(todayCal)
 const masterFilter = ref<string>(ALL)
 const readinessFilter = ref<Readiness | typeof ALL>(ALL)
 const searchInput = ref('')
-// Manual debounce (instead of refDebounced) so `resetFilters` can flush it
-// synchronously — otherwise the query keeps the stale search term for 300ms
-// after a reset and the table flashes its empty state before real rows load.
+// Ручной debounce (вместо refDebounced), чтобы `resetFilters` мог сбросить его
+// синхронно — иначе запрос ещё 300 мс держит устаревший поисковый запрос после
+// сброса, и таблица мелькает пустым состоянием до загрузки настоящих строк.
 const searchDebounced = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 watch(searchInput, (v) => {
@@ -279,7 +279,7 @@ const masterOptions = computed(() =>
   resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
 )
 
-// ── Period filter ───────────────────────────────────────────────────────────
+// ── Фильтр периода ──────────────────────────────────────────────────────────
 // Один календарь на все режимы: клик по дню фильтрует по дню, «Весь месяц» берёт
 // открытый в шапке месяц, «Все записи» снимает фильтр. Селекты месяца и
 // года в шапке (layout="month-and-year") заменяют прежний выпадающий список —
@@ -327,8 +327,8 @@ const params = computed<GetApiBookingsParams>(() => ({
   sort: sort.value,
 }))
 
-// Any filter change returns to the first page; paging itself moves `offset`
-// directly and is intentionally excluded here.
+// Любое изменение фильтра возвращает на первую страницу; пагинация сама двигает
+// `offset` напрямую и намеренно сюда не входит.
 watch([monthKey, dayCal, masterFilter, readinessFilter, searchDebounced, sort], () => {
   resetToFirstPage()
 })
@@ -345,12 +345,12 @@ const total = computed(() => {
   return r?.ok ? r.total : 0
 })
 
-// Skeleton only on the very first load — background refetches keep the previous
-// rows visible (placeholderData in useBookingsQuery), so `loading` is false then.
+// Скелетон только при самой первой загрузке — фоновые перезапросы оставляют видимыми
+// прежние строки (placeholderData в useBookingsQuery), поэтому `loading` тогда false.
 const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
-// Delay the skeleton so a fast first load doesn't flash it — only show it if the
-// initial load is genuinely slow (>200ms).
+// Показываем скелетон с задержкой, чтобы он не мелькал при быстрой первой загрузке, —
+// только если начальная загрузка действительно медленная (>200 мс).
 const showSkeleton = ref(false)
 let skeletonTimer: ReturnType<typeof setTimeout> | undefined
 watch(
@@ -372,7 +372,7 @@ const error = computed<string | null>(() => {
   return 'Не удалось загрузить список записей'
 })
 
-// ── CSV export ──────────────────────────────────────────────────────────────
+// ── Экспорт CSV ─────────────────────────────────────────────────────────────
 const exporting = ref(false)
 
 async function onExport() {
@@ -387,9 +387,9 @@ async function onExport() {
   }
 }
 
-// ── Filter reset ──────────────────────────────────────────────────────────────
-// Drives the full-height empty state: stretch the table so the placeholder
-// centers vertically in the scroll area instead of clinging under the header.
+// ── Сброс фильтров ────────────────────────────────────────────────────────────
+// Управляет пустым состоянием во всю высоту: растягиваем таблицу, чтобы заглушка
+// центрировалась по вертикали в области прокрутки, а не жалась под шапку.
 const isEmpty = computed(
   () =>
     asyncStatus.value !== 'loading' &&
@@ -440,8 +440,8 @@ function resetFilters() {
   masterFilter.value = ALL
   readinessFilter.value = ALL
   searchInput.value = ''
-  // Flush the debounce so the query drops the search term this tick, not 300ms
-  // later — keeps the empty state from flashing during reset.
+  // Сбрасываем debounce, чтобы запрос убрал поисковую строку в этом же тике, а не
+  // через 300 мс, — так пустое состояние не мелькает при сбросе.
   clearTimeout(searchTimer)
   searchDebounced.value = ''
 }
@@ -473,7 +473,7 @@ function selectAllBookings() {
   periodOpen.value = false
 }
 
-// ── Cell formatting ───────────────────────────────────────────────────────────
+// ── Форматирование ячеек ──────────────────────────────────────────────────────
 // Пробелы вокруг тире дают точку переноса: иначе диапазон — неразрывный токен,
 // который вылезает из фиксированной колонки и налезает на соседнюю (Время/Имя).
 function formatDateCell(row: BookingRow): string {
@@ -540,15 +540,15 @@ function formatCreatedAt(iso: string): string {
 </script>
 
 <template>
-  <!-- Mobile: normal page flow (few rows fit — let the whole page scroll).
-       md+: fixed-height flex column so only the rows scroll internally. -->
+  <!-- Мобильный: обычный поток страницы (строк влезает мало — пусть прокручивается вся страница).
+       md+: flex-колонка фиксированной высоты, чтобы прокручивались только строки внутри. -->
   <div class="min-h-svh bg-background text-foreground p-2 sm:p-8 md:flex md:h-svh md:flex-col">
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Записи</h1>
       </header>
 
-      <!-- Filters. Один набор контролов, две раскладки: строка над таблицей в
+      <!-- Фильтры. Один набор контролов, две раскладки: строка над таблицей в
            полном режиме и шторка снизу в компактном. -->
       <DefinePeriod>
         <Popover v-model:open="periodOpen">
@@ -758,11 +758,11 @@ function formatCreatedAt(iso: string): string {
         container-class="rounded-md border border-border md:min-h-0 md:flex-1"
         :class="[{ 'table-fixed': !isEmpty, 'h-full': isEmpty, 'text-xs': compact }]"
       >
-        <!-- Fixed column widths so they don't jump between pages (table-fixed
-             sizes columns from these, not from each page's content). Dropped when
-             empty: the fixed widths force the table far wider than the viewport,
-             which would leave the placeholder behind a horizontal scrollbar with
-             nothing to scroll to. -->
+        <!-- Фиксированные ширины колонок, чтобы они не прыгали между страницами (table-fixed
+             берёт размеры колонок отсюда, а не из содержимого каждой страницы). Убираются,
+             когда пусто: фиксированные ширины делают таблицу намного шире экрана, и
+             заглушка оказалась бы за горизонтальным скроллбаром, которому нечего
+             прокручивать. -->
         <colgroup v-if="!isEmpty && compact">
           <col />
         </colgroup>
@@ -946,9 +946,9 @@ function formatCreatedAt(iso: string): string {
             </TableCell>
             <TableCell class="px-4 align-top whitespace-normal">{{ row.car || '—' }}</TableCell>
             <TableCell class="px-4 align-top">
-              <!-- `service` is newline-separated (one line per pricelist
-                     section); render it as a vertical list to keep the column
-                     narrow instead of one wide run of text. -->
+              <!-- `service` разделён переводами строк (строка на секцию
+                     прайса); выводим его вертикальным списком, чтобы колонка
+                     оставалась узкой, а не тянулась одной широкой строкой. -->
               <span class="block max-w-56 whitespace-pre-line leading-snug" :title="row.service">
                 {{ row.service || '—' }}
               </span>
@@ -1056,10 +1056,10 @@ function formatCreatedAt(iso: string): string {
         <p v-if="deleteError" class="text-sm text-destructive">{{ deleteError }}</p>
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
-          <!-- Plain Button (not AlertDialogAction) so the dialog stays open until
-               the request resolves. Deliberately NOT disabled: a disabled, focused
-               button makes reka-ui's focus scope lag the close by ~1s — a
-               re-entrancy guard in confirmDelete prevents double submits instead. -->
+          <!-- Обычный Button (не AlertDialogAction), чтобы диалог оставался открытым, пока
+               запрос не завершится. Намеренно НЕ disabled: у disabled кнопки в фокусе
+               focus scope из reka-ui задерживает закрытие на ~1 с — вместо этого двойную
+               отправку предотвращает защита от повторного входа в confirmDelete. -->
           <Button @click="confirmDelete">
             {{ deleting ? 'Удаление…' : 'Удалить' }}
           </Button>

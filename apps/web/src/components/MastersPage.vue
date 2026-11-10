@@ -26,9 +26,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 const { data: queryData, error: queryError, asyncStatus } = useMastersQuery()
 const invalidateMasters = useInvalidateMasters()
 
-// Local, mutable copy of the server list kept sorted by position. Reorder does
-// optimistic adjacent swaps here so the UI updates instantly; a failed
-// `reorderMasters` call falls back to invalidation which re-syncs this array.
+// Локальная изменяемая копия серверного списка, отсортированная по position.
+// Перестановка оптимистично меняет соседей местами здесь, чтобы UI обновлялся
+// сразу; при ошибке `reorderMasters` инвалидация заново синхронизирует массив.
 const rows = ref<Master[]>([])
 
 watch(
@@ -121,13 +121,13 @@ async function confirmDelete() {
       return
     }
     if (result.error === 'not_found') {
-      // Already gone — the outcome the user wanted; close and refresh.
+      // Уже удалено — пользователь этого и хотел; закрываем и обновляем.
       toast.error('Мастер уже удалён')
       deleteDialogOpen.value = false
       await invalidateMasters()
       return
     }
-    // Real failure — keep the dialog open and surface the reason inside it.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
     deleteError.value =
       result.error === 'unavailable' ? result.message : 'Не удалось удалить мастера'
   } catch {
@@ -252,10 +252,10 @@ async function confirmDelete() {
         <p v-if="deleteError" class="text-sm text-destructive">{{ deleteError }}</p>
         <AlertDialogFooter>
           <AlertDialogCancel :disabled="deleting">Отмена</AlertDialogCancel>
-          <!-- Plain Button (not AlertDialogAction) so the dialog stays open until
-               the request resolves. Deliberately NOT disabled: a disabled, focused
-               button makes reka-ui's focus scope lag the close by ~1s — a
-               re-entrancy guard in confirmDelete prevents double submits instead. -->
+          <!-- Обычный Button (не AlertDialogAction), чтобы диалог оставался открытым,
+               пока запрос не завершится. Намеренно НЕ disabled: на отключённой кнопке
+               в фокусе focus scope из reka-ui закрывается с задержкой ~1 с — от
+               двойной отправки защищает guard повторного входа в confirmDelete. -->
           <Button @click="confirmDelete">
             {{ deleting ? 'Удаление…' : 'Удалить' }}
           </Button>

@@ -4,12 +4,12 @@ import { useClientLookupByPhoneQuery } from '@/lib/queries'
 import type { Client } from '@/lib/clients-api'
 import type { ClientLookupSummary } from '@detailing-admin/shared'
 
-// Autofill helper for the booking form: turns the raw phone input into an
-// exact client match. `e164` is null until the typed number normalises to a
-// full +7XXXXXXXXXX — that gates the underlying query, so partial/garbage input
-// never fires a request. colada handles dedup/cache/stale; a reset to an empty
-// phone flips `e164` to null (enabled=false) so a late resolve of a stale key
-// is never applied.
+// Хелпер автозаполнения для формы записи: превращает сырой ввод телефона в
+// точное совпадение с клиентом. `e164` равен null, пока введённый номер не нормализуется в
+// полный +7XXXXXXXXXX, — это гейт для нижележащего запроса, так что частичный/мусорный ввод
+// никогда не шлёт запрос. Дедуп/кэш/устаревание берёт на себя colada; сброс на пустой
+// телефон переводит `e164` в null (enabled=false), поэтому запоздалый ответ по устаревшему ключу
+// никогда не применяется.
 export function useClientLookup(phoneRaw: Ref<string>) {
   const e164 = computed<string | null>(() => {
     try {
@@ -27,8 +27,8 @@ export function useClientLookup(phoneRaw: Ref<string>) {
     () => data.value?.summary ?? null,
   )
 
-  // Only "loading" while a real lookup is in flight (full number typed) — a null
-  // e164 keeps the query disabled, so this stays false for partial input.
+  // «Загрузка» только пока реальный поиск в полёте (номер введён полностью) — при null
+  // в e164 запрос отключён, так что для частичного ввода здесь остаётся false.
   const isLoading = computed(() => !!e164.value && asyncStatus.value === 'loading')
 
   return { matchedClient, matchedClientSummary, isLoading }

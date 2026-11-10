@@ -1,5 +1,5 @@
-// Snapshot from "Запись 2026" sheet, column E (Машина), deduped case-insensitively
-// and trimmed. Refresh by re-exporting from the sheet when the list drifts.
+// Снимок из листа «Запись 2026», столбец E (Машина), без дублей (без учёта регистра)
+// и с обрезанными пробелами. Обновлять повторным экспортом из листа, когда список устареет.
 export const CAR_SUGGESTIONS: readonly string[] = Object.freeze([
   'Купе',
   'Москвич',

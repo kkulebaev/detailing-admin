@@ -19,8 +19,8 @@ import {
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserPublic | null>(null)
-  // False until the first `fetchMe()` settles — the router guard uses this to
-  // fetch the session exactly once per app load instead of on every navigation.
+  // False, пока не завершится первый `fetchMe()`, — guard роутера по нему
+  // запрашивает сессию ровно один раз за загрузку приложения, а не на каждой навигации.
   const ready = ref(false)
 
   const role = computed<Role | null>(() => user.value?.role ?? null)
@@ -28,8 +28,8 @@ export const useAuthStore = defineStore('auth', () => {
   const canSeeAmounts = computed(() => !!role.value && roleCanSeeAmounts(role.value))
   const canEditBookings = computed(() => !!role.value && roleCanEditBookings(role.value))
 
-  // Full name once the user has filled it in; falls back to the login for
-  // accounts provisioned before names existed (empty firstName/lastName).
+  // Полное имя, когда пользователь его заполнил; иначе — логин, для
+  // аккаунтов, заведённых до появления имён (пустые firstName/lastName).
   const displayName = computed(() => {
     const u = user.value
     if (!u) return ''
@@ -58,8 +58,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function updateProfile(payload: UpdateProfileRequest): Promise<UpdateProfileResult> {
     const result = await apiUpdateProfile(payload)
-    // The server re-mints the cookie; mirror the new name locally so the
-    // sidebar/profile update without a round-trip to /me.
+    // Сервер перевыпускает cookie; повторяем новое имя локально, чтобы
+    // сайдбар/профиль обновились без лишнего запроса к /me.
     if (result.ok) user.value = result.user
     return result
   }
@@ -68,16 +68,16 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await apiLogout()
     } catch {
-      // Best-effort: the cookie is cleared server-side when this succeeds,
-      // but the UI should still drop to a logged-out state on a network error.
+      // Best-effort: при успехе cookie очищается на сервере,
+      // но при сетевой ошибке UI всё равно должен перейти в разлогиненное состояние.
     } finally {
       user.value = null
     }
   }
 
-  // Invoked by the global 401 handler (orval-mutator.ts) when any
-  // authenticated request is rejected — clears local state without another
-  // round-trip, since the server already rejected the cookie.
+  // Вызывается глобальным обработчиком 401 (orval-mutator.ts), когда любой
+  // авторизованный запрос отклонён, — очищает локальное состояние без ещё одного
+  // запроса, ведь сервер уже отверг cookie.
   function clearSession() {
     user.value = null
     ready.value = true

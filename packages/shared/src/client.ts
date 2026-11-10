@@ -22,7 +22,7 @@ export const clientSchema = z.object({
   id: z.string().uuid(),
   phone: z.string(),
   name: z.string(),
-  // ISO datetime after JSON serialization (the DB column is a timestamp).
+  // ISO datetime после JSON-сериализации (колонка в БД — timestamp).
   createdAt: z.string(),
   // Машины клиента, вложенные в list-ответ одним сгруппированным запросом.
   // Дефолт [] обязателен: clientSchema переиспользуется в
@@ -39,9 +39,9 @@ const clientConflictSchema = z.object({
   reason: z.literal('duplicate_phone'),
 })
 
-// A client cannot be deleted while any booking still references it — the
-// bookings mirror is retained (its rows carry their own phone/name), so the
-// delete is refused instead of cascading or orphaning the link.
+// Клиента нельзя удалить, пока на него ссылается хоть одна запись — зеркало
+// bookings сохраняется (его строки несут собственные телефон/имя), поэтому удаление
+// отклоняется, а не каскадится и не оставляет связь висящей.
 const clientDeleteConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
@@ -72,11 +72,11 @@ export const clientDeleteResponseSchema = z.union([
   internalErrorSchema,
 ])
 
-// Lifetime «Выдана»-only aggregates for the client card. `totalSpent`/`visitCount`
-// are the same «Выдана» rule as analytics but with no period window, so the numbers
-// need not match a period-scoped `/analytics` view. `lastVisit`/`firstVisit` are
-// ISO `YYYY-MM-DD` (or null when the client has no delivered bookings). The API
-// coerces postgres-js string aggregates via Number() before building the response.
+// Агрегаты за всё время только по «Выдана» для карточки клиента. `totalSpent`/`visitCount`
+// считаются по тому же правилу «Выдана», что и аналитика, но без окна периода, поэтому
+// числа не обязаны совпадать с `/analytics` за период. `lastVisit`/`firstVisit` —
+// ISO `YYYY-MM-DD` (или null, если у клиента нет выданных записей). API приводит
+// строковые агрегаты postgres-js через Number() до сборки ответа.
 export const clientStatsSchema = z.object({
   totalSpent: z.number(),
   visitCount: z.number(),
@@ -86,9 +86,9 @@ export const clientStatsSchema = z.object({
 
 export type ClientStats = z.infer<typeof clientStatsSchema>
 
-// Client card payload: the client (with cars), lifetime stats, and the full
-// booking history (all statuses) reusing the shared `bookingRowSchema`.
-// `bookingsTruncated` flags that the history hit the server-side cap.
+// Данные карточки клиента: клиент (с машинами), статистика за всё время и полная
+// история записей (все статусы) на общей `bookingRowSchema`.
+// `bookingsTruncated` отмечает, что история упёрлась в серверный лимит.
 export const clientDetailOkSchema = z.object({
   ok: z.literal(true),
   client: clientSchema,
@@ -99,8 +99,8 @@ export const clientDetailOkSchema = z.object({
 
 export type ClientDetailOk = z.infer<typeof clientDetailOkSchema>
 
-// `validationErrorSchema` is required: the route returns 400 on a malformed uuid,
-// so the web-side `ClientDetailResult` must be able to represent it.
+// `validationErrorSchema` обязательна: на кривой uuid роут возвращает 400,
+// и веб-сторонний `ClientDetailResult` должен уметь это представить.
 export const clientDetailResponseSchema = z.union([
   clientDetailOkSchema,
   validationErrorSchema,
@@ -111,8 +111,8 @@ export const clientDetailResponseSchema = z.union([
 
 export type ClientDetailResponse = z.infer<typeof clientDetailResponseSchema>
 
-// Exact phone only, unlike the list's `q` substring search: this endpoint is open
-// to non-admins, and it must not double as a way to browse the client base.
+// Только точный телефон, в отличие от поиска по подстроке `q` в списке: эндпоинт открыт
+// не только админам, и он не должен служить способом листать клиентскую базу.
 export const clientLookupQuerySchema = z.object({
   phone: z.string().regex(/^\+7\d{10}$/),
 })
@@ -120,7 +120,7 @@ export const clientLookupQuerySchema = z.object({
 export const clientLookupSummarySchema = z.object({
   visitCount: z.number(),
   lastVisit: z.string().nullable(),
-  // Sent to admins only; its absence is what keeps it off the booker's form.
+  // Отправляется только админам; именно его отсутствие убирает поле с формы booker'а.
   totalSpent: z.number().optional(),
   lastService: z.string().nullable(),
   missed: z.object({ cancelled: z.number(), noShow: z.number(), lastDate: z.string() }).nullable(),
@@ -142,9 +142,9 @@ export const clientLookupResponseSchema = z.union([
   internalErrorSchema,
 ])
 
-// One car as submitted by the client dialog. Unlike `carSchema` (a persisted
-// row, carries `id`), this is the write shape: no id, plate optional. The db
-// layer normalizes/dedupes — here we only enforce a non-empty make/model.
+// Одна машина в том виде, в каком её отправляет диалог клиента. В отличие от `carSchema`
+// (сохранённая строка с `id`), это форма для записи: без id, номер необязателен. db-слой
+// нормализует и дедуплицирует — здесь проверяется только непустая марка/модель.
 export const carInputSchema = z.object({
   makeModel: z.string().trim().min(1, 'Укажите марку и модель').max(200),
   plate: z.string().trim().max(32).default(''),
@@ -156,8 +156,8 @@ export const clientInputSchema = z
   .object({
     name: z.string().max(120).default(''),
     phone: z.string().min(1, 'Укажите номер телефона').max(40),
-    // Full-replace semantics: the submitted list is authoritative, the db sync
-    // reconciles the client's rows to exactly this set.
+    // Семантика полной замены: присланный список авторитетен, синхронизация в БД
+    // приводит строки клиента ровно к этому набору.
     cars: z.array(carInputSchema).default([]),
   })
   .transform((v, ctx) => {

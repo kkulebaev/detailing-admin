@@ -69,16 +69,16 @@ const rows = computed<SalaryRow[]>(() => {
   return r?.ok ? r.rows : []
 })
 
-// The month the rows on screen actually describe; lags `month` while
-// placeholderData keeps the previous month visible.
+// Месяц, который реально описывают строки на экране; отстаёт от `month`, пока
+// placeholderData держит на экране предыдущий месяц.
 const dataMonth = computed(() => (queryData.value?.ok ? queryData.value.month : ''))
 
-// The column the page exists for, summed into the header: the same number the
-// «Итого» column prints, but without scrolling the table to read it.
+// Колонка, ради которой существует страница, суммой в заголовке: то же число,
+// что в колонке «Итого», но без прокрутки таблицы.
 const monthTotal = computed(() => rows.value.reduce((acc, r) => acc + r.total, 0))
 
-// Skeleton only on the very first load — month switches keep the previous rows
-// visible (placeholderData in useSalariesQuery), so `loading` is false then.
+// Скелетон только при самой первой загрузке — при смене месяца прежние строки
+// остаются на экране (placeholderData в useSalariesQuery), и `loading` тогда false.
 const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
 const showSkeleton = ref(false)
@@ -110,13 +110,13 @@ const error = computed<string | null>(() => {
   return 'Не удалось загрузить список зарплат'
 })
 
-// ── Formatting ────────────────────────────────────────────────────────────────
-// Minutes → a compact hours label ("7,5", "8"), ru-RU decimal comma.
+// ── Форматирование ────────────────────────────────────────────────────────────
+// Минуты → короткая подпись часов ("7,5", "8"), с десятичной запятой ru-RU.
 function formatHours(minutes: number): string {
   return minutesToHours(minutes).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
 
-// "2026-01-22" → "22 января 2026 г." Local-midnight Date avoids a UTC day shift.
+// "2026-01-22" → "22 января 2026 г." Date на локальную полночь не даёт дню съехать из-за UTC.
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   if (!y || !m || !d) return iso
@@ -127,7 +127,7 @@ function formatDate(iso: string): string {
   })
 }
 
-// ── Rate dialog ────────────────────────────────────────────────────────────────
+// ── Диалог ставки ──────────────────────────────────────────────────────────────
 const rateDialogOpen = ref(false)
 const rateTarget = ref<{ masterId: number; masterName: string; currentRate: number | null }>({
   masterId: 0,
@@ -148,17 +148,18 @@ async function onRateSaved() {
   await invalidateSalaries()
 }
 
-// ── Expandable per-master detail ───────────────────────────────────────────────
-// Each master row expands to reveal its hours and payouts as sub-rows inline (no
-// dialog). Several can stay open at once; MasterEntries owns the per-master
-// query. Totals in the master row stay live off `rows`.
+// ── Раскрываемые подробности по мастеру ────────────────────────────────────────
+// Строка мастера раскрывается и показывает его часы и выплаты подстроками прямо
+// в таблице (без диалога). Открытыми могут быть несколько; запрос по мастеру
+// держит MasterEntries. Итоги в строке мастера живо считаются из `rows`.
 const expanded = ref<Set<number>>(new Set())
 
-// Auto-open every master that has something this month, once per month. Keyed
-// off the response's own `month` (not the selected ref) so the previous month's
-// placeholder data doesn't seed early. Manual collapse/expand persists until the
-// month changes. A master whose payouts cancelled out (+2000 and −2000) is not
-// auto-opened — payoutsTotal 0 means "nothing this month" by design.
+// Автоматически раскрываем каждого мастера, у которого что-то есть в этом месяце,
+// раз на месяц. Ключ — собственный `month` ответа (а не выбранный ref), чтобы
+// placeholder-данные прошлого месяца не сработали раньше времени. Ручное
+// сворачивание/раскрытие держится до смены месяца. Мастер, у которого выплаты
+// взаимно погасились (+2000 и −2000), не раскрывается — payoutsTotal 0 по
+// замыслу значит «в этом месяце ничего».
 let seededMonth: string | null = null
 watch(
   queryData,
@@ -173,8 +174,8 @@ watch(
   { immediate: true },
 )
 
-// A row that was collapsed hides the record that was just added: the master
-// row would update its totals while the entry itself stayed out of sight.
+// Свёрнутая строка спрятала бы только что добавленную запись: итоги в строке
+// мастера обновились бы, а сама запись осталась бы вне поля зрения.
 function ensureExpanded(masterId: number) {
   if (expanded.value.has(masterId)) return
   const next = new Set(expanded.value)
@@ -189,19 +190,19 @@ function toggleExpand(masterId: number) {
   expanded.value = next
 }
 
-// ── Work-hours create/edit dialog ──────────────────────────────────────────────
+// ── Диалог создания/правки часов ──────────────────────────────────────────────
 const hoursDialogOpen = ref(false)
 const hoursEditing = ref<WorkHours | null>(null)
 const hoursMaster = ref<{ id: number | null; name: string }>({ id: null, name: '' })
 
-// Toolbar "add hours" can only target masters that already have a rate.
+// «Добавить часы» из тулбара доступно только мастерам, у которых уже есть ставка.
 const eligibleMasters = computed(() =>
   rows.value
     .filter((r) => r.hourlyRate != null)
     .map((r) => ({ id: r.masterId, name: r.masterName })),
 )
 
-// Payouts need no rate, so the toolbar payout dialog offers every row.
+// Выплатам ставка не нужна, поэтому диалог выплаты из тулбара предлагает все строки.
 const allMasters = computed(() => rows.value.map((r) => ({ id: r.masterId, name: r.masterName })))
 
 function openAddHours(row: SalaryRow) {
@@ -221,7 +222,7 @@ async function onHoursSaved(masterId: number) {
   await Promise.all([invalidateSalaries(), invalidateSalaryEntries()])
 }
 
-// ── Payout create/edit dialog ──────────────────────────────────────────────────
+// ── Диалог создания/правки выплаты ─────────────────────────────────────────────
 const payoutDialogOpen = ref(false)
 const payoutEditing = ref<Payout | null>(null)
 const payoutMaster = ref<{ id: number | null; name: string }>({ id: null, name: '' })
@@ -238,14 +239,14 @@ function openAddPayoutGeneral() {
   payoutDialogOpen.value = true
 }
 
-// Both totals move when a payout changes, so both keys are invalidated.
+// При изменении выплаты меняются оба итога, поэтому инвалидируются оба ключа.
 async function onPayoutSaved(masterId: number) {
   ensureExpanded(masterId)
   await Promise.all([invalidateSalaries(), invalidateSalaryEntries()])
 }
 
-// ── Editing from the detail feed ───────────────────────────────────────────────
-// The feed is one list of both kinds; the page routes each entry to its dialog.
+// ── Правка из ленты подробностей ───────────────────────────────────────────────
+// Лента — один список обоих видов; страница направляет каждую запись в её диалог.
 function openEditEntry(entry: SalaryEntry) {
   const master = rows.value.find((r) => r.masterId === entry.masterId)
   if (entry.kind === 'hours') {
@@ -259,7 +260,7 @@ function openEditEntry(entry: SalaryEntry) {
   payoutDialogOpen.value = true
 }
 
-// ── Delete an entry ────────────────────────────────────────────────────────────
+// ── Удаление записи ────────────────────────────────────────────────────────────
 const deleteDialogOpen = ref(false)
 const deleteTarget = ref<SalaryEntry | null>(null)
 const deleting = ref(false)
@@ -302,8 +303,8 @@ async function confirmDelete() {
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Зарплаты</h1>
 
-        <!-- Named by `dataMonth`, not by `month`: while the previous month is
-             still on screen the caption says which month this figure is. -->
+        <!-- Подпись берётся из `dataMonth`, а не `month`: пока на экране ещё прошлый
+             месяц, она говорит, к какому месяцу относится это число. -->
         <div v-if="!error" class="flex flex-col items-end gap-1">
           <span class="text-xs text-muted-foreground">
             Всего к выплате<template v-if="dataMonth">
@@ -348,7 +349,7 @@ async function confirmDelete() {
           >
             <ClockPlus class="size-4" /> Добавить часы
           </Button>
-          <!-- A payout needs no rate, so this one only needs a row to exist. -->
+          <!-- Выплате ставка не нужна, поэтому этой кнопке достаточно, чтобы была строка. -->
           <Button
             v-if="rows.length > 0"
             variant="outline"
@@ -456,9 +457,9 @@ async function confirmDelete() {
                 </TableCell>
                 <TableCell class="px-4 align-middle text-right">
                   <div class="inline-flex gap-1">
-                    <!-- No rate yet: hours can't be logged without one, so the
-                         row offers setting it instead of a dead disabled "+".
-                         A payout needs no rate, so its button is always there. -->
+                    <!-- Ставки ещё нет: без неё часы не внести, поэтому строка
+                         предлагает её задать вместо мёртвого отключённого «+».
+                         Выплате ставка не нужна, так что её кнопка есть всегда. -->
                     <Button
                       v-if="row.hourlyRate == null"
                       variant="outline"
@@ -488,8 +489,8 @@ async function confirmDelete() {
                     >
                       <Coins class="size-3.5" />
                     </Button>
-                    <!-- Outside the rate branch on purpose: a master with no rate
-                         can still have payouts, and the row must be collapsible. -->
+                    <!-- Намеренно вне ветки со ставкой: у мастера без ставки всё равно
+                         могут быть выплаты, и строку нужно уметь сворачивать. -->
                     <Button
                       variant="ghost"
                       size="icon-sm"

@@ -5,9 +5,9 @@ import { findMasterByName } from './db/masters.js'
 import { sendTelegramMessage, escapeHtml } from './telegram.js'
 import { baseLogger } from './log.js'
 
-// Human-readable date/time line for the master. Single-day bookings collapse to
-// «дата, время»; ranges render «начало — конец» with whatever times are present
-// (mirrors how the sheet's column A is built, but for humans, not Sheets).
+// Человекочитаемая строка даты/времени для мастера. Однодневная запись сворачивается в
+// «дата, время»; диапазон выводится как «начало — конец» с теми временами, что заданы
+// (повторяет сборку столбца A таблицы, но для людей, а не для Sheets).
 function formatDateLine(b: Booking): string {
   if (b.dateTo) {
     const start = b.time ? `${b.dateFrom} ${b.time}` : b.dateFrom
@@ -29,16 +29,16 @@ export function formatMasterNotification(b: Booking): string {
   ].join('\n')
 }
 
-// Best-effort Telegram notification to every assigned master. Never throws —
-// every failure mode collapses into `{ attempted: true, delivered: false, reason }`
-// so the caller can surface a warning without failing the booking. Each master's
-// chat id is resolved server-side by name (names are unique) rather than trusted
-// from the client, so a request can't address an arbitrary chat.
+// Best-effort уведомление в Telegram каждому назначенному мастеру. Никогда не бросает —
+// любой сбой сводится к `{ attempted: true, delivered: false, reason }`, чтобы
+// вызывающий код мог показать предупреждение, не проваливая запись. Chat id каждого
+// мастера определяется на сервере по имени (имена уникальны), а не берётся на веру
+// от клиента, поэтому запрос не может адресовать произвольный чат.
 //
-// A booking can carry several masters who may share one Telegram chat, so chat
-// ids are deduped before sending. The N per-master results collapse into one:
-// `delivered` is true when at least one message lands, and `reason` carries the
-// first failure seen (contract stays a single NotificationResult).
+// В записи может быть несколько мастеров с общим чатом в Telegram, поэтому chat id
+// перед отправкой дедуплицируются. N результатов по мастерам сводятся в один:
+// `delivered` равен true, если дошло хотя бы одно сообщение, а `reason` несёт
+// первый встреченный сбой (контракт остаётся одним NotificationResult).
 export async function notifyMaster(booking: Booking): Promise<NotificationResult> {
   if (!isDbReady()) {
     return { attempted: true, delivered: false, reason: 'db_unavailable' }

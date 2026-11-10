@@ -1,14 +1,14 @@
 /**
- * Backfills the booking↔master id-link for rows created before the feature (or
- * whenever the DB drifted from Sheets). Not a data-migration — CLAUDE.md forbids
- * hand-editing generated SQL — but a plain idempotent script:
+ * Заполняет id-связь booking↔master для строк, созданных до появления фичи (или
+ * когда БД разошлась с Sheets). Не миграция данных — CLAUDE.md запрещает
+ * править сгенерированный SQL вручную, — а обычный идемпотентный скрипт:
  *
  *   pnpm --filter @detailing-admin/api backfill:master-ids
  *
- * Both statements are safe to re-run: the junction insert is `ON CONFLICT DO
- * NOTHING` (composite PK), and `responsible_id` is only set where still NULL, so
- * a rename after a first run is never clobbered. Matching is by exact `name`
- * (same semantics as the write path). Run it AFTER the migration.
+ * Оба запроса безопасно запускать повторно: вставка в связующую таблицу — `ON CONFLICT
+ * DO NOTHING` (составной PK), а `responsible_id` проставляется только там, где ещё NULL,
+ * так что переименование после первого запуска не затирается. Сопоставление — по точному
+ * `name` (та же семантика, что и на пути записи). Запускать ПОСЛЕ миграции.
  */
 import { getSql, closeDb } from '../src/db/client.js'
 
@@ -21,15 +21,15 @@ export async function backfillMasterIds(sql: Sql): Promise<{
   unmatchedMasters: string[]
   unmatchedResponsible: string[]
 }> {
-  // Pre-multi-master rows stored several masters as a single `', '`-joined element
-  // (`['A, B']`) — a leftover from when `master` was one string, wrapped verbatim
-  // when the column became `text[]`. Split each element on `', '` so the array
-  // holds one name per slot, matching the current write path's shape. Only rows
-  // that actually change are touched (`IS DISTINCT FROM`), so a re-run is a no-op:
-  // a name with no `', '` splits to itself. Roster names carry no comma, so the
-  // split never breaks a legitimate single name. Sheets column J is untouched —
-  // this only reshapes the DB mirror's array to the one-name-per-slot model so the
-  // junction `position` and the read enrichment line up per master.
+  // Строки до появления нескольких мастеров хранили нескольких мастеров одним элементом,
+  // склеенным через `', '` (`['A, B']`), — наследие тех времён, когда `master` был одной
+  // строкой, обёрнутой как есть при переходе столбца на `text[]`. Делим каждый элемент по
+  // `', '`, чтобы в массиве было по одному имени на слот, как на текущем пути записи.
+  // Затрагиваются только реально меняющиеся строки (`IS DISTINCT FROM`), поэтому повторный
+  // запуск ничего не делает: имя без `', '` делится само в себя. В именах из списка мастеров
+  // нет запятых, так что деление не ломает настоящее одиночное имя. Столбец J в Sheets не
+  // трогается — меняется только форма массива в зеркале БД на «одно имя на слот», чтобы
+  // `position` в связующей таблице и обогащение при чтении совпадали по каждому мастеру.
   const normalized = await sql`
     UPDATE bookings b
     SET master = sub.arr
@@ -45,10 +45,10 @@ export async function backfillMasterIds(sql: Sql): Promise<{
     WHERE b.id = sub.id AND b.master IS DISTINCT FROM sub.arr
   `
 
-  // `position` anchors each link to its snapshot slot (index in `master[]`) so the
-  // read enrichment can overlay a live name onto the right slot. WITH ORDINALITY
-  // yields the 1-based slot; DISTINCT ON keeps the first occurrence of a repeated
-  // master, matching the write path's "first index wins".
+  // `position` привязывает каждую связь к её слоту в снапшоте (индекс в `master[]`), чтобы
+  // обогащение при чтении могло наложить актуальное имя на нужный слот. WITH ORDINALITY
+  // даёт слот с отсчётом от 1; DISTINCT ON оставляет первое вхождение повторяющегося
+  // мастера, как и правило «побеждает первый индекс» на пути записи.
   const junction = await sql`
     INSERT INTO booking_masters (booking_id, master_id, position)
     SELECT DISTINCT ON (b.id, m.id) b.id, m.id, (u.ord - 1)::smallint
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
   await closeDb()
 }
 
-// Only run when executed directly (not when imported by a test).
+// Запускается только при прямом вызове (не при импорте из теста).
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
     console.error(err)

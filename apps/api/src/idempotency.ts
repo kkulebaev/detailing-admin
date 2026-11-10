@@ -27,12 +27,12 @@ export function set(key: string, result: BookingApiResult): void {
   cache.set(key, { at: Date.now(), result })
 }
 
-/** Evict a key from the cache. Named with trailing underscore because `delete` is reserved. */
+/** Удаляет ключ из кэша. Подчёркивание в конце имени — потому что `delete` зарезервировано. */
 export function delete_(key: string): void {
   cache.delete(key)
 }
 
-/** Clears the cache — for use in tests only. */
+/** Очищает кэш — только для тестов. */
 export function _clearForTest(): void {
   cache.clear()
 }

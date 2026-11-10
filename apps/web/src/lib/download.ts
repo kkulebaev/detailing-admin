@@ -1,8 +1,8 @@
 import { getApiBase } from './api-base'
 
-// `<prefix>-YYYY-MM-DD.csv` in the browser's local date — the download name for
-// a CSV export. Built client-side (deterministic; no need to parse the server's
-// Content-Disposition, which the blob-download flow ignores anyway).
+// `<prefix>-YYYY-MM-DD.csv` в локальной дате браузера — имя скачиваемого файла
+// CSV-экспорта. Строится на клиенте (детерминированно; не нужно парсить серверный
+// Content-Disposition, который blob-скачивание всё равно игнорирует).
 export function exportFilename(prefix: string): string {
   const d = new Date()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
@@ -10,14 +10,14 @@ export function exportFilename(prefix: string): string {
   return `${prefix}-${d.getFullYear()}-${mm}-${dd}.csv`
 }
 
-// Fetches an API endpoint and hands the response to the browser as a file
-// download under a caller-chosen filename. Uses raw `fetch` rather than
-// `orvalFetch` because the body is a CSV blob, not orval's JSON envelope.
+// Запрашивает эндпоинт API и отдаёт ответ браузеру как скачиваемый файл
+// с именем, выбранным вызывающим кодом. Использует голый `fetch`, а не
+// `orvalFetch`, потому что тело — CSV-blob, а не JSON-конверт orval.
 //
-// Known gap: a 401 from an expired session is NOT routed through the app's
-// unauthorizedHandler here (as it would be via orvalFetch), so it won't redirect
-// to the login page — the caller just sees a rejected promise and shows a toast.
-// Acceptable for an internal tool; the next JSON request re-triggers the redirect.
+// Известный пробел: 401 от истёкшей сессии здесь НЕ проходит через
+// unauthorizedHandler приложения (как было бы через orvalFetch), поэтому редиректа
+// на страницу логина не будет — вызывающий код просто получит rejected promise и покажет тост.
+// Для внутреннего инструмента приемлемо: следующий JSON-запрос снова вызовет редирект.
 export async function downloadFile(path: string, filename: string): Promise<void> {
   const res = await fetch(`${getApiBase()}${path}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`Не удалось скачать файл (${res.status})`)
@@ -31,7 +31,7 @@ export async function downloadFile(path: string, filename: string): Promise<void
     a.click()
     a.remove()
   } finally {
-    // Revoke unconditionally so the blob is freed even if click() throws.
+    // Освобождаем безусловно, чтобы blob освободился, даже если click() бросит исключение.
     URL.revokeObjectURL(url)
   }
 }

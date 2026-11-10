@@ -1,13 +1,13 @@
-// Flat config (ESLint ≥9). The single rule that earns its keep here is
-// `@typescript-eslint/consistent-type-assertions` with `assertionStyle: 'never'`
-// — bans `x as T` and `<T>x`. `as const` is a const assertion (different AST
-// node) and remains allowed; that matters because the API routes pin literal
-// success types via `ok: true as const`.
+// Flat config (ESLint ≥9). Единственное правило, которое здесь реально окупается, —
+// `@typescript-eslint/consistent-type-assertions` с `assertionStyle: 'never'`:
+// запрещает `x as T` и `<T>x`. `as const` — это const assertion (другой узел AST)
+// и остаётся разрешённым; это важно, потому что роуты API закрепляют литеральные
+// типы успеха через `ok: true as const`.
 //
-// Ignored on purpose:
-//   - `apps/web/src/components/ui/**` — vendored shadcn-vue, third-party patterns
-//   - `apps/api/scripts/**` — CLI seed scripts read JSON files into schemas
-//   - `apps/api/src/sheets.ts` — googleapis error shapes have no clean Zod story
+// Намеренно игнорируются:
+//   - `apps/web/src/components/ui/**` — вендоренный shadcn-vue, сторонние паттерны
+//   - `apps/api/scripts/**` — CLI-скрипты сидов читают JSON-файлы в схемы
+//   - `apps/api/src/sheets.ts` — для форм ошибок googleapis нет чистого решения на Zod
 import tseslint from 'typescript-eslint'
 import vitest from '@vitest/eslint-plugin'
 import vue from 'eslint-plugin-vue'
@@ -64,7 +64,7 @@ export default tseslint.config(
     },
     rules: {
       ...NO_TYPE_ASSERTIONS,
-      // A <button> without a type submits its form when clicked.
+      // <button> без type при клике отправляет свою форму.
       'vue/html-button-has-type': 'error',
       'vue/no-undef-components': ['error', { ignorePatterns: ['^RouterLink$', '^RouterView$'] }],
       'vue/no-undef-properties': 'error',
@@ -79,12 +79,12 @@ export default tseslint.config(
     files: TEST_FILES,
     rules: {
       ...vitest.configs.recommended.rules,
-      // Mock casts are part of the testing toolkit.
+      // Приведения типов в моках — часть инструментария тестов.
       '@typescript-eslint/consistent-type-assertions': 'off',
-      // `vi.mock` conventionally precedes the imports it affects; vitest hoists it.
+      // `vi.mock` по соглашению стоит перед импортами, на которые влияет; vitest его поднимает.
       'import-x/first': 'off',
-      // The preset only warns, and a warning doesn't fail `pnpm lint`: with no CI a
-      // forgotten `it.skip` would stay switched off without anyone noticing.
+      // Пресет лишь предупреждает, а предупреждение не валит `pnpm lint`: без CI забытый
+      // `it.skip` так и остался бы выключенным, и никто бы не заметил.
       'vitest/no-disabled-tests': 'error',
     },
   },

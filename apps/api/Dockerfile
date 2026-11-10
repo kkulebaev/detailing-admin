@@ -1,11 +1,11 @@
-# ── Stage 1: install all dependencies ────────────────────────────────────────
+# ── Этап 1: установка всех зависимостей ──────────────────────────────────────
 FROM node:26-alpine AS deps
 
 RUN npm install -g pnpm@12.15.0
 
 WORKDIR /app
 
-# Copy workspace manifests first — layer-cache for pnpm install
+# Сначала копируем манифесты workspace — кэш слоя для pnpm install
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
@@ -13,37 +13,37 @@ COPY packages/shared/package.json ./packages/shared/
 
 RUN pnpm install --frozen-lockfile
 
-# ── Stage 2: build API ────────────────────────────────────────────────────────
+# ── Этап 2: сборка API ────────────────────────────────────────────────────────
 FROM deps AS builder
 
-# Copy full source (filtered by .dockerignore — no .env, no host node_modules)
+# Копируем весь исходный код (фильтруется .dockerignore — без .env и node_modules хоста)
 COPY . .
 
-# Compile @detailing-admin/api (tsup → apps/api/dist/)
-# @detailing-admin/shared is bundled via noExternal, no separate build step needed
+# Компилируем @detailing-admin/api (tsup → apps/api/dist/)
+# @detailing-admin/shared вшивается через noExternal, отдельная сборка не нужна
 RUN pnpm -F @detailing-admin/api build
 
-# ── Stage 3: produce a self-contained prod deployment ────────────────────────
-# `pnpm deploy` is the workspace-correct way to get prod-only node_modules:
-# `pnpm prune --prod` silently nukes per-package symlinks in monorepos
-# (only the root .pnpm store survives, leaving Node unable to resolve e.g.
-# @hono/node-server from dist/main.js). deploy outputs a flat directory with
-# package.json + node_modules + the package source/dist, hoisted.
+# ── Этап 3: самодостаточная прод-сборка ──────────────────────────────────────
+# `pnpm deploy` — корректный для workspace способ получить только прод-node_modules:
+# `pnpm prune --prod` в монорепах молча сносит симлинки отдельных пакетов
+# (выживает только корневое хранилище .pnpm, и Node не может разрезолвить, например,
+# @hono/node-server из dist/main.js). deploy выдаёт плоскую директорию с
+# package.json + node_modules + исходниками/dist пакета, с поднятыми зависимостями.
 FROM builder AS deployer
 
 ENV CI=true
 RUN pnpm deploy --filter=@detailing-admin/api --prod /deploy/api
 
-# ── Stage 4: minimal runtime image ────────────────────────────────────────────
+# ── Этап 4: минимальный образ для запуска ────────────────────────────────────
 FROM node:26-alpine AS runtime
 
 WORKDIR /app
 
-# Self-contained: deployer output has package.json, node_modules (prod only),
-# and the built dist/. No root node_modules or workspace files needed at runtime.
+# Самодостаточно: в выводе deploy есть package.json, node_modules (только прод)
+# и собранный dist/. Корневые node_modules и файлы workspace в рантайме не нужны.
 COPY --from=deployer --chown=node:node /deploy/api ./
 
-# Drop privileges — `node` user (uid 1000) ships with the official node images
+# Сбрасываем привилегии — пользователь `node` (uid 1000) есть в официальных образах node
 USER node
 
 EXPOSE 3000

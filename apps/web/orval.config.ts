@@ -1,12 +1,12 @@
 import { defineConfig } from 'orval'
 
-// Generates a typed `fetch`-based client from the OpenAPI document committed
-// at apps/web/openapi.json. The doc itself is produced by
-// `pnpm --filter @detailing-admin/api gen:openapi` — regenerate it whenever a
-// route, request schema, or response schema changes, then run `pnpm gen:client`.
+// Генерирует типизированный клиент на `fetch` из документа OpenAPI, закоммиченного
+// в apps/web/openapi.json. Сам документ создаёт
+// `pnpm --filter @detailing-admin/api gen:openapi` — перегенерируйте его при любом
+// изменении роута, схемы запроса или ответа, затем запустите `pnpm gen:client`.
 //
-// The custom mutator (`orval-mutator.ts`) prepends the env-driven API base URL,
-// so generated URLs stay relative and the dev Vite proxy keeps working.
+// Собственный mutator (`orval-mutator.ts`) добавляет в начало базовый URL API из env,
+// поэтому сгенерированные URL остаются относительными и dev-прокси Vite продолжает работать.
 export default defineConfig({
   detailingAdmin: {
     input: {
@@ -20,9 +20,9 @@ export default defineConfig({
       clean: true,
       baseUrl: '',
       override: {
-        // Emit `type X = 'A' | 'B'` / `type X = 1 | 2 | 3 | 4` instead of the
-        // default `const X = { ... } as const` + `typeof X[keyof typeof X]`
-        // trick — we never reference the runtime const map directly.
+        // Генерируем `type X = 'A' | 'B'` / `type X = 1 | 2 | 3 | 4` вместо приёма
+        // по умолчанию `const X = { ... } as const` + `typeof X[keyof typeof X]` —
+        // мы никогда не обращаемся к рантайм-объекту констант напрямую.
         enumGenerationType: 'union',
         mutator: {
           path: './src/lib/orval-mutator.ts',

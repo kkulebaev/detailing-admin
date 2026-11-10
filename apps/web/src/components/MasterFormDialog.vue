@@ -37,7 +37,7 @@ const name = ref('')
 const canBeResponsible = ref(true)
 const paidSalary = ref(true)
 const telegramId = ref('')
-// reka-ui's Select can't hold an empty value, so «не привязан» is a sentinel.
+// Select из reka-ui не принимает пустое значение, поэтому «не привязан» — значение-заглушка.
 const NO_ACCOUNT = 'none'
 const userId = ref(NO_ACCOUNT)
 

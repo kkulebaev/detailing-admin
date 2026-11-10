@@ -24,7 +24,7 @@ import {
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
-// Numeric path param — same pin-then-convert trick as pricelist/clients.
+// Числовой path-параметр — тот же приём «формат, затем преобразование», что в pricelist/clients.
 const idParamSchema = z.object({
   id: z
     .string()
@@ -56,9 +56,9 @@ function unavailable(c: Context) {
   )
 }
 
-// Shared mapper for create/update/delete. `invalid_order` only arises in
-// reorder and maps to a 400 shape those routes don't declare, so it's handled
-// inline there instead of here.
+// Общий маппер для create/update/delete. `invalid_order` возникает только в
+// reorder и превращается в 400 той формы, которую эти маршруты не объявляют, поэтому
+// обрабатывается прямо там, а не здесь.
 function masterErrorResponse(c: Context, err: unknown) {
   if (err instanceof MasterError) {
     if (err.code === 'not_found') {
@@ -139,8 +139,8 @@ const createMasterRoute = createRoute({
   responses: {
     201: { description: 'Master created', content: { 'application/json': { schema: mutationOk } } },
     400: respValidation,
-    // createMaster never throws not_found, but the shared mapper's return union
-    // includes it; declared so the handler signature type-checks (mirrors pricelist).
+    // createMaster никогда не бросает not_found, но в union-типе общего маппера он есть;
+    // объявлен, чтобы сигнатура обработчика прошла типчек (как в pricelist).
     404: respNotFound,
     409: respConflict,
     500: respInternal,
@@ -148,7 +148,7 @@ const createMasterRoute = createRoute({
   },
 })
 
-// Declared before /{id} so "reorder" isn't captured as an id path param.
+// Объявлен до /{id}, чтобы "reorder" не попал в path-параметр id.
 const reorderMastersRoute = createRoute({
   method: 'patch',
   path: '/reorder',
@@ -316,8 +316,8 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       )
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
-      // Handled inline: the shared mapper would widen the union with a 409 this
-      // route never emits nor declares.
+      // Обрабатываем на месте: общий маппер расширил бы union кодом 409, который этот
+      // маршрут не отдаёт и не объявляет.
       if (err instanceof MasterError && err.code === 'not_found') {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }

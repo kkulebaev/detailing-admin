@@ -17,15 +17,15 @@ function row(
 }
 
 describe('formatServiceCell', () => {
-  it('returns an empty string for no rows', () => {
+  it('возвращает пустую строку, если строк нет', () => {
     expect(formatServiceCell([])).toBe('')
   })
 
-  it('formats a single service without its price', () => {
+  it('форматирует одну услугу без цены', () => {
     expect(formatServiceCell([row(1, 'Химчистка', 'Потолок', 2000)])).toBe('Химчистка: Потолок')
   })
 
-  it('groups services of the same section on one comma-separated line', () => {
+  it('группирует услуги одного раздела в одну строку через запятую', () => {
     expect(
       formatServiceCell([
         row(1, 'Химчистка', 'Потолок', 2000),
@@ -34,7 +34,7 @@ describe('formatServiceCell', () => {
     ).toBe('Химчистка: Потолок, Багажник')
   })
 
-  it('puts each section on its own line', () => {
+  it('выводит каждый раздел на отдельной строке', () => {
     expect(
       formatServiceCell([
         row(1, 'Химчистка', 'Потолок', 2000),
@@ -43,7 +43,7 @@ describe('formatServiceCell', () => {
     ).toBe('Химчистка: Потолок\nТонировка: Задняя полусфера')
   })
 
-  it('keeps same-named services under their own section', () => {
+  it('держит одноимённые услуги каждую под своим разделом', () => {
     expect(
       formatServiceCell([
         row(2, 'Полировка', 'Крыша', 2000),
@@ -52,19 +52,19 @@ describe('formatServiceCell', () => {
     ).toBe('Полировка: Крыша\nШумоизоляция: Крыша')
   })
 
-  it('renders a countable service as «×N» without a price', () => {
+  it('выводит штучную услугу как «×N» без цены', () => {
     expect(formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 3)])).toBe(
       'Химчистка: Сиденье перед. ×3',
     )
   })
 
-  it('omits the ×N annotation when quantity is 1', () => {
+  it('опускает пометку ×N, когда quantity равно 1', () => {
     expect(formatServiceCell([row(1, 'Химчистка', 'Сиденье перед.', 1500, 1)])).toBe(
       'Химчистка: Сиденье перед.',
     )
   })
 
-  it('mixes countable and plain services on one section line', () => {
+  it('смешивает штучные и обычные услуги в одной строке раздела', () => {
     expect(
       formatServiceCell([
         row(1, 'Химчистка', 'Потолок', 2000),
@@ -75,11 +75,11 @@ describe('formatServiceCell', () => {
 })
 
 describe('formatAmountFormula', () => {
-  it('returns undefined when no services are selected', () => {
+  it('возвращает undefined, если услуги не выбраны', () => {
     expect(formatAmountFormula([], 5000, 0)).toBeUndefined()
   })
 
-  it('sums service line totals with no discount and no override', () => {
+  it('суммирует итоги по строкам услуг без скидки и без переопределения', () => {
     expect(
       formatAmountFormula(
         [row(1, 'Химчистка', 'Потолок', 2000), row(1, 'Химчистка', 'Багажник', 3000)],
@@ -89,11 +89,11 @@ describe('formatAmountFormula', () => {
     ).toBe('=2000+3000')
   })
 
-  it('expands a countable service as price*quantity', () => {
+  it('разворачивает штучную услугу в price*quantity', () => {
     expect(formatAmountFormula([row(1, 'Химчистка', 'Сиденье', 1500, 3)], 4500, 0)).toBe('=1500*3')
   })
 
-  it('subtracts the discount as a trailing term', () => {
+  it('вычитает скидку последним слагаемым', () => {
     expect(
       formatAmountFormula(
         [row(1, 'Химчистка', 'Потолок', 2000), row(1, 'Химчистка', 'Багажник', 3000)],
@@ -103,16 +103,16 @@ describe('formatAmountFormula', () => {
     ).toBe('=2000+3000-950')
   })
 
-  it('appends a positive override delta when the base exceeds the subtotal', () => {
+  it('добавляет положительную дельту переопределения, если база больше промежуточной суммы', () => {
     expect(formatAmountFormula([row(1, 'Химчистка', 'Потолок', 2000)], 2500, 0)).toBe('=2000+500')
   })
 
-  it('appends a negative override delta when the base is below the subtotal', () => {
+  it('добавляет отрицательную дельту переопределения, если база меньше промежуточной суммы', () => {
     expect(formatAmountFormula([row(1, 'Химчистка', 'Потолок', 2000)], 1500, 0)).toBe('=2000-500')
   })
 
-  it('combines an override delta and a discount, evaluating to the saved amount', () => {
-    // base 5500 (subtotal 5000 + 500 override) − 550 discount = 4950
+  it('сочетает дельту переопределения и скидку, давая в итоге сохранённую сумму', () => {
+    // база 5500 (промежуточная сумма 5000 + 500 переопределения) − 550 скидки = 4950
     expect(
       formatAmountFormula(
         [row(1, 'Химчистка', 'Потолок', 2000), row(1, 'Химчистка', 'Багажник', 3000)],

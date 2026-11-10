@@ -1,8 +1,8 @@
-// Creates an auth account. Usage:
+// Создаёт учётную запись для входа. Использование:
 //   pnpm --filter @detailing-admin/api user:create --login <login> --role <admin|booker|employee>
 //     [--first-name <name>] [--last-name <surname>]
-// Name flags are optional (the user can fill them in later on the profile page).
-// Prompts for the password (hidden). Prod: `railway run pnpm --filter
+// Флаги имени необязательны (пользователь может заполнить их позже на странице профиля).
+// Запрашивает пароль (скрытый ввод). Прод: `railway run pnpm --filter
 // @detailing-admin/api user:create --login <admin> --role admin`.
 import { ROLES } from '@detailing-admin/shared'
 import { getArg, readHidden, loadLocalEnv, fail } from './user-cli.js'
@@ -24,7 +24,7 @@ if (password.length < 8) fail('Password must be at least 8 characters')
 const confirm = await readHidden('Confirm password: ')
 if (password !== confirm) fail('Passwords do not match')
 
-// Import env-dependent modules only after env is loaded.
+// Модули, зависящие от env, импортируем только после загрузки env.
 const { hashPassword } = await import('../src/auth/password.js')
 const { createUser, UserError } = await import('../src/db/users.js')
 const { closeDb } = await import('../src/db/client.js')

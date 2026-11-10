@@ -4,7 +4,7 @@ import { playwright } from '@vitest/browser-playwright'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
-// Separate from vite.config.ts so the dev and build config never loads test tooling.
+// Отдельно от vite.config.ts, чтобы конфиг dev и сборки никогда не грузил тестовый инструментарий.
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   test: {
-    // The default glob would also run Playwright's e2e/*.spec.ts.
+    // Glob по умолчанию запустил бы ещё и e2e/*.spec.ts от Playwright.
     include: ['test/**/*.test.ts'],
     setupFiles: ['./test/setup.ts'],
     browser: {

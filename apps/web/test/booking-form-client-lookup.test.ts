@@ -7,10 +7,10 @@ import type { ClientLookupSummary } from '@detailing-admin/shared'
 import { useAuthStore } from '@/stores/auth'
 import type { Client } from '@/lib/clients-api'
 
-// The matched client is driven directly through shared refs — the composable's
-// own phone gating is covered in use-client-lookup.test.ts; here we exercise the
-// form's reaction to a match. They are hoisted rather than exported from the mock
-// because a browser-mode mock drops exports the real module doesn't have.
+// Найденным клиентом управляем напрямую через общие ref'ы — собственную проверку
+// телефона в composable покрывает use-client-lookup.test.ts; здесь проверяем реакцию
+// формы на совпадение. Они вынесены в hoisted, а не экспортируются из мока, потому что
+// мок в browser mode теряет экспорты, которых нет у настоящего модуля.
 const { matched, summary } = await vi.hoisted(async () => {
   const { ref: r } = await import('vue')
   return {
@@ -23,8 +23,8 @@ vi.mock('@/composables/use-client-lookup', () => ({
   useClientLookup: () => ({ matchedClient: matched, matchedClientSummary: summary }),
 }))
 
-// Queries that fire on mount — return empty-but-ok data so the master options
-// fall back to the enum and nothing is left in a loading state.
+// Запросы, которые срабатывают при монтировании, — отдают пустые, но ok-данные, чтобы
+// список мастеров откатился на enum и ничего не осталось в состоянии загрузки.
 vi.mock('@/lib/queries', () => ({
   useMastersQuery: () => ({ data: ref({ ok: true, masters: [] }), asyncStatus: ref('idle') }),
   usePricelistQuery: () => ({ data: ref({ ok: true, sections: [] }) }),
@@ -76,8 +76,8 @@ const carChip = (makeModel: string) =>
   page.getByRole('button', { name: new RegExp(`^Заполнить авто ${makeModel}`) })
 const submit = () => page.getByRole('button', { name: 'Сохранить запись' })
 
-// Resolves once the draft restore and field watchers settled, so a later
-// `matched.value = …` is seen as a change.
+// Резолвится, когда восстановление черновика и watcher'ы полей отработали, чтобы
+// последующее `matched.value = …` воспринималось как изменение.
 async function mountReadyForm() {
   const w = mountForm()
   await expect.element(submit()).toBeVisible()
@@ -86,7 +86,7 @@ async function mountReadyForm() {
 
 enableAutoUnmount(afterEach)
 
-describe('BookingForm — client autofill', () => {
+describe('BookingForm — автозаполнение клиента', () => {
   beforeEach(() => {
     matched.value = null
     summary.value = null
@@ -95,37 +95,37 @@ describe('BookingForm — client autofill', () => {
     useAuthStore().user = { login: 'admin1', role: 'admin', firstName: '', lastName: '' }
   })
 
-  it('autofills the name into an empty field on match', async () => {
+  it('при совпадении подставляет имя в пустое поле', async () => {
     await mountReadyForm()
     matched.value = client
     await expect.element(nameField()).toHaveValue('Иван')
     await expect.element(page.getByText('Найден клиент с именем: Иван')).toBeVisible()
   })
 
-  it('overwrites a name the operator already typed on match', async () => {
+  it('при совпадении перезаписывает имя, уже введённое оператором', async () => {
     await mountReadyForm()
     await nameField().fill('Пётр')
     matched.value = client
     await expect.element(nameField()).toHaveValue('Иван')
   })
 
-  it('autofills the first car and masked plate into empty fields on match', async () => {
+  it('при совпадении подставляет в пустые поля первую машину и номер по маске', async () => {
     await mountReadyForm()
     matched.value = client
     await expect.element(carField()).toHaveValue('Toyota Camry')
     await expect.element(plateField()).toHaveValue('А123АА777')
   })
 
-  it('switches «Марка и модель» to another car when its chip is tapped', async () => {
+  it('переключает «Марка и модель» на другую машину по тапу на её чип', async () => {
     await mountReadyForm()
     matched.value = client
-    // First car (Toyota) is auto-filled; tap the second car's chip to switch.
+    // Первая машина (Toyota) подставлена сама; тапаем чип второй, чтобы переключиться.
     await carChip('Kia Rio').click()
     await expect.element(carField()).toHaveValue('Kia Rio')
     await expect.element(plateField()).toHaveValue('')
   })
 
-  it('shows no chips for a single-car client (the one car is auto-filled)', async () => {
+  it('не показывает чипы клиенту с одной машиной (она подставляется сама)', async () => {
     await mountReadyForm()
     matched.value = {
       ...client,
@@ -135,7 +135,7 @@ describe('BookingForm — client autofill', () => {
     await expect.element(carChip('Toyota Camry')).not.toBeInTheDocument()
   })
 
-  it('shows no hint or chips without a match, and submit stays available', async () => {
+  it('без совпадения не показывает подсказку и чипы, а отправка остаётся доступной', async () => {
     await mountReadyForm()
     await expect.element(page.getByText(/Найден клиент/)).not.toBeInTheDocument()
     await expect.element(carChip('Toyota Camry')).not.toBeInTheDocument()
@@ -143,7 +143,7 @@ describe('BookingForm — client autofill', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('overwrites a restored draft name on match and shows the chips', async () => {
+  it('при совпадении перезаписывает имя из восстановленного черновика и показывает чипы', async () => {
     localStorage.setItem(
       DRAFT_KEY,
       JSON.stringify({ phoneRaw: '+7 (916) 123-45-67', name: 'Пётр' }),
@@ -155,7 +155,7 @@ describe('BookingForm — client autofill', () => {
     await expect.element(carChip('Toyota Camry')).toBeVisible()
   })
 
-  it('summarises past visits of a returning client', async () => {
+  it('сводит прошлые визиты вернувшегося клиента', async () => {
     const w = await mountReadyForm()
     matched.value = client
     summary.value = adminSummary
@@ -167,7 +167,7 @@ describe('BookingForm — client autofill', () => {
     expect(link.attributes('target')).toBe('_blank')
   })
 
-  it('shows a booker the summary without money or the card link', async () => {
+  it('показывает букеру сводку без денег и ссылки на карточку', async () => {
     useAuthStore().user = { login: 'booker1', role: 'booker', firstName: '', lastName: '' }
     const { totalSpent: _hiddenByServer, ...bookerSummary } = adminSummary
     const w = await mountReadyForm()
@@ -179,7 +179,7 @@ describe('BookingForm — client autofill', () => {
     expect(w.findComponent(RouterLinkStub).exists()).toBe(false)
   })
 
-  it('says so when a known client has no delivered visits yet', async () => {
+  it('сообщает, если у известного клиента ещё нет завершённых визитов', async () => {
     await mountReadyForm()
     matched.value = client
     summary.value = {
@@ -193,7 +193,7 @@ describe('BookingForm — client autofill', () => {
     await expect.element(page.getByText(/Потрачено/)).not.toBeInTheDocument()
   })
 
-  it('warns to take a prepayment from a client who cancelled or did not show up', async () => {
+  it('предупреждает о предоплате для клиента, который отменял запись или не приезжал', async () => {
     await mountReadyForm()
     matched.value = client
     summary.value = {
@@ -206,7 +206,7 @@ describe('BookingForm — client autofill', () => {
       .toBeVisible()
   })
 
-  it('shows no prepayment warning for a client without cancellations', async () => {
+  it('не показывает предупреждение о предоплате клиенту без отмен', async () => {
     await mountReadyForm()
     matched.value = client
     summary.value = adminSummary

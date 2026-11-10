@@ -22,10 +22,10 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ edit: [SalaryEntry]; delete: [SalaryEntry] }>()
 
-// Own query per expanded master → several masters can stay open at once, each
-// with its own cache entry. useInvalidateSalaryEntries (prefix key) refreshes
-// all. Hours and payouts arrive as one sorted feed, so there is a single
-// loading/error state here rather than a combination of two.
+// Свой запрос на каждого раскрытого мастера → открытыми могут быть сразу
+// несколько, у каждого своя запись в кэше. useInvalidateSalaryEntries (по
+// префиксу ключа) обновляет все. Часы и выплаты приходят одной отсортированной
+// лентой, поэтому состояние загрузки/ошибки здесь одно, а не сочетание двух.
 const {
   data,
   error: queryError,
@@ -54,16 +54,16 @@ function formatHours(minutes: number): string {
   return minutesToHours(minutes).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
 
-// What this one record is worth: minutes × rate / 60, deliberately NOT rounded
-// per row. The month's total is rounded once (salaryFromMinutesRateSum), so
-// rounding each row here would make the rows add up to something other than the
-// master's «За часы». A quarter-hour at an odd rate is the only case that shows
-// a fraction — ru-RU renders it with a comma.
+// Сколько стоит эта запись: минуты × ставка / 60, намеренно БЕЗ округления по
+// строке. Итог месяца округляется один раз (salaryFromMinutesRateSum), поэтому
+// при округлении каждой строки сумма строк разошлась бы с «За часы» мастера.
+// Дробь видна только в одном случае — четверть часа при нечётной ставке;
+// ru-RU выводит её через запятую.
 function formatEntryAmount(minutes: number, rate: number): string {
   return ((minutes * rate) / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 }
-// "2026-01-22" → "22 января 2026 г." Build the Date from parts (local midnight)
-// so it never shifts a day across the UTC boundary the way `new Date(iso)` would.
+// "2026-01-22" → "22 января 2026 г." Date собирается из частей (локальная полночь),
+// чтобы день не съезжал через границу UTC, как было бы с `new Date(iso)`.
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   if (!y || !m || !d) return iso
@@ -180,9 +180,9 @@ function formatDateShort(iso: string): string {
       </TableCell>
     </TableRow>
 
-    <!-- Auto-expand only opens rows that have data, but the chevron opens any of
-         them: without this row a manual expand would toggle the button and show
-         nothing at all. -->
+    <!-- Автораскрытие открывает только строки с данными, но шеврон открывает любую:
+         без этой строки ручное раскрытие переключило бы кнопку и не показало
+         ничего. -->
     <TableRow v-else-if="entries.length === 0" class="bg-muted hover:bg-muted">
       <TableCell :colspan="columnCount" class="py-3 pr-4 pl-6 text-sm text-muted-foreground">
         <div class="border-l-2 border-muted-foreground/30 pl-4">
@@ -193,8 +193,8 @@ function formatDateShort(iso: string): string {
       </TableCell>
     </TableRow>
 
-    <!-- Ids are unique per table, not across the two — the kind prefix keeps the
-         key unique when an hours row and a payout share an id. -->
+    <!-- Id уникальны внутри своей таблицы, но не между двумя — префикс вида
+         сохраняет ключ уникальным, когда у часов и выплаты совпал id. -->
     <TableRow
       v-else
       v-for="entry in entries"

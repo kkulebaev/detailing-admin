@@ -20,7 +20,7 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  /* green-700 — darker than green-600 so small text clears 4.5:1 on --card. */
+  /* green-700 — темнее green-600, чтобы мелкий текст давал контраст 4.5:1 на --card. */
   --success: oklch(0.527 0.154 150.069);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
@@ -30,8 +30,8 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  /* If chart components ever ship: also define --font-sans (ChartContainer
-     reads it for vis-font-family) and override --chart-1..5 inside .dark. */
+  /* Если компоненты графиков когда-нибудь появятся: задайте ещё --font-sans (ChartContainer
+     читает его для vis-font-family) и переопределите --chart-1..5 внутри .dark. */
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -60,7 +60,7 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
-  /* green-500 — lighter on the dark --card so the delta stays legible. */
+  /* green-500 — светлее на тёмной --card, чтобы дельта оставалась читаемой. */
   --success: oklch(0.723 0.219 149.579);
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
@@ -120,9 +120,9 @@
     @apply border-border outline-ring/50;
   }
   html {
-    /* Reserve scrollbar gutter always — prevents horizontal layout shift
-       when toggling sections (e.g. range mode) makes the page tall enough
-       to introduce a vertical scrollbar. */
+    /* Всегда резервируем место под полосу прокрутки — это убирает горизонтальный
+       сдвиг вёрстки, когда переключение секций (например, режима диапазона) делает
+       страницу достаточно высокой для появления вертикальной полосы прокрутки. */
     scrollbar-gutter: stable;
   }
   body {

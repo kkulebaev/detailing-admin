@@ -27,8 +27,8 @@ import {
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
-// Numeric path param. `z.coerce.number()` would silently accept "12abc" → NaN;
-// pin the format with a regex first, then convert.
+// Числовой path-параметр. `z.coerce.number()` молча принял бы "12abc" → NaN;
+// сначала фиксируем формат регуляркой, потом преобразуем.
 const idParamSchema = z.object({
   id: z
     .string()
@@ -59,9 +59,9 @@ function unavailable(c: Context) {
   )
 }
 
-// Description trim + empty-to-null normalization that used to live in the
-// schema's `.transform()`. Pulled out into the handler so orval can generate a
-// clean `string | null` TS type from the wire schema.
+// Обрезка описания и нормализация пустой строки в null, которые раньше жили в
+// `.transform()` схемы. Вынесены в обработчик, чтобы orval сгенерировал из
+// wire-схемы чистый TS-тип `string | null`.
 type ServicePayload = {
   sectionId: number
   name: string
@@ -84,8 +84,8 @@ function normalizeServicePayload(input: ServicePayload): ServicePayload {
     const trimmed = desc.trim()
     description = trimmed.length === 0 ? null : trimmed
   }
-  // A degenerate range (max == min) is stored as a fixed price so the UI never
-  // renders «5000–5000 ₽».
+  // Вырожденный диапазон (max == min) сохраняется как фиксированная цена, чтобы UI
+  // никогда не показывал «5000–5000 ₽».
   const collapse = (min: number, max: number | null) => (max === min ? null : max)
   return {
     ...input,
@@ -251,9 +251,9 @@ const deleteServiceRoute = createRoute({
     200: { description: 'Service deleted', content: { 'application/json': { schema: deleteOk } } },
     400: respValidation,
     404: respNotFound,
-    // The shared `pricelistErrorResponse` mapper can technically return 409 for
-    // any `PricelistError` even though deleteService never throws conflict in
-    // practice. Declared so the route signature accepts the handler's union.
+    // Общий маппер `pricelistErrorResponse` формально может вернуть 409 для любой
+    // `PricelistError`, хотя на практике deleteService никогда не бросает conflict.
+    // Объявлен, чтобы сигнатура маршрута принимала union обработчика.
     409: respConflict,
     500: respInternal,
     503: respDbUnavailable,

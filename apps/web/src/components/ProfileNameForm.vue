@@ -9,10 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 
-// Own component (not inlined in ProfilePage) because vee-validate's `useForm`
-// provides the form context to descendant FormFields — a second `useForm` in
-// the same component would override that context and silently rewire these
-// fields to the other form. One form per component keeps the contexts isolated.
+// Отдельный компонент (а не часть ProfilePage), потому что `useForm` из vee-validate
+// передаёт контекст формы вложенным FormField — второй `useForm` в том же
+// компоненте перекрыл бы этот контекст и незаметно привязал бы эти поля
+// к другой форме. Одна форма на компонент держит контексты раздельно.
 const auth = useAuthStore()
 
 type NameField = 'firstName' | 'lastName'
@@ -32,7 +32,7 @@ const onSubmit = handleSubmit(async (values) => {
   const result = await auth.updateProfile(values)
   if (result.ok) {
     toast.success('Данные сохранены')
-    // Re-baseline so the form is no longer dirty against the saved values.
+    // Обновляем исходные значения, чтобы форма не считалась изменённой относительно сохранённых.
     resetForm({ values: { firstName: result.user.firstName, lastName: result.user.lastName } })
     return
   }

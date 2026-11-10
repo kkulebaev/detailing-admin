@@ -25,8 +25,8 @@ beforeEach(() => {
   meMock.mockReset()
 })
 
-describe('auth store', () => {
-  it('fetchMe sets the user and marks ready on success', async () => {
+describe('стор auth', () => {
+  it('fetchMe при успехе ставит пользователя и отмечает ready', async () => {
     meMock.mockResolvedValue({ ok: true, user: adminUser() })
     const store = useAuthStore()
     await store.fetchMe()
@@ -34,7 +34,7 @@ describe('auth store', () => {
     expect(store.ready).toBe(true)
   })
 
-  it('fetchMe clears the user and still marks ready on 401', async () => {
+  it('fetchMe при 401 сбрасывает пользователя, но всё равно отмечает ready', async () => {
     meMock.mockResolvedValue({ ok: false, error: 'unauthorized' })
     const store = useAuthStore()
     await store.fetchMe()
@@ -42,7 +42,7 @@ describe('auth store', () => {
     expect(store.ready).toBe(true)
   })
 
-  it('fetchMe clears the user and marks ready when the request throws', async () => {
+  it('fetchMe сбрасывает пользователя и отмечает ready, если запрос бросает исключение', async () => {
     meMock.mockRejectedValue(new Error('network'))
     const store = useAuthStore()
     await store.fetchMe()
@@ -50,7 +50,7 @@ describe('auth store', () => {
     expect(store.ready).toBe(true)
   })
 
-  it('login sets the user on success', async () => {
+  it('login при успехе ставит пользователя', async () => {
     loginMock.mockResolvedValue({ ok: true, user: adminUser() })
     const store = useAuthStore()
     const result = await store.login({ login: 'admin1', password: 'secret123' })
@@ -59,7 +59,7 @@ describe('auth store', () => {
     expect(store.ready).toBe(true)
   })
 
-  it('login leaves the user unset on failure', async () => {
+  it('login при ошибке оставляет пользователя пустым', async () => {
     loginMock.mockResolvedValue({ ok: false, error: 'unauthorized' })
     const store = useAuthStore()
     const result = await store.login({ login: 'admin1', password: 'wrong' })
@@ -67,7 +67,7 @@ describe('auth store', () => {
     expect(store.user).toBeNull()
   })
 
-  it('logout calls the API and clears the user', async () => {
+  it('logout вызывает API и сбрасывает пользователя', async () => {
     logoutMock.mockResolvedValue({ ok: true })
     const store = useAuthStore()
     store.user = adminUser()
@@ -76,7 +76,7 @@ describe('auth store', () => {
     expect(store.user).toBeNull()
   })
 
-  it('logout clears the user even if the API call fails', async () => {
+  it('logout сбрасывает пользователя, даже если вызов API упал', async () => {
     logoutMock.mockRejectedValue(new Error('network'))
     const store = useAuthStore()
     store.user = adminUser()
@@ -84,7 +84,7 @@ describe('auth store', () => {
     expect(store.user).toBeNull()
   })
 
-  it('clearSession clears the user without calling the API', () => {
+  it('clearSession сбрасывает пользователя без вызова API', () => {
     const store = useAuthStore()
     store.user = adminUser()
     store.clearSession()

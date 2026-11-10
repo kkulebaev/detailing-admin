@@ -7,11 +7,11 @@ import {
 } from './api.js'
 import type { CarClass } from './booking.js'
 
-// Domain object schemas — mirror what the API serializes from Drizzle rows.
+// Схемы доменных объектов — повторяют то, что API сериализует из строк Drizzle.
 
-// Each car body class (I–IV) carries its own price. Fixed price ↔ range is
-// encoded by the Max field: null → single fixed price (Min), non-null →
-// «Min–Max» range.
+// У каждого класса кузова (I–IV) своя цена. Фиксированная цена или диапазон
+// кодируется полем Max: null → одна фиксированная цена (Min), не null →
+// диапазон «Min–Max».
 export const pricelistServiceSchema = z.object({
   id: z.number().int(),
   sectionId: z.number().int(),
@@ -72,8 +72,8 @@ export function servicePriceForClass(svc: ServicePrices, carClass: CarClass): Pr
   }
 }
 
-// Pricelist conflicts come in two flavours: duplicate section name and "section
-// still has services" (delete guard). Services only carry the duplicate variant.
+// Конфликты прайс-листа бывают двух видов: дубль названия раздела и «в разделе
+// ещё есть услуги» (защита удаления). У услуг бывает только вариант с дублем.
 const pricelistConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),
@@ -112,8 +112,8 @@ export const pricelistDeleteResponseSchema = z.union([
   internalErrorSchema,
 ])
 
-// Wire-level schemas — kept transform-free so orval generates clean TS types.
-// Trim/empty-string handling moves to the route handler.
+// Схемы уровня провода — без transform, чтобы orval генерировал чистые TS-типы.
+// Обработка trim и пустых строк переезжает в обработчик роута.
 const requiredPrice = z.number().int().nonnegative().max(100_000_000)
 
 export const sectionInputSchema = z.object({
@@ -122,8 +122,8 @@ export const sectionInputSchema = z.object({
 
 export type SectionInput = z.infer<typeof sectionInputSchema>
 
-// Min/Max field-name pairs per car class — shared by the input schema's range
-// check and by consumers that need to iterate all four classes.
+// Пары имён полей Min/Max для каждого класса кузова — общие для проверки диапазона
+// во входной схеме и для потребителей, которым нужно пройти по всем четырём классам.
 export const PRICE_CLASS_FIELDS = [
   ['priceClass1Min', 'priceClass1Max'],
   ['priceClass2Min', 'priceClass2Max'],

@@ -17,12 +17,12 @@ export type LogoutResult = z.infer<typeof logoutResponseSchema>
 export type ChangePasswordResult = z.infer<typeof changePasswordResponseSchema>
 export type UpdateProfileResult = z.infer<typeof updateProfileResponseSchema>
 
-// Auth routes ship ahead of the generated orval client (no OpenAPI regen in
-// this change) — call orvalFetch directly, the way `api.ts submitBooking`
-// calls its generated function. Unlike `unwrap` (api-client.ts), which
-// blindly casts `data`, responses here are `safeParse`d: a shape mismatch is
-// security-relevant session state, so it must surface as an error rather than
-// silently pass through and corrupt the store.
+// Роуты авторизации появились раньше сгенерированного orval-клиента (в этом изменении
+// OpenAPI не перегенерировался) — вызываем orvalFetch напрямую, как `api.ts submitBooking`
+// вызывает свою сгенерированную функцию. В отличие от `unwrap` (api-client.ts), который
+// слепо приводит `data`, ответы здесь проходят через `safeParse`: несовпадение формы
+// затрагивает безопасность состояния сессии, поэтому должно всплыть ошибкой, а не
+// молча пройти дальше и испортить store.
 function parseResponse<T>(schema: z.ZodType<T>, envelope: OrvalEnvelope<unknown>): T {
   const result = schema.safeParse(envelope.data)
   if (!result.success) {

@@ -1,20 +1,21 @@
 /**
- * Backfills the booking↔car id-link for rows created before the feature (or
- * whenever the DB drifted from Sheets). Not a data-migration — CLAUDE.md forbids
- * hand-editing generated SQL — but a plain idempotent script:
+ * Заполняет id-связь booking↔car для строк, созданных до появления фичи (или
+ * когда БД разошлась с Sheets). Не миграция данных — CLAUDE.md запрещает
+ * править сгенерированный SQL вручную, — а обычный идемпотентный скрипт:
  *
  *   pnpm --filter @detailing-admin/api backfill:car-ids
  *
- * `bookings.car` is a joined, largely-un-normalized string; `client_cars` holds
- * normalized, split make/model + plate — no natural-key equality exists. Match by
- * reducing BOTH sides to a whitespace-stripped lowercase key: reconstruct the
- * `joinCar` shape from the split car row, then collapse case/spacing the same way
- * on both. Only within the same `client_id`, only rows still `car_id IS NULL`, so
- * a re-run is a no-op. `DISTINCT ON (bb.id)` with the earliest `created_at`
- * deterministically picks one car when several of a client collapse to one key.
- * The unmatched tail (null-client, lookalike Cyrillic/Latin plates, extra
- * descriptors) stays NULL by design — the snapshot `car` string remains truth.
- * Run it AFTER the migration.
+ * `bookings.car` — склеенная, почти не нормализованная строка; в `client_cars` лежат
+ * нормализованные, раздельные марка/модель + номер — естественного ключа для равенства
+ * нет. Сопоставляем, сводя ОБЕ стороны к ключу в нижнем регистре без пробелов:
+ * восстанавливаем форму `joinCar` из раздельной строки машины, а затем одинаково
+ * схлопываем регистр/пробелы с обеих сторон. Только в пределах одного `client_id` и
+ * только для строк, где ещё `car_id IS NULL`, поэтому повторный запуск ничего не делает.
+ * `DISTINCT ON (bb.id)` с самым ранним `created_at` детерминированно выбирает одну
+ * машину, если несколько машин клиента схлопываются в один ключ. Несопоставленный
+ * хвост (без клиента, похожие кириллические/латинские номера, лишние описания)
+ * намеренно остаётся NULL — истиной остаётся снапшот-строка `car`.
+ * Запускать ПОСЛЕ миграции.
  */
 import { getSql, closeDb } from '../src/db/client.js'
 
@@ -41,8 +42,8 @@ export async function backfillCarIds(sql: Sql): Promise<{
     WHERE b.id = m.booking_id AND b.car_id IS NULL
   `
 
-  // Linkable-but-unlinked: has a client and a non-empty car snapshot, yet no id
-  // (no matching client_cars row under the normalized key) — the expected tail.
+  // Связываемые, но не связанные: есть клиент и непустой снапшот машины, но нет id
+  // (нет строки client_cars с таким нормализованным ключом) — ожидаемый хвост.
   const [remaining] = await sql<{ count: number }[]>`
     SELECT count(*)::int AS count
     FROM bookings b
@@ -62,7 +63,7 @@ async function main(): Promise<void> {
   await closeDb()
 }
 
-// Only run when executed directly (not when imported by a test).
+// Запускается только при прямом вызове (не при импорте из теста).
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
     console.error(err)

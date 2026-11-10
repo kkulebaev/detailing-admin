@@ -34,8 +34,8 @@ export async function listMasters(): Promise<Master[]> {
     .orderBy(masters.position, masters.id)
 }
 
-// An archived master keeps the UNIQUE name but is invisible in the app, so the
-// clash gets its own code: «already exists» would point at a row nobody can see.
+// Архивный мастер сохраняет UNIQUE-имя, но в приложении не виден, поэтому у такого
+// конфликта свой код: «уже существует» указывало бы на строку, которую никто не видит.
 async function assertNameFree(name: string, masterId?: number) {
   const db = getDb()
   const [duplicate] = await db
@@ -47,19 +47,19 @@ async function assertNameFree(name: string, masterId?: number) {
   throw new MasterError(duplicate.archived ? 'archived_name' : 'duplicate_name')
 }
 
-// Names are unique (see the `name` unique constraint), so this resolves at most
-// one row. Used to look up a master's Telegram chat id from the free-form name
-// stored on a booking.
+// Имена уникальны (см. ограничение unique на `name`), поэтому находится не больше
+// одной строки. Используется, чтобы найти chat id мастера в Telegram по свободному
+// имени, сохранённому в записи.
 export async function findMasterByName(name: string): Promise<Master | undefined> {
   const db = getDb()
   const [row] = await db.select().from(masters).where(eq(masters.name, name)).limit(1)
   return row
 }
 
-// Batch, best-effort name→id resolver for the booking↔master id-link. Trims and
-// dedups the requested names, then matches them against the UNIQUE `masters.name`
-// (same exact-match semantics as findMasterByName). An unmatched name is simply
-// absent from the map — by design, not an error. Empty input short-circuits.
+// Пакетный best-effort резолвер name→id для id-связи запись↔мастер. Обрезает и
+// дедуплицирует запрошенные имена, затем сопоставляет их с UNIQUE `masters.name`
+// (та же семантика точного совпадения, что в findMasterByName). Ненайденного имени
+// просто нет в map — так задумано, это не ошибка. Пустой ввод сразу возвращает результат.
 export async function resolveMasterIds(names: string[]): Promise<Map<string, number>> {
   const wanted = [...new Set(names.map((n) => n.trim()).filter(Boolean))]
   if (wanted.length === 0) return new Map()
@@ -77,8 +77,8 @@ export async function findMasterByUserId(userId: string): Promise<Master | undef
   return row
 }
 
-// Probed up front so the route can answer with a field error / 409 instead of the
-// opaque 500 the FK or the UNIQUE constraint would otherwise raise.
+// Проверяется заранее, чтобы маршрут ответил ошибкой поля / 409, а не невнятным 500,
+// который иначе выдали бы FK или ограничение UNIQUE.
 async function assertUserLinkable(userId: string | null | undefined, masterId?: number) {
   if (userId == null) return
   const db = getDb()
@@ -88,7 +88,7 @@ async function assertUserLinkable(userId: string | null | undefined, masterId?: 
   if (linked && linked.id !== masterId) throw new MasterError('duplicate_user')
 }
 
-// Next slot at the end of the ordered list. -1 + 1 = 0 when the table is empty.
+// Следующая позиция в конце упорядоченного списка. При пустой таблице -1 + 1 = 0.
 async function nextPosition(): Promise<number> {
   const db = getDb()
   const [{ max }] = await db
@@ -140,10 +140,10 @@ export async function updateMaster(id: number, patch: MasterPatch): Promise<Mast
   return row
 }
 
-// Soft delete: bookings, hours and payouts must keep pointing at this row. The
-// account is released because the UNIQUE link would otherwise block attaching it
-// to another master through a row the admin can no longer see, and because a
-// removed master shouldn't keep logging hours on «Мои часы».
+// Мягкое удаление: записи, часы и выплаты должны и дальше указывать на эту строку.
+// Аккаунт отвязывается, потому что иначе UNIQUE-связь не дала бы привязать его к другому
+// мастеру из-за строки, которую админ больше не видит, и потому что удалённый мастер
+// не должен продолжать вносить часы в «Мои часы».
 export async function deleteMaster(id: number): Promise<void> {
   const db = getDb()
   const result = await db
@@ -154,9 +154,9 @@ export async function deleteMaster(id: number): Promise<void> {
   if (result.length === 0) throw new MasterError('not_found')
 }
 
-// Assigns dense positions 0..n-1 in the given order. The posted id set must
-// equal the full set of non-archived rows — a partial or foreign set is
-// rejected without touching the table, so positions can't silently desync.
+// Назначает плотные позиции 0..n-1 в заданном порядке. Присланный набор id должен
+// совпадать с полным набором неархивных строк — частичный или чужой набор
+// отклоняется без изменения таблицы, чтобы позиции не рассинхронизировались молча.
 export async function reorderMasters(ids: number[]): Promise<Master[]> {
   const db = getDb()
   return db.transaction(async (tx) => {

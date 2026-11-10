@@ -12,13 +12,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-// Status chip that doubles as a one-tap status picker — changing readiness is the
-// most frequent action on the bookings list, and in the compact row it has to fit
-// on the same line as the service without adding height. A dropdown (not a
-// Select) so the trigger can be this chip instead of a full-width control.
+// Чип статуса, который заодно выбирает статус в одно касание — смена готовности
+// самое частое действие в списке записей, и в компактной строке чип должен
+// уместиться в одну линию с услугой, не добавляя высоты. Dropdown (а не Select),
+// чтобы триггером был сам чип, а не элемент управления во всю ширину.
 //
-// `readonly` renders the same chip without the menu: employees can't PATCH
-// bookings, but they still need to read the status off the row.
+// `readonly` рисует тот же чип без меню: сотрудники не могут делать PATCH
+// записей, но статус в строке им всё равно нужно видеть.
 // `plain` рисует один текст со стрелкой — он живёт на строке, уже залитой цветом
 // статуса, и рамка с точкой поверх заливки только шумели бы. `badge` тонирует
 // себя сам: в диалоге фон нейтральный, и цвет нужно нести самому чипу.
@@ -36,11 +36,11 @@ const emit = defineEmits<{
   (e: 'update', value: Readiness | ''): void
 }>()
 
-// reka-ui's radio group rejects an empty value, so «нет статуса» rides on a
-// sentinel — same trick as the page's Select.
+// Radio group из reka-ui не принимает пустое значение, поэтому «нет статуса»
+// передаётся значением-заглушкой — тот же приём, что в Select на странице.
 const NONE = '__none__'
 
-// reka-ui hands back its loose `AcceptableValue`, hence the narrowing here.
+// reka-ui возвращает свой размытый `AcceptableValue`, отсюда сужение типа.
 function onSelect(value: unknown) {
   const picked = String(value)
   const next = picked === NONE ? '' : (READINESS.find((r) => r === picked) ?? '')
@@ -68,7 +68,7 @@ function onSelect(value: unknown) {
 
   <DropdownMenu v-else>
     <DropdownMenuTrigger as-child>
-      <!-- `click.stop`: the compact row itself opens the details dialog. -->
+      <!-- `click.stop`: компактная строка сама открывает диалог с подробностями. -->
       <!-- В `plain` отрицательные поля растягивают зону тапа до ~32px, не сдвигая
            текст; `badge` набирает ту же высоту паддингами. -->
       <button

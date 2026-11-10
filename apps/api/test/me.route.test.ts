@@ -82,7 +82,7 @@ import {
 } from '../src/db/salaries.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
 
-// 2026-10-26 in Moscow → the edit window is 2026-10-20 … 2026-10-26.
+// 2026-10-26 по Москве → окно редактирования 2026-10-20 … 2026-10-26.
 const NOW = new Date('2026-10-26T09:00:00.000Z')
 
 const MASTER = {
@@ -130,12 +130,12 @@ describe('/api/me', () => {
     vi.useRealTimers()
   })
 
-  it('requires a session', async () => {
+  it('требует сессию', async () => {
     const res = await req('/api/me/salary?month=2026-10', 'GET', undefined, '')
     expect(res.status).toBe(401)
   })
 
-  it('GET /salary resolves the master from the session, not the request', async () => {
+  it('GET /salary определяет мастера по сессии, а не по запросу', async () => {
     vi.mocked(getMasterRate).mockResolvedValue(300)
     vi.mocked(listMasterEntries).mockResolvedValue({
       hours: [hoursRow(), hoursRow({ id: 12, workDate: '2026-10-25', minutes: 90 })],
@@ -169,7 +169,7 @@ describe('/api/me', () => {
     expect(body.entries.map((e: { kind: string }) => e.kind)).toEqual(['payout', 'hours', 'hours'])
   })
 
-  it('GET /salary for an unlinked account → 200 with master: null', async () => {
+  it('GET /salary для непривязанного аккаунта → 200 с master: null', async () => {
     vi.mocked(findMasterByUserId).mockResolvedValue(undefined)
     const res = await req('/api/me/salary?month=2026-10', 'GET')
     expect(res.status).toBe(200)
@@ -177,13 +177,13 @@ describe('/api/me', () => {
     expect(vi.mocked(listMasterEntries)).not.toHaveBeenCalled()
   })
 
-  it('GET /salary → 503 when the DB is not ready', async () => {
+  it('GET /salary → 503, если БД не готова', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await req('/api/me/salary?month=2026-10', 'GET')
     expect(res.status).toBe(503)
   })
 
-  it('POST /hours logs hours on the linked master', async () => {
+  it('POST /hours записывает часы на привязанного мастера', async () => {
     vi.mocked(createWorkHours).mockResolvedValue(hoursRow({ id: 20, workDate: '2026-10-26' }))
     const res = await req('/api/me/hours', 'POST', { workDate: '2026-10-26', hours: 8 })
     expect(res.status).toBe(201)
@@ -195,7 +195,7 @@ describe('/api/me', () => {
     })
   })
 
-  it('POST /hours ignores a masterId smuggled into the body', async () => {
+  it('POST /hours игнорирует masterId, подброшенный в тело', async () => {
     vi.mocked(createWorkHours).mockResolvedValue(hoursRow())
     await req('/api/me/hours', 'POST', { masterId: 99, workDate: '2026-10-24', hours: 8 })
     expect(vi.mocked(createWorkHours)).toHaveBeenCalledWith(
@@ -204,30 +204,30 @@ describe('/api/me', () => {
   })
 
   it.each([
-    ['older than the window', '2026-10-19'],
-    ['in the future', '2026-10-27'],
-  ])('POST /hours for a day %s → 400 outside_window', async (_label, workDate) => {
+    ['старше окна', '2026-10-19'],
+    ['в будущем', '2026-10-27'],
+  ])('POST /hours на день %s → 400 outside_window', async (_label, workDate) => {
     const res = await req('/api/me/hours', 'POST', { workDate, hours: 8 })
     expect(res.status).toBe(400)
     expect(await res.json()).toMatchObject({ error: 'validation', reason: 'outside_window' })
     expect(vi.mocked(createWorkHours)).not.toHaveBeenCalled()
   })
 
-  it('POST /hours for an unlinked account → 400 not_linked', async () => {
+  it('POST /hours для непривязанного аккаунта → 400 not_linked', async () => {
     vi.mocked(findMasterByUserId).mockResolvedValue(undefined)
     const res = await req('/api/me/hours', 'POST', { workDate: '2026-10-26', hours: 8 })
     expect(res.status).toBe(400)
     expect(await res.json()).toMatchObject({ reason: 'not_linked' })
   })
 
-  it('POST /hours without a rate → 400 no_rate', async () => {
+  it('POST /hours без ставки → 400 no_rate', async () => {
     vi.mocked(createWorkHours).mockRejectedValue(new SalaryError('no_rate'))
     const res = await req('/api/me/hours', 'POST', { workDate: '2026-10-26', hours: 8 })
     expect(res.status).toBe(400)
     expect(await res.json()).toMatchObject({ reason: 'no_rate' })
   })
 
-  it('PATCH /hours/{id} updates an own record inside the window', async () => {
+  it('PATCH /hours/{id} обновляет свою запись внутри окна', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow())
     vi.mocked(updateWorkHours).mockResolvedValue(hoursRow({ minutes: 450 }))
     const res = await req('/api/me/hours/11', 'PATCH', { hours: 7.5, workDate: '2026-10-25' })
@@ -238,14 +238,14 @@ describe('/api/me', () => {
     })
   })
 
-  it("PATCH /hours/{id} on another master's record → 404", async () => {
+  it('PATCH /hours/{id} для записи другого мастера → 404', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow({ masterId: 7 }))
     const res = await req('/api/me/hours/11', 'PATCH', { hours: 1 })
     expect(res.status).toBe(404)
     expect(vi.mocked(updateWorkHours)).not.toHaveBeenCalled()
   })
 
-  it('PATCH /hours/{id} on a record older than the window → 400 outside_window', async () => {
+  it('PATCH /hours/{id} для записи старше окна → 400 outside_window', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow({ workDate: '2026-10-19' }))
     const res = await req('/api/me/hours/11', 'PATCH', { workDate: '2026-10-25' })
     expect(res.status).toBe(400)
@@ -253,14 +253,14 @@ describe('/api/me', () => {
     expect(vi.mocked(updateWorkHours)).not.toHaveBeenCalled()
   })
 
-  it('PATCH /hours/{id} moving a record out of the window → 400 outside_window', async () => {
+  it('PATCH /hours/{id} с переносом записи за пределы окна → 400 outside_window', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow())
     const res = await req('/api/me/hours/11', 'PATCH', { workDate: '2026-09-30' })
     expect(res.status).toBe(400)
     expect(vi.mocked(updateWorkHours)).not.toHaveBeenCalled()
   })
 
-  it('DELETE /hours/{id} deletes an own record inside the window', async () => {
+  it('DELETE /hours/{id} удаляет свою запись внутри окна', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow())
     vi.mocked(deleteWorkHours).mockResolvedValue(undefined)
     const res = await req('/api/me/hours/11', 'DELETE')
@@ -268,14 +268,14 @@ describe('/api/me', () => {
     expect(vi.mocked(deleteWorkHours)).toHaveBeenCalledWith(11)
   })
 
-  it('DELETE /hours/{id} outside the window → 400, nothing deleted', async () => {
+  it('DELETE /hours/{id} вне окна → 400, ничего не удалено', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow({ workDate: '2026-10-01' }))
     const res = await req('/api/me/hours/11', 'DELETE')
     expect(res.status).toBe(400)
     expect(vi.mocked(deleteWorkHours)).not.toHaveBeenCalled()
   })
 
-  it('DELETE /hours/{id} on a missing record → 404', async () => {
+  it('DELETE /hours/{id} для несуществующей записи → 404', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(undefined)
     const res = await req('/api/me/hours/11', 'DELETE')
     expect(res.status).toBe(404)
@@ -287,13 +287,13 @@ describe('/api/users', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('is admin-only', async () => {
+  it('доступен только админу', async () => {
     const res = await req('/api/users', 'GET', undefined, await employeeCookie())
     expect(res.status).toBe(403)
     expect(vi.mocked(listAccounts)).not.toHaveBeenCalled()
   })
 
-  it('lists accounts for an admin', async () => {
+  it('отдаёт админу список аккаунтов', async () => {
     const accounts = [
       {
         id: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f',

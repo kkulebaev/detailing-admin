@@ -12,9 +12,9 @@ vi.mock('../src/env.js', () => ({
   },
 }))
 
-// Isolate the client-row logic: syncClientCars/listCarsByClient are exercised
-// in client-cars.db.test.ts. Here we only assert createClient/updateClient wire
-// the cars through and echo the reconciled set the car layer reports.
+// Изолируем логику строки клиента: syncClientCars/listCarsByClient проверяются
+// в client-cars.db.test.ts. Здесь лишь убеждаемся, что createClient/updateClient
+// передают машины дальше и возвращают сверенный набор, который отдаёт слой машин.
 vi.mock('../src/db/client-cars.js', () => ({
   syncClientCars: vi.fn().mockResolvedValue(undefined),
   listCarsByClient: vi.fn().mockResolvedValue([]),
@@ -32,9 +32,9 @@ import {
 } from '../src/db/clients.js'
 import { syncClientCars, listCarsByClient } from '../src/db/client-cars.js'
 
-// Minimal thenable query-builder fake. `deleteClient` runs a `select` (the
-// booking-reference probe) followed by a `delete`; both queues are dequeued in
-// call order to match the code's chain.
+// Минимальный thenable-фейк query builder. `deleteClient` выполняет `select`
+// (проверку ссылок из записей), а затем `delete`; обе очереди разбираются в
+// порядке вызовов, повторяя цепочку в коде.
 function makeFakeDb(opts: { selectResults: unknown[]; deleteResults: unknown[] }): Db {
   const selectQ = [...opts.selectResults]
   const deleteQ = [...opts.deleteResults]
@@ -64,8 +64,8 @@ afterEach(() => {
 })
 
 describe('deleteClient', () => {
-  it('throws has_bookings when a booking still references the client', async () => {
-    // Probe finds a linked booking → refuse before attempting the delete.
+  it('бросает has_bookings, если на клиента ещё ссылается запись', async () => {
+    // Проверка нашла связанную запись → отказываем, не пытаясь удалить.
     _setDbForTest(makeFakeDb({ selectResults: [[{ id: 'booking-1' }]], deleteResults: [] }))
 
     await expect(deleteClient(CLIENT_ID)).rejects.toMatchObject({
@@ -74,21 +74,21 @@ describe('deleteClient', () => {
     })
   })
 
-  it('throws not_found when the client does not exist', async () => {
+  it('бросает not_found, если клиента нет', async () => {
     _setDbForTest(makeFakeDb({ selectResults: [[]], deleteResults: [[]] }))
 
     await expect(deleteClient(CLIENT_ID)).rejects.toMatchObject({ code: 'not_found' })
   })
 
-  it('resolves when the client has no bookings and is deleted', async () => {
+  it('завершается успешно, если у клиента нет записей и он удалён', async () => {
     _setDbForTest(makeFakeDb({ selectResults: [[]], deleteResults: [[{ id: CLIENT_ID }]] }))
 
     await expect(deleteClient(CLIENT_ID)).resolves.toBeUndefined()
   })
 })
 
-// Chain fake covering select/insert/update; each verb dequeues its own result
-// queue in call order.
+// Фейк цепочки для select/insert/update; каждый глагол разбирает свою очередь
+// результатов в порядке вызовов.
 function makeMutationDb(opts: {
   selectResults?: unknown[]
   insertResults?: unknown[]
@@ -128,7 +128,7 @@ const ROW = {
 const CAR = { id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА77' }
 
 describe('createClient', () => {
-  it('throws duplicate_phone when the phone already exists', async () => {
+  it('бросает duplicate_phone, если такой телефон уже есть', async () => {
     _setDbForTest(makeMutationDb({ selectResults: [[{ id: 'other' }]] }))
 
     await expect(createClient('+79001234567', 'Иван', [])).rejects.toMatchObject({
@@ -137,7 +137,7 @@ describe('createClient', () => {
     })
   })
 
-  it('inserts the client, syncs cars, and returns the reconciled set', async () => {
+  it('вставляет клиента, синхронизирует машины и возвращает сверенный набор', async () => {
     _setDbForTest(makeMutationDb({ selectResults: [[]], insertResults: [[ROW]] }))
     vi.mocked(listCarsByClient).mockResolvedValueOnce([CAR])
 
@@ -153,8 +153,8 @@ describe('createClient', () => {
 })
 
 describe('getClientStats', () => {
-  it('maps a client with no «Выдана» rows to zero/nulls', async () => {
-    // The «Выдана» predicate yields no rows → the aggregate is 0/0/null/null.
+  it('для клиента без строк «Выдана» отдаёт нули/null', async () => {
+    // Условие «Выдана» не даёт строк → агрегат равен 0/0/null/null.
     _setDbForTest(
       makeFakeDb({
         selectResults: [[{ totalSpent: '0', visitCount: '0', lastVisit: null, firstVisit: null }]],
@@ -170,7 +170,7 @@ describe('getClientStats', () => {
     })
   })
 
-  it('coerces postgres string aggregates to numbers, dates pass through', async () => {
+  it('приводит строковые агрегаты postgres к числам, даты проходят как есть', async () => {
     _setDbForTest(
       makeFakeDb({
         selectResults: [
@@ -197,7 +197,7 @@ describe('getClientStats', () => {
 })
 
 describe('updateClient', () => {
-  it('throws duplicate_phone when another client owns the phone', async () => {
+  it('бросает duplicate_phone, если телефон принадлежит другому клиенту', async () => {
     _setDbForTest(makeMutationDb({ selectResults: [[{ id: 'other' }]] }))
 
     await expect(updateClient(CLIENT_ID, '+79001234567', 'Иван', [])).rejects.toMatchObject({
@@ -205,7 +205,7 @@ describe('updateClient', () => {
     })
   })
 
-  it('throws not_found when the row does not exist', async () => {
+  it('бросает not_found, если строки нет', async () => {
     _setDbForTest(makeMutationDb({ selectResults: [[]], updateResults: [[]] }))
 
     await expect(updateClient(CLIENT_ID, '+79001234567', 'Иван', [])).rejects.toMatchObject({
@@ -213,7 +213,7 @@ describe('updateClient', () => {
     })
   })
 
-  it('updates the client, replaces cars, and returns the reconciled set', async () => {
+  it('обновляет клиента, заменяет машины и возвращает сверенный набор', async () => {
     _setDbForTest(makeMutationDb({ selectResults: [[]], updateResults: [[ROW]] }))
     vi.mocked(listCarsByClient).mockResolvedValueOnce([CAR])
 
@@ -228,9 +228,9 @@ describe('updateClient', () => {
   })
 })
 
-// Read-path chain fake: every verb returns `this`, each awaited terminal
-// dequeues the next result, and `.where()` records its condition. Query order
-// for a list is items, then count — both get the same condition.
+// Фейк цепочки для чтения: каждый глагол возвращает `this`, каждый await в конце
+// забирает следующий результат, а `.where()` запоминает условие. Для списка
+// сначала идут элементы, потом count — оба с одним и тем же условием.
 function makeListDb(selectResults: unknown[], captured: unknown[]): Db {
   const q = [...selectResults]
   const chain: Record<string, unknown> = {
@@ -248,13 +248,13 @@ function makeListDb(selectResults: unknown[], captured: unknown[]): Db {
   return chain as unknown as Db
 }
 
-// The search branch is a where-clause shape, so assert on the emitted SQL
-// rather than on rows a fake db would have to invent.
+// Ветка поиска определяет форму where, поэтому проверяем сгенерированный SQL,
+// а не строки, которые фейковой БД пришлось бы выдумывать.
 const renderWhere = (captured: unknown[]) =>
   captured.filter((c) => c !== undefined).map((c) => new PgDialect().sqlToQuery(c as never))
 
-describe('listClients search', () => {
-  it('matches make/model and plate in client_cars alongside name and phone', async () => {
+describe('поиск в listClients', () => {
+  it('ищет по марке/модели и номеру в client_cars наряду с именем и телефоном', async () => {
     const captured: unknown[] = []
     _setDbForTest(makeListDb([[], [{ count: 0 }]], captured))
 
@@ -268,20 +268,20 @@ describe('listClients search', () => {
     expect(where.params).toContain('%Camry%')
   })
 
-  it('normalizes a plate-looking term the way client_cars stores it', async () => {
+  it('нормализует похожий на номер запрос так же, как он хранится в client_cars', async () => {
     const captured: unknown[] = []
     _setDbForTest(makeListDb([[], [{ count: 0 }]], captured))
 
     await listClients({ limit: 10, offset: 0, q: 'а 123 аа 77' })
 
     const [where] = renderWhere(captured)
-    // Plates are stored upper-cased and space-stripped; make/model keeps the
-    // spaces (only collapsed), so both patterns must be present.
+    // Номера хранятся в верхнем регистре и без пробелов; марка/модель сохраняет
+    // пробелы (лишь схлопнутые), поэтому должны присутствовать оба шаблона.
     expect(where.params).toContain('%А123АА77%')
     expect(where.params).toContain('%а 123 аа 77%')
   })
 
-  it('builds no where clause without a search term', async () => {
+  it('не строит where без поискового запроса', async () => {
     const captured: unknown[] = []
     _setDbForTest(makeListDb([[], [{ count: 0 }]], captured))
 

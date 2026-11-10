@@ -1,16 +1,16 @@
 import type { DateValue } from 'reka-ui'
 
-// Formats a reka-ui calendar date as the `DD.MM.YYYY` wire format the API
-// expects — shared by every page with a date picker (bookings, work hours,
-// analytics) so the conversion isn't reimplemented per component.
+// Форматирует дату календаря reka-ui в формат `DD.MM.YYYY`, который ожидает
+// API, — общий для всех страниц с выбором даты (записи, рабочие часы,
+// аналитика), чтобы преобразование не переписывали в каждом компоненте.
 export function calToDdmmyyyy(d: DateValue): string {
   const dd = String(d.day).padStart(2, '0')
   const mm = String(d.month).padStart(2, '0')
   return `${dd}.${mm}.${d.year}`
 }
 
-// DB dates arrive as ISO `YYYY-MM-DD`; every sheet-facing surface shows
-// DD.MM.YYYY. Shared by the bookings table and its details dialog.
+// Даты из БД приходят в ISO `YYYY-MM-DD`; везде, где данные соотносятся с листом,
+// показываем DD.MM.YYYY. Общее для таблицы записей и её диалога с деталями.
 export function isoToDdmmyyyy(iso: string): string {
   const [y, m, d] = iso.split('-')
   if (!y || !m || !d) return iso

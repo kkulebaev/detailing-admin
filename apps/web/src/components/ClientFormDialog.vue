@@ -78,9 +78,9 @@ function removeCar(index: number) {
   cars.value.splice(index, 1)
 }
 
-// Unlike BookingForm's plate input, this one is one-way bound (`:model-value`)
-// rather than `v-model`, so the mask is the sole source of truth — no need to
-// only reassign on change to avoid a double-write race.
+// В отличие от поля номера в BookingForm, здесь односторонняя привязка (`:model-value`),
+// а не `v-model`, поэтому маска — единственный источник истины, и не нужно
+// переприсваивать только при изменении, чтобы избежать гонки двойной записи.
 function onPlateInput(index: number, e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
@@ -115,8 +115,8 @@ async function submit() {
     return
   }
 
-  // Full-replace semantics on the server — drop rows never filled in rather
-  // than sending blanks it would reject.
+  // На сервере семантика полной замены — выкидываем так и не заполненные строки,
+  // а не отправляем пустые, которые он отклонил бы.
   const carsPayload = cars.value
     .map((c) => ({ makeModel: c.makeModel.trim(), plate: c.plate.trim() }))
     .filter((c) => c.makeModel.length > 0)

@@ -38,8 +38,8 @@ interface NavItem {
   roles: readonly Role[]
 }
 
-// Employees see the bookings list and their own hours, a booker also gets the
-// booking form; everything else is admin-only.
+// Сотрудники видят список записей и свои часы, букер дополнительно получает
+// форму записи; всё остальное — только для админа.
 const NAV_ITEMS: readonly NavItem[] = [
   {
     to: { name: 'booking' },
@@ -61,9 +61,9 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'employee' }, label: 'Мои часы', icon: Clock, roles: ['booker', 'employee'] },
 ]
 
-// Shared active look for every sidebar entry (nav + footer profile): the
-// default SidebarMenuButton active state is a faint accent, but we want the
-// selected item to read as the solid brand-dark primary everywhere.
+// Общий вид активного состояния для всех пунктов сайдбара (навигация + профиль в футере):
+// по умолчанию активный SidebarMenuButton — бледный акцент, а нам нужно, чтобы
+// выбранный пункт везде выглядел сплошным тёмным брендовым primary.
 const ACTIVE_CLASS =
   'transition-colors data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:font-semibold data-[active=true]:hover:bg-sidebar-primary data-[active=true]:hover:text-sidebar-primary-foreground'
 

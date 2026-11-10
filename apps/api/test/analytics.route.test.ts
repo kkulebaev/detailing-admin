@@ -44,9 +44,9 @@ import { isDbReady } from '../src/boot.js'
 import { getAnalyticsOverview, type RawAnalytics } from '../src/db/analytics.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
 
-// Aggregates arrive as STRINGS, exactly as postgres-js returns SUM/COUNT — the
-// route must coerce them (AC13). Two July buckets, one revenue gap to exercise
-// zero-fill (AC14).
+// Агрегаты приходят СТРОКАМИ, ровно как postgres-js возвращает SUM/COUNT, — маршрут
+// обязан привести их к числам (AC13). Две июльские корзины и один пропуск выручки,
+// чтобы проверить заполнение нулями (AC14).
 const RAW: RawAnalytics = {
   totals: { total: '150000', completedCount: '3', bookingsCount: '5', noClientCount: '1' },
   prevTotal: '100000',
@@ -77,7 +77,7 @@ describe('GET /api/analytics/overview', () => {
     vi.mocked(getAnalyticsOverview).mockResolvedValue(RAW)
   })
 
-  it('returns 200 with coerced numbers, derived metrics and a zero-filled series (AC5, AC13, AC14)', async () => {
+  it('возвращает 200 с приведёнными числами, производными метриками и серией, заполненной нулями (AC5, AC13, AC14)', async () => {
     const res = await get(app, '?from=01.07.2026&to=03.07.2026&granularity=day', { Cookie: cookie })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -85,7 +85,7 @@ describe('GET /api/analytics/overview', () => {
     expect(body.ok).toBe(true)
     expect(body.period).toEqual({ from: '01.07.2026', to: '03.07.2026', granularity: 'day' })
 
-    // Every aggregate is a number, not a string (Number() coercion ran).
+    // Каждый агрегат — число, а не строка (приведение через Number() сработало).
     expect(body.revenue.total).toBe(150000)
     expect(typeof body.revenue.total).toBe('number')
     expect(body.revenue.completedCount).toBe(3)
@@ -95,7 +95,7 @@ describe('GET /api/analytics/overview', () => {
     // delta % = (150000 − 100000) / 100000 × 100 = 50.0.
     expect(body.revenue.delta).toEqual({ revenuePct: 50, prevTotal: 100000 })
 
-    // Zero-fill: 3 daily buckets, the 2nd is the missing one (0/0).
+    // Заполнение нулями: 3 дневные корзины, 2-я — пропущенная (0/0).
     expect(body.revenue.series).toEqual([
       { bucket: '2026-07-01', revenue: 90000, count: 3 },
       { bucket: '2026-07-02', revenue: 0, count: 0 },
@@ -118,7 +118,7 @@ describe('GET /api/analytics/overview', () => {
     })
   })
 
-  it('returns 503 when the DB is not ready, without querying (AC6)', async () => {
+  it('возвращает 503, если БД не готова, не выполняя запросов (AC6)', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await get(app, '?from=01.07.2026&to=31.07.2026', { Cookie: cookie })
     expect(res.status).toBe(503)
@@ -129,19 +129,19 @@ describe('GET /api/analytics/overview', () => {
     expect(vi.mocked(getAnalyticsOverview)).not.toHaveBeenCalled()
   })
 
-  it('returns 401 without an auth cookie (AC7)', async () => {
+  it('возвращает 401 без auth-cookie (AC7)', async () => {
     const res = await get(app, '?from=01.07.2026&to=31.07.2026', {})
     expect(res.status).toBe(401)
     expect(vi.mocked(getAnalyticsOverview)).not.toHaveBeenCalled()
   })
 
-  it('returns 403 for a non-admin role (AC7)', async () => {
+  it('возвращает 403 для роли не-админа (AC7)', async () => {
     const res = await get(app, '?from=01.07.2026&to=31.07.2026', { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(getAnalyticsOverview)).not.toHaveBeenCalled()
   })
 
-  it('returns 400 on a malformed from date (AC8)', async () => {
+  it('возвращает 400 при некорректной дате from (AC8)', async () => {
     const res = await get(app, '?from=2026-07-01&to=31.07.2026', { Cookie: cookie })
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -149,22 +149,22 @@ describe('GET /api/analytics/overview', () => {
     expect(vi.mocked(getAnalyticsOverview)).not.toHaveBeenCalled()
   })
 
-  it('defaults granularity to day when omitted', async () => {
+  it('по умолчанию берёт гранулярность day, если она не указана', async () => {
     await get(app, '?from=01.07.2026&to=03.07.2026', { Cookie: cookie })
     expect(vi.mocked(getAnalyticsOverview)).toHaveBeenCalledWith(
       expect.objectContaining({ granularity: 'day', fromIso: '2026-07-01', toIso: '2026-07-03' }),
     )
   })
 
-  it('computes the immediately-preceding previous period of equal length', async () => {
+  it('вычисляет непосредственно предшествующий период той же длины', async () => {
     await get(app, '?from=08.07.2026&to=14.07.2026', { Cookie: cookie })
-    // 7-day period → prev = 01.07..07.07.
+    // 7-дневный период → prev = 01.07..07.07.
     expect(vi.mocked(getAnalyticsOverview)).toHaveBeenCalledWith(
       expect.objectContaining({ prevFromIso: '2026-07-01', prevToIso: '2026-07-07' }),
     )
   })
 
-  it('empty period → avgCheck 0, revenuePct null, repeatRate null, zero-filled series (AC9, AC10)', async () => {
+  it('пустой период → avgCheck 0, revenuePct null, repeatRate null, серия заполнена нулями (AC9, AC10)', async () => {
     vi.mocked(getAnalyticsOverview).mockResolvedValue({
       totals: { total: '0', completedCount: '0', bookingsCount: '0', noClientCount: '0' },
       prevTotal: '0',
@@ -178,7 +178,7 @@ describe('GET /api/analytics/overview', () => {
     expect(body.revenue.avgCheck).toBe(0)
     expect(body.revenue.delta.revenuePct).toBeNull()
     expect(body.clients.repeatRate).toBeNull()
-    // Series is zero-filled across the whole range, not empty.
+    // Серия заполнена нулями на весь диапазон, а не пуста.
     expect(body.revenue.series).toEqual([
       { bucket: '2026-07-01', revenue: 0, count: 0 },
       { bucket: '2026-07-02', revenue: 0, count: 0 },

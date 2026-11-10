@@ -3,7 +3,7 @@ import { bookingsExportUrl } from '@/lib/bookings-api'
 import { clientsExportUrl } from '@/lib/clients-api'
 
 describe('bookingsExportUrl', () => {
-  it('includes the current filters and excludes paging (limit/offset)', () => {
+  it('включает текущие фильтры и исключает пагинацию (limit/offset)', () => {
     const url = bookingsExportUrl({
       limit: 100,
       offset: 200,
@@ -24,7 +24,7 @@ describe('bookingsExportUrl', () => {
     expect(qs.has('offset')).toBe(false)
   })
 
-  it('drops undefined filters', () => {
+  it('отбрасывает неопределённые фильтры', () => {
     const url = bookingsExportUrl({ limit: 100, offset: 0, master: 'Пётр' })
     const qs = new URLSearchParams(url.split('?')[1])
     expect(qs.get('master')).toBe('Пётр')
@@ -32,13 +32,13 @@ describe('bookingsExportUrl', () => {
     expect(qs.has('q')).toBe(false)
   })
 
-  it('returns a bare path when no filters are set', () => {
+  it('возвращает голый путь, если фильтры не заданы', () => {
     expect(bookingsExportUrl({ limit: 100, offset: 0 })).toBe('/api/bookings/export')
   })
 })
 
 describe('clientsExportUrl', () => {
-  it('includes q/sort/dir and excludes paging (limit/offset)', () => {
+  it('включает q/sort/dir и исключает пагинацию (limit/offset)', () => {
     const url = clientsExportUrl({
       limit: 100,
       offset: 50,
@@ -55,7 +55,7 @@ describe('clientsExportUrl', () => {
     expect(qs.has('offset')).toBe(false)
   })
 
-  it('drops a null offset without emitting "null"', () => {
+  it('отбрасывает null-offset, не выводя «null»', () => {
     const url = clientsExportUrl({ limit: 100, offset: null, sort: 'name', dir: 'asc' })
     const qs = new URLSearchParams(url.split('?')[1])
     expect(qs.has('offset')).toBe(false)

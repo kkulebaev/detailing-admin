@@ -15,24 +15,24 @@ import type { AnalyticsGranularity } from '@detailing-admin/shared'
 import { getDb, type Db } from './client.js'
 import { bookings, clients } from './schema.js'
 
-// Revenue is money-on-delivery: ONLY bookings marked «Выдана» count. This is the
-// single positive filter behind total/completedCount/series.revenue/prevTotal and
-// both top-client metrics. Extension point — add a status here (one literal) and
-// the toSQL test updates with it. Kept a positive set, never a "everything except
-// cancellations" negative, so «Оплачено»/«Не оплачено» etc. never leak into money.
+// Выручка — это деньги по факту выдачи: учитываются ТОЛЬКО записи со статусом «Выдана».
+// Это единственный позитивный фильтр за total/completedCount/series.revenue/prevTotal и
+// обеими метриками топ-клиентов. Точка расширения — добавь сюда статус (один литерал),
+// и тест toSQL обновится вместе с ним. Множество держится позитивным, а не негативным
+// «всё, кроме отмен», чтобы «Оплачено»/«Не оплачено» и т. п. никогда не просочились в деньги.
 export const REVENUE_READINESS = ['Выдана'] as const
 
-// "The client didn't show up." Used ONLY to define a retention «visit»: a visit is
-// any booking NOT in this set — deliberately wider than «Выдана» so a future/
-// in-progress visit still marks the client as having appeared. Three different
-// denominators live in one response on purpose: bookingsCount/series.count =
-// COUNT(*) over ALL statuses (volume), retention counts visits (NOT IN this set),
-// revenue counts only «Выдана». Do not conflate them.
+// «Клиент не пришёл». Используется ТОЛЬКО для определения «визита» в удержании: визит —
+// любая запись НЕ из этого множества, намеренно шире, чем «Выдана», чтобы будущий или
+// идущий визит всё равно отмечал, что клиент появлялся. Три разных знаменателя
+// специально живут в одном ответе: bookingsCount/series.count = COUNT(*) по ВСЕМ
+// статусам (объём), удержание считает визиты (NOT IN это множество), выручка считает
+// только «Выдана». Не путай их.
 export const NON_VISIT_READINESS = ['Отмена', 'Не приехал'] as const
 
-// Positive «Выдана» predicate. Rendered as `readiness = 'Выдана'` while the set is
-// a singleton (keeps the SQL — and the test — an equality); an `in (...)` form only
-// appears if the constant grows.
+// Позитивный предикат «Выдана». Пока множество из одного элемента, рендерится как
+// `readiness = 'Выдана'` (SQL — и тест — остаются равенством); форма `in (...)`
+// появится, только если константа разрастётся.
 const revenueCond: SQL =
   REVENUE_READINESS.length === 1
     ? sql`${bookings.readiness} = ${REVENUE_READINESS[0]}`
@@ -41,16 +41,16 @@ const revenueCond: SQL =
         sql`, `,
       )}`
 
-// Inclusive range over `date_from`. Multi-day bookings are bucketed by their start
-// day only (`date_to` is ignored in v1) — a booking lands whole in the bucket of
-// its first day. `date_from` is a `date` (no time/TZ), so `date_trunc`/`to_char`
-// below are timezone-free and deterministic.
+// Включительный диапазон по `date_from`. Многодневные записи попадают в корзину только
+// по дню начала (`date_to` в v1 игнорируется) — запись целиком ложится в корзину
+// своего первого дня. `date_from` имеет тип `date` (без времени/TZ), поэтому
+// `date_trunc`/`to_char` ниже не зависят от часового пояса и детерминированы.
 function dateRange(fromIso: string, toIso: string): SQL {
   return and(gte(bookings.dateFrom, fromIso), lte(bookings.dateFrom, toIso))!
 }
 
-// Single bucketing key per granularity (see plan §"Бакетинг"). `week` truncates to
-// the ISO week (Monday); `month` collapses to `YYYY-MM`; `day` is the ISO date.
+// Один ключ корзины на гранулярность (см. план, §«Бакетинг»). `week` усекает до
+// ISO-недели (понедельник); `month` сворачивает в `YYYY-MM`; `day` — ISO-дата.
 function bucketExpr(granularity: AnalyticsGranularity): SQL<string> {
   if (granularity === 'week') {
     return sql<string>`to_char(date_trunc('week', ${bookings.dateFrom}::date), 'YYYY-MM-DD')`
@@ -70,9 +70,9 @@ export interface SeriesParams extends RangeParams {
   granularity: AnalyticsGranularity
 }
 
-// Period totals in one scan. `noClientCount` (records with no linked client) rides
-// along here — it's a period-record count, not a client count, so it stays separate
-// from the retention query and its new/returning clients.
+// Итоги периода за один проход. `noClientCount` (записи без связанного клиента) едет
+// здесь же — это число записей периода, а не клиентов, поэтому оно отделено
+// от запроса удержания и его новых/вернувшихся клиентов.
 export function buildTotalsQuery(db: Db, p: RangeParams) {
   return db
     .select({
@@ -85,9 +85,9 @@ export function buildTotalsQuery(db: Db, p: RangeParams) {
     .where(dateRange(p.fromIso, p.toIso))
 }
 
-// Revenue (only «Выдана») and volume (all statuses) per bucket. GROUP BY emits only
-// buckets that have rows — the route zero-fills the gaps so the line chart doesn't
-// smooth over empty periods.
+// Выручка (только «Выдана») и объём (все статусы) по корзинам. GROUP BY выдаёт только
+// корзины со строками — маршрут заполняет пропуски нулями, чтобы линейный график не
+// сглаживал пустые периоды.
 export function buildSeriesQuery(db: Db, p: SeriesParams) {
   const bucket = bucketExpr(p.granularity)
   return db
@@ -102,11 +102,11 @@ export function buildSeriesQuery(db: Db, p: SeriesParams) {
     .orderBy(bucket)
 }
 
-// New vs returning, by first-ever booking. `first_seen` is each client's MIN(date_from)
-// over VISITS (readiness NOT IN NON_VISIT_READINESS) across the whole table — a client is
-// «new» when that first visit falls inside the period, «returning» when it predates the
-// period. Both counts are over clients active (≥1 visit) in the period. NOTE: bounded by
-// the mirror's horizon (Feb 2026) — "new" means "first in our DB", not truly first visit.
+// Новые и вернувшиеся — по самой первой записи. `first_seen` — MIN(date_from) клиента
+// по ВИЗИТАМ (readiness NOT IN NON_VISIT_READINESS) во всей таблице: клиент «новый», если
+// этот первый визит попадает в период, и «вернувшийся», если он раньше периода. Оба
+// счётчика — по клиентам, активным (≥1 визит) в периоде. ВАЖНО: ограничено горизонтом
+// зеркала (февраль 2026) — «новый» значит «первый в нашей БД», а не по-настоящему первый визит.
 export function buildRetentionQuery(db: Db, p: RangeParams) {
   const firstSeen = db.$with('first_seen').as(
     db
@@ -143,11 +143,11 @@ export function buildRetentionQuery(db: Db, p: RangeParams) {
     .innerJoin(firstSeen, eq(firstSeen.clientId, active.clientId))
 }
 
-// Top clients by delivered revenue. The «Выдана» filter lives in the WHERE, not
-// in a FILTER — so a client with no delivered booking in the period is dropped
-// from the grouping entirely (rather than surfacing as a sum=0 row and eating a
-// LIMIT-10 slot when fewer than 10 clients delivered). A period with no
-// deliveries yields an empty top. INNER JOIN on clients drops null-client records.
+// Топ клиентов по выручке с выданных записей. Фильтр «Выдана» стоит в WHERE, а не
+// в FILTER — поэтому клиент без выданных записей в периоде вовсе выпадает из
+// группировки (а не всплывает строкой с sum=0, занимая место в LIMIT 10, когда
+// выдач было меньше чем у 10 клиентов). Период без выдач даёт пустой топ.
+// INNER JOIN по clients отбрасывает записи без клиента.
 export function buildTopQuery(db: Db, p: RangeParams) {
   const sumExpr = sql<string>`coalesce(sum(${bookings.amount}), 0)`
   const visitsExpr = sql<string>`count(*)`
@@ -164,8 +164,8 @@ export function buildTopQuery(db: Db, p: RangeParams) {
       .innerJoin(clients, eq(clients.id, bookings.clientId))
       .where(and(dateRange(p.fromIso, p.toIso), revenueCond))
       .groupBy(bookings.clientId, clients.name, clients.phone)
-      // Secondary key breaks ties deterministically — without it, equal sums leave
-      // the LIMIT 10 cutoff up to Postgres' arbitrary row order.
+      // Вторичный ключ детерминированно разрешает ничьи — без него при равных суммах
+      // граница LIMIT 10 зависела бы от произвольного порядка строк в Postgres.
       .orderBy(desc(sumExpr), asc(bookings.clientId))
       .limit(10)
   )
@@ -176,11 +176,11 @@ export interface AnalyticsParams extends SeriesParams {
   prevToIso: string
 }
 
-// Raw aggregates as postgres-js returns them — SUM/COUNT are STRINGS. The route
-// coerces every field with Number() at the response boundary. @hono/zod-openapi
-// does NOT runtime-validate responses, so an uncoerced string wouldn't error here
-// — but the web client does arithmetic on these numbers (avgCheck, Δ%, repeatRate,
-// chart math), and string operands would silently corrupt it (e.g. '1'+'2'='12').
+// Сырые агрегаты в том виде, в каком их возвращает postgres-js, — SUM/COUNT СТРОКИ.
+// Маршрут приводит каждое поле через Number() на границе ответа. @hono/zod-openapi
+// НЕ валидирует ответы в рантайме, так что неприведённая строка здесь не упала бы,
+// — но веб-клиент считает на этих числах (avgCheck, Δ%, repeatRate, математика
+// графиков), и строковые операнды молча испортили бы результат (например, '1'+'2'='12').
 export interface RawTopClient {
   clientId: string | null
   name: string
@@ -207,7 +207,7 @@ export async function getAnalyticsOverview(p: AnalyticsParams): Promise<RawAnaly
   const topBySum = await buildTopQuery(db, { fromIso: p.fromIso, toIso: p.toIso })
 
   return {
-    // An aggregate with no matching rows still returns one row (with COALESCE'd 0s).
+    // Агрегат без подходящих строк всё равно возвращает одну строку (с нулями из COALESCE).
     totals: totalsRow ?? {
       total: '0',
       completedCount: '0',

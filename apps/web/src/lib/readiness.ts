@@ -1,18 +1,18 @@
 import type { BookingRow, Readiness } from '@detailing-admin/shared'
 
-// Single source for readiness status colours, two render targets: a pill badge
-// (client-card history) and a full-row tint (bookings table). Both keyed by the
-// same `Readiness` union — a mistyped status is a compile error, and recolouring
-// a status touches one file instead of drifting between pages. Both maps cover
-// every status; only '' («нет статуса») falls back.
+// Единый источник цветов статусов готовности, две цели отрисовки: бейдж-«таблетка»
+// (история в карточке клиента) и заливка всей строки (таблица записей). Обе завязаны на
+// один и тот же union `Readiness` — опечатка в статусе даёт ошибку компиляции, а смена цвета
+// статуса затрагивает один файл вместо того, чтобы расходиться между страницами. Обе карты
+// покрывают все статусы; только '' («нет статуса») уходит в fallback.
 //
-// Colours are shared on purpose where statuses mean the same thing at a glance:
+// Цвета намеренно совпадают там, где статусы с первого взгляда значат одно и то же:
 // зелёный — всё в порядке («Подтвердил», «Оплачено»), оранжевый — ещё не закрыто
 // («В работе», «Не оплачено»), красный — запись сорвалась или под вопросом
-// («Не приехал», «Отмена», «Не ответил»). Don't «fix» the duplicates into
-// distinct hues.
+// («Не приехал», «Отмена», «Не ответил»). Не «исправляйте» повторы на
+// разные оттенки.
 
-// Pill badge (bg-100 / text-800 pairs; «Выдана» muted as a finished job).
+// Бейдж-«таблетка» (пары bg-100 / text-800; «Выдана» приглушена как завершённая работа).
 const READINESS_BADGE_CLASS: Record<Readiness, string> = {
   'В работе': 'bg-orange-100 text-orange-800',
   'Готова к выдаче': 'bg-sky-100 text-sky-800',
@@ -31,9 +31,9 @@ export function readinessBadgeClass(readiness: BookingRow['readiness']): string 
   return READINESS_BADGE_CLASS[readiness] ?? 'bg-muted text-muted-foreground'
 }
 
-// Full-row tint for the bookings table. The `!` overrides the row hover;
-// «Выдана» is muted (almost-white + grey text) so the eye tracks active statuses,
-// not finished ones. Only the blank status gets the hover reset instead.
+// Заливка всей строки для таблицы записей. `!` перебивает hover строки;
+// «Выдана» приглушена (почти белый + серый текст), чтобы взгляд цеплялся за активные статусы,
+// а не за завершённые. Только пустой статус вместо этого получает сброс hover.
 const READINESS_ROW_CLASS: Record<Readiness, string> = {
   'В работе': 'bg-orange-100!',
   'Готова к выдаче': 'bg-sky-100!',

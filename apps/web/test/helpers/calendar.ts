@@ -7,8 +7,8 @@ const DAY_LABEL = new Intl.DateTimeFormat('ru-RU', {
   year: 'numeric',
 })
 
-// Matches the cell's full-date aria-label rather than its number, because padding
-// cells of the neighbouring months repeat the numbers.
+// Ищет ячейку по aria-label с полной датой, а не по числу, потому что ячейки-заполнители
+// соседних месяцев повторяют числа.
 export function calendarDay(day: number) {
   const now = new Date()
   const name = DAY_LABEL.format(new Date(now.getFullYear(), now.getMonth(), day))

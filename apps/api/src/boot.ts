@@ -27,13 +27,13 @@ export function getBootNotConfiguredMessage(): string | null {
   return _bootNotConfiguredMessage
 }
 
-/** Indicates whether DB migrations ran successfully on boot. Best-effort; the
- * booking route stays operational against Sheets even when this is false. */
+/** Показывает, успешно ли прошли миграции БД при старте. Best-effort: маршрут
+ * записи продолжает работать с Sheets, даже когда здесь false. */
 export function isDbReady(): boolean {
   return _dbReady
 }
 
-/** For tests only — resets module-level boot state. */
+/** Только для тестов — сбрасывает boot-состояние уровня модуля. */
 export function _resetForTest(): void {
   _bootState = 'ok'
   _bootHeadersMismatch = null
@@ -41,7 +41,7 @@ export function _resetForTest(): void {
   _dbReady = false
 }
 
-/** For tests only — overrides the db-ready flag without going through migrations. */
+/** Только для тестов — переопределяет флаг готовности БД, минуя миграции. */
 export function _setDbReadyForTest(value: boolean): void {
   _dbReady = value
 }
@@ -94,11 +94,11 @@ export async function init(): Promise<void> {
       )
     }
   } catch (err) {
-    // Credentials missing/invalid or network error — do NOT exit; bind listener anyway.
+    // Учётных данных нет, они невалидны или сбой сети — НЕ выходим; listener поднимаем всё равно.
     _bootState = 'not_configured'
-    // Raw error detail stays in the log (redacted by pino), never on the wire.
-    // The HTTP body gets a safe, generic summary so GCP error fragments (which can
-    // mention private_key fields, JWT structure, internal config) do not leak.
+    // Сырые подробности ошибки остаются в логе (с редактированием pino) и не уходят в ответ.
+    // В HTTP-тело попадает безопасное общее описание, чтобы не утекли фрагменты ошибок GCP
+    // (там могут упоминаться поля private_key, структура JWT, внутренний конфиг).
     const detail = err instanceof Error ? err.message : String(err)
     _bootNotConfiguredMessage = 'Service credentials not configured or invalid'
     baseLogger.error(

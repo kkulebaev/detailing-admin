@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { Client, ClientLookupMatch } from '@/lib/clients-api'
 
-// Mock the generated transport so `lookupClientByPhone` resolves a controlled
-// envelope without a real request. Only `getApiClientsLookup` is exercised here;
-// the other exports are stubbed so the module import resolves.
+// Мокаем сгенерированный транспорт, чтобы `lookupClientByPhone` получал управляемый
+// конверт без реального запроса. Здесь используется только `getApiClientsLookup`;
+// остальные экспорты — заглушки, чтобы импорт модуля разрешился.
 vi.mock('@/lib/generated/clients/clients', () => ({
   getApiClients: vi.fn(),
   getApiClientsId: vi.fn(),
@@ -36,18 +36,18 @@ function resolveLookup(body: unknown) {
 }
 
 describe('lookupClientByPhone', () => {
-  it('returns the match and asks for the exact phone', async () => {
+  it('возвращает совпадение и запрашивает точный телефон', async () => {
     resolveLookup({ ok: true, match })
     await expect(lookupClientByPhone(E164)).resolves.toEqual(match)
     expect(getApiClientsLookup).toHaveBeenCalledWith({ phone: E164 })
   })
 
-  it('returns null when nothing matches', async () => {
+  it('возвращает null, если совпадений нет', async () => {
     resolveLookup({ ok: true, match: null })
     await expect(lookupClientByPhone(E164)).resolves.toBeNull()
   })
 
-  it('returns null silently on an unavailable (503) body', async () => {
+  it('молча возвращает null на теле unavailable (503)', async () => {
     resolveLookup({ ok: false, error: 'unavailable', reason: 'db_unavailable' })
     await expect(lookupClientByPhone(E164)).resolves.toBeNull()
   })

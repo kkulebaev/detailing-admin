@@ -22,10 +22,10 @@ import {
   buildTotalsQuery,
 } from '../src/db/analytics.js'
 
-// An UNCONNECTED drizzle instance: postgres() is lazy (no socket until a query
-// runs) and toSQL() only assembles text, so these tests validate the FULL emitted
-// SQL — FILTER/GROUP BY/CTE/LIMIT — with no Postgres. fakeDb is NOT used: its
-// .groupBy() is a passthrough stub that emits no SQL.
+// НЕПОДКЛЮЧЁННЫЙ экземпляр drizzle: postgres() ленив (сокета нет, пока не выполнится
+// запрос), а toSQL() лишь собирает текст, поэтому эти тесты проверяют ВЕСЬ генерируемый
+// SQL — FILTER/GROUP BY/CTE/LIMIT — без Postgres. fakeDb НЕ используется: его
+// .groupBy() — сквозная заглушка, которая не генерирует SQL.
 const sql = postgres('postgres://placeholder@localhost:5432/placeholder', { max: 1 })
 const db = drizzle(sql, { schema })
 
@@ -36,79 +36,79 @@ afterAll(async () => {
 const RANGE = { fromIso: '2026-07-01', toIso: '2026-07-31' }
 
 describe('buildTotalsQuery (AC1, AC12)', () => {
-  it('filters revenue by = «Выдана» and bounds date_from inclusively', () => {
+  it('фильтрует выручку по = «Выдана» и ограничивает date_from включительно', () => {
     const { sql: text, params } = buildTotalsQuery(db, RANGE).toSQL()
     const low = text.toLowerCase()
 
-    // Revenue sum + completed count are both under a FILTER on the positive
-    // «Выдана» equality — no "not in (…)" cancellation logic for money.
+    // Сумма выручки и число завершённых — обе под FILTER по позитивному равенству
+    // «Выдана», без логики исключения через «not in (…)» для денег.
     expect(low).toContain('filter (where')
     expect(low).not.toContain('not in')
     expect(params).toContain('Выдана')
 
-    // Inclusive range on date_from.
+    // Включительный диапазон по date_from.
     expect(low).toContain('"date_from" >=')
     expect(low).toContain('"date_from" <=')
     expect(params).toContain('2026-07-01')
     expect(params).toContain('2026-07-31')
 
-    // bookingsCount is a bare count(*) (volume — all statuses).
+    // bookingsCount — голый count(*) (объём — все статусы).
     expect(low).toContain('count(*)')
   })
 })
 
 describe('buildSeriesQuery (AC2)', () => {
-  it('groups by the day bucket key', () => {
+  it('группирует по ключу дня', () => {
     const { sql: text } = buildSeriesQuery(db, { ...RANGE, granularity: 'day' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('group by')
     expect(low).toContain('to_char("date_from"::date, \'yyyy-mm-dd\')')
   })
 
-  it('groups by date_trunc(week) for weekly granularity', () => {
+  it('группирует по date_trunc(week) при недельной гранулярности', () => {
     const { sql: text } = buildSeriesQuery(db, { ...RANGE, granularity: 'week' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('group by')
     expect(low).toContain('date_trunc(\'week\', "date_from"::date)')
   })
 
-  it('groups by the YYYY-MM bucket for monthly granularity', () => {
+  it('группирует по корзине YYYY-MM при месячной гранулярности', () => {
     const { sql: text } = buildSeriesQuery(db, { ...RANGE, granularity: 'month' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('group by')
     expect(low).toContain('to_char("date_from"::date, \'yyyy-mm\')')
   })
 
-  it('keeps series revenue under «Выдана» but counts volume without a filter (AC12)', () => {
+  it('держит выручку серии под «Выдана», а объём считает без фильтра (AC12)', () => {
     const { sql: text, params } = buildSeriesQuery(db, { ...RANGE, granularity: 'day' }).toSQL()
     const low = text.toLowerCase()
     expect(low).toContain('filter (where')
     expect(params).toContain('Выдана')
-    // count(*) with no filter — the bucket's volume.
+    // count(*) без фильтра — объём корзины.
     expect(low).toContain('count(*)')
   })
 })
 
 describe('buildRetentionQuery (AC3)', () => {
-  it('uses a first_seen CTE of MIN(date_from) over visits and splits new/returning by first_from', () => {
+  it('использует CTE first_seen с MIN(date_from) по визитам и делит на новых/вернувшихся по first_from', () => {
     const { sql: text, params } = buildRetentionQuery(db, RANGE).toSQL()
     const low = text.toLowerCase()
 
-    // CTE with MIN(date_from) restricted to visits (NOT the two no-show statuses).
+    // CTE с MIN(date_from) только по визитам (БЕЗ двух статусов неявки).
     expect(low).toContain('"first_seen"')
     expect(low).toContain('min("date_from")')
     expect(low).toContain('not in')
     expect(params).toContain('Отмена')
     expect(params).toContain('Не приехал')
 
-    // new = first_from >= from, returning = first_from < from.
+    // новые = first_from >= from, вернувшиеся = first_from < from.
     expect(low).toContain('"first_from" >=')
     expect(low).toContain('"first_from" <')
   })
 })
 
 describe('buildTopQuery (AC4)', () => {
-  it('joins clients, ranks desc, limits 10, restricts the grouping to «Выдана» in WHERE', () => {
+  it('джойнит clients, сортирует по убыванию, ограничивает 10, сужает группировку до «Выдана» в WHERE', () => {
     const { sql: text, params } = buildTopQuery(db, { ...RANGE }).toSQL()
     const low = text.toLowerCase()
 
@@ -116,13 +116,13 @@ describe('buildTopQuery (AC4)', () => {
     expect(low).toContain('order by')
     expect(low).toContain('desc')
     expect(low).toContain('limit')
-    // Delivery filter is in WHERE (before GROUP BY), not a per-metric FILTER — so
-    // zero-delivered clients drop out of the grouping instead of surfacing as sum=0 rows.
+    // Фильтр по выдаче стоит в WHERE (до GROUP BY), а не в FILTER на метрику — поэтому
+    // клиенты без выданных записей выпадают из группировки, а не всплывают строками с sum=0.
     expect(low).not.toContain('filter (where')
     const whereClause = low.slice(low.indexOf('where'), low.indexOf('group by'))
     expect(whereClause).toContain('"readiness"')
     expect(params).toContain('Выдана')
-    // limit is 10.
+    // limit равен 10.
     expect(params).toContain(10)
   })
 })

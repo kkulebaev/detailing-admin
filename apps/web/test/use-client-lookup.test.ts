@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, nextTick, type Ref } from 'vue'
 import type { Client, ClientLookupMatch } from '@/lib/clients-api'
 
-// Capture the `e164` ref the composable feeds the query and hand back a
-// controllable `data` ref — this exercises the composable's phone gating and
-// passthrough without standing up pinia-colada. The silent-failure mapping lives
-// in `lookupClientByPhone` (covered separately).
+// Перехватываем ref `e164`, который composable передаёт в запрос, и отдаём
+// управляемый ref `data` — так проверяются фильтрация телефона и проброс данных
+// в composable без поднятия pinia-colada. Тихая обработка ошибок живёт
+// в `lookupClientByPhone` (покрыта отдельно).
 let capturedE164: Ref<string | null> | null = null
 const data = ref<ClientLookupMatch | null>(null)
 
@@ -32,13 +32,13 @@ describe('useClientLookup', () => {
     data.value = null
   })
 
-  it('passes a normalized E.164 to the query for a full masked phone', () => {
+  it('для полного телефона по маске передаёт в запрос нормализованный E.164', () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
     useClientLookup(phoneRaw)
     expect(capturedE164?.value).toBe('+79161234567')
   })
 
-  it('surfaces the matched client and its summary from the query data', async () => {
+  it('отдаёт найденного клиента и его сводку из данных запроса', async () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
     const { matchedClient, matchedClientSummary } = useClientLookup(phoneRaw)
     const summary = { visitCount: 1, lastVisit: '2026-09-12', lastService: 'Мойка', missed: null }
@@ -48,26 +48,26 @@ describe('useClientLookup', () => {
     expect(matchedClientSummary.value).toEqual(summary)
   })
 
-  it('keeps e164 null for a partial phone (query stays disabled)', () => {
+  it('оставляет e164 равным null для неполного телефона (запрос остаётся выключенным)', () => {
     const phoneRaw = ref('+7 (916) 12')
     const { matchedClient } = useClientLookup(phoneRaw)
     expect(capturedE164?.value).toBeNull()
     expect(matchedClient.value).toBeNull()
   })
 
-  it('keeps e164 null for garbage input', () => {
+  it('оставляет e164 равным null для мусорного ввода', () => {
     const phoneRaw = ref('не телефон')
     useClientLookup(phoneRaw)
     expect(capturedE164?.value).toBeNull()
   })
 
-  it('returns null when the query has no match', () => {
+  it('возвращает null, если запрос ничего не нашёл', () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
     const { matchedClient } = useClientLookup(phoneRaw)
     expect(matchedClient.value).toBeNull()
   })
 
-  it('flips e164 to null when the phone is cleared', async () => {
+  it('сбрасывает e164 в null, когда телефон очищен', async () => {
     const phoneRaw = ref('+7 (916) 123-45-67')
     useClientLookup(phoneRaw)
     expect(capturedE164?.value).toBe('+79161234567')

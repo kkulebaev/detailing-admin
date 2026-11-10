@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import CommandHarness from './fixtures/CommandHarness.vue'
 
-// Regression guard for the Android/Gboard IME bug: reka-ui's ListboxFilter
-// suppresses model updates while a composition is active and only syncs on
-// `compositionend`. Mobile keyboards keep a word in composition until a
-// space/commit, so a single-word query never filtered the list. Our
-// CommandInput mirrors each `compositionupdate` into the filter so search is
-// live mid-word. See apps/web/src/components/ui/command/CommandInput.vue.
+// Защита от регрессии бага IME на Android/Gboard: ListboxFilter из reka-ui
+// глушит обновления модели, пока композиция активна, и синхронизируется только на
+// `compositionend`. Мобильные клавиатуры держат слово в композиции до пробела или
+// коммита, поэтому запрос из одного слова никогда не фильтровал список. Наш
+// CommandInput зеркалит каждый `compositionupdate` в фильтр, и поиск работает
+// прямо посреди слова. См. apps/web/src/components/ui/command/CommandInput.vue.
 
 const ITEMS = [
   { value: 1, label: 'Демонтаж плёнки' },
@@ -22,25 +22,25 @@ function visibleLabels(wrapper: ReturnType<typeof mount>): string[] {
 async function mountHarness() {
   const wrapper = mount(CommandHarness, { props: { items: ITEMS }, attachTo: document.body })
   await wrapper.vm.$nextTick()
-  // Items register their filter text onMounted — let that flush.
+  // Пункты регистрируют текст для фильтра в onMounted — даём этому отработать.
   await new Promise((r) => setTimeout(r, 0))
   return wrapper
 }
 
-describe('CommandInput IME composition filtering', () => {
-  it('shows all items before any input', async () => {
+describe('CommandInput — фильтрация во время IME-композиции', () => {
+  it('показывает все пункты до какого-либо ввода', async () => {
     const wrapper = await mountHarness()
     expect(visibleLabels(wrapper)).toHaveLength(ITEMS.length)
     wrapper.unmount()
   })
 
-  it('filters the list live during composition (compositionupdate)', async () => {
+  it('фильтрует список на лету во время композиции (compositionupdate)', async () => {
     const wrapper = await mountHarness()
     const input = wrapper.find('[data-slot="command-input"]')
     const el = input.element as HTMLInputElement
 
-    // Android Gboard: the field shows composed text but keeps composition open
-    // (no compositionend) until a space/commit.
+    // Android Gboard: поле показывает набранный текст, но держит композицию открытой
+    // (без compositionend) до пробела или коммита.
     el.value = 'Демонтаж'
     await input.trigger('compositionstart')
     await input.trigger('compositionupdate')
@@ -51,7 +51,7 @@ describe('CommandInput IME composition filtering', () => {
     wrapper.unmount()
   })
 
-  it('narrows further as the composition text grows', async () => {
+  it('сужает список дальше по мере роста текста композиции', async () => {
     const wrapper = await mountHarness()
     const input = wrapper.find('[data-slot="command-input"]')
     const el = input.element as HTMLInputElement
@@ -62,7 +62,7 @@ describe('CommandInput IME composition filtering', () => {
     await wrapper.vm.$nextTick()
     expect(visibleLabels(wrapper)).toEqual(['Полная полировка кузова'])
 
-    // Backing off the query restores the other matches without a compositionend.
+    // Укорачивание запроса возвращает остальные совпадения без compositionend.
     el.value = ''
     await input.trigger('compositionupdate')
     await wrapper.vm.$nextTick()

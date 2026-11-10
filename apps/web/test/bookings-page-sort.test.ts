@@ -26,8 +26,8 @@ const ROWS: BookingRow[] = ['2026-11-21', '2026-11-20'].map((dateFrom, i) => ({
   createdAt: '2026-11-01T10:00:00.000Z',
 }))
 
-// Hoisted rather than exported from the mock: a browser-mode mock drops exports
-// the real module doesn't have.
+// Через hoisted, а не экспортом из мока: мок в browser mode теряет экспорты,
+// которых нет у настоящего модуля.
 const captured = vi.hoisted(() => ({}) as { params: ComputedRef<GetApiBookingsParams> })
 
 vi.mock('@/lib/queries', async () => {
@@ -68,21 +68,21 @@ const firstRowNumber = () =>
 
 enableAutoUnmount(afterEach)
 
-describe('BookingsPage date sort', () => {
+describe('BookingsPage — сортировка по дате', () => {
   beforeEach(() => {
     localStorage.removeItem('bookings:sort')
     localStorage.removeItem('bookings:compact')
   })
 
-  it('requests newest first by default', async () => {
+  it('по умолчанию запрашивает сначала новые', async () => {
     mountPage()
     expect(captured.params.value.sort).toBe('desc')
     await expect.element(sortButton()).toHaveAccessibleName(/сначала новые/)
-    // Chronological number: the top row of the first page is the latest of 30.
+    // Хронологический номер: верхняя строка первой страницы — последняя из 30.
     await expect.poll(firstRowNumber).toBe('30')
   })
 
-  it('toggles the direction from the «Дата» header and remembers it', async () => {
+  it('переключает направление из заголовка «Дата» и запоминает его', async () => {
     const wrapper = mountPage()
 
     await sortButton().click()

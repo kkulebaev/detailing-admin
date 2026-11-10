@@ -12,7 +12,7 @@ test-results
 .omc/
 .claude/
 
-# Generated typecheck artefacts (vue-tsc / tsc shadows)
+# Сгенерированные артефакты тайпчека (теневые файлы vue-tsc / tsc)
 apps/web/src/**/*.vue.d.ts
 apps/web/src/**/*.vue.js
 apps/web/src/**/*.js
@@ -21,11 +21,11 @@ packages/shared/src/**/*.js
 !apps/web/src/vite-env.d.ts
 **/*.tsbuildinfo
 
-# Service account / credential files (never commit)
+# Файлы сервисного аккаунта / учётных данных (никогда не коммитить)
 service-account*.json
 *-credentials.json
 *.pem
 *.key
 
-# Seed dumps from Google Sheets — contain PII (phone numbers, names)
+# Сид-дампы из Google Sheets — содержат PII (телефоны, имена)
 .seed/

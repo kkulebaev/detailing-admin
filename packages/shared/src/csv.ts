@@ -1,25 +1,25 @@
-// CSV serialization for report exports. Centralized here so the API's export
-// routes and their tests share one implementation of two concerns that are easy
-// to get subtly wrong:
+// CSV-сериализация для выгрузки отчётов. Собрана здесь, чтобы роуты экспорта в API
+// и их тесты делили одну реализацию двух вещей, в которых легко незаметно
+// ошибиться:
 //
-//  1. CSV injection (OWASP). A cell whose first character is `= + - @` (or a
-//     leading TAB/CR) is executed as a formula by Excel/LibreOffice when the file
-//     is opened — a real exfiltration/DDE vector. A phone in E.164 (`+7…`) is a
-//     permanent trigger. We neutralize such a cell with a leading single quote,
-//     the standard OWASP mitigation; it renders as an inert text prefix.
-//  2. RFC 4180 quoting. A field containing the delimiter, a double-quote, or a
-//     line break is wrapped in double-quotes with any inner quote doubled.
+//  1. CSV-инъекция (OWASP). Ячейка, первый символ которой `= + - @` (или ведущий
+//     TAB/CR), исполняется Excel/LibreOffice как формула при открытии файла —
+//     реальный вектор утечки данных/DDE. Телефон в E.164 (`+7…`) срабатывает
+//     всегда. Такую ячейку обезвреживаем ведущей одинарной кавычкой — стандартная
+//     мера OWASP; она отображается как безобидный текстовый префикс.
+//  2. Кавычки по RFC 4180. Поле с разделителем, двойной кавычкой или переводом
+//     строки оборачивается в двойные кавычки, а внутренние кавычки удваиваются.
 
 const INJECTION_PREFIXES = new Set(['=', '+', '-', '@', '\t', '\r'])
 
-// U+FEFF. Prefixed so Excel detects UTF-8 and Cyrillic doesn't garble.
+// U+FEFF. Ставится в начало, чтобы Excel распознал UTF-8 и кириллица не превратилась в кашу.
 const BOM = '﻿'
 
 export function csvField(value: string, delimiter: string): string {
   let field = value
-  // Injection guard first: prepending `'` is safe to quote afterwards (`'` is
-  // never itself a quoting trigger), and a value that started with a bare CR
-  // still gets wrapped by the RFC rule below.
+  // Сначала защита от инъекций: после добавления `'` поле можно безопасно брать в кавычки
+  // (`'` сам по себе никогда не требует кавычек), а значение, начинавшееся с голого CR,
+  // всё равно обернётся по правилу RFC ниже.
   if (field.length > 0 && INJECTION_PREFIXES.has(field[0]!)) {
     field = `'${field}`
   }
@@ -35,16 +35,16 @@ export function csvField(value: string, delimiter: string): string {
 }
 
 export interface ToCsvOptions {
-  /** Field separator. `;` (the default) is what ru-locale Excel expects. */
+  /** Разделитель полей. `;` (по умолчанию) — то, что ждёт Excel в ru-локали. */
   delimiter?: string
-  /** Prepend a UTF-8 BOM (default true) so Excel reads Cyrillic correctly. */
+  /** Добавить UTF-8 BOM в начало (по умолчанию true), чтобы Excel верно читал кириллицу. */
   bom?: boolean
 }
 
 export function toCsv(rows: string[][], opts: ToCsvOptions = {}): string {
   const delimiter = opts.delimiter ?? ';'
   const bom = opts.bom ?? true
-  // CRLF row endings are the Excel-friendly default (RFC 4180).
+  // Окончания строк CRLF — удобное для Excel значение по умолчанию (RFC 4180).
   const body = rows
     .map((row) => row.map((cell) => csvField(cell, delimiter)).join(delimiter))
     .join('\r\n')

@@ -41,7 +41,7 @@ export async function createUser(input: {
   return row
 }
 
-/** Updates the caller's own personal fields (name); returns the fresh row. */
+/** Обновляет личные поля самого вызывающего (имя); возвращает свежую строку. */
 export async function updateProfile(
   id: string,
   input: { firstName: string; lastName: string },
@@ -56,9 +56,9 @@ export async function updateProfile(
 }
 
 /**
- * Conditional password swap. The `WHERE ... AND password_hash = <old>` guard
- * makes a concurrent change-password lose the race a no-op (returns `false`)
- * instead of silently overwriting the winner — the caller maps that to 409.
+ * Условная замена пароля. Условие `WHERE ... AND password_hash = <old>` превращает
+ * проигравший гонку параллельный change-password в no-op (возвращает `false`),
+ * а не молча перезаписывает победителя — вызывающий код превращает это в 409.
  */
 export async function updatePasswordHash(
   id: string,
@@ -74,7 +74,7 @@ export async function updatePasswordHash(
   return updated.length > 0
 }
 
-/** Reset any user's password by login (CLI use — no old-hash guard). */
+/** Сбрасывает пароль любого пользователя по логину (для CLI — без проверки старого хэша). */
 export async function resetPasswordByLogin(login: string, newHash: string): Promise<boolean> {
   const db = getDb()
   const updated = await db
@@ -85,7 +85,7 @@ export async function resetPasswordByLogin(login: string, newHash: string): Prom
   return updated.length > 0
 }
 
-/** Change any user's role by login (CLI use). */
+/** Меняет роль любого пользователя по логину (для CLI). */
 export async function setRoleByLogin(login: string, role: Role): Promise<boolean> {
   const db = getDb()
   const updated = await db
@@ -96,7 +96,7 @@ export async function setRoleByLogin(login: string, role: Role): Promise<boolean
   return updated.length > 0
 }
 
-/** Accounts for the master form's link picker — never selects the password hash. */
+/** Аккаунты для выбора привязки в форме мастера — хэш пароля никогда не выбирается. */
 export async function listAccounts(): Promise<Account[]> {
   const db = getDb()
   const rows = await db

@@ -22,8 +22,8 @@ function mountPage() {
 
 enableAutoUnmount(afterEach)
 
-describe('LoginPage password field', () => {
-  it('toggles visibility without losing the typed value', async () => {
+describe('LoginPage — поле пароля', () => {
+  it('переключает видимость, не теряя введённое значение', async () => {
     mountPage()
     await passwordInput().fill('secret-123')
     await expect.element(passwordInput()).toHaveAttribute('type', 'password')
@@ -35,7 +35,7 @@ describe('LoginPage password field', () => {
     await expect.element(page.getByRole('button', { name: 'Скрыть пароль' })).toBeVisible()
   })
 
-  it('renders the field at the height of the login field beside it', async () => {
+  it('рисует поле той же высоты, что и соседнее поле логина', async () => {
     mountPage()
     await expect.element(passwordInput()).toBeVisible()
 
@@ -43,7 +43,7 @@ describe('LoginPage password field', () => {
     expect(inputGroup().getBoundingClientRect().height).toBe(login.getBoundingClientRect().height)
   })
 
-  it('moves the focus ring onto the group when the input gets focus', async () => {
+  it('переносит кольцо фокуса на группу, когда input получает фокус', async () => {
     mountPage()
     await expect.element(passwordInput()).toBeVisible()
     const shadowAtRest = getComputedStyle(inputGroup()).boxShadow

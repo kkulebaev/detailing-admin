@@ -17,7 +17,7 @@ import { defaultValidationHook } from '../openapi.js'
 type Vars = { requestId: string }
 
 const overviewQuerySchema = z.object({
-  // UI sends DD.MM.YYYY; converted to ISO before the DB layer. Bad shapes 400.
+  // UI шлёт DD.MM.YYYY; до слоя БД переводим в ISO. Неверный формат — 400.
   from: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/),
   to: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/),
   granularity: z.enum(['day', 'week', 'month']).default('day'),
@@ -48,7 +48,7 @@ const overviewRoute = createRoute({
   },
 })
 
-/** Milliseconds in a day — for the previous-period shift below. */
+/** Миллисекунд в сутках — для сдвига на предыдущий период ниже. */
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function isoDate(d: Date): string {
@@ -58,8 +58,8 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/** Previous period of the same length, immediately before [from,to]:
- * prevTo = from − 1 day, prevFrom = from − (to − from + 1 day). */
+/** Предыдущий период той же длины, сразу перед [from,to]:
+ * prevTo = from − 1 день, prevFrom = from − (to − from + 1 день). */
 function previousPeriod(
   fromIso: string,
   toIso: string,
@@ -72,9 +72,9 @@ function previousPeriod(
   return { prevFromIso: isoDate(prevFrom), prevToIso: isoDate(prevTo) }
 }
 
-/** Every bucket key from `from` to `to` inclusive, matching the SQL bucketing, so
- * the series can be zero-filled — GROUP BY only returns buckets with rows, and a
- * line chart would otherwise smooth over the gaps (visual lie). */
+/** Все ключи корзин от `from` до `to` включительно, как в SQL-группировке, чтобы
+ * ряд можно было заполнить нулями — GROUP BY возвращает только корзины со строками,
+ * и линейный график иначе сгладил бы пропуски (визуальная ложь). */
 function enumerateBuckets(fromIso: string, toIso: string, g: AnalyticsGranularity): string[] {
   const buckets: string[] = []
   const start = new Date(`${fromIso}T00:00:00Z`)
@@ -97,7 +97,7 @@ function enumerateBuckets(fromIso: string, toIso: string, g: AnalyticsGranularit
   }
 
   if (g === 'week') {
-    // Monday of the ISO week containing `start` — matches date_trunc('week', …).
+    // Понедельник ISO-недели, в которую входит `start`, — как date_trunc('week', …).
     const cur = new Date(start)
     const mondayOffset = (cur.getUTCDay() + 6) % 7
     cur.setUTCDate(cur.getUTCDate() - mondayOffset)
@@ -118,8 +118,8 @@ function enumerateBuckets(fromIso: string, toIso: string, g: AnalyticsGranularit
 
 function mapTop(t: RawTopClient) {
   return {
-    // Non-null assertion: the INNER JOIN on clients guarantees a linked client id
-    // (the column is nullable, but a null could never satisfy the join).
+    // Non-null assertion: INNER JOIN по clients гарантирует связанный id клиента
+    // (столбец nullable, но null никогда не прошёл бы join).
     clientId: t.clientId!,
     name: t.name,
     phone: t.phone,
@@ -162,7 +162,7 @@ router.openapi(
         granularity: query.granularity,
       })
 
-      // postgres-js returns SUM/COUNT as strings — coerce every aggregate here.
+      // postgres-js возвращает SUM/COUNT строками — приводим здесь каждый агрегат.
       const total = Number(raw.totals.total)
       const completedCount = Number(raw.totals.completedCount)
       const bookingsCount = Number(raw.totals.bookingsCount)
@@ -171,7 +171,7 @@ router.openapi(
       const newCount = Number(raw.retention.newCount)
       const returningCount = Number(raw.retention.returningCount)
 
-      // Derived metrics, all guarded against a zero denominator.
+      // Производные метрики, все защищены от нулевого знаменателя.
       const avgCheck = completedCount === 0 ? 0 : Math.round(total / completedCount)
       const revenuePct =
         prevTotal === 0 ? null : Math.round(((total - prevTotal) / prevTotal) * 1000) / 10
@@ -179,7 +179,7 @@ router.openapi(
       const repeatRate =
         attributable === 0 ? null : Math.round((returningCount / attributable) * 1000) / 10
 
-      // Zero-fill: left-join the enumerated buckets to the aggregate result.
+      // Заполнение нулями: left-join перечисленных корзин к результату агрегации.
       const byBucket = new Map(raw.series.map((s) => [s.bucket, s]))
       const series = enumerateBuckets(fromIso, toIso, query.granularity).map((bucket) => {
         const hit = byBucket.get(bucket)

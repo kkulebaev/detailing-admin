@@ -2,24 +2,24 @@ import { describe, it, expect } from 'vitest'
 import { carInputSchema, clientDetailOkSchema, clientInputSchema } from '../src/client.js'
 
 describe('carInputSchema', () => {
-  it('requires a non-empty make/model', () => {
+  it('требует непустую марку/модель', () => {
     const r = carInputSchema.safeParse({ makeModel: '   ', plate: 'А123АА77' })
     expect(r.success).toBe(false)
   })
 
-  it('trims make/model and plate', () => {
+  it('обрезает пробелы у марки/модели и номера', () => {
     const r = carInputSchema.parse({ makeModel: '  Toyota Camry  ', plate: '  А123АА77  ' })
     expect(r).toEqual({ makeModel: 'Toyota Camry', plate: 'А123АА77' })
   })
 
-  it('defaults plate to an empty string when omitted', () => {
+  it('по умолчанию номер — пустая строка, если не передан', () => {
     const r = carInputSchema.parse({ makeModel: 'BMW X5' })
     expect(r).toEqual({ makeModel: 'BMW X5', plate: '' })
   })
 })
 
 describe('clientInputSchema', () => {
-  it('passes cars through the transform', () => {
+  it('пропускает cars через transform', () => {
     const r = clientInputSchema.parse({
       name: '  Иван  ',
       phone: '+79001234567',
@@ -32,12 +32,12 @@ describe('clientInputSchema', () => {
     })
   })
 
-  it('defaults cars to [] when the field is absent', () => {
+  it('по умолчанию cars — [], если поля нет', () => {
     const r = clientInputSchema.parse({ name: 'Иван', phone: '+79001234567' })
     expect(r.cars).toEqual([])
   })
 
-  it('still rejects an empty phone', () => {
+  it('по-прежнему отклоняет пустой телефон', () => {
     const r = clientInputSchema.safeParse({ name: 'Иван', phone: '', cars: [] })
     expect(r.success).toBe(false)
   })
@@ -76,7 +76,7 @@ describe('clientDetailOkSchema', () => {
     createdAt: '2026-06-09T08:00:00.000Z',
   }
 
-  it('accepts a valid detail payload', () => {
+  it('принимает валидный payload карточки', () => {
     const r = clientDetailOkSchema.safeParse({
       ok: true,
       client: validClient,
@@ -87,7 +87,7 @@ describe('clientDetailOkSchema', () => {
     expect(r.success).toBe(true)
   })
 
-  it('accepts null lastVisit/firstVisit for a client with no delivered visits', () => {
+  it('принимает null в lastVisit/firstVisit для клиента без выданных визитов', () => {
     const r = clientDetailOkSchema.safeParse({
       ok: true,
       client: validClient,
@@ -98,7 +98,7 @@ describe('clientDetailOkSchema', () => {
     expect(r.success).toBe(true)
   })
 
-  it('rejects a payload missing stats', () => {
+  it('отклоняет payload без stats', () => {
     const r = clientDetailOkSchema.safeParse({
       ok: true,
       client: validClient,

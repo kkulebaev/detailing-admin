@@ -28,7 +28,7 @@ vi.mock('../src/boot.js', () => ({
   getBootState: vi.fn().mockReturnValue('ok'),
   getBootHeadersMismatch: vi.fn().mockReturnValue(null),
   getBootNotConfiguredMessage: vi.fn().mockReturnValue(null),
-  // Keep DB off in observability tests so each POST emits exactly one log line.
+  // В тестах наблюдаемости БД выключена, чтобы каждый POST давал ровно одну строку лога.
   isDbReady: vi.fn().mockReturnValue(false),
   init: vi.fn(),
   initDb: vi.fn(),
@@ -74,7 +74,7 @@ const REQUIRED_LOG_FIELDS = [
   'status',
 ] as const
 
-describe('observability — POST /api/bookings log output', () => {
+describe('наблюдаемость — лог POST /api/bookings', () => {
   let app: ReturnType<typeof createApp>
   let cookie: string
 
@@ -91,7 +91,7 @@ describe('observability — POST /api/bookings log output', () => {
     })
   })
 
-  it('emits exactly one log line per successful POST', async () => {
+  it('пишет ровно одну строку лога на каждый успешный POST', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
       headers: {
@@ -104,7 +104,7 @@ describe('observability — POST /api/bookings log output', () => {
     expect(vi.mocked(baseLogger.info)).toHaveBeenCalledTimes(1)
   })
 
-  it('log line contains all required structured fields', async () => {
+  it('строка лога содержит все обязательные структурированные поля', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
       headers: {
@@ -117,7 +117,7 @@ describe('observability — POST /api/bookings log output', () => {
 
     const [logObj] = vi.mocked(baseLogger.info).mock.calls[0] as [Record<string, unknown>]
     for (const field of REQUIRED_LOG_FIELDS) {
-      expect(logObj, `expected field "${field}" in log object`).toHaveProperty(field)
+      expect(logObj, `в объекте лога ожидается поле "${field}"`).toHaveProperty(field)
     }
     expect(logObj.event).toBe('booking.request')
     expect(typeof logObj.request_id).toBe('string')
@@ -129,7 +129,7 @@ describe('observability — POST /api/bookings log output', () => {
     expect(logObj.status).toBe(201)
   })
 
-  it('X-Request-Id response header matches request_id in the log', async () => {
+  it('заголовок ответа X-Request-Id совпадает с request_id в логе', async () => {
     const res = await app.request('/api/bookings', {
       method: 'POST',
       headers: {
@@ -144,7 +144,7 @@ describe('observability — POST /api/bookings log output', () => {
     expect(logObj.request_id).toBe(responseRequestId)
   })
 
-  it('log object does NOT contain phone, name, or note fields', async () => {
+  it('объект лога НЕ содержит полей phone, name и note', async () => {
     await app.request('/api/bookings', {
       method: 'POST',
       headers: {

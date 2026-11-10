@@ -82,7 +82,7 @@ import { adminCookie, employeeCookie } from './auth-helpers.js'
 
 const ORIGIN = 'http://localhost:5173'
 
-// A stored user with a real scrypt hash of 'secret123'.
+// Сохранённый пользователь с настоящим scrypt-хешем 'secret123'.
 let adminUser: {
   id: string
   login: string
@@ -129,7 +129,7 @@ describe('POST /api/auth/login', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('valid credentials → 200 with user and a Set-Cookie', async () => {
+  it('верные учётные данные → 200 с пользователем и Set-Cookie', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     const res = await json(app, '/api/auth/login', 'POST', {
       login: 'admin',
@@ -147,7 +147,7 @@ describe('POST /api/auth/login', () => {
     })
   })
 
-  it('remember: true → cookie carries the long Max-Age', async () => {
+  it('remember: true → у cookie длинный Max-Age', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     const res = await json(app, '/api/auth/login', 'POST', {
       login: 'admin',
@@ -158,7 +158,7 @@ describe('POST /api/auth/login', () => {
     expect(res.headers.get('set-cookie') ?? '').toContain('Max-Age=2592000')
   })
 
-  it('remember omitted → cookie uses the default Max-Age', async () => {
+  it('remember не передан → у cookie Max-Age по умолчанию', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     const res = await json(app, '/api/auth/login', 'POST', {
       login: 'admin',
@@ -168,7 +168,7 @@ describe('POST /api/auth/login', () => {
     expect(res.headers.get('set-cookie') ?? '').toContain('Max-Age=86400')
   })
 
-  it('wrong password → 401, no cookie', async () => {
+  it('неверный пароль → 401, без cookie', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     const res = await json(app, '/api/auth/login', 'POST', { login: 'admin', password: 'nope' })
     expect(res.status).toBe(401)
@@ -177,7 +177,7 @@ describe('POST /api/auth/login', () => {
     expect(body.error).toBe('unauthorized')
   })
 
-  it('unknown login → 401 (same shape, dummy verify runs)', async () => {
+  it('неизвестный логин → 401 (та же форма ответа, выполняется фиктивная проверка)', async () => {
     vi.mocked(findByLogin).mockResolvedValue(null as never)
     const res = await json(app, '/api/auth/login', 'POST', { login: 'ghost', password: 'whatever' })
     expect(res.status).toBe(401)
@@ -185,7 +185,7 @@ describe('POST /api/auth/login', () => {
     expect(body.error).toBe('unauthorized')
   })
 
-  it('DB down → 503', async () => {
+  it('БД недоступна → 503', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await json(app, '/api/auth/login', 'POST', {
       login: 'admin',
@@ -196,7 +196,7 @@ describe('POST /api/auth/login', () => {
     expect(body.error).toBe('unavailable')
   })
 
-  it('missing fields → 400 validation', async () => {
+  it('не хватает полей → 400 validation', async () => {
     const res = await json(app, '/api/auth/login', 'POST', { login: 'admin' })
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -211,12 +211,12 @@ describe('GET /api/auth/me', () => {
     app = createApp()
   })
 
-  it('no cookie → 401', async () => {
+  it('без cookie → 401', async () => {
     const res = await json(app, '/api/auth/me', 'GET')
     expect(res.status).toBe(401)
   })
 
-  it('valid cookie → user, without any DB read', async () => {
+  it('валидная cookie → пользователь, без чтения из БД', async () => {
     const res = await json(app, '/api/auth/me', 'GET', undefined, {
       Cookie: await adminCookie({ firstName: 'Админ', lastName: 'Главный' }),
     })
@@ -227,18 +227,18 @@ describe('GET /api/auth/me', () => {
       user: { login: 'admin', role: 'admin', firstName: 'Админ', lastName: 'Главный' },
     })
     expect(vi.mocked(findByLogin)).not.toHaveBeenCalled()
-    // Sliding refresh re-issues the cookie.
+    // Скользящее продление перевыпускает cookie.
     expect(res.headers.get('set-cookie') ?? '').toContain('auth_token=')
   })
 
-  it('malformed cookie → 401', async () => {
+  it('испорченная cookie → 401', async () => {
     const res = await json(app, '/api/auth/me', 'GET', undefined, { Cookie: 'auth_token=garbage' })
     expect(res.status).toBe(401)
   })
 })
 
 describe('POST /api/auth/logout', () => {
-  it('clears the cookie and is idempotent (no session needed)', async () => {
+  it('очищает cookie и идемпотентен (сессия не нужна)', async () => {
     const app = createApp()
     const res = await json(app, '/api/auth/logout', 'POST')
     expect(res.status).toBe(200)
@@ -258,7 +258,7 @@ describe('POST /api/auth/change-password', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('no session → 401', async () => {
+  it('без сессии → 401', async () => {
     const res = await json(app, '/api/auth/change-password', 'POST', {
       currentPassword: 'secret123',
       newPassword: 'brandnew123',
@@ -266,7 +266,7 @@ describe('POST /api/auth/change-password', () => {
     expect(res.status).toBe(401)
   })
 
-  it('DB down → 503', async () => {
+  it('БД недоступна → 503', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await json(
       app,
@@ -281,7 +281,7 @@ describe('POST /api/auth/change-password', () => {
     expect(res.status).toBe(503)
   })
 
-  it('wrong current password → 400 validation on currentPassword', async () => {
+  it('неверный текущий пароль → 400 validation по currentPassword', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     const res = await json(
       app,
@@ -302,7 +302,7 @@ describe('POST /api/auth/change-password', () => {
     expect(vi.mocked(updatePasswordHash)).not.toHaveBeenCalled()
   })
 
-  it('correct current password → 200 and updates the hash', async () => {
+  it('верный текущий пароль → 200 и обновляет хеш', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     vi.mocked(updatePasswordHash).mockResolvedValue(true)
     const res = await json(
@@ -321,7 +321,7 @@ describe('POST /api/auth/change-password', () => {
     expect(vi.mocked(updatePasswordHash)).toHaveBeenCalledTimes(1)
   })
 
-  it('lost concurrent-change race (rowCount 0) → 409 stale_password', async () => {
+  it('проигранная гонка с параллельной сменой (rowCount 0) → 409 stale_password', async () => {
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     vi.mocked(updatePasswordHash).mockResolvedValue(false)
     const res = await json(
@@ -348,13 +348,13 @@ describe('PATCH /api/auth/me', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('no session → 401', async () => {
+  it('без сессии → 401', async () => {
     const res = await json(app, '/api/auth/me', 'PATCH', { firstName: 'Иван', lastName: 'Петров' })
     expect(res.status).toBe(401)
     expect(vi.mocked(updateProfile)).not.toHaveBeenCalled()
   })
 
-  it('DB down → 503', async () => {
+  it('БД недоступна → 503', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await json(
       app,
@@ -368,7 +368,7 @@ describe('PATCH /api/auth/me', () => {
     expect(res.status).toBe(503)
   })
 
-  it('blank name → 400 validation', async () => {
+  it('пустое имя → 400 validation', async () => {
     const res = await json(
       app,
       '/api/auth/me',
@@ -384,7 +384,7 @@ describe('PATCH /api/auth/me', () => {
     expect(vi.mocked(updateProfile)).not.toHaveBeenCalled()
   })
 
-  it('valid → 200 with updated user and a re-minted cookie', async () => {
+  it('валидные данные → 200 с обновлённым пользователем и перевыпущенной cookie', async () => {
     vi.mocked(updateProfile).mockResolvedValue({
       ...adminUser,
       firstName: 'Иван',
@@ -409,11 +409,11 @@ describe('PATCH /api/auth/me', () => {
       firstName: 'Иван',
       lastName: 'Петров',
     })
-    // Re-mint so the DB-free /me carries the new name without a re-login.
+    // Перевыпуск нужен, чтобы /me без БД отдавал новое имя без повторного входа.
     expect(res.headers.get('set-cookie') ?? '').toContain('auth_token=')
   })
 
-  it('account vanished between sign-in and now → 401', async () => {
+  it('аккаунт исчез между входом и текущим моментом → 401', async () => {
     vi.mocked(updateProfile).mockResolvedValue(null)
     const res = await json(
       app,
@@ -428,7 +428,7 @@ describe('PATCH /api/auth/me', () => {
   })
 })
 
-describe('guards on existing routes', () => {
+describe('гарды на существующих маршрутах', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
@@ -436,15 +436,15 @@ describe('guards on existing routes', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('GET /api/clients without a cookie → 401 (with CORS credentials header)', async () => {
+  it('GET /api/clients без cookie → 401 (с CORS-заголовком credentials)', async () => {
     const res = await json(app, '/api/clients', 'GET')
     expect(res.status).toBe(401)
-    // SPA must be able to read the rejection — Allow-Credentials rides on 401.
+    // SPA должна иметь возможность прочитать отказ — Allow-Credentials едет и на 401.
     expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true')
     expect(vi.mocked(listClients)).not.toHaveBeenCalled()
   })
 
-  it('GET /api/clients with an employee session → 403', async () => {
+  it('GET /api/clients с сессией employee → 403', async () => {
     const res = await json(app, '/api/clients', 'GET', undefined, {
       Cookie: await employeeCookie(),
     })
@@ -454,7 +454,7 @@ describe('guards on existing routes', () => {
     expect(vi.mocked(listClients)).not.toHaveBeenCalled()
   })
 
-  it('GET /api/clients with an admin session → 200', async () => {
+  it('GET /api/clients с сессией admin → 200', async () => {
     vi.mocked(listClients).mockResolvedValue({ items: [], total: 0 })
     const res = await json(app, '/api/clients', 'GET', undefined, { Cookie: await adminCookie() })
     expect(res.status).toBe(200)
@@ -464,8 +464,8 @@ describe('guards on existing routes', () => {
   })
 })
 
-describe('booking invariant — stays alive when Postgres is down', () => {
-  it('valid admin JWT + DB down → POST /api/bookings reaches Sheets (201)', async () => {
+describe('инвариант бронирования — работает, когда Postgres лежит', () => {
+  it('валидный admin JWT + БД недоступна → POST /api/bookings доходит до Sheets (201)', async () => {
     const app = createApp()
     _clearForTest()
     vi.mocked(isDbReady).mockReturnValue(false)
@@ -503,7 +503,7 @@ describe('booking invariant — stays alive when Postgres is down', () => {
   })
 })
 
-describe('ADR consequences (stateless sessions)', () => {
+describe('последствия ADR (stateless-сессии)', () => {
   let app: ReturnType<typeof createApp>
 
   beforeEach(() => {
@@ -511,10 +511,10 @@ describe('ADR consequences (stateless sessions)', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('a previously issued JWT stays valid until TTL after a password change', async () => {
+  it('ранее выданный JWT остаётся валидным до истечения TTL после смены пароля', async () => {
     const oldCookie = await adminCookie()
 
-    // Perform a successful password change with that session.
+    // Выполняем успешную смену пароля в этой сессии.
     vi.mocked(findByLogin).mockResolvedValue(adminUser as never)
     vi.mocked(updatePasswordHash).mockResolvedValue(true)
     const changed = await json(
@@ -529,23 +529,23 @@ describe('ADR consequences (stateless sessions)', () => {
     )
     expect(changed.status).toBe(200)
 
-    // The OLD token is not revoked server-side — it still authenticates.
+    // СТАРЫЙ токен не отзывается на сервере — он по-прежнему аутентифицирует.
     vi.mocked(listClients).mockResolvedValue({ items: [], total: 0 })
     const res = await json(app, '/api/clients', 'GET', undefined, { Cookie: oldCookie })
     expect(res.status).toBe(200)
   })
 
-  it('after logout the cleared cookie no longer authenticates → 401', async () => {
+  it('после logout очищенная cookie больше не аутентифицирует → 401', async () => {
     const logout = await json(app, '/api/auth/logout', 'POST')
     expect(logout.status).toBe(200)
-    // Browser has dropped/emptied auth_token; the next request carries no valid token.
+    // Браузер удалил/опустошил auth_token; следующий запрос не несёт валидного токена.
     const res = await json(app, '/api/auth/me', 'GET', undefined, { Cookie: 'auth_token=' })
     expect(res.status).toBe(401)
   })
 })
 
-describe('/healthz stays public', () => {
-  it('no auth required', async () => {
+describe('/healthz остаётся публичным', () => {
+  it('авторизация не требуется', async () => {
     const app = createApp()
     const res = await app.request('/healthz')
     expect(res.status).toBe(200)

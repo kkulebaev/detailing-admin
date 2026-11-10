@@ -1,8 +1,8 @@
 import { computed, ref } from 'vue'
 
-// reka-ui Pagination speaks 1-based page numbers; the list queries are
-// offset-based. This bridges the two so the list pages share one paging
-// contract (the "N–M из total" range is derived in TablePagination).
+// Pagination из reka-ui работает с номерами страниц от 1, а запросы списков —
+// со смещением. Этот мост даёт страницам списков один общий контракт пагинации
+// (диапазон «N–M из total» вычисляется в TablePagination).
 export function useOffsetPagination(limit = 50) {
   const offset = ref(0)
 

@@ -38,35 +38,36 @@ import { Textarea } from '@/components/ui/textarea'
 
 const props = defineProps<{
   open: boolean
-  // When set the dialog edits that record; otherwise it creates a new one.
+  // Если задан, диалог редактирует эту запись; иначе создаёт новую.
   editing: WorkHours | null
-  // Target master. Fixed when adding from a row or editing (edit never re-assigns
-  // the master or re-snapshots its rate). Null in the "add from the toolbar" flow,
-  // where the master is picked from `masters` below.
+  // Целевой мастер. Фиксирован при добавлении из строки и при редактировании
+  // (редактирование не меняет мастера и не перефиксирует ставку). Null в сценарии
+  // «добавить из тулбара», где мастер выбирается из `masters` ниже.
   masterId: number | null
   masterName: string
-  // Selectable masters for the toolbar flow — only those with a rate set, since
-  // hours can't be logged without one. Ignored when masterId is fixed.
+  // Мастера для выбора в сценарии тулбара — только со ставкой, ведь без неё
+  // часы не внести. Игнорируется, когда masterId фиксирован.
   masters?: { id: number; name: string }[]
-  // «Мои часы»: the employee's own hours. The server picks the master from the
-  // session, and the calendar is limited to the inclusive ISO edit window.
+  // «Мои часы»: собственные часы сотрудника. Сервер берёт мастера из сессии,
+  // а календарь ограничен окном правки (ISO, границы включительно).
   self?: { editableFrom: string; editableTo: string }
 }>()
 
 const emit = defineEmits<{
   (e: 'update:open', v: boolean): void
-  // Carries the master the row landed on — taken from the server's response,
-  // not from the prop, because the toolbar flow picks the master in-dialog.
+  // Несёт мастера, к которому попала запись, — из ответа сервера, а не из prop,
+  // потому что в сценарии тулбара мастер выбирается в самом диалоге.
   (e: 'saved', masterId: number): void
 }>()
 
 const isEdit = computed(() => props.editing !== null)
-// Toolbar flow: no fixed master → show a picker. Edit and row-add keep it fixed.
+// Сценарий тулбара: мастер не задан → показываем выбор. Редактирование
+// и добавление из строки его фиксируют.
 const pickMaster = computed(() => !props.self && !isEdit.value && props.masterId == null)
 const selectedMasterId = ref<number | null>(null)
 const effectiveMasterId = computed(() => props.masterId ?? selectedMasterId.value)
 
-// shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
+// shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dateCal = shallowRef<DateValue | undefined>(undefined)
 const dateOpen = ref(false)
 const hours = ref('')
@@ -123,9 +124,9 @@ async function submit() {
   fieldErrors.value = {}
   error.value = null
 
-  // Picked from a calendar, never typed — an empty field means "not picked yet",
-  // so answer that instead of letting the schema complain about a ГГГГ-ММ-ДД
-  // format the user never enters (the trigger shows ДД.ММ.ГГГГ).
+  // Дата выбирается в календаре, а не вводится — пустое поле значит «ещё не выбрана»,
+  // поэтому отвечаем так, а не даём схеме жаловаться на формат ГГГГ-ММ-ДД,
+  // который пользователь никогда не вводит (триггер показывает ДД.ММ.ГГГГ).
   if (!dateCal.value) {
     fieldErrors.value = { workDate: 'Укажите дату' }
     return
@@ -228,7 +229,7 @@ function handleResult(
     return
   }
   if (result.error === 'validation') {
-    // POST /hours surfaces the "no rate set" precondition as a reason literal.
+    // POST /hours сообщает о невыполненном условии «ставка не задана» литералом reason.
     if ('reason' in result) {
       if (result.reason === 'no_rate') {
         error.value = props.self

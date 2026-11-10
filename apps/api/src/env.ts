@@ -7,25 +7,25 @@ const envSchema = z
     SHEET_NAME: z.string().min(1).default('Запись 2026'),
     GOOGLE_SERVICE_ACCOUNT_JSON_B64: z.string().min(1),
     DATABASE_URL: z.string().min(1),
-    // Bot token for master booking notifications. Required — a missing token
-    // trips env validation at boot (same class as SPREADSHEET_ID).
+    // Токен бота для уведомлений мастеров о записях. Обязателен — без токена
+    // валидация env падает при старте (так же, как с SPREADSHEET_ID).
     TELEGRAM_BOT_TOKEN: z.string().min(1),
-    // HS256 signing key for auth JWTs. Required (fail-closed): an empty/short
-    // secret would let anyone forge a session, so boot must abort rather than
-    // start an app that trusts unsigned tokens.
+    // Ключ подписи HS256 для JWT авторизации. Обязателен (fail-closed): с пустым или
+    // коротким секретом кто угодно подделает сессию, поэтому старт должен прерваться,
+    // а не запустить приложение, доверяющее неподписанным токенам.
     JWT_SECRET: z.string().min(32),
-    // Cookie hardening — driven by deploy topology (see auth plan §3-bis).
-    // Local dev is http + same-origin, so both default to the permissive setting.
-    // Explicit string→boolean map: z.coerce.boolean() treats the literal "false"
-    // as truthy, which would silently force Secure cookies in local http dev.
+    // Усиление cookie — зависит от топологии деплоя (см. план авторизации, §3-bis).
+    // Локальная разработка — http + same-origin, поэтому оба по умолчанию мягкие.
+    // Явное отображение string→boolean: z.coerce.boolean() считает литерал "false"
+    // истинным, что молча включило бы Secure cookie в локальной http-разработке.
     AUTH_COOKIE_SECURE: z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
     AUTH_COOKIE_SAMESITE: z.enum(['lax', 'none']).default('lax'),
     AUTH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
-    // "Запомнить меня" session lifetime (default 30 days). Selected at login when
-    // the box is ticked; drives both the JWT exp and the cookie maxAge.
+    // Время жизни сессии «Запомнить меня» (по умолчанию 30 дней). Выбирается при входе,
+    // если отмечена галочка; определяет и exp у JWT, и maxAge у cookie.
     AUTH_REMEMBER_TTL_SECONDS: z.coerce.number().int().positive().default(2592000),
     WEB_ORIGIN: z.string().min(1).default('http://localhost:5173'),
     LOG_LEVEL: z
@@ -33,8 +33,8 @@ const envSchema = z
       .default('info'),
   })
   .superRefine((v, ctx) => {
-    // SameSite=None cookies are dropped by browsers unless Secure — a
-    // none+insecure combination would silently kill every session.
+    // Cookie с SameSite=None браузеры отбрасывают, если нет Secure, — сочетание
+    // none+insecure молча убило бы все сессии.
     if (v.AUTH_COOKIE_SAMESITE === 'none' && !v.AUTH_COOKIE_SECURE) {
       ctx.addIssue({
         code: 'custom',
@@ -51,7 +51,7 @@ export function parseEnv(raw: Record<string, string | undefined> = process.env):
   if (!result.success) {
     const lines = result.error.issues.map((issue) => {
       const path = issue.path.join('.')
-      // Never expose raw secret values in error output
+      // Никогда не выводим сырые значения секретов в ошибках
       if (
         path === 'GOOGLE_SERVICE_ACCOUNT_JSON_B64' ||
         path === 'DATABASE_URL' ||

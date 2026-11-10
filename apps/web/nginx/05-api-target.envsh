@@ -1,10 +1,10 @@
 #!/bin/sh
-# Fails the deploy loudly: without a target every /api call would 502 at runtime,
-# which has already happened once with a silent fallback.
+# Громко валит деплой: без цели каждый вызов /api в рантайме отдавал бы 502,
+# что уже однажды случилось с тихим запасным вариантом.
 if [ -z "${VITE_API_PROXY_TARGET:-}" ]; then
   echo "VITE_API_PROXY_TARGET is required: point it at the API service's internal URL" >&2
   exit 1
 fi
-# With a variable in proxy_pass, any path in the value replaces the request's own,
-# so a trailing slash would send every API call to the API's root.
+# С переменной в proxy_pass любой путь в значении заменяет путь самого запроса,
+# поэтому завершающий слеш отправлял бы каждый вызов API в корень API.
 export VITE_API_PROXY_TARGET="${VITE_API_PROXY_TARGET%/}"

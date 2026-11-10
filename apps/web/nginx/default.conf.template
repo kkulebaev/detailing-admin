@@ -9,9 +9,9 @@ server {
     gzip_min_length 1024;
     gzip_types text/css application/javascript image/svg+xml;
 
-    # Resolving per request through a variable rather than once at startup: a
-    # redeployed API gets a new private IP, and an API that is down at boot would
-    # otherwise stop nginx from starting at all.
+    # Резолвим на каждый запрос через переменную, а не один раз при старте:
+    # передеплоенный API получает новый приватный IP, а API, лежащий при загрузке,
+    # иначе вообще не дал бы nginx стартовать.
     resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
 
     location /api/ {
@@ -19,15 +19,16 @@ server {
         proxy_pass $api_upstream;
     }
 
-    # Hashed filenames never change content. No SPA fallback here: a stale tab asking
-    # for a chunk from the previous deploy must get a 404, not index.html as JavaScript.
+    # Содержимое файлов с хешем в имени никогда не меняется. SPA-fallback здесь нет:
+    # устаревшая вкладка, запросившая чанк прошлого деплоя, должна получить 404,
+    # а не index.html в роли JavaScript.
     location /assets/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
         try_files $uri =404;
     }
 
     location / {
-        # Must revalidate, or a browser keeps pointing at chunks of an old deploy.
+        # Обязательна перепроверка, иначе браузер продолжит ссылаться на чанки старого деплоя.
         add_header Cache-Control "no-cache";
         try_files $uri /index.html;
     }

@@ -40,7 +40,7 @@ import type { PayoutRow, WorkHoursRow } from '../db/schema.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
-// Numeric path param — same pin-then-convert trick as the other routes.
+// Числовой path-параметр — тот же приём «формат, затем преобразование», что и в других маршрутах.
 const idParamSchema = z.object({
   id: z
     .string()
@@ -80,9 +80,9 @@ function unavailable(c: Context) {
   )
 }
 
-// not_found → 404, anything else → 500. The domain-specific conflicts
-// (no_rate on POST /hours, master_not_found on PATCH /rates) pin their own
-// status per route and are handled inline at each call site.
+// not_found → 404, всё остальное → 500. Доменные конфликты
+// (no_rate в POST /hours, master_not_found в PATCH /rates) задают свой статус
+// в каждом маршруте и обрабатываются прямо на месте вызова.
 function salaryErrorFallback(c: Context, err: unknown) {
   if (err instanceof SalaryError && err.code === 'not_found') {
     return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
@@ -97,9 +97,9 @@ function salaryErrorFallback(c: Context, err: unknown) {
   )
 }
 
-// not_found → 404; anything else is unexpected → 500. Separate from
-// salaryErrorFallback so the payout events carry payout_id and their own tag.
-// The amount and the note are never logged.
+// not_found → 404; всё остальное неожиданно → 500. Отдельно от
+// salaryErrorFallback, чтобы события выплат несли payout_id и собственный тег.
+// Сумма и примечание никогда не логируются.
 function payoutErrorFallback(
   c: Context,
   err: unknown,
@@ -126,13 +126,13 @@ function payoutErrorFallback(
   )
 }
 
-// createdAt is a Date off Drizzle; serialize to an ISO string for the wire
-// (workDate is already a YYYY-MM-DD string).
+// createdAt приходит из Drizzle как Date; для ответа сериализуем в ISO-строку
+// (workDate уже строка YYYY-MM-DD).
 function toWire(row: WorkHoursRow) {
   return { ...row, createdAt: row.createdAt.toISOString() }
 }
 
-// Same serialization for the payouts half of the feed (payoutDate is a string).
+// Та же сериализация для выплат в ленте (payoutDate — строка).
 function payoutToWire(row: PayoutRow) {
   return { ...row, createdAt: row.createdAt.toISOString() }
 }
@@ -174,7 +174,7 @@ const listSalariesRoute = createRoute({
   },
 })
 
-// Declared before /hours/{id} etc.; distinct static path so no capture clash.
+// Объявлен до /hours/{id} и т. п.; отдельный статический путь, так что перехвата не будет.
 const setRateRoute = createRoute({
   method: 'patch',
   path: '/rates',
@@ -189,8 +189,8 @@ const setRateRoute = createRoute({
   },
 })
 
-// One feed per master/month: hours and payouts already merged and sorted, so an
-// expanded row costs a single request and has a single loading state.
+// Одна лента на мастера/месяц: часы и выплаты уже объединены и отсортированы, поэтому
+// раскрытая строка стоит одного запроса и имеет одно состояние загрузки.
 const listEntriesRoute = createRoute({
   method: 'get',
   path: '/entries',
@@ -217,9 +217,9 @@ const createWorkHoursRoute = createRoute({
       description: 'Work hours added',
       content: { 'application/json': { schema: workHoursMutationOk } },
     },
-    // The handler's own 400 is the no_rate precondition. A zod body-validation
-    // failure also yields 400 (via defaultHook) with the validation shape — same
-    // status/one-schema convention as masters' reorder (invalid_order).
+    // Собственный 400 обработчика — это предусловие no_rate. Ошибка zod-валидации тела
+    // тоже даёт 400 (через defaultHook) в форме validation — то же соглашение
+    // «один статус / одна схема», что в reorder у masters (invalid_order).
     400: respNoRate,
     500: respInternal,
     503: respDbUnavailable,
@@ -263,8 +263,8 @@ const deleteWorkHoursRoute = createRoute({
   },
 })
 
-// 404 here means the master is unknown — a payout needs no rate, so there is no
-// no_rate precondition to declare (unlike POST /hours).
+// 404 здесь означает неизвестного мастера — выплате ставка не нужна, поэтому
+// предусловия no_rate нет (в отличие от POST /hours).
 const createPayoutRoute = createRoute({
   method: 'post',
   path: '/payouts',
@@ -433,9 +433,9 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       )
       return c.json({ ok: true as const, hours: toWire(row) }, StatusCodes.CREATED)
     } catch (err) {
-      // create's only domain error is no_rate (400). Handled inline rather than
-      // via salaryErrorFallback, which would widen the union with a 404 this
-      // route never emits nor declares.
+      // Единственная доменная ошибка create — no_rate (400). Обрабатывается на месте, а не
+      // через salaryErrorFallback, который расширил бы union кодом 404, который этот
+      // маршрут не отдаёт и не объявляет.
       if (err instanceof SalaryError && err.code === 'no_rate') {
         return c.json(
           { ok: false as const, error: 'validation' as const, reason: 'no_rate' as const },
@@ -460,8 +460,8 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
-    // hours (0.25 steps) → minutes on the way in; the rate snapshot is never
-    // touched on edit.
+    // На входе часы (шаг 0.25) → минуты; снимок ставки при правке
+    // никогда не трогается.
     const patch: WorkHoursPatch = {}
     if (body.workDate !== undefined) patch.workDate = body.workDate
     if (body.hours !== undefined) patch.minutes = hoursToMinutes(body.hours)
@@ -517,8 +517,8 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       )
       return c.json({ ok: true as const, payout: payoutToWire(row) }, StatusCodes.CREATED)
     } catch (err) {
-      // create's only domain error is master_not_found (404); the row does not
-      // exist yet, so there is no payout_id to tag the failure with.
+      // Единственная доменная ошибка create — master_not_found (404); строки ещё
+      // нет, поэтому пометить сбой payout_id нечем.
       if (err instanceof SalaryError && err.code === 'master_not_found') {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
@@ -546,7 +546,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
-    // The master is never re-assigned on edit — only day/amount/note change.
+    // При правке мастер никогда не меняется — меняются только день, сумма и примечание.
     const patch: PayoutPatch = {}
     if (body.payoutDate !== undefined) patch.payoutDate = body.payoutDate
     if (body.amount !== undefined) patch.amount = body.amount

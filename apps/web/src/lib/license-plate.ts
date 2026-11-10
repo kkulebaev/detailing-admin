@@ -1,6 +1,6 @@
-// Russian plate: 1 letter + 3 digits + 2 letters + 2–3 digits (region).
-// Only letters shared with Latin glyphs are legal; Latin look-alikes are
-// transliterated so a keyboard layout slip doesn't block typing.
+// Российский номер: 1 буква + 3 цифры + 2 буквы + 2–3 цифры (регион).
+// Допустимы только буквы, совпадающие по начертанию с латиницей; латинские двойники
+// транслитерируются, чтобы ошибка раскладки не мешала вводу.
 export const PLATE_LETTERS = new Set(['А', 'В', 'Е', 'К', 'М', 'Н', 'О', 'Р', 'С', 'Т', 'У', 'Х'])
 
 const LATIN_TO_CYRILLIC: Record<string, string> = {

@@ -74,8 +74,8 @@ export function setMasterRate(payload: RatePayload): Promise<RateMutationResult>
   return unwrap<RateMutationResult>(() => patchApiSalariesRates(payload))
 }
 
-// One request per master: hours and payouts come back already merged into a
-// single chronological feed, so the detail view never merges anything itself.
+// Один запрос на мастера: часы и выплаты приходят уже слитыми в
+// единую хронологическую ленту, так что детальный вид сам ничего не сливает.
 export function fetchSalaryEntries(
   masterId: number,
   month: string,

@@ -16,11 +16,11 @@ export const EXPECTED_HEADERS = Object.freeze([
 ] as const)
 
 export function bookingToRow(b: Booking): (string | number)[] {
-  // Cell A: single-day → bare dateFrom; multi-day → apostrophe-prefixed range
-  // including end time if provided (TEXT coercion under USER_ENTERED).
-  //   single: "04.06.2026"
-  //   range without end time: "'04.06.2026-05.06.2026"
-  //   range with end time:    "'04.06.2026 10:00-05.06.2026 18:00"
+  // Ячейка A: один день → голый dateFrom; несколько дней → диапазон с апострофом
+  // в начале, со временем окончания, если оно задано (приведение к TEXT под USER_ENTERED).
+  //   один день: "04.06.2026"
+  //   диапазон без времени конца: "'04.06.2026-05.06.2026"
+  //   диапазон со временем конца: "'04.06.2026 10:00-05.06.2026 18:00"
   let cellA: string
   if (b.dateTo === undefined) {
     cellA = b.dateFrom
@@ -30,28 +30,28 @@ export function bookingToRow(b: Booking): (string | number)[] {
     cellA = `'${startPart}-${endPart}`
   }
 
-  // Cell D: «Номер» carries a strict validation rule
+  // Ячейка D: на «Номер» стоит строгое правило проверки
   //   =REGEXMATCH(TO_TEXT(D); "^8\d{10}$")
-  // so the phone must be the domestic 8XXXXXXXXXX form (11 digits, leading 8),
-  // not the canonical +7XXXXXXXXXX. Convert it and force TEXT with a leading
-  // apostrophe (a marker — consumed, not shown) so it lands as a string the
-  // rule accepts, e.g. «89991234567».
+  // поэтому телефон должен быть во внутрироссийском виде 8XXXXXXXXXX (11 цифр, в начале 8),
+  // а не в каноническом +7XXXXXXXXXX. Переводим его и форсируем TEXT ведущим
+  // апострофом (это маркер — он поглощается, а не отображается), чтобы значение
+  // легло строкой, которую правило принимает, напр. «89991234567».
   const phoneCell = b.phone ? `'${b.phone.replace(/^\+7/, '8')}` : ''
 
   return [
     cellA, // A — Дата
-    b.time, // B — Время (start)
+    b.time, // B — Время (начало)
     b.name, // C — Имя
     phoneCell, // D — Номер
     joinCar(b.car, b.plate), // E — Машина (марка/модель + гос. номер)
     b.service, // F — Услуга
     b.note, // G — Примечание
-    // H — Сумма, ₽: an arithmetic formula (evaluated by Sheets under
-    // USER_ENTERED) when the client supplied one, else the bare number.
+    // H — Сумма, ₽: арифметическая формула (Sheets вычисляет её под
+    // USER_ENTERED), если клиент её прислал, иначе голое число.
     b.amountFormula ?? b.amount,
 
-    b.readiness, // I — Готовность (always string post-parse; '' when blank)
+    b.readiness, // I — Готовность (после парсинга всегда строка; '' если пусто)
     b.master.join(', '), // J — Мастер (N мастеров через «, »)
-    b.responsible, // K — Ответственный (always string post-parse; '' when blank)
+    b.responsible, // K — Ответственный (после парсинга всегда строка; '' если пусто)
   ]
 }

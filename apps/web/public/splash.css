@@ -1,13 +1,14 @@
-/* Boot splash styles. Loaded render-blocking from <head> (see index.html) so the
-   splash markup is styled from the first frame — before the app bundle and
-   globals.css load. Kept out of the app's CSS graph on purpose: it must apply
-   before Vue mounts, which is exactly when the imported globals.css is not there
-   yet. Colours mirror the light-theme tokens in globals.css (the app never
-   toggles a dark class). */
+/* Стили заставки загрузки. Подключаются из <head> с блокировкой рендера (см. index.html),
+   чтобы разметка заставки была стилизована с первого кадра — до загрузки бандла
+   приложения и globals.css. Намеренно вынесены из CSS-графа приложения: они должны
+   применяться до монтирования Vue, то есть ровно тогда, когда импортируемого globals.css
+   ещё нет. Цвета повторяют токены светлой темы из globals.css (приложение никогда не
+   включает класс dark). */
 
-/* Reserve the scrollbar gutter and drop the default body margin from the first
-   frame, so the splash occupies the same box the mounted pages do: no extra
-   scrollbar from `100vh + body margin`, and no horizontal jump on mount. */
+/* С первого кадра резервируем место под полосу прокрутки и убираем стандартный margin
+   у body, чтобы заставка занимала ту же область, что и смонтированные страницы: без
+   лишней полосы прокрутки от `100vh + body margin` и без горизонтального скачка
+   при монтировании. */
 html {
   scrollbar-gutter: stable;
 }

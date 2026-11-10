@@ -14,8 +14,8 @@ function cookieOptions(maxAgeSeconds: number) {
     secure: env.AUTH_COOKIE_SECURE,
     sameSite: sameSite(),
     path: '/',
-    // Must match the token's exp so the browser drops the cookie exactly when
-    // the JWT expires — the caller derives both from ttlForRemember().
+    // Должно совпадать с exp токена, чтобы браузер выбросил cookie ровно тогда,
+    // когда истекает JWT, — вызывающий код выводит оба значения из ttlForRemember().
     maxAge: maxAgeSeconds,
   }
 }
@@ -25,8 +25,8 @@ export function setAuthCookie(c: Context, token: string, maxAgeSeconds: number):
 }
 
 export function clearAuthCookie(c: Context): void {
-  // Mirror secure/sameSite from set: under a SameSite=None deploy the browser
-  // only honours the deletion if its attributes match the original cookie.
+  // Повторяем secure/sameSite из set: при деплое с SameSite=None браузер
+  // выполняет удаление, только если атрибуты совпадают с исходной cookie.
   deleteCookie(c, AUTH_COOKIE_NAME, {
     path: '/',
     secure: env.AUTH_COOKIE_SECURE,

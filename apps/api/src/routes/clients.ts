@@ -70,9 +70,9 @@ const listOkResponse = z.object({
 const mutationOkResponse = z.object({ ok: z.literal(true), client: clientSchema })
 const deleteOkResponse = z.object({ ok: z.literal(true) })
 
-// The DB row carries `createdAt` as a Date; the wire schema is an ISO string.
-// `cars` defaults to [] but every path passes an explicit set: the list path
-// the grouped fetch, create/update the reconciled set echoed by the db layer.
+// В строке БД `createdAt` — Date, а в wire-схеме — ISO-строка.
+// `cars` по умолчанию [], но каждый путь передаёт явный набор: список — результат
+// сгруппированной выборки, create/update — согласованный набор, возвращённый слоем БД.
 function toWireClient(
   row: { id: string; phone: string; name: string; createdAt: Date },
   cars: Car[] = [],
@@ -98,9 +98,9 @@ function unavailable(c: Context) {
   )
 }
 
-// not_found → 404, anything else → 500. Conflict is handled at each call site
-// because its `reason` literal differs per route (duplicate_phone for
-// create/update, has_bookings for delete) and each route pins a single literal.
+// not_found → 404, всё остальное → 500. Conflict обрабатывается на каждом месте вызова,
+// потому что литерал `reason` у маршрутов разный (duplicate_phone для
+// create/update, has_bookings для delete) и каждый маршрут фиксирует один литерал.
 function clientErrorFallback(c: Context, err: unknown) {
   if (err instanceof ClientError && err.code === 'not_found') {
     return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
@@ -115,7 +115,7 @@ function clientErrorFallback(c: Context, err: unknown) {
   )
 }
 
-// Boilerplate shrunk via these response-shape constants.
+// Эти константы форм ответов сокращают шаблонный код.
 const respValidation = {
   description: 'Validation error',
   content: { 'application/json': { schema: validationErrorSchema } },
@@ -141,8 +141,8 @@ const respConflictHasBookings = {
   content: { 'application/json': { schema: conflictHasBookingsSchema } },
 }
 
-// Hard cap on the history a card returns; one client's mirror is small in
-// practice, so this only guards against an anomaly. Fetch cap+1 to flag truncation.
+// Жёсткий лимит истории, которую возвращает карточка; на практике у одного клиента
+// записей немного, так что это лишь защита от аномалии. Берём cap+1, чтобы отметить усечение.
 const CLIENT_HISTORY_CAP = 500
 
 const lookupClientRoute = createRoute({
@@ -207,8 +207,8 @@ const createClientRoute = createRoute({
       content: { 'application/json': { schema: mutationOkResponse } },
     },
     400: respValidation,
-    // `clientErrorResponse` can technically surface 404 for any `ClientError`;
-    // create paths never throw not_found in practice but TS can't prove that.
+    // `clientErrorResponse` формально может вернуть 404 для любой `ClientError`;
+    // на практике пути create никогда не бросают not_found, но TS этого не докажет.
     404: respNotFound,
     409: respConflictDuplicatePhone,
     500: respInternal,
@@ -249,8 +249,8 @@ const deleteClientRoute = createRoute({
     },
     400: respValidation,
     404: respNotFound,
-    // `deleteClient` throws `has_bookings` when a booking FK still references
-    // the client; `clientErrorResponse` maps it to this 409 variant.
+    // `deleteClient` бросает `has_bookings`, когда на клиента ещё ссылается FK записи;
+    // `clientErrorResponse` превращает это в данный вариант 409.
     409: respConflictHasBookings,
     500: respInternal,
     503: respDbUnavailable,
@@ -259,11 +259,11 @@ const deleteClientRoute = createRoute({
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
-// Register /export and /lookup BEFORE the /{id} route below: Hono runs every matching
-// handler in registration order, and GET /{id}'s UUID param validation would
-// otherwise reject them with a 400 before these handlers ran. A separate
-// statement (not spliced into the .openapi() chain) keeps the OpenAPIHono type
-// intact for the chained links.
+// /export и /lookup регистрируются ДО маршрута /{id} ниже: Hono запускает все подходящие
+// обработчики в порядке регистрации, и валидация UUID-параметра в GET /{id} иначе
+// отклонила бы их с 400 раньше, чем сработают эти обработчики. Отдельный оператор
+// (не вставленный в цепочку .openapi()) сохраняет тип OpenAPIHono
+// для звеньев цепочки.
 router.get('/export', clientsExportHandler)
 
 router.openapi(lookupClientRoute, async (c) => {
@@ -282,7 +282,7 @@ router.openapi(lookupClientRoute, async (c) => {
       getClientStats(client.id),
       listBookingsByClientId(client.id, CLIENT_HISTORY_CAP),
     ])
-    // The query over-fetches by one to flag truncation for the card.
+    // Запрос берёт на одну строку больше, чтобы отметить усечение для карточки.
     const history = historyRows.slice(0, CLIENT_HISTORY_CAP)
     const isAdmin = c.get('user')?.role === 'admin'
     return c.json(
@@ -331,8 +331,8 @@ router
       if (!client) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      // One client's card: cars, lifetime «Выдана» stats, and the capped history
-      // (all statuses) in parallel — no N+1 across the three reads.
+      // Карточка одного клиента: машины, статистика «Выдана» за всё время и ограниченная
+      // история (все статусы) параллельно — без N+1 на трёх чтениях.
       const [cars, stats, historyRows] = await Promise.all([
         listCarsByClient(id),
         getClientStats(id),
@@ -393,8 +393,8 @@ router
         sort: query.sort,
         dir: query.dir,
       })
-      // Embed each client's cars in one grouped query (≤ page size ids) to
-      // avoid N+1; a client with no cars gets [].
+      // Машины каждого клиента подтягиваются одним сгруппированным запросом (≤ размера
+      // страницы id), чтобы избежать N+1; клиент без машин получает [].
       const carsByClient = await listCarsByClientIds(rows.map((r) => r.id))
       baseLogger.info(
         { event: 'clients.list', request_id: requestId, count: rows.length, total, status: 200 },
@@ -503,11 +503,11 @@ router
     }
   })
 
-// CSV export of the current filtered selection. Plain handler (not `.openapi()`):
-// CSV is not JSON → deliberately out of `/openapi.json` and the orval client. The
-// `/api/clients/*` admin guard already covers this subpath. Registered above the
-// `/{id}` route (see there) so it isn't shadowed. No OpenAPI query validation on a
-// plain route → the list query is parsed by hand (400 on a bad filter).
+// CSV-экспорт текущей отфильтрованной выборки. Обычный обработчик (не `.openapi()`):
+// CSV — не JSON → намеренно вне `/openapi.json` и orval-клиента. Админский guard
+// `/api/clients/*` уже покрывает этот подпуть. Регистрируется выше маршрута `/{id}`
+// (см. там), чтобы тот его не перекрыл. У обычного маршрута нет OpenAPI-валидации query →
+// query списка разбирается вручную (400 при плохом фильтре).
 async function clientsExportHandler(c: Context) {
   const requestId = uuidv4()
   c.header('X-Request-Id', requestId)
@@ -541,7 +541,7 @@ async function clientsExportHandler(c: Context) {
     const carsByClient = await listCarsByClientIds(items.map((r) => r.id))
     const header = ['Имя', 'Телефон', 'Добавлен', 'Машины']
     const rows = items.map((r) => {
-      // Multiple cars are joined with ` / `; each car itself is «make, plate».
+      // Несколько машин соединяются через ` / `; каждая машина — «марка, госномер».
       const cars = (carsByClient.get(r.id) ?? [])
         .map((car) => joinCar(car.makeModel, car.plate))
         .join(' / ')

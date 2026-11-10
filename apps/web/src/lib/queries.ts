@@ -14,8 +14,8 @@ import { fetchMySalary } from './me-api'
 import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 
-// Query keys live next to the composables so callers never have to know the
-// concrete string — they just call `useInvalidate*()` after a mutation.
+// Ключи запросов лежат рядом с composables, чтобы вызывающему коду не нужно было знать
+// конкретную строку — после мутации он просто вызывает `useInvalidate*()`.
 export const CLIENTS_KEY = ['clients'] as const
 export const PRICELIST_KEY = ['pricelist'] as const
 export const MASTERS_KEY = ['masters'] as const
@@ -26,10 +26,10 @@ export const ANALYTICS_KEY = ['analytics'] as const
 export const ACCOUNTS_KEY = ['accounts'] as const
 export const MY_SALARY_KEY = ['my-salary'] as const
 
-// Reactive key so changing the search term, sort, or paging refetches
-// automatically. `params` is a ref the page recomputes from its filter state;
-// placeholderData keeps the previous page's rows on screen while the next
-// request is in flight (no loading flash).
+// Реактивный ключ, чтобы смена поискового запроса, сортировки или пагинации
+// автоматически вызывала перезапрос. `params` — ref, который страница пересчитывает из
+// состояния фильтров; placeholderData держит на экране строки предыдущей страницы, пока
+// следующий запрос в полёте (без мигания загрузки).
 export function useClientsQuery(params: Ref<GetApiClientsParams>) {
   return useQuery({
     key: () => [...CLIENTS_KEY, params.value],
@@ -45,28 +45,29 @@ export function usePricelistQuery() {
   })
 }
 
-// Client card detail. `id` is null while no client is selected (the Sheet is
-// closed) — the `enabled` guard keeps the query idle until the route carries an
-// id. The `'detail'` key segment leaves room to split the booking history into
-// its own paginated query later (follow-up) without moving this key.
+// Детали карточки клиента. `id` равен null, пока клиент не выбран (Sheet
+// закрыт), — guard `enabled` держит запрос в простое, пока в маршруте не появится
+// id. Сегмент ключа `'detail'` оставляет место, чтобы позже вынести историю записей в
+// отдельный запрос с пагинацией (доработка), не переставляя этот ключ.
 export function useClientDetailQuery(id: Ref<string | null>) {
   return useQuery({
     key: () => [...CLIENTS_KEY, 'detail', id.value ?? ''],
-    // enabled gates this on id != null, so the ?? '' fallback never runs.
+    // enabled включает запрос только при id != null, так что fallback ?? '' никогда не срабатывает.
     query: () => fetchClientDetail(id.value ?? ''),
     enabled: () => id.value != null,
   })
 }
 
-// Autofill lookup on the booking form: resolve a client from a full E.164
-// phone. `e164` is a computed on the form side (null while the typed phone is
-// incomplete) — the `enabled` guard keeps the query idle until it's a full
-// number, and colada dedups/caches by the phone key so repeated matches are
-// free.
+// Автозаполнение в форме записи: находит клиента по полному E.164-
+// телефону. `e164` — computed на стороне формы (null, пока введённый телефон
+// неполный); guard `enabled` держит запрос в простое, пока номер не станет
+// полным, а colada дедуплицирует/кэширует по ключу телефона, так что повторные совпадения
+// бесплатны.
 export function useClientLookupByPhoneQuery(e164: Ref<string | null>) {
   return useQuery<ClientLookupMatch | null>({
     key: () => [...CLIENTS_KEY, 'lookup', e164.value ?? ''],
-    // enabled gates this on e164 != null, so the ! assertion never runs on null.
+    // enabled включает запрос только при e164 != null, так что утверждение ! никогда
+    // не применяется к null.
     query: () => lookupClientByPhone(e164.value!),
     enabled: () => !!e164.value,
   })
@@ -94,8 +95,8 @@ export function useInvalidateMasters() {
   return () => cache.invalidateQueries({ key: MASTERS_KEY })
 }
 
-// `enabled` keeps the admin-only request from firing until the master dialog
-// opens; the Masters page itself needs no accounts.
+// `enabled` не даёт запросу, доступному только админу, уйти, пока не откроется диалог
+// мастера; самой странице мастеров аккаунты не нужны.
 export function useAccountsQuery(enabled: Ref<boolean>) {
   return useQuery({
     key: ACCOUNTS_KEY,
@@ -104,8 +105,8 @@ export function useAccountsQuery(enabled: Ref<boolean>) {
   })
 }
 
-// «Мои часы»: the signed-in account's own month. placeholderData keeps the
-// previous month on screen while the next one loads, as on the salaries page.
+// «Мои часы»: собственный месяц вошедшего аккаунта. placeholderData держит
+// предыдущий месяц на экране, пока грузится следующий, как на странице зарплат.
 export function useMySalaryQuery(month: Ref<string>) {
   return useQuery({
     key: () => [...MY_SALARY_KEY, month.value],
@@ -119,15 +120,15 @@ export function useInvalidateMySalary() {
   return () => cache.invalidateQueries({ key: MY_SALARY_KEY })
 }
 
-// Reactive key so changing filters (dates, master, readiness, search, paging)
-// refetches automatically. `params` is a ref the page recomputes from its
-// filter state.
+// Реактивный ключ, чтобы смена фильтров (даты, мастер, готовность, поиск, пагинация)
+// автоматически вызывала перезапрос. `params` — ref, который страница пересчитывает из
+// состояния фильтров.
 export function useBookingsQuery(params: Ref<GetApiBookingsParams>) {
   return useQuery({
     key: () => [...BOOKINGS_KEY, params.value],
     query: () => fetchBookings(params.value),
-    // Keep the previous page/filter's rows on screen while the next request is
-    // in flight, so fast refetches don't flash the loading skeleton.
+    // Держим на экране строки предыдущей страницы/фильтра, пока следующий запрос
+    // в полёте, чтобы быстрые перезапросы не мигали скелетоном загрузки.
     placeholderData: (previous) => previous,
   })
 }
@@ -137,9 +138,9 @@ export function useInvalidateBookings() {
   return () => cache.invalidateQueries({ key: BOOKINGS_KEY })
 }
 
-// Reactive key so switching months refetches automatically. `month` is the
-// page's selected `YYYY-MM`; placeholderData keeps the previous month's rows on
-// screen while the next request is in flight (no loading flash).
+// Реактивный ключ, чтобы переключение месяца автоматически вызывало перезапрос. `month` —
+// выбранный на странице `YYYY-MM`; placeholderData держит строки предыдущего месяца на
+// экране, пока следующий запрос в полёте (без мигания загрузки).
 export function useSalariesQuery(month: Ref<string>) {
   return useQuery({
     key: () => [...SALARIES_KEY, month.value],
@@ -153,13 +154,14 @@ export function useInvalidateSalaries() {
   return () => cache.invalidateQueries({ key: SALARIES_KEY })
 }
 
-// Per-master month detail: hours and payouts as one merged feed. `masterId` is
-// null while no master is selected — the `enabled` guard keeps the query idle
-// until one is.
+// Детали мастера за месяц: часы и выплаты одной слитой лентой. `masterId` равен
+// null, пока мастер не выбран, — guard `enabled` держит запрос в простое,
+// пока он не появится.
 export function useSalaryEntriesQuery(masterId: Ref<number | null>, month: Ref<string>) {
   return useQuery({
     key: () => [...SALARY_ENTRIES_KEY, masterId.value ?? 0, month.value],
-    // enabled gates this on masterId != null, so the ?? 0 fallback never runs.
+    // enabled включает запрос только при masterId != null, так что fallback ?? 0
+    // никогда не срабатывает.
     query: () => fetchSalaryEntries(masterId.value ?? 0, month.value),
     enabled: () => masterId.value != null,
   })
@@ -170,10 +172,10 @@ export function useInvalidateSalaryEntries() {
   return () => cache.invalidateQueries({ key: SALARY_ENTRIES_KEY })
 }
 
-// Reactive key so changing the period or granularity refetches automatically.
-// `params` is a ref the page recomputes from its filter state; placeholderData
-// keeps the previous period's numbers on screen while the next request is in
-// flight (no loading flash on every period/granularity change).
+// Реактивный ключ, чтобы смена периода или гранулярности автоматически вызывала перезапрос.
+// `params` — ref, который страница пересчитывает из состояния фильтров; placeholderData
+// держит на экране цифры предыдущего периода, пока следующий запрос в
+// полёте (без мигания загрузки при каждой смене периода/гранулярности).
 export function useAnalyticsOverviewQuery(params: Ref<GetApiAnalyticsOverviewParams>) {
   return useQuery({
     key: () => [...ANALYTICS_KEY, params.value],

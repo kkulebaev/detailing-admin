@@ -10,23 +10,23 @@ import { resolveMasterIds } from './masters.js'
 import { bookingMasters, bookings, masters, type Booking, type NewBooking } from './schema.js'
 import { baseLogger } from '../log.js'
 
-/** Per-write context the wire booking doesn't carry: the idempotency key, the
- * linked client (null for an empty phone), and the Sheets coordinates returned
- * by the append that just landed. */
+/** Контекст конкретной записи, которого нет в wire-booking: ключ идемпотентности,
+ * связанный клиент (null при пустом телефоне) и координаты в Sheets, которые вернул
+ * только что прошедший append. */
 export interface BookingWriteMeta {
   idempotencyKey: string
   clientId: string | null
-  // Derived id-link to the client's normalized car row, resolved in the route
-  // (where the car ingest already runs) so the insert doesn't re-upsert. Null
-  // when unresolved — the snapshot `car` string stays authoritative.
+  // Производная id-связь с нормализованной строкой машины клиента; определяется в маршруте
+  // (где уже идёт приём машины), чтобы insert не делал upsert повторно. null, если
+  // не определена, — главной остаётся строка-снимок `car`.
   carId: string | null
   sheetRow: number | null
   sheetRange: string | null
 }
 
-/** The booking's user-editable columns (everything except the internal
- * idempotency/client/sheet linkage). Shared by insert and update so both map the
- * wire booking the same way. */
+/** Редактируемые пользователем столбцы записи (всё, кроме внутренних связей
+ * идемпотентности/клиента/таблицы). Общие для insert и update, чтобы оба одинаково
+ * отображали wire-booking. */
 function mapEditableFields(b: WireBooking) {
   return {
     name: b.name,
@@ -36,9 +36,9 @@ function mapEditableFields(b: WireBooking) {
     car: joinCar(b.car, b.plate),
     service: b.service,
     note: b.note,
-    // `amount` is `'' | number` on the wire type — the schema's refine guarantees
-    // a number at runtime but doesn't narrow the static type. The '' branch is
-    // unreachable here (validation rejects it before the handler runs).
+    // В wire-типе `amount` — это `'' | number`: refine схемы гарантирует число в
+    // рантайме, но не сужает статический тип. Ветка '' здесь недостижима
+    // (валидация отклоняет её до запуска обработчика).
     amount: typeof b.amount === 'number' ? b.amount : 0,
     amountFormula: b.amountFormula ?? null,
     dateFrom: ddmmyyyyToIso(b.dateFrom),
@@ -68,11 +68,11 @@ export function bookingToDbRow(
   }
 }
 
-/** Junction rows for the masters that resolved to an id, deduped by id (two
- * distinct names can't share an id, but the snapshot may list a name twice —
- * the first occurrence wins the position). `position` is the name's index in the
- * snapshot array, so the read side can overlay a live name onto `master[i]`. An
- * unmatched name is skipped — the id-link is intentionally partial. */
+/** Строки связующей таблицы для мастеров, у которых нашёлся id, дедуплицированные по id
+ * (у двух разных имён не может быть общего id, но в снимке имя может встретиться дважды —
+ * позицию получает первое вхождение). `position` — индекс имени в массиве снимка, чтобы
+ * сторона чтения могла наложить актуальное имя на `master[i]`. Ненайденное имя
+ * пропускается — id-связь намеренно частичная. */
 function matchedMasterRows(
   bookingId: string,
   masterNames: string[],
@@ -90,15 +90,15 @@ function matchedMasterRows(
   return rows
 }
 
-/** Overlays live master names onto a page of mirror rows. The snapshot columns
- * (`master text[]`, `responsible`) stay the authoritative "as-written" record and
- * serve as the fallback; wherever an id-link exists, the master's *current* name
- * from `masters` wins — so renaming a master reflects across the whole history.
+/** Накладывает актуальные имена мастеров на страницу строк зеркала. Столбцы-снимки
+ * (`master text[]`, `responsible`) остаются главной записью «как записано» и служат
+ * запасным вариантом; где есть id-связь, побеждает *текущее* имя мастера из
+ * `masters` — так переименование мастера отражается во всей истории.
  *
- * Per row: `master[i]` becomes the live name if a junction row anchors `position
- * === i`, else the snapshot name (unmatched / deleted / legacy slot); the same
- * for `responsible` via `responsibleId`. Two batched queries for the whole page,
- * not per-row. */
+ * Для каждой строки: `master[i]` становится актуальным именем, если строка связующей
+ * таблицы закреплена за `position === i`, иначе — имя из снимка (ненайденный / удалённый /
+ * старый слот); то же для `responsible` через `responsibleId`. Два пакетных запроса на всю
+ * страницу, а не на каждую строку. */
 async function withLiveMasterNames(rows: Booking[]): Promise<Booking[]> {
   if (rows.length === 0) return rows
   const db = getDb()
@@ -142,11 +142,11 @@ async function withLiveMasterNames(rows: Booking[]): Promise<Booking[]> {
   })
 }
 
-/** Maps a stored `bookings` row to its wire shape. Drops all three internal
- * id-links (`idempotencyKey`, `responsibleId`, `carId` — never part of the wire
- * response) and serializes `createdAt`. `amount`/`amountFormula` are admin-only:
- * included only when `includeAmount` — a non-admin caller must pass `false` so the
- * money fields stay omitted (undefined) in the response. */
+/** Переводит сохранённую строку `bookings` в wire-форму. Отбрасывает все три внутренние
+ * id-связи (`idempotencyKey`, `responsibleId`, `carId` — в wire-ответ они никогда не входят)
+ * и сериализует `createdAt`. `amount`/`amountFormula` только для админа: включаются лишь
+ * при `includeAmount` — вызывающий не-админ обязан передать `false`, чтобы денежные
+ * поля в ответе отсутствовали (undefined). */
 export function toBookingRow(row: Booking, opts: { includeAmount: boolean }): BookingRow {
   const {
     idempotencyKey: _idempotencyKey,
@@ -164,9 +164,9 @@ export function toBookingRow(row: Booking, opts: { includeAmount: boolean }): Bo
   }
 }
 
-/** Full booking history for one client, newest first. Fetches `limit + 1` rows so
- * the caller can flag truncation without a second COUNT; `bookings_client_id_idx`
- * keeps it cheap. Live master names are overlaid as on every read path. */
+/** Полная история записей одного клиента, новые первыми. Берёт `limit + 1` строк, чтобы
+ * вызывающий мог отметить усечение без второго COUNT; `bookings_client_id_idx` делает
+ * это дёшево. Актуальные имена мастеров накладываются, как на любом пути чтения. */
 export async function listBookingsByClientId(clientId: string, limit: number): Promise<Booking[]> {
   const db = getDb()
   const rows = await db
@@ -178,13 +178,13 @@ export async function listBookingsByClientId(clientId: string, limit: number): P
   return withLiveMasterNames(rows)
 }
 
-/** Best-effort mirror insert. Idempotent on `idempotencyKey`: a duplicate key is
- * a no-op (returns false), never an error — a post-TTL client retry must not
- * create a second row. Resolves master/responsible names to ids: `responsible_id`
- * is written atomically with the row; the junction is a separate step that only
- * runs on a real insert (never on a conflict no-op), so a retry adds no links. A
- * junction failure propagates to the route's best-effort catch (the booking still
- * lands in Sheets and returns 201; the link is healed by the backfill). */
+/** Best-effort вставка в зеркало. Идемпотентна по `idempotencyKey`: дубль ключа —
+ * no-op (возвращает false), а не ошибка: повтор клиента после TTL не должен
+ * создать вторую строку. Переводит имена мастеров/ответственного в id: `responsible_id`
+ * пишется атомарно со строкой; связующая таблица — отдельный шаг, который выполняется
+ * только при реальной вставке (не при no-op из-за конфликта), так что повтор не добавляет
+ * связей. Сбой связующей таблицы уходит в best-effort catch маршрута (запись всё равно
+ * попадает в Sheets и возвращает 201; связь восстановит backfill). */
 export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Promise<boolean> {
   const db = getDb()
   const ids = await resolveMasterIds([...b.master, b.responsible])
@@ -203,13 +203,13 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
   return true
 }
 
-/** Update a booking's editable fields (and re-linked client + car). Leaves the
- * idempotency key and Sheets linkage untouched. Returns the updated row, or null
- * if no booking has that id. `car_id` (resolved read-only in the route) and
- * `responsible_id` are refreshed atomically with the
- * fields; the junction is rewritten (delete + re-insert) as a separate best-effort
- * step whose failure is swallowed — the PATCH still returns 200 (Sheets is the
- * source of truth; the id-link is derived and healed by the backfill). */
+/** Обновляет редактируемые поля записи (и заново связанных клиента + машину). Ключ
+ * идемпотентности и связь с Sheets не трогает. Возвращает обновлённую строку или null,
+ * если записи с таким id нет. `car_id` (определяется в маршруте только чтением) и
+ * `responsible_id` обновляются атомарно вместе
+ * с полями; связующая таблица переписывается (delete + повторный insert) отдельным
+ * best-effort шагом, сбой которого проглатывается — PATCH всё равно возвращает 200
+ * (Sheets — источник истины; id-связь производная и восстанавливается backfill'ом). */
 export async function updateBooking(
   id: string,
   b: WireBooking,
@@ -246,8 +246,8 @@ export async function updateBooking(
   return enriched
 }
 
-/** Update only a booking's readiness (the quick inline status change). Returns
- * the updated row, or null if no booking has that id. */
+/** Обновляет только готовность записи (быстрая смена статуса в строке). Возвращает
+ * обновлённую строку или null, если записи с таким id нет. */
 export async function updateBookingReadiness(
   id: string,
   readiness: Readiness | '',
@@ -259,7 +259,7 @@ export async function updateBookingReadiness(
   return enriched
 }
 
-/** Delete a booking by id. Returns false if no row matched. */
+/** Удаляет запись по id. Возвращает false, если строка не нашлась. */
 export async function deleteBooking(id: string): Promise<boolean> {
   const db = getDb()
   const res = await db.delete(bookings).where(eq(bookings.id, id)).returning({ id: bookings.id })
@@ -269,16 +269,16 @@ export async function deleteBooking(id: string): Promise<boolean> {
 export interface ListBookingsParams {
   limit: number
   offset: number
-  /** ISO `YYYY-MM-DD`; filters rows whose `dateFrom` is >= this. */
+  /** ISO `YYYY-MM-DD`; оставляет строки, у которых `dateFrom` >= этого значения. */
   dateFrom?: string
-  /** ISO `YYYY-MM-DD`; filters rows whose `dateFrom` is <= this. */
+  /** ISO `YYYY-MM-DD`; оставляет строки, у которых `dateFrom` <= этого значения. */
   dateTo?: string
   master?: string
   readiness?: Readiness
-  /** Free-text search across name/car/phone. A phone-looking term is normalized
-   * to E.164 before matching the stored (E.164) phone. */
+  /** Свободный поиск по имени/машине/телефону. Похожий на телефон запрос нормализуется
+   * в E.164 перед сравнением с сохранённым (E.164) телефоном. */
   q?: string
-  /** Direction for `dateFrom`; `createdAt` breaks ties in the same direction. */
+  /** Направление для `dateFrom`; ничьи разрешает `createdAt` в том же направлении. */
   sort?: 'asc' | 'desc'
 }
 
@@ -290,16 +290,16 @@ export async function listBookings(
   const conds = []
   if (p.dateFrom) conds.push(gte(bookings.dateFrom, p.dateFrom))
   if (p.dateTo) conds.push(lte(bookings.dateFrom, p.dateTo))
-  // Filter by the master's *current* name: resolve it to an id and match the
-  // junction, so records still surface after the master was renamed. Fall back
-  // to snapshot membership (`= ANY(master)`) for legacy rows that never got an
-  // id-link (and as the sole branch when the name resolves to no id).
-  // TODO: validate master/responsible against the live roster at write time
-  // (reject unknown names) so every booking always resolves to an id — then this
-  // `= ANY(master)` fallback and the per-slot snapshot fallback in
-  // withLiveMasterNames become dead and can be dropped for a pure id filter.
-  // Prereq: give the cancellation marker (currently "Отмена" stuffed into
-  // `responsible`) its own field/status first, or masters-only validation rejects it.
+  // Фильтруем по *текущему* имени мастера: переводим его в id и сверяем со связующей
+  // таблицей, чтобы записи находились и после переименования мастера. Для старых строк
+  // без id-связи откатываемся к проверке вхождения в снимок (`= ANY(master)`) (и это
+  // единственная ветка, когда имени не соответствует ни один id).
+  // TODO: проверять master/responsible по актуальному списку при записи
+  // (отклонять неизвестные имена), чтобы каждая запись всегда разрешалась в id, — тогда
+  // этот запасной `= ANY(master)` и запасной вариант по слотам снимка в
+  // withLiveMasterNames станут мёртвыми, и их можно будет убрать ради чистого фильтра по id.
+  // Предусловие: сначала дать маркеру отмены (сейчас это "Отмена", засунутая в
+  // `responsible`) своё поле/статус, иначе проверка только по мастерам его отклонит.
   if (p.master) {
     const masterId = (await resolveMasterIds([p.master])).get(p.master.trim())
     const snapshotMatch = sql`${p.master} = ANY(${bookings.master})`
@@ -317,15 +317,15 @@ export async function listBookings(
   const q = p.q?.trim()
   if (q) {
     const textLike = `%${q}%`
-    // The stored phone is E.164, but staff type `8XXX`; normalize so a phone
-    // search still matches. normalizePhone throws on non-phone input — fall back
-    // to raw text matching in that case.
+    // Телефон хранится в E.164, а сотрудники вводят `8XXX`; нормализуем, чтобы поиск
+    // по телефону всё равно находил. На не-телефоне normalizePhone бросает ошибку — тогда
+    // откатываемся к сравнению по сырому тексту.
     let phoneLike = textLike
     try {
       const normalized = normalizePhone(q)
       if (normalized) phoneLike = `%${normalized}%`
     } catch {
-      // Not a phone — keep the text pattern.
+      // Не телефон — оставляем текстовый шаблон.
     }
     conds.push(
       or(

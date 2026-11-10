@@ -1,8 +1,8 @@
-// Shared helpers for route tests that must clear the auth guards.
+// Общие хелперы для route-тестов, которым нужно пройти auth-гарды.
 //
-// The auth env fields below must also be present in each test file's
-// `vi.mock('../src/env.js')` factory (they can't be referenced from inside the
-// hoisted factory, so they're inlined there); this object documents the shape.
+// Поля auth-env ниже должны также присутствовать в фабрике `vi.mock('../src/env.js')`
+// каждого тестового файла (из поднятой фабрики на них нельзя сослаться, поэтому
+// там они продублированы); этот объект документирует их форму.
 import { signToken, type AuthTokenClaims } from '../src/auth/jwt.js'
 import { AUTH_COOKIE_NAME } from '../src/auth/cookie.js'
 

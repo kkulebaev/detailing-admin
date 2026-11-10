@@ -10,7 +10,7 @@ vi.mock('../src/db/masters.js', () => ({
 
 vi.mock('../src/telegram.js', () => ({
   sendTelegramMessage: vi.fn(),
-  // Real escaping so formatMasterNotification output is faithful.
+  // Настоящее экранирование, чтобы вывод formatMasterNotification был достоверным.
   escapeHtml: (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
 }))
 
@@ -53,7 +53,7 @@ const MASTER = {
 }
 
 describe('formatMasterNotification', () => {
-  it('renders a single-day booking with date, name, phone, car and service', () => {
+  it('выводит однодневную запись с датой, именем, телефоном, машиной и услугой', () => {
     const text = formatMasterNotification(BOOKING)
     expect(text).toContain('04.06.2026, 10:00')
     expect(text).toContain('Иван')
@@ -62,7 +62,7 @@ describe('formatMasterNotification', () => {
     expect(text).toContain('Полировка')
   })
 
-  it('renders a range with «начало — конец»', () => {
+  it('выводит диапазон в виде «начало — конец»', () => {
     const text = formatMasterNotification({
       ...BOOKING,
       dateTo: '06.06.2026',
@@ -71,7 +71,7 @@ describe('formatMasterNotification', () => {
     expect(text).toContain('04.06.2026 10:00 — 06.06.2026 18:00')
   })
 
-  it('escapes HTML-significant characters in user fields', () => {
+  it('экранирует значимые для HTML символы в пользовательских полях', () => {
     const text = formatMasterNotification({ ...BOOKING, name: 'A & <b>' } as unknown as Booking)
     expect(text).toContain('A &amp; &lt;b&gt;')
   })
@@ -84,39 +84,39 @@ describe('notifyMaster', () => {
     vi.mocked(sendTelegramMessage).mockResolvedValue({ ok: true })
   })
 
-  it('reports db_unavailable and never looks up the master when DB is down', async () => {
+  it('сообщает db_unavailable и не ищет мастера, если БД недоступна', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const result = await notifyMaster(BOOKING)
     expect(result).toEqual({ attempted: true, delivered: false, reason: 'db_unavailable' })
     expect(vi.mocked(findMasterByName)).not.toHaveBeenCalled()
   })
 
-  it('reports no_telegram_id when the master has no chat id', async () => {
+  it('сообщает no_telegram_id, если у мастера нет chat id', async () => {
     vi.mocked(findMasterByName).mockResolvedValue({ ...MASTER, telegramId: null })
     const result = await notifyMaster(BOOKING)
     expect(result).toEqual({ attempted: true, delivered: false, reason: 'no_telegram_id' })
     expect(vi.mocked(sendTelegramMessage)).not.toHaveBeenCalled()
   })
 
-  it('reports no_telegram_id when the master name is not found', async () => {
+  it('сообщает no_telegram_id, если имя мастера не найдено', async () => {
     vi.mocked(findMasterByName).mockResolvedValue(undefined)
     const result = await notifyMaster(BOOKING)
     expect(result.reason).toBe('no_telegram_id')
   })
 
-  it('reports lookup_failed when the master query throws', async () => {
+  it('сообщает lookup_failed, если запрос мастера бросает исключение', async () => {
     vi.mocked(findMasterByName).mockRejectedValue(new Error('db error'))
     const result = await notifyMaster(BOOKING)
     expect(result).toEqual({ attempted: true, delivered: false, reason: 'lookup_failed' })
   })
 
-  it('delivers to the resolved chat id', async () => {
+  it('доставляет в найденный chat id', async () => {
     const result = await notifyMaster(BOOKING)
     expect(result).toEqual({ attempted: true, delivered: true })
     expect(vi.mocked(sendTelegramMessage)).toHaveBeenCalledWith('55555', expect.any(String))
   })
 
-  it('propagates the send failure reason', async () => {
+  it('пробрасывает причину сбоя отправки', async () => {
     vi.mocked(sendTelegramMessage).mockResolvedValue({ ok: false, reason: 'timeout' })
     const result = await notifyMaster(BOOKING)
     expect(result).toEqual({ attempted: true, delivered: false, reason: 'timeout' })
@@ -124,7 +124,7 @@ describe('notifyMaster', () => {
 
   const MULTI = { ...BOOKING, master: ['Пётр', 'Иван'] } as unknown as Booking
 
-  it('sends to each distinct master chat and collapses to one delivered result', async () => {
+  it('отправляет в чат каждого мастера и сводит итог к одному delivered', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
       name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
@@ -135,15 +135,15 @@ describe('notifyMaster', () => {
     expect(vi.mocked(sendTelegramMessage)).toHaveBeenCalledWith('77777', expect.any(String))
   })
 
-  it('dedups masters sharing one chat id — sends once', async () => {
-    // Both masters resolve to the same telegram chat.
+  it('убирает дубли мастеров с общим chat id — отправляет один раз', async () => {
+    // Оба мастера указывают на один и тот же чат в Telegram.
     vi.mocked(findMasterByName).mockResolvedValue(MASTER)
     const result = await notifyMaster(MULTI)
     expect(result).toEqual({ attempted: true, delivered: true })
     expect(vi.mocked(sendTelegramMessage)).toHaveBeenCalledTimes(1)
   })
 
-  it('collapses to delivered when at least one master receives the message', async () => {
+  it('сводит итог к delivered, если сообщение получил хотя бы один мастер', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
       name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )
@@ -154,7 +154,7 @@ describe('notifyMaster', () => {
     expect(result).toEqual({ attempted: true, delivered: true })
   })
 
-  it('reports the first failure reason when every send fails', async () => {
+  it('сообщает причину первого сбоя, если все отправки неудачны', async () => {
     vi.mocked(findMasterByName).mockImplementation(async (name: string) =>
       name === 'Пётр' ? MASTER : { ...MASTER, id: 2, name: 'Иван', telegramId: '77777' },
     )

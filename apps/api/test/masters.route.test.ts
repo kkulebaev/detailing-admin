@@ -43,7 +43,7 @@ vi.mock('../src/db/clients.js', () => ({
   upsertClient: vi.fn(),
 }))
 
-// Real MasterError so the route's `err instanceof MasterError` mapper works.
+// Настоящий MasterError, чтобы в роуте работал маппинг `err instanceof MasterError`.
 vi.mock('../src/db/masters.js', () => {
   class MasterError extends Error {
     constructor(public readonly code: string) {
@@ -85,7 +85,7 @@ const master = (over: Partial<Record<string, unknown>> = {}) => ({
   ...over,
 })
 
-// Set in beforeEach — every request rides a valid admin session cookie.
+// Задаётся в beforeEach — каждый запрос идёт с валидной cookie сессии админа.
 let authCookie = ''
 
 function req(
@@ -95,8 +95,8 @@ function req(
   body?: unknown,
   cookie: string = authCookie,
 ): Response | Promise<Response> {
-  // The list/create routes mount at '/api/masters' exactly — a trailing slash
-  // (`/api/masters/`) 404s under Hono's strict matching.
+  // Роуты списка/создания смонтированы ровно на '/api/masters' — со слэшем на конце
+  // (`/api/masters/`) строгий матчинг Hono отдаёт 404.
   const suffix = path === '/' ? '' : path
   return app.request(`/api/masters${suffix}`, {
     method,
@@ -114,7 +114,7 @@ describe('/api/masters', () => {
     vi.mocked(isDbReady).mockReturnValue(true)
   })
 
-  it('GET / without a session cookie → 401', async () => {
+  it('GET / без cookie сессии → 401', async () => {
     const res = await req(app, '/', 'GET', undefined, '')
     expect(res.status).toBe(401)
     const body = await res.json()
@@ -122,7 +122,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(listMasters)).not.toHaveBeenCalled()
   })
 
-  it('GET / with an employee session lists masters (read-only, all roles)', async () => {
+  it('GET / с сессией employee отдаёт список мастеров (только чтение, все роли)', async () => {
     vi.mocked(listMasters).mockResolvedValue([master()])
     const res = await req(app, '/', 'GET', undefined, await employeeCookie())
     expect(res.status).toBe(200)
@@ -131,7 +131,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(listMasters)).toHaveBeenCalled()
   })
 
-  it('POST / with an employee session → 403 (writes stay admin-only)', async () => {
+  it('POST / с сессией employee → 403 (запись только для админа)', async () => {
     const res = await req(
       app,
       '/',
@@ -145,7 +145,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(createMaster)).not.toHaveBeenCalled()
   })
 
-  it('GET / lists masters', async () => {
+  it('GET / отдаёт список мастеров', async () => {
     vi.mocked(listMasters).mockResolvedValue([
       master(),
       master({ id: 2, name: 'Пётр Новый', position: 1 }),
@@ -158,7 +158,7 @@ describe('/api/masters', () => {
     expect(res.headers.get('X-Request-Id')).toBeTruthy()
   })
 
-  it('POST / creates a master → 201', async () => {
+  it('POST / создаёт мастера → 201', async () => {
     vi.mocked(createMaster).mockResolvedValue(master({ id: 3, name: 'Новый Мастер' }))
     const res = await req(app, '/', 'POST', {
       name: 'Новый Мастер',
@@ -173,7 +173,7 @@ describe('/api/masters', () => {
     expect(body.master.name).toBe('Новый Мастер')
   })
 
-  it('POST / persists a telegramId → 201', async () => {
+  it('POST / сохраняет telegramId → 201', async () => {
     vi.mocked(createMaster).mockResolvedValue(
       master({ id: 3, name: 'Новый Мастер', telegramId: '123456789' }),
     )
@@ -196,7 +196,7 @@ describe('/api/masters', () => {
     })
   })
 
-  it('POST / on duplicate name → 409 duplicate_name', async () => {
+  it('POST / с повторяющимся именем → 409 duplicate_name', async () => {
     vi.mocked(createMaster).mockRejectedValue(new MasterError('duplicate_name'))
     const res = await req(app, '/', 'POST', {
       name: 'Иван Содель',
@@ -211,7 +211,7 @@ describe('/api/masters', () => {
     expect(body.reason).toBe('duplicate_name')
   })
 
-  it('POST / links an account → 201, passing userId through', async () => {
+  it('POST / привязывает аккаунт → 201, передавая userId дальше', async () => {
     const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
     vi.mocked(createMaster).mockResolvedValue(master({ id: 3, userId }))
     const res = await req(app, '/', 'POST', {
@@ -226,7 +226,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(createMaster)).toHaveBeenCalledWith(expect.objectContaining({ userId }))
   })
 
-  it('POST / with an account linked to another master → 409 duplicate_user', async () => {
+  it('POST / с аккаунтом, привязанным к другому мастеру → 409 duplicate_user', async () => {
     vi.mocked(createMaster).mockRejectedValue(new MasterError('duplicate_user'))
     const res = await req(app, '/', 'POST', {
       name: 'Новый Мастер',
@@ -239,7 +239,7 @@ describe('/api/masters', () => {
     expect(await res.json()).toMatchObject({ error: 'conflict', reason: 'duplicate_user' })
   })
 
-  it('PATCH /{id} with an unknown account → 400 with a userId field error', async () => {
+  it('PATCH /{id} с неизвестным аккаунтом → 400 с ошибкой поля userId', async () => {
     vi.mocked(updateMaster).mockRejectedValue(new MasterError('unknown_user'))
     const res = await req(app, '/1', 'PATCH', {
       name: 'Иван Содель',
@@ -254,7 +254,7 @@ describe('/api/masters', () => {
     expect(body.issues[0].path).toEqual(['userId'])
   })
 
-  it('POST / rejects an injection-prefixed name → 400', async () => {
+  it('POST / отклоняет имя с префиксом инъекции → 400', async () => {
     const res = await req(app, '/', 'POST', { name: '=SUM(A1)' })
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -262,7 +262,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(createMaster)).not.toHaveBeenCalled()
   })
 
-  it('PATCH /{id} updates a master → 200', async () => {
+  it('PATCH /{id} обновляет мастера → 200', async () => {
     vi.mocked(updateMaster).mockResolvedValue(
       master({ name: 'Иван Содель', canBeResponsible: false, telegramId: '42' }),
     )
@@ -280,7 +280,7 @@ describe('/api/masters', () => {
     expect(body.master.telegramId).toBe('42')
   })
 
-  it('PATCH /{id} with an omitted canBeResponsible → 400, does not silently resurrect it to true', async () => {
+  it('PATCH /{id} без canBeResponsible → 400, молча не возвращает его в true', async () => {
     const res = await req(app, '/1', 'PATCH', { name: 'Иван Содель', telegramId: null })
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -288,7 +288,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(updateMaster)).not.toHaveBeenCalled()
   })
 
-  it('PATCH /{id} on missing row → 404', async () => {
+  it('PATCH /{id} для несуществующей строки → 404', async () => {
     vi.mocked(updateMaster).mockRejectedValue(new MasterError('not_found'))
     const res = await req(app, '/999', 'PATCH', {
       name: 'Пётр Новый',
@@ -324,7 +324,7 @@ describe('/api/masters', () => {
     expect(vi.mocked(reorderMasters)).toHaveBeenCalledWith([2, 1])
   })
 
-  it('PATCH /reorder with an invalid set → 400 invalid_order', async () => {
+  it('PATCH /reorder с некорректным набором → 400 invalid_order', async () => {
     vi.mocked(reorderMasters).mockRejectedValue(new MasterError('invalid_order'))
     const res = await req(app, '/reorder', 'PATCH', { ids: [2] })
     expect(res.status).toBe(400)
@@ -359,7 +359,7 @@ describe('/api/masters', () => {
       },
     ],
     ['/1', 'DELETE', undefined],
-  ])('%s %s returns 503 when DB is not ready', async (path, method, body) => {
+  ])('%s %s возвращает 503, если БД не готова', async (path, method, body) => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await req(app, path, method, body)
     expect(res.status).toBe(503)

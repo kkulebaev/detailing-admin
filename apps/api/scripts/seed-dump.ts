@@ -50,7 +50,7 @@ function buildSheetsClient(): ReturnType<typeof google.sheets> {
   return google.sheets({ version: 'v4', auth })
 }
 
-/** Older sheets ("Запись 2024") → 2024. Untitled / unparseable → -Infinity (oldest). */
+/** Старые листы («Запись 2024») → 2024. Без названия / не разобрать → -Infinity (самые старые). */
 function yearOf(title: string): number {
   const m = /(\d{4})/.exec(title)
   return m ? Number.parseInt(m[1] as string, 10) : Number.NEGATIVE_INFINITY
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
   }
 
   for (const title of titles) {
-    // Fetch the whole tab — header (row 1) + data
+    // Забираем всю вкладку — заголовок (строка 1) + данные
     const res = await client.spreadsheets.values.get({
       spreadsheetId: env.SPREADSHEET_ID,
       range: `'${title.replace(/'/g, "''")}'`,
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
     })
     result.totals.rows_total += dataRows.length
 
-    // Bottom-up: newest entries first
+    // Снизу вверх: сначала самые новые записи
     for (let i = dataRows.length - 1; i >= 0; i--) {
       const row = dataRows[i] as unknown[]
       const rawPhone = String(row[phoneCol] ?? '').trim()
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
         result.totals.invalid_phones++
         invalidPhones.push({
           tab: title,
-          row: i + 2, // +1 for header, +1 to make 1-indexed
+          row: i + 2, // +1 за заголовок, +1 для нумерации с 1
           raw_phone: rawPhone,
           name: rawName,
           error: err instanceof Error ? err.message : String(err),

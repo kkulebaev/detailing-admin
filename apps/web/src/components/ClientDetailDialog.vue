@@ -22,8 +22,8 @@ import {
 } from '@/components/ui/dialog'
 
 const props = defineProps<{ open: boolean; clientId: string | null }>()
-// Emitted for v-model compliance; the parent drives `open` from the route, so
-// this component owns the close navigation itself (see `close`).
+// Эмитится ради совместимости с v-model; родитель управляет `open` из маршрута, поэтому
+// навигацию при закрытии этот компонент делает сам (см. `close`).
 const emit = defineEmits<{ 'update:open': [boolean] }>()
 
 const router = useRouter()
@@ -36,8 +36,8 @@ const {
   refetch,
 } = useClientDetailQuery(clientIdRef)
 
-// Only the ok:true payload feeds the tiles/history — a stale deep link that
-// resolves to not_found/unavailable never leaks undefined values into them.
+// Плитки и историю питает только payload с ok:true — устаревшая прямая ссылка,
+// которая вернула not_found/unavailable, никогда не протечёт в них undefined.
 const detail = computed(() => {
   const r = queryData.value
   return r && r.ok ? r : null
@@ -56,17 +56,17 @@ const errorMessage = computed<string | null>(() => {
   return 'Не удалось загрузить карточку клиента'
 })
 
-// Skeletons only on the very first load of a given client (no data yet).
+// Скелетоны только при самой первой загрузке конкретного клиента (данных ещё нет).
 const isLoading = computed(
   () => asyncStatus.value === 'loading' && queryData.value === undefined && !queryError.value,
 )
 
-// ── Entrance-animation gating ────────────────────────────────────────────────
-// The dialog fades/zooms in over `duration-200`. On localhost the query often
-// resolves inside that window; swapping skeleton→detail (cars + 3 tiles + N
-// booking cards) mid-animation forces a big layout/paint on the animating layer.
-// Hold the content swap until the entrance finishes so it lands on an idle frame;
-// the cheap skeleton animates under the entrance instead.
+// ── Ожидание анимации появления ──────────────────────────────────────────────
+// Диалог проявляется/увеличивается за `duration-200`. На localhost запрос часто
+// завершается внутри этого окна; замена скелетон→детали (машины + 3 плитки + N
+// карточек записей) посреди анимации вызывает тяжёлый layout/paint на анимируемом
+// слое. Придерживаем замену контента до конца появления, чтобы она пришлась на
+// свободный кадр; под анимацией вместо этого анимируется дешёвый скелетон.
 const entranceDone = ref(false)
 let entranceTimer: ReturnType<typeof setTimeout> | undefined
 watch(
@@ -85,9 +85,9 @@ const showSkeleton = computed(
   () => isLoading.value || (detail.value !== null && !entranceDone.value),
 )
 
-// ── Close navigation ────────────────────────────────────────────────────────
-// If the previous history entry is the list, step back (so the browser «назад»
-// doesn't re-open the dialog); on a direct deep link, push the list instead.
+// ── Навигация при закрытии ──────────────────────────────────────────────────
+// Если предыдущая запись истории — список, делаем шаг назад (чтобы браузерное
+// «назад» не открыло диалог снова); при прямой ссылке вместо этого пушим список.
 function close() {
   const back = router.options.history.state.back
   if (typeof back === 'string' && (back === '/clients' || back.startsWith('/clients?'))) {
@@ -102,7 +102,7 @@ function onOpenChange(value: boolean) {
   if (!value) close()
 }
 
-// ── Header ────────────────────────────────────────────────────────────────
+// ── Шапка ─────────────────────────────────────────────────────────────────
 const { copy, isSupported: clipboardSupported } = useClipboard({ legacy: true })
 
 async function copyPhone(phone: string) {
@@ -123,8 +123,8 @@ function formatCar(car: Car): string {
   return car.plate ? `${car.makeModel} (${car.plate})` : car.makeModel
 }
 
-// ── Formatting ──────────────────────────────────────────────────────────────
-// DB dates arrive as ISO `YYYY-MM-DD`; the display is DD.MM.YYYY.
+// ── Форматирование ──────────────────────────────────────────────────────────
+// Даты из БД приходят как ISO `YYYY-MM-DD`; на экране — DD.MM.YYYY.
 function isoToDdmmyyyy(iso: string): string {
   const [y, m, d] = iso.split('-')
   if (!y || !m || !d) return iso
@@ -149,15 +149,15 @@ const displayName = computed(() => {
 
 <template>
   <Dialog :open="open" @update:open="onOpenChange">
-    <!-- Fixed-height modal, NOT DialogScrollContent: the scroll-content variant
-         centres the card in a scrollable overlay, and a taller-than-viewport
-         history gets its top clipped (place-items-center + overflow) with no way
-         to scroll up to it. Instead cap the card at the viewport (100dvh accounts
-         for the mobile URL bar) and let the WHOLE card scroll — header included,
-         not pinned — so nothing overflows off-screen. Width/gutter come from the
-         DialogContent default (w-full · max-w-[calc(100%-2rem)] · sm:max-w-lg);
-         only the height/scroll/padding overrides live here (max-h bracket: no
-         utility exists for a dvh-based max-height). -->
+    <!-- Модалка фиксированной высоты, НЕ DialogScrollContent: scroll-content-вариант
+         центрирует карточку в прокручиваемом оверлее, и у истории выше экрана
+         обрезается верх (place-items-center + overflow) без возможности до него
+         докрутить. Вместо этого ограничиваем карточку высотой экрана (100dvh учитывает
+         адресную строку мобильного браузера) и прокручиваем ВСЮ карточку — вместе
+         с шапкой, без закрепления, — чтобы ничего не уезжало за экран. Ширина/поля
+         берутся из умолчаний DialogContent (w-full · max-w-[calc(100%-2rem)] · sm:max-w-lg);
+         здесь только переопределения высоты/прокрутки/отступов (скобки в max-h: утилиты
+         для max-height на основе dvh нет). -->
     <DialogContent class="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0">
       <DialogHeader class="border-b border-border p-4 text-left">
         <DialogTitle>{{ detail ? displayName : 'Клиент' }}</DialogTitle>
@@ -177,10 +177,10 @@ const displayName = computed(() => {
         <DialogDescription v-else>Карточка клиента</DialogDescription>
       </DialogHeader>
 
-      <!-- Body groups the state branches; the DialogContent above owns the single
-           scroll, so this stays a plain block (no nested scroll). -->
+      <!-- Body группирует ветки состояний; единственная прокрутка — у DialogContent выше,
+           поэтому здесь простой блок (без вложенной прокрутки). -->
       <div>
-        <!-- Error (503 / network): retryable. -->
+        <!-- Ошибка (503 / сеть): можно повторить. -->
         <div v-if="errorMessage" class="p-4">
           <Alert variant="destructive">
             <AlertTitle>Не удалось загрузить карточку</AlertTitle>
@@ -189,7 +189,7 @@ const displayName = computed(() => {
           <Button variant="outline" size="sm" class="mt-3" @click="refetch()">Повторить</Button>
         </div>
 
-        <!-- Not found (stale bookmark / client deleted between list load and click). -->
+        <!-- Не найден (устаревшая закладка / клиент удалён между загрузкой списка и кликом). -->
         <div v-else-if="notFound" class="p-4">
           <Alert>
             <AlertTitle>Клиент не найден</AlertTitle>
@@ -200,8 +200,8 @@ const displayName = computed(() => {
           <Button variant="outline" size="sm" class="mt-3" @click="close">К списку клиентов</Button>
         </div>
 
-        <!-- Loading: skeleton tiles + history. Also covers the brief window
-           after data arrives but before the entrance animation finishes. -->
+        <!-- Загрузка: скелетоны плиток + истории. Также покрывает короткое окно
+           после прихода данных, но до конца анимации появления. -->
         <div v-else-if="showSkeleton" class="space-y-6 p-4">
           <div class="grid grid-cols-2 gap-3">
             <Skeleton v-for="i in 2" :key="i" class="h-20 w-full" />
@@ -211,9 +211,9 @@ const displayName = computed(() => {
           </div>
         </div>
 
-        <!-- Content. -->
+        <!-- Контент. -->
         <div v-else-if="detail" class="space-y-6 p-4">
-          <!-- Cars -->
+          <!-- Машины -->
           <section>
             <h3 class="mb-2 text-sm font-medium text-muted-foreground">Машины</h3>
             <p v-if="detail.client.cars.length === 0" class="text-sm text-muted-foreground">
@@ -224,12 +224,12 @@ const displayName = computed(() => {
             </ul>
           </section>
 
-          <!-- Stat tiles. «Выручка» is the lifetime «Выдана» sum (money actually
-             earned) — labelled «за всё время» to distinguish it from the
-             period-scoped revenue on the Analytics page; «Количество записей»
-             counts the history rows shown (all statuses), so it matches the list
-             below rather than the delivered-only visitCount. Two short numbers sit
-             side by side even on the narrowest phone (as on AnalyticsPage). -->
+          <!-- Плитки статистики. «Выручка» — сумма «Выдана» за всё время (реально
+             заработанные деньги) — подписана «за всё время», чтобы отличать её от
+             выручки за период на странице аналитики; «Количество записей»
+             считает показанные строки истории (все статусы), поэтому совпадает со списком
+             ниже, а не с visitCount только по выданным. Два коротких числа стоят
+             рядом даже на самом узком телефоне (как на AnalyticsPage). -->
           <section class="grid grid-cols-2 gap-3">
             <Card>
               <CardHeader class="p-3">
@@ -247,7 +247,7 @@ const displayName = computed(() => {
             </Card>
           </section>
 
-          <!-- History (all statuses) -->
+          <!-- История (все статусы) -->
           <section>
             <div class="mb-2 flex items-baseline justify-between">
               <h3 class="text-sm font-medium text-muted-foreground">История</h3>

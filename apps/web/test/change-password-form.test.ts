@@ -14,7 +14,7 @@ const next = () => page.getByLabelText('Новый пароль')
 const confirm = () => page.getByLabelText('Повторите новый пароль')
 const fields = () => [current(), next(), confirm()]
 
-// By position: a toggle's name flips with its state, and all three share it.
+// По позиции: имя переключателя меняется вместе с состоянием, и у всех трёх оно общее.
 const toggle = (index: number) =>
   page.getByRole('button', { name: /^(Показать|Скрыть) пароль$/ }).nth(index)
 const submit = () => page.getByRole('button', { name: 'Сменить пароль' })
@@ -30,7 +30,7 @@ describe('ChangePasswordForm', () => {
     vi.mocked(changePassword).mockReset()
   })
 
-  it('toggles each field on its own and keeps the typed value', async () => {
+  it('переключает каждое поле отдельно и сохраняет введённое значение', async () => {
     mountForm()
     await next().fill(NEW_PASSWORD)
 
@@ -47,10 +47,10 @@ describe('ChangePasswordForm', () => {
     await expect.element(next()).toHaveAttribute('type', 'password')
   })
 
-  it('does not submit the form when the toggle is clicked', async () => {
+  it('не отправляет форму по клику на переключатель', async () => {
     vi.mocked(changePassword).mockResolvedValue({ ok: true } as never)
     mountForm()
-    // A valid form, or a submitting toggle would be stopped by validation anyway.
+    // Форма валидна, иначе отправку по переключателю всё равно остановила бы валидация.
     await current().fill('old-password-123')
     await next().fill(NEW_PASSWORD)
     await confirm().fill(NEW_PASSWORD)
@@ -62,7 +62,7 @@ describe('ChangePasswordForm', () => {
     expect(changePassword).not.toHaveBeenCalled()
   })
 
-  it('wires form attributes to the input, not the wrapper', async () => {
+  it('вешает атрибуты формы на input, а не на обёртку', async () => {
     mountForm()
 
     await expect.element(current()).toHaveAttribute('autocomplete', 'current-password')
@@ -73,7 +73,7 @@ describe('ChangePasswordForm', () => {
     expect(document.querySelector('[role="group"][autocomplete]')).toBeNull()
   })
 
-  it('submits the typed passwords and hides every field after success', async () => {
+  it('отправляет введённые пароли и после успеха скрывает все поля', async () => {
     vi.mocked(changePassword).mockResolvedValue({ ok: true } as never)
     mountForm()
     await current().fill('old-password-123')
@@ -95,7 +95,7 @@ describe('ChangePasswordForm', () => {
     }
   })
 
-  it('stays visible and keeps values when the passwords do not match', async () => {
+  it('при несовпадении паролей остаётся видимым и сохраняет значения', async () => {
     mountForm()
     await current().fill('old-password-123')
     await next().fill(NEW_PASSWORD)

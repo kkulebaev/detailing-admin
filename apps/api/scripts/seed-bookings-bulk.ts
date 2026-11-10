@@ -1,13 +1,13 @@
 /**
- * Dev-only: bulk-insert N generated bookings straight into Postgres to load-test
- * the /bookings table (pagination, month filter, wide data). Like
- * seed-bookings-dev.ts it bypasses the API (no Sheets writes) and is idempotent:
- * deterministic per-index data + fixed `dev-bulk-NNN` keys + onConflictDoNothing,
- * so re-running never duplicates.
+ * Только для разработки: массово вставляет N сгенерированных записей прямо в Postgres,
+ * чтобы нагрузочно проверить таблицу /bookings (пагинация, фильтр по месяцу, широкие
+ * данные). Как и seed-bookings-dev.ts, обходит API (без записи в Sheets) и идемпотентен:
+ * детерминированные данные по индексу + фиксированные ключи `dev-bulk-NNN` +
+ * onConflictDoNothing, поэтому повторный запуск не создаёт дублей.
  *
  *   pnpm --filter @detailing-admin/api exec tsx --env-file=.env scripts/seed-bookings-bulk.ts [count]
  *
- * `count` defaults to 100.
+ * `count` по умолчанию — 100.
  */
 import { bookingSchema } from '@detailing-admin/shared/booking'
 import { formatDdmmyyyy } from '@detailing-admin/shared/date'
@@ -66,7 +66,7 @@ const CARS = [
   'Honda CR-V',
   'Chevrolet Cruze',
 ]
-// Mix of single-line and multi-line (per-section) services.
+// Смесь однострочных и многострочных (по разделам) услуг.
 const SERVICES = [
   'Мойка',
   'Химчистка: Салон',
@@ -99,7 +99,7 @@ const TIMES = [
 ]
 
 function makePayload(i: number) {
-  // Spread ~7 months from 2026-02-01 so the month filter has data across months.
+  // Разброс на ~7 месяцев от 2026-02-01, чтобы у фильтра по месяцу были данные в разных месяцах.
   const base = new Date(Date.UTC(2026, 1, 1))
   base.setUTCDate(base.getUTCDate() + ((i * 3) % 210))
   const dateFrom = formatDdmmyyyy(base)
@@ -128,7 +128,7 @@ function makePayload(i: number) {
     service: SERVICES[i % SERVICES.length],
     amount,
     ...(withFormula ? { amountFormula: `=${amount - 500}+500` } : {}),
-    // Every 7th row has a blank readiness to exercise the «—» rendering.
+    // У каждой 7-й строки пустая готовность, чтобы проверить отображение «—».
     readiness: i % 7 === 0 ? '' : READINESS[i % READINESS.length],
     master: [MASTERS[i % MASTERS.length]],
     responsible: MASTERS[(i + 1) % MASTERS.length],

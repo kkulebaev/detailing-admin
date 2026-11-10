@@ -26,11 +26,11 @@ import {
   updateWorkHours,
 } from '../src/db/salaries.js'
 
-// Thenable query-builder fake. Terminal awaits dequeue from `selectResults` in
-// call order; `.set()`/`.values()` payloads are captured for assertions. The
-// subquery/join methods are passthroughs — the aggregate SUMs are exercised by
-// seeding the final joined rows the way Postgres would return them (SUM as a
-// string), so the JS mapping + single rounding is what's under test here.
+// Thenable-фейк query builder. Терминальные await забирают из `selectResults` в
+// порядке вызовов; payload'ы `.set()`/`.values()` сохраняются для проверок.
+// Методы подзапросов/join — сквозные: агрегатные SUM проверяются через итоговые
+// строки после join в том виде, в каком их вернул бы Postgres (SUM строкой), так
+// что здесь тестируются JS-маппинг и единственное округление.
 interface Capture {
   sets: Array<Record<string, unknown>>
   values: Array<Record<string, unknown>>
@@ -59,8 +59,8 @@ function makeFakeDb(opts: {
     c.limit = passthrough
     c.returning = passthrough
     c.onConflictDoUpdate = passthrough
-    // A subquery alias — columns are referenced (agg.masterId, ...) but the
-    // passthrough select ignores them, so any dummy suffices.
+    // Алиас подзапроса — на его колонки ссылаются (agg.masterId, ...), но сквозной
+    // select их игнорирует, так что подойдёт любая заглушка.
     c.as = () => new Proxy({}, { get: () => ({}) })
     c.set = (v: Record<string, unknown>) => {
       capture.sets.push(v)
@@ -89,11 +89,11 @@ afterEach(() => {
   _setDbForTest(null)
 })
 
-describe('listSalaries — mapping and single rounding', () => {
-  it('rounds the month total once (non-integer case): SUM=5000 ₽·min → 83, not 84', () => {
-    // Two 25-min rows @100 ₽/ч aggregate in SQL to minutes_rate_sum=5000. If the
-    // division were done in SQL as int/int it would truncate to 83 by luck here,
-    // but per-row rounding would give 84. The single JS round yields 83.
+describe('listSalaries — маппинг и единственное округление', () => {
+  it('округляет итог за месяц один раз (нецелый случай): SUM=5000 ₽·мин → 83, а не 84', () => {
+    // Две строки по 25 мин @100 ₽/ч в SQL агрегируются в minutes_rate_sum=5000. Если
+    // делить в SQL как int/int, здесь по случайности отбросится дробь до 83, но
+    // округление каждой строки дало бы 84. Единственное округление в JS даёт 83.
     const { db } = makeFakeDb({
       selectResults: [
         [
@@ -125,9 +125,9 @@ describe('listSalaries — mapping and single rounding', () => {
     })
   })
 
-  it('sums by rate snapshot when the rate changed mid-month', async () => {
-    // 60min@100 + 60min@200 → SQL SUM(minutes*rate_snapshot)=18000 → 300 ₽,
-    // independent of the master's CURRENT rate (here 200).
+  it('суммирует по снимку ставки, если ставка поменялась в середине месяца', async () => {
+    // 60мин@100 + 60мин@200 → SQL SUM(minutes*rate_snapshot)=18000 → 300 ₽,
+    // независимо от ТЕКУЩЕЙ ставки мастера (здесь 200).
     const { db } = makeFakeDb({
       selectResults: [
         [
@@ -153,7 +153,7 @@ describe('listSalaries — mapping and single rounding', () => {
     })
   })
 
-  it('keeps a master with no rate (null) and no hours (null agg) at 0 salary', async () => {
+  it('оставляет мастеру без ставки (null) и без часов (агрегат null) зарплату 0', async () => {
     const { db } = makeFakeDb({
       selectResults: [
         [
@@ -182,8 +182,8 @@ describe('listSalaries — mapping and single rounding', () => {
     })
   })
 
-  it('adds the payout aggregate to the hourly part (negative sum subtracts)', async () => {
-    // SUM(amount) over the month arrives as a string, like the other aggregates.
+  it('прибавляет агрегат выплат к почасовой части (отрицательная сумма вычитается)', async () => {
+    // SUM(amount) за месяц приходит строкой, как и остальные агрегаты.
     const { db } = makeFakeDb({
       selectResults: [
         [
@@ -206,7 +206,7 @@ describe('listSalaries — mapping and single rounding', () => {
 })
 
 describe('setMasterRate', () => {
-  it('throws master_not_found when the master does not exist', async () => {
+  it('бросает master_not_found, если мастера нет', async () => {
     const { db } = makeFakeDb({ selectResults: [[]] })
     _setDbForTest(db)
     await expect(setMasterRate(999, 500)).rejects.toMatchObject({
@@ -215,7 +215,7 @@ describe('setMasterRate', () => {
     })
   })
 
-  it('upserts the rate for an existing master', async () => {
+  it('делает upsert ставки для существующего мастера', async () => {
     const { db, capture } = makeFakeDb({
       selectResults: [[{ id: 1 }]],
       insertResults: [[]],
@@ -226,10 +226,10 @@ describe('setMasterRate', () => {
   })
 })
 
-describe('createWorkHours — snapshots the current rate', () => {
-  it('copies the master current rate into rate_snapshot', async () => {
+describe('createWorkHours — снимок текущей ставки', () => {
+  it('копирует текущую ставку мастера в rate_snapshot', async () => {
     const { db, capture } = makeFakeDb({
-      selectResults: [[{ hourlyRate: 150 }]], // current rate lookup
+      selectResults: [[{ hourlyRate: 150 }]], // поиск текущей ставки
       insertResults: [
         [
           {
@@ -256,7 +256,7 @@ describe('createWorkHours — snapshots the current rate', () => {
     expect(capture.values[0]).toMatchObject({ masterId: 1, minutes: 480, rateSnapshot: 150 })
   })
 
-  it('throws no_rate when the master has no rate row', async () => {
+  it('бросает no_rate, если у мастера нет строки ставки', async () => {
     const { db } = makeFakeDb({ selectResults: [[]] })
     _setDbForTest(db)
     await expect(
@@ -266,7 +266,7 @@ describe('createWorkHours — snapshots the current rate', () => {
 })
 
 describe('updateWorkHours / deleteWorkHours', () => {
-  it('updates day/minutes/note without touching the rate snapshot', async () => {
+  it('обновляет день/минуты/заметку, не трогая снимок ставки', async () => {
     const { db, capture } = makeFakeDb({
       updateResults: [
         [
@@ -289,7 +289,7 @@ describe('updateWorkHours / deleteWorkHours', () => {
     expect(capture.sets[0]).not.toHaveProperty('rateSnapshot')
   })
 
-  it('returns the current row for an empty patch (no .set({}))', async () => {
+  it('для пустого patch возвращает текущую строку (без .set({}))', async () => {
     const { db, capture } = makeFakeDb({
       selectResults: [
         [
@@ -312,13 +312,13 @@ describe('updateWorkHours / deleteWorkHours', () => {
     expect(capture.sets).toHaveLength(0)
   })
 
-  it('throws not_found when updating a missing row', async () => {
+  it('бросает not_found при обновлении несуществующей строки', async () => {
     const { db } = makeFakeDb({ updateResults: [[]] })
     _setDbForTest(db)
     await expect(updateWorkHours(999, { minutes: 60 })).rejects.toMatchObject({ code: 'not_found' })
   })
 
-  it('throws not_found when deleting a missing row', async () => {
+  it('бросает not_found при удалении несуществующей строки', async () => {
     const { db } = makeFakeDb({ deleteResults: [[]] })
     _setDbForTest(db)
     await expect(deleteWorkHours(999)).rejects.toMatchObject({ code: 'not_found' })
@@ -326,7 +326,7 @@ describe('updateWorkHours / deleteWorkHours', () => {
 })
 
 describe('listMasterEntries', () => {
-  it('returns hours and payouts separately, in one call', async () => {
+  it('возвращает часы и выплаты раздельно за один вызов', async () => {
     const hoursRow = {
       id: 5,
       masterId: 1,
@@ -353,10 +353,10 @@ describe('listMasterEntries', () => {
   })
 })
 
-describe('createPayout — no rate required', () => {
-  it('inserts for a master with no rate row (master_rates is never read)', async () => {
-    // A single seeded select: the master probe. A stray master_rates lookup
-    // would dequeue undefined and blow up, so passing proves it isn't made.
+describe('createPayout — ставка не нужна', () => {
+  it('вставляет выплату мастеру без строки ставки (master_rates не читается)', async () => {
+    // Заготовлен один select: проверка мастера. Лишний запрос к master_rates
+    // забрал бы undefined и упал, так что успех доказывает, что его нет.
     const { db, capture } = makeFakeDb({
       selectResults: [[{ id: 1 }]],
       insertResults: [
@@ -388,7 +388,7 @@ describe('createPayout — no rate required', () => {
     })
   })
 
-  it('throws master_not_found for an unknown master and never inserts', async () => {
+  it('бросает master_not_found для неизвестного мастера и ничего не вставляет', async () => {
     const { db, capture } = makeFakeDb({ selectResults: [[]] })
     _setDbForTest(db)
 
@@ -400,7 +400,7 @@ describe('createPayout — no rate required', () => {
 })
 
 describe('updatePayout / deletePayout', () => {
-  it('updates only the supplied fields', async () => {
+  it('обновляет только переданные поля', async () => {
     const { db, capture } = makeFakeDb({
       updateResults: [
         [
@@ -421,7 +421,7 @@ describe('updatePayout / deletePayout', () => {
     expect(capture.sets[0]).toEqual({ amount: 700, note: 'fix' })
   })
 
-  it('returns the current row for an empty patch (no .set({}))', async () => {
+  it('для пустого patch возвращает текущую строку (без .set({}))', async () => {
     const { db, capture } = makeFakeDb({
       selectResults: [
         [
@@ -443,13 +443,13 @@ describe('updatePayout / deletePayout', () => {
     expect(capture.sets).toHaveLength(0)
   })
 
-  it('throws not_found when updating a missing row', async () => {
+  it('бросает not_found при обновлении несуществующей строки', async () => {
     const { db } = makeFakeDb({ updateResults: [[]] })
     _setDbForTest(db)
     await expect(updatePayout(999, { amount: 100 })).rejects.toMatchObject({ code: 'not_found' })
   })
 
-  it('throws not_found when deleting a missing row', async () => {
+  it('бросает not_found при удалении несуществующей строки', async () => {
     const { db } = makeFakeDb({ deleteResults: [[]] })
     _setDbForTest(db)
     await expect(deletePayout(999)).rejects.toMatchObject({ code: 'not_found' })

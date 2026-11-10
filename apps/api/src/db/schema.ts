@@ -17,17 +17,17 @@ import {
 } from 'drizzle-orm/pg-core'
 import type { Readiness } from '@detailing-admin/shared/enums'
 
-// Auth accounts. Provisioned out-of-band via the `user:create` CLI (no
-// self-registration). `passwordHash` stores the scrypt string
-// "scrypt:N:r:p:saltHex:hashHex"; `passwordChangedAt` is stamped into the JWT
-// so a future revocation path can reject tokens issued before a password change.
+// Аккаунты для входа. Создаются вне приложения через CLI `user:create` (без
+// самостоятельной регистрации). `passwordHash` хранит строку scrypt
+// "scrypt:N:r:p:saltHex:hashHex"; `passwordChangedAt` записывается в JWT, чтобы
+// будущий механизм отзыва мог отклонять токены, выпущенные до смены пароля.
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   login: varchar('login', { length: 64 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 16 }).notNull(),
-  // Default '' so the migration is safe for pre-existing rows; the user fills
-  // these in on the profile page (or the CLI seeds them at creation).
+  // По умолчанию '', чтобы миграция была безопасна для уже существующих строк; пользователь
+  // заполняет их на странице профиля (или CLI задаёт их при создании).
   firstName: varchar('first_name', { length: 120 }).notNull().default(''),
   lastName: varchar('last_name', { length: 120 }).notNull().default(''),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -41,18 +41,18 @@ export const clients = pgTable('clients', {
   id: uuid('id').primaryKey().defaultRandom(),
   phone: varchar('phone', { length: 32 }).notNull().unique(),
   name: varchar('name', { length: 120 }).notNull().default(''),
-  // Backfilled to the migration time for pre-existing clients — historical
-  // add-dates aren't recoverable (clients were upserted by phone with no
-  // timestamp before this column existed).
+  // Для уже существующих клиентов заполнено временем миграции — исторические
+  // даты добавления не восстановить (до появления этого столбца клиенты
+  // upsert'ились по телефону без метки времени).
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 export type Client = typeof clients.$inferSelect
 export type NewClient = typeof clients.$inferInsert
 
-// Best-effort auto-accumulated from bookings (see routes/bookings.ts ingest);
-// also the target of a future manual CRUD. plate defaults to '' (not NULL) —
-// a UNIQUE index does not dedupe NULLs, and an empty plate is a valid car.
+// Best-effort автоматически накапливается из записей (см. приём в routes/bookings.ts);
+// также цель будущего ручного CRUD. plate по умолчанию '' (не NULL) —
+// UNIQUE-индекс не дедуплицирует NULL, а машина с пустым госномером валидна.
 export const clientCars = pgTable(
   'client_cars',
   {
@@ -73,21 +73,21 @@ export const clientCars = pgTable(
 export type ClientCar = typeof clientCars.$inferSelect
 export type NewClientCar = typeof clientCars.$inferInsert
 
-// Structured bookings mirror. Stage 1 of the Sheets→app migration: every booking
-// is dual-written here (best-effort) alongside the authoritative Sheets append.
-// Unlike the serialized Sheets row, columns hold normalized values (phone in
-// E.164, dates as DATE, amount as int) so the table can become the source of
-// truth at cutover. `sheetRow`/`sheetRange` link a row back to its Sheets line;
-// there is no `status` column because inserts only ever happen after a
-// successful Sheets append.
+// Структурированное зеркало записей. Этап 1 миграции Sheets→приложение: каждая запись
+// пишется сюда дополнительно (best-effort) рядом с главным append в Sheets.
+// В отличие от сериализованной строки Sheets, столбцы хранят нормализованные значения
+// (телефон в E.164, даты как DATE, сумма как int), чтобы при переключении таблица могла
+// стать источником истины. `sheetRow`/`sheetRange` связывают строку с её строкой в Sheets;
+// столбца `status` нет, потому что вставка бывает только после
+// успешного append в Sheets.
 export const bookings = pgTable(
   'bookings',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    // Durable dedup: guards against a second row when a client retries with the
-    // same key after the in-memory idempotency TTL (5 min) has elapsed.
+    // Надёжная дедупликация: защищает от второй строки, когда клиент повторяет запрос
+    // с тем же ключом после истечения TTL in-memory идемпотентности (5 мин).
     idempotencyKey: text('idempotency_key').notNull().unique(),
-    // Nullable: an empty (unnormalizable) phone yields no client to link.
+    // Nullable: при пустом (не нормализуемом) телефоне связывать не с кем.
     clientId: uuid('client_id').references(() => clients.id),
     name: varchar('name', { length: 120 }).notNull(),
     phone: varchar('phone', { length: 32 }).notNull().default(''),
@@ -100,22 +100,22 @@ export const bookings = pgTable(
     dateTo: date('date_to'),
     timeFrom: varchar('time_from', { length: 5 }).notNull(),
     timeTo: varchar('time_to', { length: 5 }),
-    // Column stays free `text` in Postgres; `$type` narrows only the TS type to
-    // the READINESS union (or '' for «нет статуса»), so no wire-boundary cast is
-    // needed. Type-only — no migration, no runtime effect.
+    // В Postgres столбец остаётся свободным `text`; `$type` сужает только TS-тип до
+    // union READINESS (или '' для «нет статуса»), поэтому приведение на границе wire
+    // не нужно. Только тип — без миграции и без эффекта в рантайме.
     readiness: text('readiness').notNull().default('').$type<Readiness | ''>(),
     master: text('master').array().notNull(),
     responsible: varchar('responsible', { length: 120 }).notNull(),
-    // Derived id-link to the responsible master. Nullable: `responsible` stays the
-    // authoritative "as-written" snapshot; an unmatched name simply carries no id.
-    // `set null` on master delete keeps the row (and its snapshot) intact.
+    // Производная id-связь с ответственным мастером. Nullable: `responsible` остаётся
+    // главным снимком «как записано»; у ненайденного имени просто нет id.
+    // `set null` при удалении мастера сохраняет строку (и её снимок) нетронутой.
     responsibleId: integer('responsible_id').references(() => masters.id, { onDelete: 'set null' }),
-    // Derived id-link to the client's normalized car row. Nullable: the joined
-    // `car` string stays the authoritative "as-written" snapshot; a null-client,
-    // unmatched, or lookalike-plate row simply carries no id. `set null` on car
-    // delete keeps the row (and its snapshot) intact — the client dialog deletes
-    // cars via a full-replace (syncClientCars), so a restrict guard would block a
-    // routine edit; the link is re-healed by the backfill if the car is re-added.
+    // Производная id-связь с нормализованной строкой машины клиента. Nullable: склеенная
+    // строка `car` остаётся главным снимком «как записано»; у строки без клиента,
+    // ненайденной или с похожим госномером просто нет id. `set null` при удалении машины
+    // сохраняет строку (и её снимок) — диалог клиента удаляет машины полной заменой
+    // (syncClientCars), так что restrict блокировал бы обычную правку; если машину
+    // добавят снова, связь восстановит backfill.
     carId: uuid('car_id').references(() => clientCars.id, { onDelete: 'set null' }),
     carClass: smallint('car_class').notNull(),
     sheetRow: integer('sheet_row'),
@@ -125,7 +125,7 @@ export const bookings = pgTable(
   (t) => [
     index('bookings_date_from_idx').on(t.dateFrom),
     index('bookings_client_id_idx').on(t.clientId),
-    // A car→bookings reader filters on this.
+    // По нему фильтрует чтение машина→записи.
     index('bookings_car_id_idx').on(t.carId),
   ],
 )
@@ -151,8 +151,8 @@ export const services = pgTable('services', {
   // Штучная услуга: в форме записи у неё появляется счётчик количества,
   // а сумма считается как цена за единицу × количество.
   countable: boolean('countable').notNull().default(false),
-  // One price per car body class (I–IV); *Max NULL → fixed price (*Min),
-  // non-null → «Min–Max» range
+  // Одна цена на класс кузова (I–IV); *Max равен NULL → фиксированная цена (*Min),
+  // не NULL → диапазон «Min–Max»
   priceClass1Min: integer('price_class_1_min').notNull(),
   priceClass1Max: integer('price_class_1_max'),
   priceClass2Min: integer('price_class_2_min').notNull(),
@@ -169,21 +169,21 @@ export type NewService = typeof services.$inferInsert
 export const masters = pgTable('masters', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 120 }).notNull().unique(),
-  // Manual ordering via ▲/▼ buttons; bulk-rewritten on reorder, hence NOT unique.
+  // Ручной порядок кнопками ▲/▼; при reorder переписывается целиком, поэтому НЕ unique.
   position: integer('position').notNull(),
   canBeResponsible: boolean('can_be_responsible').notNull().default(true),
-  // Whether this master is paid a salary — filters the Зарплаты page. Defaults
-  // true so existing masters keep appearing there; admins opt individuals out.
+  // Получает ли мастер зарплату — фильтрует страницу «Зарплаты». По умолчанию
+  // true, чтобы существующие мастера там остались; админ исключает отдельных.
   paidSalary: boolean('paid_salary').notNull().default(true),
-  // «Удалить» only sets this: bookings and pay history keep referencing the row.
-  // The API hides archived masters and has no way back; restoring is a manual
-  // UPDATE in the database.
+  // «Удалить» лишь выставляет этот флаг: записи и история выплат продолжают ссылаться
+  // на строку. API скрывает архивных мастеров, и пути назад нет; восстановление —
+  // ручной UPDATE в базе.
   archived: boolean('archived').notNull().default(false),
-  // Reserved for future Telegram notifications; nullable until a master links one.
+  // Зарезервировано под будущие уведомления в Telegram; null, пока мастер его не привяжет.
   telegramId: varchar('telegram_id', { length: 64 }),
-  // Account that logs hours as this master on «Мои часы». UNIQUE: one account
-  // maps to one master. `set null` keeps the master and its pay history if the
-  // account is ever deleted.
+  // Аккаунт, который вносит часы за этого мастера в «Мои часы». UNIQUE: один аккаунт
+  // соответствует одному мастеру. `set null` сохраняет мастера и историю выплат, если
+  // аккаунт когда-нибудь удалят.
   userId: uuid('user_id')
     .unique()
     .references(() => users.id, { onDelete: 'set null' }),
@@ -192,15 +192,15 @@ export const masters = pgTable('masters', {
 export type Master = typeof masters.$inferSelect
 export type NewMaster = typeof masters.$inferInsert
 
-// Junction for the many-to-many booking↔master id-link. `master text[]` on
-// bookings stays the authoritative "as-written" snapshot; this table carries the
-// derived referential link the read side resolves into live master names (and a
-// future salary/hours reconciliation JOIN needs). `position` anchors a link to
-// its snapshot slot: the read enrichment overlays the live name onto
-// `master[position]`, so an unmatched slot cleanly falls back to the snapshot.
-// Both FKs cascade: deleting a booking clears its links, deleting a master drops
-// its links (snapshot names on bookings are untouched). The composite PK dedups,
-// so the insert is idempotent under onConflictDoNothing.
+// Связующая таблица для id-связи многие-ко-многим запись↔мастер. `master text[]` в
+// bookings остаётся главным снимком «как записано»; эта таблица несёт производную
+// ссылочную связь, которую сторона чтения превращает в актуальные имена мастеров (и
+// которая понадобится будущему JOIN сверки зарплат/часов). `position` привязывает связь
+// к её слоту в снимке: обогащение при чтении накладывает актуальное имя на
+// `master[position]`, так что ненайденный слот чисто откатывается к снимку.
+// Оба FK каскадные: удаление записи чистит её связи, удаление мастера убирает
+// его связи (имена в снимках записей не трогаются). Составной PK дедуплицирует,
+// поэтому insert идемпотентен при onConflictDoNothing.
 export const bookingMasters = pgTable(
   'booking_masters',
   {
@@ -221,12 +221,12 @@ export const bookingMasters = pgTable(
 export type BookingMaster = typeof bookingMasters.$inferSelect
 export type NewBookingMaster = typeof bookingMasters.$inferInsert
 
-// Current hourly rate per master — the source of the snapshot copied into each
-// work_hours row. Kept OUT of `masters` on purpose: `GET /api/masters` does a
-// `SELECT *` open to all authenticated roles, so a rate column there would leak
-// to employees. PK = masterId → one row per master; no row = rate not set (a
-// LEFT JOIN yields null, distinct from a 0 rate). Cascade delete is fine: this
-// is "current", not history — the history lives in work_hours (restrict).
+// Текущая почасовая ставка мастера — источник снимка, копируемого в каждую строку
+// work_hours. Намеренно ВНЕ `masters`: `GET /api/masters` делает `SELECT *`, открытый
+// всем авторизованным ролям, так что столбец ставки там утёк бы к сотрудникам.
+// PK = masterId → одна строка на мастера; нет строки = ставка не задана (LEFT JOIN
+// даёт null, что отличается от ставки 0). Каскадное удаление допустимо: это
+// «текущее», а не история — история лежит в work_hours (restrict).
 export const masterRates = pgTable('master_rates', {
   masterId: integer('master_id')
     .primaryKey()
@@ -238,11 +238,11 @@ export const masterRates = pgTable('master_rates', {
 export type MasterRate = typeof masterRates.$inferSelect
 export type NewMasterRate = typeof masterRates.$inferInsert
 
-// Records of hours worked. `rateSnapshot` freezes the master's rate at insert so
-// a later rate change never rewrites past months' pay. `onDelete: 'restrict'`
-// (not cascade) is the DB-level guard against losing payment history when a
-// master row is removed; the app only archives masters, see deleteMaster().
-// `minutes` (not float hours) keeps arithmetic integer — "money = int".
+// Записи об отработанных часах. `rateSnapshot` замораживает ставку мастера при вставке,
+// чтобы последующая смена ставки не переписала оплату прошлых месяцев. `onDelete: 'restrict'`
+// (не cascade) — защита на уровне БД от потери истории выплат при удалении строки
+// мастера; приложение мастеров только архивирует, см. deleteMaster().
+// `minutes` (а не дробные часы) сохраняет арифметику целочисленной — «деньги = int».
 export const workHours = pgTable(
   'work_hours',
   {
@@ -262,9 +262,9 @@ export const workHours = pgTable(
 export type WorkHoursRow = typeof workHours.$inferSelect
 export type NewWorkHours = typeof workHours.$inferInsert
 
-// One-off amounts unrelated to hours worked: bonuses, reimbursements and
-// (negative) deductions. There is no rate snapshot by construction — the amount
-// is self-contained. `restrict` like work_hours: this is payment history.
+// Разовые суммы, не связанные с отработанными часами: премии, компенсации и
+// (отрицательные) удержания. Снимка ставки нет по замыслу — сумма
+// самодостаточна. `restrict`, как у work_hours: это история выплат.
 export const payouts = pgTable(
   'payouts',
   {
@@ -273,8 +273,8 @@ export const payouts = pgTable(
       .notNull()
       .references(() => masters.id, { onDelete: 'restrict' }),
     payoutDate: date('payout_date').notNull(),
-    // Whole rubles; negative means a deduction. Zero is refused by the DB too:
-    // Zod only covers HTTP, while backfills and seed scripts go around it.
+    // Целые рубли; отрицательное значение — удержание. Ноль отклоняет и БД:
+    // Zod покрывает только HTTP, а backfill и seed-скрипты идут в обход него.
     amount: integer('amount').notNull(),
     note: text('note').notNull().default(''),
     createdAt: timestamp('created_at').notNull().defaultNow(),

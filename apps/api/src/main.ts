@@ -4,9 +4,9 @@ import { baseLogger } from './log.js'
 import { init } from './boot.js'
 import { createApp } from './server.js'
 
-// Run boot init (header verification) before binding the listener.
-// init() NEVER calls process.exit — even on mismatch or creds error,
-// it sets bootState and returns so the listener still binds.
+// Запускаем инициализацию (проверку заголовков) до того, как поднять listener.
+// init() НИКОГДА не вызывает process.exit — даже при несовпадении или ошибке учётных
+// данных он выставляет bootState и возвращается, чтобы listener всё равно поднялся.
 await init()
 
 const app = createApp()
@@ -15,9 +15,9 @@ const server = serve({ fetch: app.fetch, port: env.PORT })
 
 baseLogger.info({ event: 'listening', port: env.PORT }, 'API server listening')
 
-// Graceful shutdown: without this, Node as PID 1 ignores SIGTERM, Railway
-// waits the full grace period and SIGKILLs — which can sever an in-flight
-// Sheets append mid-write and leave an orphan row or a duplicate on client retry.
+// Graceful shutdown: без него Node в роли PID 1 игнорирует SIGTERM, Railway ждёт
+// весь grace period и шлёт SIGKILL — это может оборвать идущий append в Sheets посреди
+// записи и оставить осиротевшую строку или дубль при повторе клиента.
 const shutdown = (signal: string) => {
   baseLogger.info({ event: 'shutdown', signal }, 'received shutdown signal')
   server.close(() => process.exit(0))

@@ -11,27 +11,27 @@ import './styles/globals.css'
 
 const app = createApp(App)
 app.use(createPinia())
-// Only a dropped connection or a non-JSON reply (a proxy's 502 page) reaches this
-// as an error: `orvalFetch` hands HTTP errors back as `{ ok: false }` data, so a
-// 401 or 404 is never retried. Only reads go through colada, so a retry can't
-// duplicate a booking.
+// Сюда как ошибка доходят только обрыв соединения или не-JSON ответ (страница 502
+// от прокси): HTTP-ошибки `orvalFetch` возвращает данными `{ ok: false }`, так что
+// 401 или 404 никогда не ретраятся. Через colada идут только чтения, поэтому ретрай
+// не может задублировать запись.
 app.use(PiniaColada, { plugins: [PiniaColadaRetry()] })
 app.use(router)
 
-// Wired here, not inside orval-mutator.ts: auth-api.ts (and everything that
-// calls it) sits below that module, while the store/router that need to
-// react to a 401 sit above it — a static import in either direction would
-// cycle.
+// Подключается здесь, а не внутри orval-mutator.ts: auth-api.ts (и всё, что его
+// вызывает) лежит ниже этого модуля, а store/router, которым нужно реагировать
+// на 401, — выше; статический импорт в любую сторону дал бы
+// цикл.
 setUnauthorizedHandler(() => {
   useAuthStore().clearSession()
   void router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
 })
 
-// Mount only after the initial navigation settles. Its guard awaits
-// `fetchMe()`, so the first paint is already the resolved route — without this
-// the app flashes the authenticated layout/sidebar for one frame (START
-// location has empty `meta`, so `App.vue` treats it as non-public) while
-// GET /api/auth/me is still in flight, then snaps to the bare /login page.
+// Монтируем только после того, как завершится первая навигация. Её guard ждёт
+// `fetchMe()`, поэтому первая отрисовка — уже итоговый маршрут; без этого
+// приложение на один кадр показывает авторизованный лейаут/сайдбар (у START
+// location пустой `meta`, и `App.vue` считает его непубличным), пока
+// GET /api/auth/me ещё в полёте, а затем резко переключается на голую страницу /login.
 async function mountWhenReady() {
   try {
     await router.isReady()

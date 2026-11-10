@@ -38,8 +38,8 @@ export function fetchClients(params: GetApiClientsParams): Promise<ClientsApiRes
   return unwrap<ClientsApiResult>(() => getApiClients(params))
 }
 
-// Any failure (503, network) is surfaced as a thrown error by `unwrap`; an
-// `ok: false` body maps to `null`, so the form just shows no match.
+// Любой сбой (503, сеть) `unwrap` поднимает как исключение; тело
+// `ok: false` превращается в `null`, и форма просто не показывает совпадения.
 export async function lookupClientByPhone(e164: string): Promise<ClientLookupMatch | null> {
   const r = await unwrap<ClientLookupResult>(() => getApiClientsLookup({ phone: e164 }))
   return r.ok ? r.match : null
@@ -64,13 +64,13 @@ export function fetchClientDetail(id: string): Promise<ClientDetailResult> {
   return unwrap<ClientDetailResult>(() => getApiClientsId(id))
 }
 
-// Paging keys are dropped: export returns the whole filtered set, not a page.
+// Ключи пагинации отбрасываются: экспорт возвращает весь отфильтрованный набор, а не страницу.
 const EXPORT_OMIT = new Set(['limit', 'offset'])
 
-// Builds the CSV export URL from the SAME filter/sort params the list uses, so
-// the download mirrors what's on screen. Serialized like orval's generated URL
-// builder (URLSearchParams, skip undefined). This route lives outside
-// OpenAPI/orval (CSV, not JSON) and is fetched by URL via downloadFile.
+// Строит URL CSV-экспорта из ТЕХ ЖЕ параметров фильтра/сортировки, что и список, поэтому
+// скачанный файл совпадает с тем, что на экране. Сериализуется как в сгенерированном orval
+// построителе URL (URLSearchParams, undefined пропускаются). Этот роут живёт вне
+// OpenAPI/orval (CSV, а не JSON) и запрашивается по URL через downloadFile.
 export function clientsExportUrl(params: GetApiClientsParams): string {
   const qs = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {

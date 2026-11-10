@@ -1,6 +1,6 @@
-// Changes an existing account's role. Usage:
+// Меняет роль существующей учётной записи. Использование:
 //   pnpm --filter @detailing-admin/api user:set-role --login <login> --role <admin|booker|employee>
-// Prod: prefix with `railway run`.
+// Прод: добавьте в начало `railway run`.
 import { ROLES, roleSchema } from '@detailing-admin/shared'
 import { getArg, loadLocalEnv, fail } from './user-cli.js'
 
@@ -18,8 +18,8 @@ const { closeDb } = await import('../src/db/client.js')
 try {
   const ok = await setRoleByLogin(login, role.data)
   if (!ok) fail(`No user with login '${login}'`)
-  // The role lives in the JWT and /me re-mints it from the old claims, so the
-  // change reaches a live session only through a fresh login.
+  // Роль живёт в JWT, а /me перевыпускает его из старых claims, поэтому изменение
+  // доходит до активной сессии только через новый вход.
   console.log(`✓ Set role '${role.data}' for '${login}'. It applies after the user logs in again.`)
 } finally {
   await closeDb()

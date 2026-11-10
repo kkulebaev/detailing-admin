@@ -15,11 +15,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-// Read-only view of one booking. In the compact table a row shows five fields
-// out of thirteen; tapping it opens this. Admins get «Изменить»/«Удалить» in the
-// footer — that's the only path to editing and deleting once the compact row
-// drops its per-row buttons. Employees see the same fields without the footer:
-// they can't PATCH bookings anyway, but they still need the phone and the note.
+// Просмотр одной записи только для чтения. В компактной таблице строка показывает пять
+// полей из тринадцати; тап по ней открывает этот диалог. Админы видят в футере
+// «Изменить»/«Удалить» — это единственный путь к редактированию и удалению, раз компактная
+// строка лишается своих кнопок. Сотрудники видят те же поля без футера: PATCH записей
+// им всё равно недоступен, но телефон и примечание им нужны.
 const props = defineProps<{
   open: boolean
   booking: BookingRow | null

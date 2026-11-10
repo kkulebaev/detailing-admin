@@ -1,19 +1,19 @@
 import { StatusCodes } from '@detailing-admin/shared'
 import { getApiBase } from './api-base'
 
-// Custom `fetch` shim that orval calls in place of the inline `fetch()` in
-// every generated endpoint. Jobs:
-//   1. Prepend the env-driven API base URL when the request URL is relative.
-//   2. Send the auth cookie on every request (`credentials: 'include'`).
-//   3. Route a bare 401 through the registered unauthorized handler — except
-//      for the auth endpoints themselves, see AUTH_EXEMPT_PATHS.
-//   4. Return orval's `{ data, status, headers }` envelope without an explicit
-//      type assertion at the call site — the generic narrowing happens here
-//      once, behind one disable directive. The `unwrap` boundary in
-//      api-client.ts performs no runtime validation, so correctness depends on
-//      the OpenAPI spec and the route's response actually matching the types.
+// Своя обёртка над `fetch`, которую orval вызывает вместо встроенного `fetch()` в
+// каждом сгенерированном эндпоинте. Задачи:
+//   1. Подставить базовый URL API из env, если URL запроса относительный.
+//   2. Отправлять auth-cookie с каждым запросом (`credentials: 'include'`).
+//   3. Направлять голый 401 в зарегистрированный обработчик unauthorized — кроме
+//      самих эндпоинтов авторизации, см. AUTH_EXEMPT_PATHS.
+//   4. Возвращать конверт orval `{ data, status, headers }` без явного
+//      приведения типа в месте вызова — сужение дженерика происходит здесь
+//      один раз, за одной директивой disable. Граница `unwrap` в
+//      api-client.ts не делает проверки в рантайме, так что корректность зависит от
+//      того, действительно ли OpenAPI-спека и ответ роута соответствуют типам.
 
-// Resolved once at module load; see getApiBase for the dev/prod rationale.
+// Вычисляется один раз при загрузке модуля; обоснование для dev/prod см. в getApiBase.
 const apiBase = getApiBase()
 
 export interface OrvalEnvelope<T> {
@@ -25,18 +25,18 @@ export interface OrvalEnvelope<T> {
 type UnauthorizedHandler = () => void
 let unauthorizedHandler: UnauthorizedHandler | null = null
 
-// Registered lazily by main.ts, not imported here directly: auth-api.ts (and
-// everything that calls it) sits below this module, while the store/router
-// that need to react to a 401 sit above it — a static import in either
-// direction would cycle.
+// Регистрируется лениво из main.ts, а не импортируется сюда напрямую: auth-api.ts (и
+// всё, что его вызывает) лежит ниже этого модуля, а store/router,
+// которым нужно реагировать на 401, — выше; статический импорт в любую
+// сторону дал бы цикл.
 export function setUnauthorizedHandler(handler: UnauthorizedHandler): void {
   unauthorizedHandler = handler
 }
 
-// `/login` shows its own "wrong password" message rather than bouncing to
-// itself; `/me` 401s for every anonymous visitor on first load, which is
-// normal, not a session expiring (treating it as one would redirect-loop);
-// `/logout` clears the cookie by definition.
+// `/login` показывает своё сообщение «неверный пароль», а не редиректит
+// сам на себя; `/me` отвечает 401 каждому анонимному посетителю при первой загрузке, и это
+// нормально, а не истечение сессии (считать его таковым — значит зациклить редирект);
+// `/logout` очищает cookie по определению.
 const AUTH_EXEMPT_PATHS = ['/api/auth/login', '/api/auth/me', '/api/auth/logout']
 
 export async function orvalFetch<T extends OrvalEnvelope<unknown>>(

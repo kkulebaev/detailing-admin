@@ -1,6 +1,6 @@
-// Resets an existing account's password. Usage:
+// Сбрасывает пароль существующей учётной записи. Использование:
 //   pnpm --filter @detailing-admin/api user:reset-password --login <login>
-// Prompts for the new password (hidden). Prod: prefix with `railway run`.
+// Запрашивает новый пароль (скрытый ввод). Прод: добавьте в начало `railway run`.
 import { getArg, readHidden, loadLocalEnv, fail } from './user-cli.js'
 
 loadLocalEnv()

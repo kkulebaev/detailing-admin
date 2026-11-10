@@ -56,9 +56,9 @@ vi.mock('../src/db/client-cars.js', () => ({
   listCarsByClient: vi.fn(),
 }))
 
-// Partial mock: only listBookingsByClientId hits the DB and is stubbed; the pure
-// toBookingRow mapper stays real so the route exercises the true wire mapping
-// (id-links dropped, amount included for the admin-only card, live names flow).
+// Частичный мок: в БД ходит только listBookingsByClientId, его и подменяем; чистый
+// маппер toBookingRow остаётся настоящим, чтобы роут проверял реальный wire-маппинг
+// (id-ссылки отбрасываются, сумма есть в карточке только для админа, живые имена проходят).
 vi.mock('../src/db/bookings.js', async (importActual) => {
   const actual = await importActual<typeof import('../src/db/bookings.js')>()
   return { ...actual, listBookingsByClientId: vi.fn() }
@@ -80,9 +80,9 @@ const CLIENT = {
 
 const CAR = { id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА77' }
 
-// A stored booking row (schema.$inferSelect shape). `master` already carries the
-// live-overlaid name — withLiveMasterNames runs inside the mocked
-// listBookingsByClientId, so the route just maps it through.
+// Сохранённая строка записи (в форме schema.$inferSelect). В `master` уже лежит
+// актуальное имя — withLiveMasterNames работает внутри замоканного
+// listBookingsByClientId, так что роут просто пропускает его дальше.
 const BOOKING_ROW: Booking = {
   id: 'dddddddd-4444-4444-4444-444444444444',
   idempotencyKey: 'key-1',
@@ -130,7 +130,7 @@ describe('GET /api/clients/{id}', () => {
     vi.mocked(listBookingsByClientId).mockResolvedValue([BOOKING_ROW])
   })
 
-  it('returns the client (with cars), stats, and history with live master names', async () => {
+  it('возвращает клиента (с машинами), статистику и историю с актуальными именами мастеров', async () => {
     const res = await app.request(`/api/clients/${CLIENT.id}`, { headers: { Cookie: cookie } })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -141,19 +141,19 @@ describe('GET /api/clients/{id}', () => {
     expect(body.bookingsTruncated).toBe(false)
     expect(body.bookings).toHaveLength(1)
     const row = body.bookings[0]
-    // Live-overlaid master name flows through untouched.
+    // Актуальное имя мастера проходит без изменений.
     expect(row.master).toEqual(['Пётр (актуальное имя)'])
-    // Card is admin-only → amount present.
+    // Карточка только для админа → сумма присутствует.
     expect(row.amount).toBe(5000)
-    // Internal id-links never leak onto the wire.
+    // Внутренние id-ссылки никогда не уходят в ответ.
     expect(row.idempotencyKey).toBeUndefined()
     expect(row.responsibleId).toBeUndefined()
     expect(row.carId).toBeUndefined()
-    // History fetched with the cap.
+    // История запрашивается с лимитом.
     expect(vi.mocked(listBookingsByClientId)).toHaveBeenCalledWith(CLIENT.id, 500)
   })
 
-  it('empty history yields [] and not truncated', async () => {
+  it('пустая история даёт [] и не обрезана', async () => {
     vi.mocked(listBookingsByClientId).mockResolvedValue([])
     const res = await app.request(`/api/clients/${CLIENT.id}`, { headers: { Cookie: cookie } })
     expect(res.status).toBe(200)
@@ -162,8 +162,8 @@ describe('GET /api/clients/{id}', () => {
     expect(body.bookingsTruncated).toBe(false)
   })
 
-  it('flags truncation when the history exceeds the cap', async () => {
-    // cap+1 rows come back → truncated true, response sliced to the cap.
+  it('помечает обрезку, если история превышает лимит', async () => {
+    // Пришло cap+1 строк → truncated true, ответ обрезан до лимита.
     const many = Array.from({ length: 501 }, (_, i) => ({ ...BOOKING_ROW, id: `id-${i}` }))
     vi.mocked(listBookingsByClientId).mockResolvedValue(many)
     const res = await app.request(`/api/clients/${CLIENT.id}`, { headers: { Cookie: cookie } })
@@ -173,7 +173,7 @@ describe('GET /api/clients/{id}', () => {
     expect(body.bookingsTruncated).toBe(true)
   })
 
-  it('unknown id → 404 not_found', async () => {
+  it('неизвестный id → 404 not_found', async () => {
     vi.mocked(getClientById).mockResolvedValue(null)
     const res = await app.request(`/api/clients/${CLIENT.id}`, { headers: { Cookie: cookie } })
     expect(res.status).toBe(404)
@@ -181,12 +181,12 @@ describe('GET /api/clients/{id}', () => {
     expect(body).toEqual({ ok: false, error: 'not_found' })
   })
 
-  it('malformed uuid → 400', async () => {
+  it('некорректный uuid → 400', async () => {
     const res = await app.request('/api/clients/not-a-uuid', { headers: { Cookie: cookie } })
     expect(res.status).toBe(400)
   })
 
-  it('DB not ready → 503 unavailable', async () => {
+  it('БД не готова → 503 unavailable', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await app.request(`/api/clients/${CLIENT.id}`, { headers: { Cookie: cookie } })
     expect(res.status).toBe(503)
@@ -194,14 +194,14 @@ describe('GET /api/clients/{id}', () => {
     expect(body.error).toBe('unavailable')
   })
 
-  it('non-admin → 403', async () => {
+  it('не админ → 403', async () => {
     const res = await app.request(`/api/clients/${CLIENT.id}`, {
       headers: { Cookie: await employeeCookie() },
     })
     expect(res.status).toBe(403)
   })
 
-  it('stays closed to a booker, who only gets the lookup', async () => {
+  it('закрыт для booker, которому доступен только lookup', async () => {
     const res = await app.request(`/api/clients/${CLIENT.id}`, {
       headers: { Cookie: await bookerCookie() },
     })
@@ -227,7 +227,7 @@ describe('GET /api/clients/lookup', () => {
     ])
   })
 
-  it('gives a booker the client and a summary without money', async () => {
+  it('отдаёт booker клиента и сводку без денег', async () => {
     const res = await lookup(await bookerCookie())
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -242,38 +242,38 @@ describe('GET /api/clients/lookup', () => {
     expect(JSON.stringify(body)).not.toContain('5000')
   })
 
-  it('adds totalSpent for an admin', async () => {
+  it('добавляет totalSpent для админа', async () => {
     const res = await lookup(await adminCookie())
     const body = await res.json()
     expect(body.match.summary.totalSpent).toBe(5000)
   })
 
-  it('returns a null match for an unknown phone', async () => {
+  it('возвращает null для неизвестного телефона', async () => {
     vi.mocked(getClientByPhone).mockResolvedValue(null)
     const res = await lookup(await bookerCookie())
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true, match: null })
   })
 
-  it('rejects anything but a full phone, so it cannot browse clients', async () => {
+  it('отклоняет всё, кроме полного телефона, чтобы нельзя было перебирать клиентов', async () => {
     const res = await lookup(await bookerCookie(), '+7916')
     expect(res.status).toBe(400)
     expect(vi.mocked(getClientByPhone)).not.toHaveBeenCalledWith('+7916')
   })
 
-  it('is closed to an employee', async () => {
+  it('закрыт для employee', async () => {
     const res = await lookup(await employeeCookie())
     expect(res.status).toBe(403)
   })
 
-  it('returns 503 when the DB is down', async () => {
+  it('возвращает 503, если БД недоступна', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await lookup(await bookerCookie())
     expect(res.status).toBe(503)
   })
 })
 
-describe('other client routes for a booker', () => {
+describe('остальные роуты клиентов для booker', () => {
   const app = createApp()
 
   it.each([
@@ -287,10 +287,10 @@ describe('other client routes for a booker', () => {
   })
 })
 
-describe('pricelist access', () => {
+describe('доступ к прайс-листу', () => {
   const app = createApp()
 
-  it('lets a booker past the guard on reads only', async () => {
+  it('пропускает booker через guard только на чтение', async () => {
     const cookie = await bookerCookie()
     const read = await app.request('/api/pricelist', { headers: { Cookie: cookie } })
     expect(read.status).not.toBe(403)
@@ -302,7 +302,7 @@ describe('pricelist access', () => {
     expect(write.status).toBe(403)
   })
 
-  it('keeps reads closed to an employee', async () => {
+  it('не открывает чтение для employee', async () => {
     const res = await app.request('/api/pricelist', {
       headers: { Cookie: await employeeCookie() },
     })

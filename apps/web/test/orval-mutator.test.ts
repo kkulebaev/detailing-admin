@@ -14,9 +14,9 @@ describe('orvalFetch', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    // Fresh module registry per test: `unauthorizedHandler` is module-level
-    // mutable state (set via `setUnauthorizedHandler`), and tests must not
-    // see a handler registered by a previous test.
+    // Свежий реестр модулей на каждый тест: `unauthorizedHandler` — изменяемое
+    // состояние уровня модуля (задаётся через `setUnauthorizedHandler`), и тесты
+    // не должны видеть обработчик, зарегистрированный предыдущим тестом.
     vi.resetModules()
     fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -26,7 +26,7 @@ describe('orvalFetch', () => {
     vi.unstubAllGlobals()
   })
 
-  it('sends credentials: include on every request', async () => {
+  it('отправляет credentials: include в каждом запросе', async () => {
     fetchMock.mockResolvedValue(jsonResponse(StatusCodes.OK, { ok: true }))
     const { orvalFetch } = await import('@/lib/orval-mutator')
     await orvalFetch<OrvalEnvelope<unknown>>('/api/clients')
@@ -36,7 +36,7 @@ describe('orvalFetch', () => {
     )
   })
 
-  it('invokes the unauthorized handler on a 401 outside the auth-exempt paths', async () => {
+  it('вызывает unauthorized-обработчик на 401 вне путей, освобождённых от авторизации', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(StatusCodes.UNAUTHORIZED, { ok: false, error: 'unauthorized' }),
     )
@@ -47,7 +47,7 @@ describe('orvalFetch', () => {
     expect(handler).toHaveBeenCalledTimes(1)
   })
 
-  it('does not invoke the handler on a non-401 response', async () => {
+  it('не вызывает обработчик на ответе, отличном от 401', async () => {
     fetchMock.mockResolvedValue(jsonResponse(StatusCodes.OK, { ok: true }))
     const { orvalFetch, setUnauthorizedHandler } = await import('@/lib/orval-mutator')
     const handler = vi.fn()
@@ -57,7 +57,7 @@ describe('orvalFetch', () => {
   })
 
   it.each(['/api/auth/login', '/api/auth/me', '/api/auth/logout'])(
-    'does not invoke the unauthorized handler for %s',
+    'не вызывает unauthorized-обработчик для %s',
     async (path) => {
       fetchMock.mockResolvedValue(
         jsonResponse(StatusCodes.UNAUTHORIZED, { ok: false, error: 'unauthorized' }),

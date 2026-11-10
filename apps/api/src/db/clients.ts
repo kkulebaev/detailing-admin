@@ -26,11 +26,11 @@ export class ClientError extends Error {
 export interface ListClientsParams {
   limit: number
   offset: number
-  /** Free-text search across name/phone/car. A phone-looking term is normalized
-   * to E.164 before matching the stored (E.164) phone; the car branch matches
-   * make/model and plate in `client_cars`. */
+  /** Свободный поиск по имени/телефону/машине. Похожий на телефон запрос нормализуется
+   * в E.164 перед сравнением с сохранённым (E.164) телефоном; ветка машин сравнивает
+   * марку/модель и госномер в `client_cars`. */
   q?: string
-  /** Sort column. Defaults to name. */
+  /** Столбец сортировки. По умолчанию — имя. */
   sort?: 'name' | 'phone' | 'createdAt'
   dir?: 'asc' | 'desc'
 }
@@ -44,19 +44,19 @@ export async function listClients(
   let where
   if (q) {
     const textLike = `%${q}%`
-    // The stored phone is E.164, but staff type `8XXX`; normalize so a phone
-    // search still matches. normalizePhone throws on non-phone input — fall back
-    // to raw text matching in that case.
+    // Телефон хранится в E.164, а сотрудники вводят `8XXX`; нормализуем, чтобы поиск
+    // по телефону всё равно находил. На не-телефоне normalizePhone бросает ошибку — тогда
+    // откатываемся к сравнению по сырому тексту.
     let phoneLike = textLike
     try {
       const normalized = normalizePhone(q)
       if (normalized) phoneLike = `%${normalized}%`
     } catch {
-      // Not a phone — keep the text pattern.
+      // Не телефон — оставляем текстовый шаблон.
     }
-    // Cars live in a child table holding the *normalized* key, so the term gets
-    // the same normalization before matching — a plate is stored space-stripped,
-    // so raw «А 123 АА 77» would never find «А123АА77».
+    // Машины лежат в дочерней таблице с *нормализованным* ключом, поэтому запрос
+    // перед сравнением нормализуется так же — госномер хранится без пробелов,
+    // и сырой «А 123 АА 77» никогда не нашёл бы «А123АА77».
     const carLike = `%${normalizeCarKey(q)}%`
     const plateLike = `%${normalizeCarKey(q, true)}%`
     where = or(
@@ -73,8 +73,8 @@ export async function listClients(
   } else if (p.sort === 'createdAt') {
     orderBy = [direction(clients.createdAt)]
   } else {
-    // Empty names always sort last (regardless of direction), matching the
-    // UI's collator ordering; then by name in the requested direction.
+    // Пустые имена всегда идут последними (при любом направлении), как в
+    // сортировке collator в UI; затем по имени в запрошенном направлении.
     orderBy = [asc(sql`${clients.name} = ''`), direction(sql`lower(${clients.name})`)]
   }
 
@@ -95,9 +95,9 @@ export async function listClients(
 }
 
 /**
- * Upsert a client by phone. Caller must pass an already-normalized E.164 phone
- * (or empty string — empty phones are skipped, since phone is the natural key).
- * Empty incoming `name` never overwrites an existing non-empty name.
+ * Upsert клиента по телефону. Вызывающий код должен передать уже нормализованный
+ * телефон E.164 (или пустую строку — пустые телефоны пропускаются, т. к. телефон —
+ * естественный ключ). Пустой входящий `name` никогда не затирает существующее непустое имя.
  */
 export async function upsertClient(phone: string, name: string): Promise<UpsertResult> {
   if (phone.length === 0) {
@@ -136,8 +136,8 @@ export async function upsertClient(phone: string, name: string): Promise<UpsertR
   return { outcome: 'unchanged', client: after ?? null }
 }
 
-// Returns the persisted client together with its actual cars (post-sync), so
-// the route can echo the reconciled set back to the dialog.
+// Возвращает сохранённого клиента вместе с его актуальными машинами (после синхронизации),
+// чтобы маршрут мог вернуть согласованный набор обратно в диалог.
 export async function createClient(
   phone: string,
   name: string,
@@ -182,12 +182,12 @@ export async function getClientByPhone(phone: string): Promise<Client | null> {
   return row ?? null
 }
 
-// Lifetime «Выдана»-only aggregates for the client card. Same REVENUE_READINESS
-// predicate as analytics (not the literal hardcoded twice), but no period window.
-// postgres-js returns SUM/COUNT as strings → Number(); MAX/MIN(date_from) come
-// back as 'YYYY-MM-DD' (or null). Caveat: date_from is the planned service date,
-// not the delivery fact, so MAX among «Выдана» can land on a future/multi-day
-// start date — the same approximation analytics accepts when bucketing by date_from.
+// Агрегаты за всё время только по «Выдана» для карточки клиента. Тот же предикат
+// REVENUE_READINESS, что в аналитике (а не литерал, захардкоженный дважды), но без окна периода.
+// postgres-js возвращает SUM/COUNT строками → Number(); MAX/MIN(date_from) приходят
+// как 'YYYY-MM-DD' (или null). Оговорка: date_from — плановая дата услуги, а не факт
+// выдачи, поэтому MAX среди «Выдана» может прийтись на будущую/многодневную дату начала —
+// то же приближение, которое принимает аналитика при группировке по date_from.
 export async function getClientStats(clientId: string): Promise<ClientStats> {
   const db = getDb()
   const [row] = await db
@@ -211,9 +211,9 @@ export async function getClientStats(clientId: string): Promise<ClientStats> {
 
 export async function deleteClient(id: string): Promise<void> {
   const db = getDb()
-  // A booking FK (bookings.client_id) still references this client — Postgres
-  // would reject the delete. Refuse it explicitly so the route can surface a
-  // 409 instead of a generic 500; the bookings mirror is retained deliberately.
+  // На этого клиента ещё ссылается FK записи (bookings.client_id) — Postgres
+  // отклонил бы удаление. Отказываем явно, чтобы маршрут мог вернуть 409, а не
+  // общий 500; зеркало записей сохраняется намеренно.
   const [linked] = await db
     .select({ id: bookings.id })
     .from(bookings)

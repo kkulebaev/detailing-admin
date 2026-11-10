@@ -3,8 +3,8 @@ import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { page } from 'vitest/browser'
 import type { MySalaryOk } from '@detailing-admin/shared'
 
-// Hoisted rather than exported from the mock: a browser-mode mock drops exports
-// the real module doesn't have.
+// Через hoisted, а не экспортом из мока: мок в browser mode теряет экспорты,
+// которых нет у настоящего модуля.
 const data = await vi.hoisted(async () => {
   const { ref } = await import('vue')
   return ref<MySalaryOk | undefined>(undefined)
@@ -86,14 +86,14 @@ describe('MyHoursPage', () => {
     data.value = undefined
   })
 
-  it('explains an unlinked account instead of showing zeros', async () => {
+  it('объясняет, что аккаунт не привязан, вместо того чтобы показывать нули', async () => {
     data.value = { ...linked, master: null, entries: [], hourlyRate: null }
     mountPage()
     await expect.element(page.getByText('Аккаунт не привязан к мастеру')).toBeVisible()
     await expect.element(addHours()).not.toBeInTheDocument()
   })
 
-  it('shows the month totals', async () => {
+  it('показывает итоги за месяц', async () => {
     data.value = linked
     const w = mountPage()
     await expect.element(addHours()).toBeVisible()
@@ -105,7 +105,7 @@ describe('MyHoursPage', () => {
     expect(text).toContain('Вычет')
   })
 
-  it('offers edit and delete only for hours inside the window', async () => {
+  it('предлагает редактирование и удаление только для часов внутри окна', async () => {
     data.value = linked
     mountPage()
     await expect
@@ -118,7 +118,7 @@ describe('MyHoursPage', () => {
     await expect.element(page.getByRole('button', { name: /15 октября/ })).not.toBeInTheDocument()
   })
 
-  it('disables adding hours until a rate is set', async () => {
+  it('блокирует добавление часов, пока не задана ставка', async () => {
     data.value = { ...linked, hourlyRate: null }
     mountPage()
     await expect.element(addHours()).toBeDisabled()

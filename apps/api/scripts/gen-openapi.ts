@@ -1,17 +1,17 @@
-// Generates the OpenAPI 3.0 document and writes it to apps/web/openapi.json.
-// orval reads that file to generate the typed web client. Keep this script
-// pure — it only walks the route tree, no Sheets/DB init runs.
+// Генерирует документ OpenAPI 3.0 и пишет его в apps/web/openapi.json.
+// orval читает этот файл, чтобы сгенерировать типизированный веб-клиент. Скрипт
+// должен оставаться чистым — он только обходит дерево роутов, инициализации Sheets/БД нет.
 //
-// `env.ts` validates required env vars at module load. The route tree imports
-// it transitively, so we stamp safe placeholders BEFORE the dynamic imports;
-// this script never instantiates clients, so the placeholders are inert. The
-// stamp is harmless under vitest too — test/setup.ts already sets the same vars.
+// `env.ts` проверяет обязательные переменные окружения при загрузке модуля. Дерево
+// роутов импортирует его транзитивно, поэтому мы проставляем безопасные заглушки ДО
+// динамических импортов; скрипт никогда не создаёт клиентов, так что заглушки инертны.
+// Под vitest это тоже безвредно — test/setup.ts уже задаёт те же переменные.
 //
-// buildOpenApiDocument() is exported so openapi-drift.test.ts can build the
-// document in memory and diff it against the committed openapi.json. The write
-// therefore sits behind a main guard: without it, importing this module from the
-// test would rewrite the very file the test is about to compare against, and a
-// forgotten regeneration would never go red.
+// buildOpenApiDocument() экспортируется, чтобы openapi-drift.test.ts мог собрать
+// документ в памяти и сравнить его с закоммиченным openapi.json. Поэтому запись
+// спрятана за проверкой main: без неё импорт модуля из теста перезаписал бы тот самый
+// файл, с которым тест собирается сравнивать, и забытая регенерация никогда бы не
+// покраснела.
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -42,8 +42,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export const OUT_PATH = resolve(__dirname, '../../web/openapi.json')
 
-// The router registry is deliberately duplicated with server.ts — a new route
-// must be mounted in both. Collapsing them into one source is a follow-up.
+// Реестр роутеров намеренно продублирован с server.ts — новый роут нужно
+// подключить в обоих местах. Свести их в один источник — задача на потом.
 export function buildOpenApiDocument() {
   const app = new OpenAPIHono()
     .route('/healthz', healthzRouter)
@@ -67,8 +67,8 @@ export function buildOpenApiDocument() {
   })
 }
 
-// argv[1] is absent under `node --eval` and some embedded runners; guard it
-// before pathToFileURL, which throws on undefined.
+// argv[1] отсутствует под `node --eval` и в некоторых встроенных раннерах; проверяем
+// его до pathToFileURL, который бросает исключение на undefined.
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   mkdirSync(dirname(OUT_PATH), { recursive: true })
   writeFileSync(OUT_PATH, JSON.stringify(buildOpenApiDocument(), null, 2))

@@ -15,33 +15,33 @@ const validBase = {
 }
 
 describe('bookingSchema', () => {
-  it('parses a valid minimal payload', () => {
+  it('разбирает валидный минимальный payload', () => {
     const result = bookingSchema.safeParse(validBase)
     expect(result.success).toBe(true)
   })
 
-  it('rejects bad time 25:99', () => {
+  it('отклоняет неверное время 25:99', () => {
     const result = bookingSchema.safeParse({ ...validBase, time: '25:99' })
     expect(result.success).toBe(false)
   })
 
-  it('rejects bad time 24:00', () => {
+  it('отклоняет неверное время 24:00', () => {
     const result = bookingSchema.safeParse({ ...validBase, time: '24:00' })
     expect(result.success).toBe(false)
   })
 
-  it('rejects bad date format', () => {
+  it('отклоняет неверный формат даты', () => {
     const result = bookingSchema.safeParse({ ...validBase, dateFrom: '2026-06-04' })
     expect(result.success).toBe(false)
   })
 
-  it('phone transform produces canonical E.164 form', () => {
+  it('transform телефона даёт канонический вид E.164', () => {
     const result = bookingSchema.safeParse({ ...validBase, phone: '8 999 123 45 67' })
     assert(result.success)
     expect(result.data.phone).toBe('+79991234567')
   })
 
-  it('phone garbage produces a ZodIssue at path ["phone"]', () => {
+  it('мусор в телефоне даёт ZodIssue по пути ["phone"]', () => {
     const result = bookingSchema.safeParse({ ...validBase, phone: '123' })
     assert(!result.success)
     const phoneIssue = result.error.issues.find(
@@ -51,7 +51,7 @@ describe('bookingSchema', () => {
     expect(result.error.issues).toHaveLength(1)
   })
 
-  it('rejects dateTo < dateFrom across year boundary', () => {
+  it('отклоняет dateTo < dateFrom через границу года', () => {
     const result = bookingSchema.safeParse({
       ...validBase,
       dateFrom: '02.01.2026',
@@ -60,7 +60,7 @@ describe('bookingSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('accepts dateTo > dateFrom across year boundary', () => {
+  it('принимает dateTo > dateFrom через границу года', () => {
     const result = bookingSchema.safeParse({
       ...validBase,
       dateFrom: '30.12.2025',
@@ -69,7 +69,7 @@ describe('bookingSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('collapses dateFrom === dateTo to dateTo: undefined', () => {
+  it('схлопывает dateFrom === dateTo в dateTo: undefined', () => {
     const result = bookingSchema.safeParse({
       ...validBase,
       dateFrom: '04.06.2026',
@@ -79,46 +79,46 @@ describe('bookingSchema', () => {
     expect(result.data.dateTo).toBeUndefined()
   })
 
-  it('rejects amount as empty string', () => {
+  it('отклоняет сумму в виде пустой строки', () => {
     const result = bookingSchema.safeParse({ ...validBase, amount: '' })
     expect(result.success).toBe(false)
   })
 
-  it('accepts amount 200000', () => {
+  it('принимает сумму 200000', () => {
     const result = bookingSchema.safeParse({ ...validBase, amount: 200000 })
     expect(result.success).toBe(true)
   })
 
-  it('rejects negative amount', () => {
+  it('отклоняет отрицательную сумму', () => {
     const result = bookingSchema.safeParse({ ...validBase, amount: -1 })
     expect(result.success).toBe(false)
   })
 
-  it('accepts amount above the previous 10M cap (no silent upper bound)', () => {
+  it('принимает сумму выше прежнего потолка 10M (скрытого верхнего предела нет)', () => {
     const result = bookingSchema.safeParse({ ...validBase, amount: 25_000_000 })
     assert(result.success)
     expect(result.data.amount).toBe(25_000_000)
   })
 
-  it('readiness: accepts explicit empty string', () => {
+  it('readiness: принимает явную пустую строку', () => {
     const result = bookingSchema.safeParse({ ...validBase, readiness: '' })
     assert(result.success)
     expect(result.data.readiness).toBe('')
   })
 
-  it('readiness: accepts a valid enum value', () => {
+  it('readiness: принимает валидное значение enum', () => {
     const result = bookingSchema.safeParse({ ...validBase, readiness: 'Выдана' })
     assert(result.success)
     expect(result.data.readiness).toBe('Выдана')
   })
 
-  it('readiness: defaults to empty string when omitted', () => {
+  it('readiness: по умолчанию пустая строка, если не передано', () => {
     const result = bookingSchema.safeParse(validBase)
     assert(result.success)
     expect(result.data.readiness).toBe('')
   })
 
-  it('accepts an arbitrary master name outside the former enum', () => {
+  it('принимает произвольное имя мастера вне прежнего enum', () => {
     const result = bookingSchema.safeParse({
       ...validBase,
       master: ['Пётр Новый'],
@@ -127,19 +127,19 @@ describe('bookingSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('accepts multiple masters', () => {
+  it('принимает несколько мастеров', () => {
     const result = bookingSchema.safeParse({ ...validBase, master: ['Иван', 'Пётр'] })
     assert(result.success)
     expect(result.data.master).toEqual(['Иван', 'Пётр'])
   })
 
-  it('dedups repeated masters, preserving first-occurrence order', () => {
+  it('убирает повторы мастеров, сохраняя порядок первого вхождения', () => {
     const result = bookingSchema.safeParse({ ...validBase, master: ['Пётр', 'Иван', 'Пётр'] })
     assert(result.success)
     expect(result.data.master).toEqual(['Пётр', 'Иван'])
   })
 
-  it('rejects more than MAX_MASTERS masters', () => {
+  it('отклоняет больше MAX_MASTERS мастеров', () => {
     const result = bookingSchema.safeParse({
       ...validBase,
       master: ['А', 'Б', 'В', 'Г', 'Д', 'Е'],
@@ -147,34 +147,34 @@ describe('bookingSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects a master name that starts a formula (anti-injection)', () => {
+  it('отклоняет имя мастера, начинающее формулу (защита от инъекций)', () => {
     const result = bookingSchema.safeParse({ ...validBase, master: ['=SUM(A1)'] })
     expect(result.success).toBe(false)
   })
 
-  it('master: rejects an empty array', () => {
+  it('master: отклоняет пустой массив', () => {
     const result = bookingSchema.safeParse({ ...validBase, master: [] })
     expect(result.success).toBe(false)
   })
 
-  it('responsible: rejects explicit empty string', () => {
+  it('responsible: отклоняет явную пустую строку', () => {
     const result = bookingSchema.safeParse({ ...validBase, responsible: '' })
     expect(result.success).toBe(false)
   })
 
-  it('responsible: rejects when omitted, with the same message as an empty value', () => {
+  it('responsible: отклоняет отсутствующее значение с тем же сообщением, что и пустое', () => {
     const { responsible: _omit, ...withoutResponsible } = validBase
     const result = bookingSchema.safeParse(withoutResponsible)
     assert(!result.success)
     expect(result.error.issues[0]?.message).toBe('Выберите ответственного')
   })
 
-  it('rejects time field longer than 5 chars even when regex would otherwise match', () => {
+  it('отклоняет поле времени длиннее 5 символов, даже если regex иначе бы совпал', () => {
     const result = bookingSchema.safeParse({ ...validBase, time: '010:00' })
     expect(result.success).toBe(false)
   })
 
-  it('rejects dateFrom longer than 10 chars even when regex would otherwise match', () => {
+  it('отклоняет dateFrom длиннее 10 символов, даже если regex иначе бы совпал', () => {
     const result = bookingSchema.safeParse({ ...validBase, dateFrom: '004.06.2026' })
     expect(result.success).toBe(false)
   })

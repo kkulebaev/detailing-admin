@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { login } from './helpers'
 
-test('recovers on its own when the connection drops during a page load', async ({ page }) => {
+test('сам восстанавливается, если соединение обрывается при загрузке страницы', async ({
+  page,
+}) => {
   await login(page, 'e2e-admin')
   const bookingsList = /\/api\/bookings\?/
   let attempts = 0

@@ -28,7 +28,7 @@ import {
   isDbReady,
 } from '../boot.js'
 import { appendBooking } from '../sheets.js'
-// Only successful (ok: true) results are cached. See plan §5.
+// Кэшируются только успешные результаты (ok: true). См. план, §5.
 import * as idempotency from '../idempotency.js'
 import { upsertClient } from '../db/clients.js'
 import { selectCarId, upsertClientCarReturningId } from '../db/client-cars.js'
@@ -48,19 +48,19 @@ import { EXPORT_CAP, SHOP_TIMEZONE } from '../export.js'
 type Vars = { requestId: string }
 
 const idempotencyHeaderSchema = z.object({
-  // Custom messages preserved verbatim from the legacy zValidator wording.
-  // The schema key is lowercase because HTTP headers are case-insensitive and
-  // arrive normalized; `bookingsValidationHook` rewrites the issue path back to
-  // `'Idempotency-Key'` so the wire format stays byte-identical.
+  // Свои сообщения сохранены дословно из формулировок старого zValidator.
+  // Ключ в схеме в нижнем регистре, потому что HTTP-заголовки регистронезависимы и
+  // приходят нормализованными; `bookingsValidationHook` переписывает путь issue обратно
+  // в `'Idempotency-Key'`, чтобы wire-формат остался побайтово тем же.
   'idempotency-key': z
     .string({ error: () => 'Required header missing' })
     .min(1, 'Required header missing')
     .max(128, 'Required; max 128 chars'),
 })
 
-// Mirrors `notificationResultSchema` in @detailing-admin/shared. Redefined here
-// against the OpenAPI `z` instance (the shared one is plain zod) so the emitted
-// spec stays accurate; keep the two in sync.
+// Повторяет `notificationResultSchema` из @detailing-admin/shared. Переопределена здесь
+// на экземпляре `z` из OpenAPI (в shared — обычный zod), чтобы генерируемая спецификация
+// оставалась точной; держи обе синхронными.
 const notificationResultSchema = z.object({
   attempted: z.boolean(),
   delivered: z.boolean(),
@@ -110,8 +110,8 @@ const postBookingRoute = createRoute({
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
-  // Date filters arrive in the UI's DD.MM.YYYY format; the handler converts to
-  // ISO before querying. Bad shapes 400 rather than silently ignoring a filter.
+  // Фильтры по дате приходят в формате UI DD.MM.YYYY; обработчик переводит их в
+  // ISO перед запросом. Неверный формат — 400, а не молчаливо проигнорированный фильтр.
   dateFrom: z
     .string()
     .regex(/^\d{2}\.\d{2}\.\d{4}$/)
@@ -250,9 +250,9 @@ const patchReadinessRoute = createRoute({
   },
 })
 
-// Validation hook owns the booking-specific logging plus path rewrites so the
-// wire format and the per-request log line both stay byte-compatible with the
-// pre-OpenAPI implementation.
+// Хук валидации отвечает за логирование, специфичное для записи, и переписывание путей,
+// чтобы и wire-формат, и строка лога на запрос оставались побайтово совместимыми с
+// реализацией до OpenAPI.
 function bookingsValidationHook(
   result: { success: true } | { success: false; error: z.ZodError },
   c: Context<{ Variables: Vars }>,
@@ -290,18 +290,18 @@ function bookingsValidationHook(
 
 const router = new OpenAPIHono<{ Variables: Vars }>({ defaultHook: bookingsValidationHook })
 
-// Boot guard middleware. Stamps request_id, returns 503 with NO log when
-// init() failed (plan §7), otherwise proceeds to openapi validation + handler.
-// Assigned imperatively because OpenAPIHono's `.use()` returns a plain `Hono`,
-// which would lose the `.openapi()` method on a chained call.
+// Middleware boot-guard. Проставляет request_id, при неудачном init() возвращает 503
+// БЕЗ записи в лог (план, §7), иначе передаёт дальше в openapi-валидацию + обработчик.
+// Назначается императивно, потому что `.use()` у OpenAPIHono возвращает обычный `Hono`,
+// который в цепочке потерял бы метод `.openapi()`.
 router.use('/', async (c, next) => {
   const requestId = uuidv4()
   c.header('X-Request-Id', requestId)
   c.set('requestId', requestId)
 
-  // Boot state (Sheets header/credential checks) only gates the write path.
-  // The GET read serves from Postgres and is independent of Sheets — it guards
-  // itself with isDbReady().
+  // Boot-состояние (проверки заголовков/учётных данных Sheets) закрывает только путь записи.
+  // Чтение GET обслуживается из Postgres и от Sheets не зависит — оно защищает
+  // себя само через isDbReady().
   if (c.req.method !== 'POST') {
     await next()
     return
@@ -343,12 +343,12 @@ router.openapi(postBookingRoute, async (c) => {
   const requestId = c.get('requestId')
   const { 'idempotency-key': idempotencyKey } = c.req.valid('header')
 
-  // Idempotency cache hit — return cached result without touching Sheets.
+  // Попадание в кэш идемпотентности — возвращаем закэшированный результат, не трогая Sheets.
   const cached = idempotency.get(idempotencyKey)
   if (cached) {
     if (!cached.ok) {
-      // Sanity: cache is supposed to hold only successes. Evict and fall
-      // through to a fresh request.
+      // Страховка: в кэше должны лежать только успехи. Удаляем и
+      // проваливаемся в новый запрос.
       idempotency.delete_(idempotencyKey)
     } else {
       baseLogger.info(
@@ -370,8 +370,8 @@ router.openapi(postBookingRoute, async (c) => {
           idempotent: true,
           updatedRange: cached.updatedRange,
           updatedRow: cached.updatedRow,
-          // Replay the original notification outcome; a cache hit must not
-          // re-send to Telegram.
+          // Повторяем исходный результат уведомления; попадание в кэш не должно
+          // повторно слать в Telegram.
           ...(cached.notification ? { notification: cached.notification } : {}),
         },
         StatusCodes.CREATED,
@@ -409,11 +409,11 @@ router.openapi(postBookingRoute, async (c) => {
     )
   }
 
-  // Mirror the client and the booking into Postgres (best-effort; Sheets is
-  // still the source of truth). Failures here never block the booking — the DB
-  // is purely additive at stage 1. The client upsert and the booking mirror are
-  // independent: if the upsert fails the booking row is still persisted with a
-  // null client link (the snapshot name/phone keep the row self-sufficient).
+  // Зеркалим клиента и запись в Postgres (best-effort; Sheets по-прежнему
+  // источник истины). Сбои здесь никогда не блокируют запись — на этапе 1 БД
+  // чисто дополнительная. Upsert клиента и зеркало записи независимы: если upsert
+  // упал, строка записи всё равно сохраняется с пустой связью с клиентом (снимок
+  // имени/телефона делает строку самодостаточной).
   let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
   let clientId: string | null = null
   let carId: string | null = null
@@ -435,15 +435,14 @@ router.openapi(postBookingRoute, async (c) => {
       )
     }
 
-    // Best-effort ingest of the client's car. Own try/catch (sibling to the
-    // upsert and mirror catches, NOT combined) — a car failure must not
-    // suppress the mirror insert below. Skipped without a linked client
-    // (nowhere to attach it) or an empty make/model.
+    // Best-effort приём машины клиента. Собственный try/catch (рядом с catch'ами
+    // upsert и зеркала, НЕ объединённый с ними) — сбой с машиной не должен
+    // подавить вставку в зеркало ниже. Пропускается без связанного клиента
+    // (не к чему привязать) или при пустой марке/модели.
     if (clientId && booking.car) {
       try {
-        // Returns the id of the normalized car row so the mirror can link
-        // `car_id` atomically below; a failure leaves carId null (booking
-        // proceeds).
+        // Возвращает id нормализованной строки машины, чтобы зеркало ниже атомарно
+        // связало `car_id`; при сбое carId остаётся null (запись продолжается).
         carId = await upsertClientCarReturningId(clientId, booking.car, booking.plate ?? '')
       } catch (err) {
         baseLogger.warn(
@@ -458,8 +457,8 @@ router.openapi(postBookingRoute, async (c) => {
     }
 
     try {
-      // Idempotent on the key: a post-TTL retry (which re-appends to Sheets)
-      // will not create a second mirror row.
+      // Идемпотентно по ключу: повтор после TTL (который снова делает append в Sheets)
+      // не создаст вторую строку зеркала.
       bookingPersisted = await insertBooking(booking, {
         idempotencyKey,
         clientId,
@@ -479,9 +478,9 @@ router.openapi(postBookingRoute, async (c) => {
     }
   }
 
-  // Best-effort Telegram notification to the master. Runs after the write
-  // lands in Sheets and never blocks it — a failure only downgrades the
-  // response to a warning the form shows. Skipped entirely unless requested.
+  // Best-effort уведомление мастеру в Telegram. Выполняется после того, как запись
+  // попала в Sheets, и никогда её не блокирует — сбой лишь понижает ответ до
+  // предупреждения, которое показывает форма. Без запроса полностью пропускается.
   const notification = booking.notify ? await notifyMaster(booking) : undefined
 
   const successResult = {
@@ -543,9 +542,9 @@ router.openapi(
         q: query.q,
         sort: query.sort,
       })
-      // Amounts depend on the role (the GET list is otherwise available to any
-      // authenticated role); toBookingRow drops the internal id-links and
-      // serializes the timestamp.
+      // Суммы зависят от роли (в остальном список GET доступен любой
+      // авторизованной роли); toBookingRow отбрасывает внутренние id-связи и
+      // сериализует метку времени.
       const role = c.get('user')?.role
       const includeAmount = role !== undefined && canSeeAmounts(role)
       const items = rows.map((row) => toBookingRow(row, { includeAmount }))
@@ -594,19 +593,19 @@ router.openapi(
     const { id } = c.req.valid('param')
     const booking = c.req.valid('json')
     try {
-      // Re-link the client (phone may have changed); best-effort — null on an
-      // empty/unnormalizable phone or a transient upsert failure (the snapshot
-      // name/phone still get updated).
+      // Заново связываем клиента (телефон мог измениться); best-effort — null при
+      // пустом/ненормализуемом телефоне или временном сбое upsert (снимок
+      // имени/телефона всё равно обновляется).
       let clientId: string | null = null
       try {
         const up = await upsertClient(booking.phone, booking.name)
         clientId = up.client?.id ?? null
       } catch {
-        /* keep null */
+        /* оставляем null */
       }
-      // Best-effort, read-only re-link of the car: matches only a car already in
-      // `client_cars` (no upsert — a PATCH must never accumulate car rows). Null
-      // on no client, a failure, or an unmatched car; the snapshot stays truth.
+      // Best-effort повторная связь с машиной только на чтение: находит лишь машину, уже
+      // лежащую в `client_cars` (без upsert — PATCH не должен копить строки машин). null
+      // без клиента, при сбое или ненайденной машине; истиной остаётся снимок.
       const carId = clientId
         ? await selectCarId(clientId, booking.car, booking.plate ?? '').catch(() => null)
         : null
@@ -614,8 +613,8 @@ router.openapi(
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      // Strip the internal idempotency key and the derived id-links (responsible +
-      // car) — none belong in the wire response.
+      // Убираем внутренний ключ идемпотентности и производные id-связи (responsible +
+      // car) — ничему из этого не место в wire-ответе.
       const {
         idempotencyKey: _idempotencyKey,
         responsibleId: _responsibleId,
@@ -723,8 +722,8 @@ router.openapi(
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      // Strip the internal idempotency key and the derived id-links (responsible +
-      // car) — none belong in the wire response.
+      // Убираем внутренний ключ идемпотентности и производные id-связи (responsible +
+      // car) — ничему из этого не место в wire-ответе.
       const {
         idempotencyKey: _idempotencyKey,
         responsibleId: _responsibleId,
@@ -759,13 +758,13 @@ router.openapi(
   defaultValidationHook,
 )
 
-/** ISO `YYYY-MM-DD` → `DD.MM.YYYY` for a report cell. */
+/** ISO `YYYY-MM-DD` → `DD.MM.YYYY` для ячейки отчёта. */
 function isoDateCell(iso: string): string {
   return formatDdmmyyyy(new Date(iso))
 }
 
-/** ISO datetime → `DD.MM.YYYY HH:mm` in the shop's timezone for the «Создано»
- * column — matches the local time staff see, not raw UTC. */
+/** ISO datetime → `DD.MM.YYYY HH:mm` в часовом поясе студии для столбца «Создано» —
+ * совпадает с местным временем сотрудников, а не с сырым UTC. */
 function isoDateTimeCell(iso: string): string {
   const parts = new Intl.DateTimeFormat('ru-RU', {
     timeZone: SHOP_TIMEZONE,
@@ -780,8 +779,8 @@ function isoDateTimeCell(iso: string): string {
   return `${get('day')}.${get('month')}.${get('year')} ${get('hour')}:${get('minute')}`
 }
 
-/** One CSV row from a wire booking. `amount` is present only when `includeAmount`
- * (admin) — the column set must match the header built with the same flag. */
+/** Одна CSV-строка из wire-booking. `amount` есть только при `includeAmount`
+ * (админ) — набор столбцов должен совпадать с заголовком, собранным с тем же флагом. */
 function bookingCsvRow(r: BookingRow, includeAmount: boolean): string[] {
   const date = r.dateTo
     ? `${isoDateCell(r.dateFrom)}-${isoDateCell(r.dateTo)}`
@@ -802,11 +801,11 @@ function bookingCsvRow(r: BookingRow, includeAmount: boolean): string[] {
   ]
 }
 
-// CSV export of the current filtered selection. Plain `router.get` (not
-// `.openapi()`): CSV is not JSON, so it stays out of `/openapi.json` and the
-// orval client by design. Registered as a separate statement after the chain so
-// it doesn't narrow the OpenAPIHono type. No OpenAPI query validation here → the
-// list query schema is parsed by hand (400 on a bad filter).
+// CSV-экспорт текущей отфильтрованной выборки. Обычный `router.get` (не
+// `.openapi()`): CSV — не JSON, поэтому по замыслу он вне `/openapi.json` и
+// orval-клиента. Регистрируется отдельным оператором после цепочки, чтобы
+// не сужать тип OpenAPIHono. OpenAPI-валидации query здесь нет → схема query
+// списка разбирается вручную (400 при плохом фильтре).
 router.get('/export', async (c) => {
   const requestId = uuidv4()
   c.header('X-Request-Id', requestId)
@@ -840,7 +839,7 @@ router.get('/export', async (c) => {
   const query = parsed.data
 
   try {
-    // Same gating as the GET list.
+    // Те же ограничения доступа, что у списка GET.
     const role = c.get('user')?.role
     const includeAmount = role !== undefined && canSeeAmounts(role)
     const { items } = await listBookings({

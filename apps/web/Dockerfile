@@ -1,4 +1,4 @@
-# ── Stage 1: install all workspace dependencies ──────────────────────────────
+# ── Этап 1: установка всех зависимостей workspace ────────────────────────────
 FROM node:26-alpine AS deps
 
 RUN npm install -g pnpm@12.15.0
@@ -12,22 +12,22 @@ COPY packages/shared/package.json ./packages/shared/
 
 RUN pnpm install --frozen-lockfile
 
-# ── Stage 2: build web ───────────────────────────────────────────────────────
+# ── Этап 2: сборка web ───────────────────────────────────────────────────────
 FROM deps AS builder
 
-# Full source — filtered by .dockerignore (no .env, no host node_modules)
+# Весь исходный код — фильтруется .dockerignore (без .env и node_modules хоста)
 COPY . .
 
 RUN pnpm -F @detailing-admin/web build
 
-# ── Stage 3: serve the static build and proxy /api ───────────────────────────
+# ── Этап 3: раздача статической сборки и проксирование /api ──────────────────
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 
-# Railway assigns PORT at runtime; 8080 is the fallback for a plain `docker run`.
+# Railway назначает PORT в рантайме; 8080 — запасной вариант для простого `docker run`.
 ENV PORT=8080
 ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
-# Without the filter envsubst would also expand any nginx variable that happens to
-# share a name with an environment variable.
+# Без фильтра envsubst раскрыл бы и любую переменную nginx, имя которой случайно
+# совпадает с переменной окружения.
 ENV NGINX_ENVSUBST_FILTER='^(PORT|VITE_API_PROXY_TARGET|NGINX_LOCAL_RESOLVERS)$'
 
 COPY apps/web/nginx/default.conf.template /etc/nginx/templates/default.conf.template

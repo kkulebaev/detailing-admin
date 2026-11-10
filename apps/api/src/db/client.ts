@@ -15,9 +15,9 @@ export function getSql(): ReturnType<typeof postgres> {
       idle_timeout: 20,
       connect_timeout: 10,
       prepare: false,
-      // Suppress idempotent NOTICE chatter from drizzle's migrator
-      // (e.g. "schema drizzle already exists, skipping"). Real errors still
-      // surface via the query promise.
+      // Глушим идемпотентный NOTICE-шум мигратора drizzle
+      // (например, «schema drizzle already exists, skipping»). Настоящие ошибки
+      // по-прежнему приходят через промис запроса.
       onnotice: () => {},
     })
   }
@@ -31,7 +31,7 @@ export function getDb(): Db {
   return _db
 }
 
-/** For tests only — injects a mock db (or null to reset). */
+/** Только для тестов — подставляет mock db (или null для сброса). */
 export function _setDbForTest(db: Db | null): void {
   _db = db
 }

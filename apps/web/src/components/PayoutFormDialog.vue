@@ -34,37 +34,38 @@ type Direction = 'accrual' | 'deduction'
 
 const props = defineProps<{
   open: boolean
-  // When set the dialog edits that payout; otherwise it creates a new one.
+  // Если задан, диалог редактирует эту выплату; иначе создаёт новую.
   editing: Payout | null
-  // Target master. Fixed when adding from a row or editing (edit never
-  // re-assigns the master). Null in the "add from the toolbar" flow, where the
-  // master is picked from `masters` below.
+  // Целевой мастер. Фиксирован при добавлении из строки и при редактировании
+  // (редактирование мастера не меняет). Null в сценарии «добавить из тулбара»,
+  // где мастер выбирается из `masters` ниже.
   masterId: number | null
   masterName: string
-  // Selectable masters for the toolbar flow — every row of the sheet, not only
-  // those with a rate: a payout needs no rate.
+  // Мастера для выбора в сценарии тулбара — все строки ведомости, а не только
+  // со ставкой: выплате ставка не нужна.
   masters?: { id: number; name: string }[]
 }>()
 
 const emit = defineEmits<{
   (e: 'update:open', v: boolean): void
-  // Carries the master the row landed on — taken from the server's response,
-  // not from the prop, because the toolbar flow picks the master in-dialog.
+  // Несёт мастера, к которому попала запись, — из ответа сервера, а не из prop,
+  // потому что в сценарии тулбара мастер выбирается в самом диалоге.
   (e: 'saved', masterId: number): void
 }>()
 
 const isEdit = computed(() => props.editing !== null)
-// Toolbar flow: no fixed master → show a picker. Edit and row-add keep it fixed.
+// Сценарий тулбара: мастер не задан → показываем выбор. Редактирование
+// и добавление из строки его фиксируют.
 const pickMaster = computed(() => !isEdit.value && props.masterId == null)
 const selectedMasterId = ref<number | null>(null)
 const effectiveMasterId = computed(() => props.masterId ?? selectedMasterId.value)
 
-// shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
+// shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dateCal = shallowRef<DateValue | undefined>(undefined)
 const dateOpen = ref(false)
-// The sign is carried by this toggle, never typed: `inputmode="numeric"` gives
-// no minus key on Android, and dropping inputmode would open the IME
-// composition path the input masks fight elsewhere.
+// Знак задаётся этим переключателем и никогда не вводится: `inputmode="numeric"`
+// не даёт клавиши минуса на Android, а без inputmode включится IME-композиция,
+// с которой в других местах борются маски ввода.
 const direction = ref<Direction>('accrual')
 const amount = ref('')
 const note = ref('')
@@ -98,8 +99,8 @@ watch(
     fieldErrors.value = {}
     selectedMasterId.value = null
     dateCal.value = e ? isoToCal(e.payoutDate) : undefined
-    // The stored amount is signed; the form splits it back into direction +
-    // magnitude so the field only ever holds a positive number.
+    // Сохранённая сумма со знаком; форма раскладывает её обратно на направление и
+    // модуль, чтобы в поле всегда было положительное число.
     direction.value = e && e.amount < 0 ? 'deduction' : 'accrual'
     amount.value = e ? String(Math.abs(e.amount)) : ''
     note.value = e?.note ?? ''
@@ -111,8 +112,8 @@ function onDateSelect(d: DateValue | undefined) {
   dateOpen.value = false
 }
 
-// reka-ui clears a single-select ToggleGroup when the active item is clicked
-// again — ignore the empty value instead of falling into an unset direction.
+// reka-ui сбрасывает ToggleGroup с одиночным выбором при повторном клике по
+// активному пункту — игнорируем пустое значение, чтобы направление не пропало.
 function onDirectionChange(v: unknown) {
   if (v === 'accrual' || v === 'deduction') direction.value = v
 }
@@ -126,9 +127,9 @@ async function submit() {
   fieldErrors.value = {}
   error.value = null
 
-  // The date comes from a calendar, never from typing, so an empty field means
-  // "not picked yet". Letting the schema answer would surface its ГГГГ-ММ-ДД
-  // format message about a format the user never enters — the trigger shows
+  // Дата выбирается в календаре, а не вводится, поэтому пустое поле значит
+  // «ещё не выбрана». Если отдать это схеме, она сообщит о формате ГГГГ-ММ-ДД,
+  // который пользователь никогда не вводит — триггер показывает
   // ДД.ММ.ГГГГ.
   if (!dateCal.value) {
     fieldErrors.value = { payoutDate: 'Укажите дату' }
@@ -136,8 +137,8 @@ async function submit() {
   }
   const payoutDate = calToIso(dateCal.value)
   const trimmedNote = note.value.trim()
-  // An empty field reads as 0 here, which the same guard rejects — the sign
-  // never comes from this number, only its magnitude does.
+  // Пустое поле читается здесь как 0, и та же проверка его отклоняет — знак
+  // никогда не берётся из этого числа, только модуль.
   const magnitude = Number(amount.value)
   if (!Number.isFinite(magnitude) || magnitude <= 0) {
     fieldErrors.value = { amount: 'Укажите сумму больше нуля' }
@@ -219,8 +220,8 @@ function handleResult(result: PayoutMutationResult, successMsg: string) {
     }
     error.value = 'Неверные данные'
   } else if (result.error === 'not_found') {
-    // POST /payouts 404s only on an unknown master (the payout doesn't exist
-    // yet); PATCH 404s on the payout itself.
+    // POST /payouts отвечает 404 только на неизвестного мастера (выплаты ещё
+    // нет); PATCH — на саму выплату.
     error.value = isEdit.value
       ? 'Выплата не найдена — возможно, была удалена'
       : 'Мастер не найден — возможно, был удалён'

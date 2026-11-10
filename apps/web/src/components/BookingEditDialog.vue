@@ -48,8 +48,9 @@ const emit = defineEmits<{
   (e: 'saved'): void
 }>()
 
-// reka-ui Select rejects an empty value, so the «нет статуса» option rides on a
-// sentinel the payload builder maps back to '' (the schema's empty readiness).
+// Select из reka-ui не принимает пустое значение, поэтому опция «нет статуса» держится
+// на значении-маркере, которое сборщик payload превращает обратно в '' (пустая
+// готовность по схеме).
 const READINESS_NONE = '__none__'
 
 const CAR_CLASS_OPTIONS = [
@@ -59,7 +60,7 @@ const CAR_CLASS_OPTIONS = [
   { value: '4', label: 'IV' },
 ] as const
 
-// shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
+// shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dateFromCal = shallowRef<DateValue | undefined>(undefined)
 const dateToCal = shallowRef<DateValue | undefined>(undefined)
 const dateFromOpen = ref(false)
@@ -93,8 +94,8 @@ const {
 
 const { data: mastersData } = useMastersQuery()
 
-// Include the booking's current master(s)/responsible even if no longer in the
-// live list, so an edit doesn't silently drop a value the row already holds.
+// Добавляем текущих мастеров/ответственного записи, даже если их уже нет в
+// актуальном списке, чтобы правка молча не потеряла значение, которое уже есть в строке.
 const masterOptions = computed(() => {
   const base = resolveMasterOptions(
     mastersData.value?.ok ? mastersData.value.masters : undefined,
@@ -250,8 +251,8 @@ async function submit() {
     return
   }
 
-  // The transform re-runs on the backend; ship the input shape and drop the
-  // auto-derived formula (a manual edit resets it) and the notify flag.
+  // transform повторно выполняется на бэкенде; отправляем входную форму данных, без
+  // автоматически выведенной формулы (ручная правка её сбрасывает) и флага notify.
   const payload: PatchApiBookingsIdBody = {
     dateFrom: parsed.data.dateFrom,
     dateTo: parsed.data.dateTo,

@@ -23,101 +23,101 @@ const baseInput = {
 }
 
 describe('EXPECTED_HEADERS', () => {
-  it('has exactly 11 headers', () => {
+  it('содержит ровно 11 заголовков', () => {
     expect(EXPECTED_HEADERS.length).toBe(11)
   })
 
-  it('column K (index 10) is Ответственный', () => {
+  it('колонка K (индекс 10) — Ответственный', () => {
     expect(EXPECTED_HEADERS[10]).toBe('Ответственный')
   })
 })
 
 describe('bookingToRow', () => {
-  it('produces exactly 11 cells', () => {
+  it('даёт ровно 11 ячеек', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row).toHaveLength(11)
   })
 
-  it('single-day: cell A is bare DD.MM.YYYY (no apostrophe)', () => {
+  it('один день: ячейка A — голая DD.MM.YYYY (без апострофа)', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[0]).toBe('04.06.2026')
     expect(String(row[0]).startsWith("'")).toBe(false)
   })
 
-  it('multi-day without end time: cell A is "\'start time-end" with time only on start', () => {
+  it('несколько дней без времени окончания: ячейка A — "\'начало время-конец", время только у начала', () => {
     const booking = parseBooking({ ...baseInput, dateTo: '05.06.2026' })
     const row = bookingToRow(booking)
     expect(typeof row[0]).toBe('string')
     expect(String(row[0])).toBe("'04.06.2026 10:00-05.06.2026")
   })
 
-  it('multi-day with end time: cell A includes both start and end times', () => {
+  it('несколько дней со временем окончания: ячейка A содержит время и начала, и конца', () => {
     const booking = parseBooking({ ...baseInput, dateTo: '05.06.2026', timeTo: '18:30' })
     const row = bookingToRow(booking)
     expect(String(row[0])).toBe("'04.06.2026 10:00-05.06.2026 18:30")
   })
 
-  it('cell D: phone is apostrophe-forced TEXT in the domestic 8XXXXXXXXXX form', () => {
+  it('ячейка D: телефон — TEXT, форсированный апострофом, во внутрироссийском виде 8XXXXXXXXXX', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[3]).toBe("'89991234567")
   })
 
-  it('undefined readiness → empty string in cell I', () => {
+  it('readiness undefined → пустая строка в ячейке I', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[8]).toBe('')
   })
 
-  it('responsible from base input is written to cell K', () => {
+  it('responsible из базового ввода пишется в ячейку K', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[10]).toBe('Иван Содель')
   })
 
-  it('single master → cell J is the bare name', () => {
+  it('один мастер → в ячейке J голое имя', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[9]).toBe('Иван Содель')
   })
 
-  it('multiple masters → cell J joins names with ", "', () => {
+  it('несколько мастеров → ячейка J склеивает имена через ", "', () => {
     const row = bookingToRow(parseBooking({ ...baseInput, master: ['Иван', 'Пётр'] }))
     expect(row[9]).toBe('Иван, Пётр')
   })
 
-  it('amount 200000 → numeric 200000 in cell H', () => {
+  it('сумма 200000 → число 200000 в ячейке H', () => {
     const row = bookingToRow(parseBooking({ ...baseInput, amount: 200000 }))
     expect(row[7]).toBe(200000)
     expect(typeof row[7]).toBe('number')
   })
 
-  it('amountFormula → written verbatim to cell H instead of the number', () => {
+  it('amountFormula → пишется в ячейку H как есть вместо числа', () => {
     const row = bookingToRow(
       parseBooking({ ...baseInput, amount: 5050, amountFormula: '=2000+3000-950' }),
     )
     expect(row[7]).toBe('=2000+3000-950')
   })
 
-  it('rejects an amountFormula containing a non-arithmetic Sheets function', () => {
+  it('отклоняет amountFormula с неарифметической функцией Sheets', () => {
     const result = bookingSchema.safeParse({ ...baseInput, amountFormula: '=IMPORTRANGE("x","y")' })
     expect(result.success).toBe(false)
   })
 
-  // Golden: перенос склейки car+plate на сервер (joinCar) не должен менять
+  // Эталон: перенос склейки car+plate на сервер (joinCar) не должен менять
   // байты колонки E при том же вводе. Без plate — голый car, как раньше.
-  it('cell E: without plate is byte-identical to bare car', () => {
+  it('ячейка E: без номера побайтово совпадает с голой машиной', () => {
     const row = bookingToRow(parseBooking(baseInput))
     expect(row[4]).toBe('Toyota Camry')
   })
 
-  it('cell E: with plate joins as "car, plate"', () => {
+  it('ячейка E: с номером склеивается как "car, plate"', () => {
     const row = bookingToRow(parseBooking({ ...baseInput, plate: 'А123АА77' }))
     expect(row[4]).toBe('Toyota Camry, А123АА77')
   })
 
-  it('cell E: empty plate is byte-identical to bare car (no trailing ", ")', () => {
+  it('ячейка E: с пустым номером побайтово совпадает с голой машиной (без хвостового ", ")', () => {
     const row = bookingToRow(parseBooking({ ...baseInput, plate: '' }))
     expect(row[4]).toBe('Toyota Camry')
   })
 
-  it('bookingSchema accepts plate', () => {
+  it('bookingSchema принимает plate', () => {
     const result = bookingSchema.safeParse({ ...baseInput, plate: 'А123АА77' })
     assert(result.success)
     expect(result.data.plate).toBe('А123АА77')

@@ -1,9 +1,9 @@
-# Pre-commit gate: same `pnpm lint / fmt:check / typecheck / test` you'd run locally, fired
-# in parallel. The glob filter just skips the whole hook on doc-only / config-
-# only commits — once a `.ts` or `.vue` is staged, each command runs against the
-# full workspace (eslint can't be sliced safely with current configs).
+# Pre-commit-проверка: те же `pnpm lint / fmt:check / typecheck / test`, что и локально,
+# запускаются параллельно. Glob-фильтр лишь пропускает весь хук на коммитах только с
+# документацией / конфигами — как только в индексе есть `.ts` или `.vue`, каждая команда
+# идёт по всему workspace (eslint с текущими конфигами нельзя безопасно нарезать).
 #
-# To skip in an emergency: `git commit --no-verify`.
+# Пропустить в экстренном случае: `git commit --no-verify`.
 pre-commit:
   parallel: true
   skip:

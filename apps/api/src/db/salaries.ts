@@ -37,8 +37,8 @@ export async function getMasterRate(masterId: number): Promise<number | null> {
 
 export async function setMasterRate(masterId: number, hourlyRate: number): Promise<void> {
   const db = getDb()
-  // Probe the master first: the FK would otherwise reject an unknown masterId
-  // with an opaque 500; refuse explicitly so the route can answer 404.
+  // Сначала проверяем мастера: иначе FK отклонил бы неизвестный masterId невнятным
+  // 500; отказываем явно, чтобы маршрут мог ответить 404.
   const [master] = await db
     .select({ id: masters.id })
     .from(masters)
@@ -59,13 +59,13 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
   const db = getDb()
   const { start, end } = monthRange(month)
 
-  // Aggregate work_hours for the month in a subquery grouped by master, so the
-  // LEFT JOIN to masters/master_rates doesn't fan the rate out across hour rows.
-  // Both sums are exact integers — SUM(minutes) and SUM(minutes × rate_snapshot,
-  // in ₽·min). Division to whole rubles and the single rounding happen in JS
-  // (salaryFromMinutesRateSum), deliberately NOT in SQL: keeping SQL to integer
-  // sums sidesteps Postgres' int/int truncation entirely and lets the same
-  // pure helper back both the header total and the detail view (no drift).
+  // Агрегируем work_hours за месяц в подзапросе с группировкой по мастеру, чтобы
+  // LEFT JOIN к masters/master_rates не размножал ставку по строкам часов.
+  // Обе суммы — точные целые: SUM(minutes) и SUM(minutes × rate_snapshot,
+  // в ₽·мин). Деление до целых рублей и единственное округление делаются в JS
+  // (salaryFromMinutesRateSum), намеренно НЕ в SQL: целочисленные суммы в SQL
+  // полностью обходят усечение int/int в Postgres, и один и тот же чистый хелпер
+  // обслуживает и итог в заголовке, и детальный вид (без расхождений).
   const agg = db
     .select({
       masterId: workHours.masterId,
@@ -79,9 +79,9 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
     .groupBy(workHours.masterId)
     .as('agg')
 
-  // Second month aggregate, same shape as `agg`: one row per master, so joining
-  // it alongside cannot fan out (both GROUP BY masterId, master_rates is PK'd on
-  // masterId). Summing in SQL keeps the signed rubles integer end to end.
+  // Второй месячный агрегат той же формы, что `agg`: одна строка на мастера, поэтому
+  // join рядом не размножает строки (оба GROUP BY masterId, у master_rates PK по
+  // masterId). Суммирование в SQL сохраняет рубли со знаком целыми от начала до конца.
   const payoutAgg = db
     .select({
       masterId: payouts.masterId,
@@ -105,8 +105,8 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
     .leftJoin(masterRates, eq(masterRates.masterId, masters.id))
     .leftJoin(agg, eq(agg.masterId, masters.id))
     .leftJoin(payoutAgg, eq(payoutAgg.masterId, masters.id))
-    // An archived master stays in any month they have hours or payouts: dropping
-    // them would hide money still owed for the month they left.
+    // Архивный мастер остаётся в любом месяце, где у него есть часы или выплаты:
+    // если его убрать, скроются деньги, которые ещё должны за месяц ухода.
     .where(
       and(
         eq(masters.paidSalary, true),
@@ -119,11 +119,11 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
     )
     .orderBy(masters.position, masters.id)
 
-  // postgres-js returns SUM() as a string (numeric/bigint); coerce with Number.
-  // A master with no hours has null agg columns → 0 minutes, 0 salary. A master
-  // with no rate has null hourlyRate (kept null, not coerced to 0). A null
-  // payouts_sum collapses to 0 — "no rows" and "rows cancelled out" are the same
-  // state here by design.
+  // postgres-js возвращает SUM() строкой (numeric/bigint); приводим через Number.
+  // У мастера без часов столбцы agg равны null → 0 минут, 0 зарплаты. У мастера
+  // без ставки hourlyRate равен null (так и остаётся, не приводится к 0). null в
+  // payouts_sum превращается в 0 — «нет строк» и «строки взаимно погасились» здесь
+  // по задумке одно и то же состояние.
   return rows.map((r) => {
     const hoursSalary = salaryFromMinutesRateSum(Number(r.minutesRateSum ?? 0))
     const payoutsTotal = Number(r.payoutsSum ?? 0)
@@ -139,10 +139,10 @@ export async function listSalaries(month: string): Promise<SalaryRow[]> {
   })
 }
 
-// Both halves of one master's month in a single call. Two SELECTs rather than a
-// UNION ALL (which would need brittle casts to force both shapes into one); the
-// merge into a single sorted feed is mergeSalaryEntries in shared, applied by the
-// route. Two round-trips to Postgres, but one HTTP request per expanded master.
+// Обе половины месяца одного мастера за один вызов. Два SELECT, а не UNION ALL
+// (там понадобились бы хрупкие приведения, чтобы свести обе формы в одну); слияние в
+// одну отсортированную ленту делает mergeSalaryEntries из shared, вызываемый маршрутом.
+// Два обращения к Postgres, но один HTTP-запрос на раскрытого мастера.
 export async function listMasterEntries(
   masterId: number,
   month: string,
@@ -185,8 +185,8 @@ export interface CreateWorkHoursInput {
 
 export async function createWorkHours(input: CreateWorkHoursInput): Promise<WorkHoursRow> {
   const db = getDb()
-  // Snapshot the master's CURRENT rate. No rate row → refuse (route → 400): a
-  // record without a rate can't be priced, and the invariant is "no rate = no row".
+  // Фиксируем ТЕКУЩУЮ ставку мастера. Нет строки ставки → отказ (маршрут → 400):
+  // запись без ставки нельзя оценить, а инвариант — «нет ставки = нет строки».
   const [rate] = await db
     .select({ hourlyRate: masterRates.hourlyRate })
     .from(masterRates)
@@ -222,8 +222,8 @@ export interface WorkHoursPatch {
 export async function updateWorkHours(id: number, patch: WorkHoursPatch): Promise<WorkHoursRow> {
   const db = getDb()
 
-  // Editing never re-snapshots the rate — only day/minutes/note change. An empty
-  // patch is a no-op: drizzle's .set({}) throws, so return the current row.
+  // Правка никогда не переснимает ставку — меняются только день, минуты и примечание.
+  // Пустой patch — no-op: .set({}) в drizzle бросает ошибку, поэтому возвращаем текущую строку.
   const set: WorkHoursPatch = {}
   if (patch.workDate !== undefined) set.workDate = patch.workDate
   if (patch.minutes !== undefined) set.minutes = patch.minutes
@@ -258,9 +258,9 @@ export interface CreatePayoutInput {
 
 export async function createPayout(input: CreatePayoutInput): Promise<PayoutRow> {
   const db = getDb()
-  // Probe the master first: the FK would otherwise reject an unknown masterId
-  // with an opaque 500. master_rates is deliberately NOT read — a payout is
-  // self-contained, so a master without a rate can still receive one.
+  // Сначала проверяем мастера: иначе FK отклонил бы неизвестный masterId невнятным
+  // 500. master_rates намеренно НЕ читается — выплата самодостаточна, поэтому
+  // её может получить и мастер без ставки.
   const [master] = await db
     .select({ id: masters.id })
     .from(masters)
@@ -289,8 +289,8 @@ export interface PayoutPatch {
 export async function updatePayout(id: number, patch: PayoutPatch): Promise<PayoutRow> {
   const db = getDb()
 
-  // The master never changes on edit. An empty patch is a no-op: drizzle's
-  // .set({}) throws, so return the current row.
+  // При правке мастер никогда не меняется. Пустой patch — no-op: .set({}) в drizzle
+  // бросает ошибку, поэтому возвращаем текущую строку.
   const set: PayoutPatch = {}
   if (patch.payoutDate !== undefined) set.payoutDate = patch.payoutDate
   if (patch.amount !== undefined) set.amount = patch.amount

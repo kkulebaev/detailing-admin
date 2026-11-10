@@ -60,11 +60,11 @@ function eventsOf(spy: ReturnType<typeof vi.fn>): string[] {
 describe('boot.init', () => {
   beforeEach(() => {
     _resetForTest()
-    // DB init succeeds by default — sheets behavior is what each test varies.
+    // По умолчанию init БД успешен — каждый тест варьирует только поведение Sheets.
     vi.mocked(runMigrations).mockResolvedValue(undefined)
   })
 
-  it('sets bootState to ok and emits boot.headers.ok when headers match', async () => {
+  it('выставляет bootState в ok и пишет boot.headers.ok, когда заголовки совпадают', async () => {
     vi.mocked(verifyHeaders).mockResolvedValue({ ok: true })
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as () => never)
 
@@ -74,12 +74,12 @@ describe('boot.init', () => {
     expect(getBootHeadersMismatch()).toBeNull()
     expect(eventsOf(vi.mocked(baseLogger.info))).toContain('boot.headers.ok')
 
-    // process.exit must NOT be called
+    // process.exit НЕ должен вызываться
     expect(exitSpy).not.toHaveBeenCalled()
     exitSpy.mockRestore()
   })
 
-  it('sets bootState to headers_mismatch and emits boot.headers.mismatch on header diff', async () => {
+  it('выставляет bootState в headers_mismatch и пишет boot.headers.mismatch при расхождении заголовков', async () => {
     vi.mocked(verifyHeaders).mockResolvedValue({
       ok: false,
       column_index: 8,
@@ -97,7 +97,7 @@ describe('boot.init', () => {
     expect(mismatch?.expected).toBe('Готовность')
     expect(mismatch?.observed).toBe('Готовнсть')
 
-    // The mismatch event is emitted exactly once — not per-request, only at startup.
+    // Событие mismatch пишется ровно один раз — не на каждый запрос, только при старте.
     const errorEvents = eventsOf(vi.mocked(baseLogger.error))
     expect(errorEvents.filter((e) => e === 'boot.headers.mismatch')).toHaveLength(1)
     const mismatchCall = vi
@@ -115,7 +115,7 @@ describe('boot.init', () => {
     exitSpy.mockRestore()
   })
 
-  it('sets bootState to not_configured, captures the error message, and does NOT call process.exit on verifyHeaders throw', async () => {
+  it('при исключении в verifyHeaders выставляет bootState в not_configured, сохраняет текст ошибки и НЕ вызывает process.exit', async () => {
     vi.mocked(verifyHeaders).mockRejectedValue(new Error('Network error'))
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as () => never)
 
@@ -141,14 +141,14 @@ describe('boot.initDb', () => {
     _resetForTest()
   })
 
-  it('marks DB ready and logs boot.db.ready on successful migration', async () => {
+  it('отмечает БД готовой и пишет boot.db.ready при успешной миграции', async () => {
     vi.mocked(runMigrations).mockResolvedValue(undefined)
     await initDb()
     expect(isDbReady()).toBe(true)
     expect(eventsOf(vi.mocked(baseLogger.info))).toContain('boot.db.ready')
   })
 
-  it('keeps DB not ready and logs boot.db.error when migration throws', async () => {
+  it('оставляет БД неготовой и пишет boot.db.error, если миграция падает', async () => {
     vi.mocked(runMigrations).mockRejectedValue(new Error('ECONNREFUSED'))
     await initDb()
     expect(isDbReady()).toBe(false)

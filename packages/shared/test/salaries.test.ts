@@ -21,11 +21,11 @@ import {
 } from '../src/salaries.js'
 
 describe('hoursToMinutes', () => {
-  it('rounds float dust away (7.51 → 451, not 450)', () => {
+  it('убирает «пыль» float округлением (7.51 → 451, а не 450)', () => {
     expect(hoursToMinutes(7.51)).toBe(451)
   })
 
-  it('maps exact quarter-hours cleanly', () => {
+  it('чисто переводит ровные четверти часа', () => {
     expect(hoursToMinutes(7.5)).toBe(450)
     expect(hoursToMinutes(0.25)).toBe(15)
     expect(hoursToMinutes(8)).toBe(480)
@@ -33,16 +33,16 @@ describe('hoursToMinutes', () => {
 })
 
 describe('minutesToHours', () => {
-  it('inverts hoursToMinutes for quarter-hour values', () => {
+  it('обращает hoursToMinutes для значений с шагом в четверть часа', () => {
     expect(minutesToHours(450)).toBe(7.5)
     expect(minutesToHours(15)).toBe(0.25)
   })
 })
 
-describe('computeSalary — single rounding per month', () => {
-  it('rounds the month total once: 2×25min × 100₽/ч → 83, not 84', () => {
-    // Per-row rounding would give round(2500/60)=42 twice = 84; the correct
-    // answer rounds round(5000/60) once = 83.
+describe('computeSalary — одно округление на месяц', () => {
+  it('округляет итог месяца один раз: 2×25мин × 100₽/ч → 83, а не 84', () => {
+    // Построчное округление дало бы round(2500/60)=42 дважды = 84; правильный
+    // ответ — один раз round(5000/60) = 83.
     const entries = [
       { minutes: 25, rate: 100 },
       { minutes: 25, rate: 100 },
@@ -50,8 +50,8 @@ describe('computeSalary — single rounding per month', () => {
     expect(computeSalary(entries)).toBe(83)
   })
 
-  it('sums across differing rate snapshots (rate change mid-month)', () => {
-    // 60min@100 + 60min@200 = 6000+12000 = 18000 ₽·min / 60 = 300 ₽
+  it('суммирует по разным снапшотам ставки (смена ставки посреди месяца)', () => {
+    // 60мин@100 + 60мин@200 = 6000+12000 = 18000 ₽·мин / 60 = 300 ₽
     const entries = [
       { minutes: 60, rate: 100 },
       { minutes: 60, rate: 200 },
@@ -59,11 +59,11 @@ describe('computeSalary — single rounding per month', () => {
     expect(computeSalary(entries)).toBe(300)
   })
 
-  it('is zero for no entries', () => {
+  it('даёт ноль без записей', () => {
     expect(computeSalary([])).toBe(0)
   })
 
-  it('agrees with salaryFromMinutesRateSum on the aggregate', () => {
+  it('совпадает с salaryFromMinutesRateSum на агрегате', () => {
     const entries = [
       { minutes: 25, rate: 100 },
       { minutes: 25, rate: 100 },
@@ -74,20 +74,20 @@ describe('computeSalary — single rounding per month', () => {
 })
 
 describe('rateInputSchema', () => {
-  it('accepts a positive integer rate', () => {
+  it('принимает положительную целую ставку', () => {
     expect(rateInputSchema.safeParse({ masterId: 1, hourlyRate: 500 }).success).toBe(true)
   })
 
-  it('rejects a 0 rate (min(1) — 0 would silently zero salary)', () => {
+  it('отклоняет ставку 0 (min(1) — 0 молча обнулил бы зарплату)', () => {
     expect(rateInputSchema.safeParse({ masterId: 1, hourlyRate: 0 }).success).toBe(false)
   })
 
-  it('rejects a non-integer or non-positive masterId', () => {
+  it('отклоняет нецелый или неположительный masterId', () => {
     expect(rateInputSchema.safeParse({ masterId: 0, hourlyRate: 500 }).success).toBe(false)
     expect(rateInputSchema.safeParse({ masterId: 1.5, hourlyRate: 500 }).success).toBe(false)
   })
 
-  it('rejects a fractional rate', () => {
+  it('отклоняет дробную ставку', () => {
     expect(rateInputSchema.safeParse({ masterId: 1, hourlyRate: 500.5 }).success).toBe(false)
   })
 })
@@ -95,23 +95,23 @@ describe('rateInputSchema', () => {
 describe('workHoursInputSchema', () => {
   const base = { masterId: 1, workDate: '2026-07-15' }
 
-  it('accepts a quarter-hour value with an optional note', () => {
+  it('принимает значение с шагом в четверть часа и необязательной заметкой', () => {
     expect(workHoursInputSchema.safeParse({ ...base, hours: 7.5, note: 'смена' }).success).toBe(
       true,
     )
     expect(workHoursInputSchema.safeParse({ ...base, hours: 0.25 }).success).toBe(true)
   })
 
-  it('rejects hours not on the 0.25 grid', () => {
+  it('отклоняет часы не по сетке 0.25', () => {
     expect(workHoursInputSchema.safeParse({ ...base, hours: 7.1 }).success).toBe(false)
   })
 
-  it('rejects non-positive or >24 hours', () => {
+  it('отклоняет неположительные часы или больше 24', () => {
     expect(workHoursInputSchema.safeParse({ ...base, hours: 0 }).success).toBe(false)
     expect(workHoursInputSchema.safeParse({ ...base, hours: 24.25 }).success).toBe(false)
   })
 
-  it('rejects a malformed or impossible ISO date', () => {
+  it('отклоняет кривую или невозможную ISO-дату', () => {
     expect(
       workHoursInputSchema.safeParse({ masterId: 1, workDate: '15.07.2026', hours: 8 }).success,
     ).toBe(false)
@@ -125,13 +125,13 @@ describe('workHoursInputSchema', () => {
 })
 
 describe('workHoursUpdateSchema', () => {
-  it('accepts a partial patch (all fields optional)', () => {
+  it('принимает частичный patch (все поля необязательны)', () => {
     expect(workHoursUpdateSchema.safeParse({}).success).toBe(true)
     expect(workHoursUpdateSchema.safeParse({ hours: 6 }).success).toBe(true)
     expect(workHoursUpdateSchema.safeParse({ note: 'fix' }).success).toBe(true)
   })
 
-  it('has no masterId — a stray masterId is ignored, not accepted as a field', () => {
+  it('не содержит masterId — лишний masterId игнорируется, а не принимается как поле', () => {
     const r = workHoursUpdateSchema.safeParse({ masterId: 9, hours: 6 })
     assert(r.success)
     expect('masterId' in r.data).toBe(false)
@@ -139,13 +139,13 @@ describe('workHoursUpdateSchema', () => {
 })
 
 describe('monthSchema', () => {
-  it('accepts a valid YYYY-MM', () => {
+  it('принимает валидный YYYY-MM', () => {
     expect(monthSchema.safeParse('2026-07').success).toBe(true)
     expect(monthSchema.safeParse('2026-12').success).toBe(true)
     expect(monthSchema.safeParse('2026-01').success).toBe(true)
   })
 
-  it('rejects month 00, 13, or a malformed shape', () => {
+  it('отклоняет месяц 00, 13 или кривую форму', () => {
     expect(monthSchema.safeParse('2026-00').success).toBe(false)
     expect(monthSchema.safeParse('2026-13').success).toBe(false)
     expect(monthSchema.safeParse('2026-7').success).toBe(false)
@@ -154,11 +154,11 @@ describe('monthSchema', () => {
 })
 
 describe('monthRange', () => {
-  it('returns a half-open range within the same year', () => {
+  it('возвращает полуоткрытый диапазон в пределах одного года', () => {
     expect(monthRange('2026-07')).toEqual({ start: '2026-07-01', end: '2026-08-01' })
   })
 
-  it('rolls December over to next January', () => {
+  it('перекатывает декабрь в январь следующего года', () => {
     expect(monthRange('2026-12')).toEqual({ start: '2026-12-01', end: '2027-01-01' })
   })
 })
@@ -166,29 +166,29 @@ describe('monthRange', () => {
 describe('payoutInputSchema', () => {
   const base = { masterId: 1, payoutDate: '2026-07-15' }
 
-  it('accepts a positive and a negative whole amount', () => {
+  it('принимает положительную и отрицательную целую сумму', () => {
     expect(payoutInputSchema.safeParse({ ...base, amount: 5000 }).success).toBe(true)
     expect(payoutInputSchema.safeParse({ ...base, amount: -2000, note: 'штраф' }).success).toBe(
       true,
     )
   })
 
-  it('rejects a zero amount with the domain message', () => {
+  it('отклоняет нулевую сумму с доменным сообщением', () => {
     const r = payoutInputSchema.safeParse({ ...base, amount: 0 })
     assert(!r.success)
     expect(r.error.issues[0]!.message).toBe('Сумма не может быть нулевой')
   })
 
-  it('rejects a fractional amount (money is whole rubles)', () => {
+  it('отклоняет дробную сумму (деньги — целые рубли)', () => {
     expect(payoutInputSchema.safeParse({ ...base, amount: 1.5 }).success).toBe(false)
   })
 
-  it('rejects an amount past the ±10 000 000 guard', () => {
+  it('отклоняет сумму за пределом ±10 000 000', () => {
     expect(payoutInputSchema.safeParse({ ...base, amount: 10_000_001 }).success).toBe(false)
     expect(payoutInputSchema.safeParse({ ...base, amount: -10_000_001 }).success).toBe(false)
   })
 
-  it('rejects a malformed or impossible ISO date', () => {
+  it('отклоняет кривую или невозможную ISO-дату', () => {
     expect(
       payoutInputSchema.safeParse({ masterId: 1, payoutDate: '2026-02-31', amount: 100 }).success,
     ).toBe(false)
@@ -199,17 +199,17 @@ describe('payoutInputSchema', () => {
 })
 
 describe('payoutUpdateSchema', () => {
-  it('accepts a partial patch (all fields optional)', () => {
+  it('принимает частичный patch (все поля необязательны)', () => {
     expect(payoutUpdateSchema.safeParse({}).success).toBe(true)
     expect(payoutUpdateSchema.safeParse({ amount: -500 }).success).toBe(true)
     expect(payoutUpdateSchema.safeParse({ note: 'fix' }).success).toBe(true)
   })
 
-  it('still refuses a zero amount when the field is present', () => {
+  it('по-прежнему отклоняет нулевую сумму, если поле передано', () => {
     expect(payoutUpdateSchema.safeParse({ amount: 0 }).success).toBe(false)
   })
 
-  it('has no masterId — the master never changes on edit', () => {
+  it('не содержит masterId — мастер при правке не меняется', () => {
     const r = payoutUpdateSchema.safeParse({ masterId: 9, amount: 100 })
     assert(r.success)
     expect('masterId' in r.data).toBe(false)
@@ -235,27 +235,27 @@ describe('mergeSalaryEntries', () => {
     createdAt: '2026-07-01T00:00:00.000Z',
   })
 
-  it('returns an empty feed for empty inputs', () => {
+  it('возвращает пустую ленту на пустой ввод', () => {
     expect(mergeSalaryEntries([], [])).toEqual([])
   })
 
-  it('orders by date ascending across both kinds', () => {
+  it('сортирует по возрастанию даты по обоим видам', () => {
     const feed = mergeSalaryEntries([hours(1, '2026-07-20')], [payout(2, '2026-07-05')])
     expect(feed.map(salaryEntryDate)).toEqual(['2026-07-05', '2026-07-20'])
     expect(feed.map((e) => e.kind)).toEqual(['payout', 'hours'])
   })
 
-  it('puts hours before payouts on the same day', () => {
+  it('ставит часы перед выплатами в один и тот же день', () => {
     const feed = mergeSalaryEntries([hours(7, '2026-07-10')], [payout(3, '2026-07-10')])
     expect(feed.map((e) => e.kind)).toEqual(['hours', 'payout'])
   })
 
-  it('breaks a same-day, same-kind tie by id', () => {
+  it('при равенстве дня и вида упорядочивает по id', () => {
     const feed = mergeSalaryEntries([hours(9, '2026-07-10'), hours(2, '2026-07-10')], [])
     expect(feed.map((e) => e.id)).toEqual([2, 9])
   })
 
-  it('tags every entry with its kind and keeps the source field names', () => {
+  it('помечает каждый элемент его видом и сохраняет исходные имена полей', () => {
     const feed = mergeSalaryEntries([hours(1, '2026-07-01')], [payout(1, '2026-07-02')])
     const [first, second] = feed
     expect(first!.kind === 'hours' && first.workDate).toBe('2026-07-01')
@@ -264,17 +264,17 @@ describe('mergeSalaryEntries', () => {
 })
 
 describe('selfEditWindow / isInSelfEditWindow', () => {
-  it('spans the last SELF_EDIT_WINDOW_DAYS days, today included', () => {
+  it('охватывает последние SELF_EDIT_WINDOW_DAYS дней, включая сегодня', () => {
     expect(SELF_EDIT_WINDOW_DAYS).toBe(7)
     expect(selfEditWindow('2026-10-26')).toEqual({ from: '2026-10-20', to: '2026-10-26' })
   })
 
-  it('crosses month and year boundaries', () => {
+  it('переходит через границы месяца и года', () => {
     expect(selfEditWindow('2026-03-02').from).toBe('2026-02-24')
     expect(selfEditWindow('2027-01-03').from).toBe('2026-12-28')
   })
 
-  it('accepts both edges and refuses the day before and the future', () => {
+  it('принимает обе границы и отклоняет день до окна и будущее', () => {
     expect(isInSelfEditWindow('2026-10-20', '2026-10-26')).toBe(true)
     expect(isInSelfEditWindow('2026-10-26', '2026-10-26')).toBe(true)
     expect(isInSelfEditWindow('2026-10-19', '2026-10-26')).toBe(false)

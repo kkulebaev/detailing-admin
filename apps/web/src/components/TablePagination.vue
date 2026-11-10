@@ -30,8 +30,8 @@ const rangeStart = computed(() =>
 )
 const rangeEnd = computed(() => Math.min(page.value * props.itemsPerPage, props.total))
 
-// Mobile trades the «из» separator for «/» so the count stays on one line with
-// the pagination even on three-digit pages («501–518/518»).
+// На мобильном разделитель «из» заменён на «/», чтобы счётчик оставался в одной
+// строке с пагинацией даже на трёхзначных страницах («501–518/518»).
 const rangeLabel = computed(() => {
   if (props.total === 0) return 'Всего: 0'
   const separator = isDesktop.value ? ' из ' : '/'
@@ -42,10 +42,10 @@ const pageCount = computed(() => Math.max(1, Math.ceil(props.total / props.items
 
 type PaginationEntry = { type: 'page'; value: number } | { type: 'ellipsis' }
 
-// reka-ui's own list keeps three leading/trailing numbers, which — together
-// with the range text — overflows onto a second line at ~320px. On mobile we
-// render a tighter set: first, last, current (plus one neighbour so early/late
-// pages read «1 2 … 11»), everything else collapsed to a single ellipsis.
+// Собственный список reka-ui держит по три номера в начале и конце, и вместе
+// с текстом диапазона это переносится на вторую строку при ~320px. На мобильном
+// рисуем набор плотнее: первая, последняя, текущая (плюс один сосед, чтобы
+// крайние страницы читались «1 2 … 11»), всё остальное — в одно многоточие.
 const mobileItems = computed<PaginationEntry[]>(() => {
   const last = pageCount.value
   const current = page.value

@@ -10,8 +10,8 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      # PG18 stores data in a major-version subdirectory and refuses to start
-      # if mounted at /var/lib/postgresql/data directly. Mount one level up.
+      # PG18 хранит данные в подкаталоге мажорной версии и отказывается стартовать,
+      # если смонтировать прямо в /var/lib/postgresql/data. Монтируем уровнем выше.
       - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U detailing -d detailing']

@@ -3,8 +3,8 @@ import { StatusCodes, canCreateBookings, canEditBookings, type Role } from '@det
 import { getAuthToken } from './cookie.js'
 import { verifyToken, type AuthTokenClaims } from './jwt.js'
 
-// Augments every Hono context with the decoded session. Set by `requireAuth`;
-// downstream handlers read it via `c.get('user')`.
+// Дополняет каждый контекст Hono декодированной сессией. Её кладёт `requireAuth`,
+// последующие обработчики читают через `c.get('user')`.
 declare module 'hono' {
   interface ContextVariableMap {
     user: AuthTokenClaims
@@ -19,8 +19,8 @@ function forbidden(c: Context) {
   return c.json({ ok: false as const, error: 'forbidden' as const }, StatusCodes.FORBIDDEN)
 }
 
-// Stateless session gate — decodes the cookie's JWT with zero DB reads, so the
-// booking flow keeps working for logged-in users while Postgres is down.
+// Stateless-проверка сессии — декодирует JWT из cookie без единого чтения из БД,
+// поэтому запись у вошедших пользователей работает, даже пока Postgres лежит.
 export const requireAuth: MiddlewareHandler = async (c, next) => {
   const token = getAuthToken(c)
   if (!token) return unauthorized(c)
@@ -30,7 +30,7 @@ export const requireAuth: MiddlewareHandler = async (c, next) => {
   await next()
 }
 
-// Must run after `requireAuth` (relies on `c.get('user')`).
+// Должен идти после `requireAuth` (опирается на `c.get('user')`).
 function requireRole(allowed: (role: Role) => boolean): MiddlewareHandler {
   return async (c, next) => {
     const user = c.get('user')

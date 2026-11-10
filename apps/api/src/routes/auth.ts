@@ -126,18 +126,18 @@ const updateProfileRoute = createRoute({
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
-// Auth responses must never be cached (a stale /me could leak a prior session).
+// Ответы авторизации нельзя кэшировать (устаревший /me может раскрыть прежнюю сессию).
 router.use('/*', async (c, next) => {
   await next()
   c.header('Cache-Control', 'no-store')
 })
 
-// Only change-password requires a session. Registered before the openapi chain
-// so it wraps that handler; chaining `.use()` mid-`.openapi()` would widen the
-// type to plain Hono and drop `.openapi()` (same reason server.ts builds imperatively).
+// Сессия нужна только для change-password. Регистрируется до цепочки openapi, чтобы
+// обернуть этот обработчик; `.use()` посреди цепочки `.openapi()` расширил бы тип до
+// обычного Hono и потерял `.openapi()` (по той же причине server.ts собирается императивно).
 router.use('/change-password', requireAuth)
-// PATCH /me (profile edit) needs a session; GET /me stays public (reads the
-// cookie itself). Scoped to PATCH via the method guard so the getter is untouched.
+// PATCH /me (правка профиля) требует сессию; GET /me остаётся публичным (сам читает
+// cookie). Проверка метода ограничивает это PATCH, чтобы геттер не затрагивался.
 router.use('/me', async (c, next) => {
   if (c.req.method !== 'PATCH') return next()
   return requireAuth(c, next)
@@ -154,7 +154,7 @@ router
     const user = await findByLogin(login)
 
     if (!user) {
-      // Constant-time path: never reveal whether the login exists.
+      // Ветка постоянного времени: никогда не раскрываем, существует ли логин.
       await dummyVerify(password)
       baseLogger.info(
         {
@@ -215,8 +215,8 @@ router
     )
   })
   .openapi(logoutRoute, async (c) => {
-    // Stateless: clearing the cookie is all we can do server-side. Idempotent —
-    // no session required, no DB touched.
+    // Stateless: на сервере можно только очистить cookie. Идемпотентно —
+    // сессия не нужна, БД не трогается.
     clearAuthCookie(c)
     return c.json({ ok: true as const }, StatusCodes.OK)
   })
@@ -235,8 +235,8 @@ router
         StatusCodes.UNAUTHORIZED,
       )
     }
-    // Sliding refresh: re-mint with a fresh exp so an actively used session
-    // does not expire mid-use. No DB read — pure token round-trip.
+    // Скользящее продление: перевыпускаем токен со свежим exp, чтобы активная сессия
+    // не истекла посреди работы. Без чтения из БД — только туда-обратно с токеном.
     const token2 = await signToken({
       sub: claims.sub,
       login: claims.login,
@@ -271,7 +271,7 @@ router
 
     const current = await findByLogin(user.login)
     if (!current) {
-      // Session valid but account vanished (deleted between sign-in and now).
+      // Сессия валидна, но аккаунт исчез (удалён между входом и текущим моментом).
       return c.json(
         { ok: false as const, error: 'unauthorized' as const },
         StatusCodes.UNAUTHORIZED,
@@ -293,17 +293,17 @@ router
     const newHash = await hashPassword(newPassword)
     const updated = await updatePasswordHash(current.id, newHash, current.passwordHash)
     if (!updated) {
-      // A concurrent change-password won the conditional UPDATE; our view is
-      // stale — do not report a false success.
+      // Параллельный change-password выиграл условный UPDATE; наши данные
+      // устарели — не сообщаем о ложном успехе.
       return c.json(
         { ok: false as const, error: 'conflict' as const, reason: 'stale_password' as const },
         StatusCodes.CONFLICT,
       )
     }
 
-    // Re-issue this session's cookie with the new pwdChangedAt so the caller
-    // does not log itself out under a future revocation check (Option C rejects
-    // tokens minted before the account's last password change).
+    // Перевыпускаем cookie этой сессии с новым pwdChangedAt, чтобы вызывающий не
+    // разлогинил сам себя при будущей проверке отзыва (вариант C отклоняет
+    // токены, выпущенные до последней смены пароля аккаунта).
     const refreshed = await signToken({
       sub: current.id,
       login: current.login,
@@ -329,15 +329,15 @@ router
 
     const updated = await updateProfile(user.sub, { firstName, lastName })
     if (!updated) {
-      // Session valid but account vanished (deleted between sign-in and now).
+      // Сессия валидна, но аккаунт исчез (удалён между входом и текущим моментом).
       return c.json(
         { ok: false as const, error: 'unauthorized' as const },
         StatusCodes.UNAUTHORIZED,
       )
     }
 
-    // Re-mint so the cookie (and thus the DB-free /me) carries the new name
-    // immediately — no re-login needed. Preserve pwdChangedAt/exp semantics.
+    // Перевыпускаем, чтобы cookie (а значит, и /me без БД) сразу несла новое имя —
+    // перелогин не нужен. Семантику pwdChangedAt/exp сохраняем.
     const refreshed = await signToken({
       sub: updated.id,
       login: updated.login,

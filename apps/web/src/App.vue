@@ -5,8 +5,8 @@ import { RouterView, useRoute } from 'vue-router'
 import { Toaster } from '@/components/ui/sonner'
 import AppLayout from '@/components/AppLayout.vue'
 
-// /login renders without the sidebar/layout chrome — there's nothing to
-// navigate to before a session exists.
+// /login рендерится без сайдбара и обвязки лейаута — пока сессии нет,
+// переходить всё равно некуда.
 const route = useRoute()
 const isPublic = computed(() => route.meta.public === true)
 </script>

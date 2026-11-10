@@ -11,7 +11,7 @@ vi.mock('../src/log.js', () => ({
 import { sendTelegramMessage, escapeHtml, _setFetchForTest } from '../src/telegram.js'
 
 describe('escapeHtml', () => {
-  it('escapes &, < and > only', () => {
+  it('экранирует только &, < и >', () => {
     expect(escapeHtml('Tom & <b>Jerry</b>')).toBe('Tom &amp; &lt;b&gt;Jerry&lt;/b&gt;')
   })
 })
@@ -21,7 +21,7 @@ describe('sendTelegramMessage', () => {
     vi.restoreAllMocks()
   })
 
-  it('posts to the bot sendMessage endpoint with the chat id and HTML text', async () => {
+  it('отправляет POST на эндпоинт sendMessage бота с chat id и HTML-текстом', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true })
     _setFetchForTest(fetchMock as unknown as typeof fetch)
 
@@ -34,7 +34,7 @@ describe('sendTelegramMessage', () => {
     expect(body).toMatchObject({ chat_id: '12345', text: '<b>hi</b>', parse_mode: 'HTML' })
   })
 
-  it('returns the Telegram description on a non-2xx response', async () => {
+  it('возвращает description от Telegram при ответе не 2xx', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
@@ -46,7 +46,7 @@ describe('sendTelegramMessage', () => {
     expect(result).toEqual({ ok: false, reason: 'chat not found' })
   })
 
-  it('falls back to http_<status> when the error body is not JSON', async () => {
+  it('откатывается к http_<status>, если тело ошибки не JSON', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 502,
@@ -60,7 +60,7 @@ describe('sendTelegramMessage', () => {
     expect(result).toEqual({ ok: false, reason: 'http_502' })
   })
 
-  it('returns ok:false with the error message when the request throws', async () => {
+  it('возвращает ok:false с текстом ошибки, если запрос бросает исключение', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error('network down'))
     _setFetchForTest(fetchMock as unknown as typeof fetch)
 

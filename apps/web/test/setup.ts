@@ -1,3 +1,4 @@
-// Same global styles as main.ts: without them nothing is responsively hidden and
-// overlays lose their stacking, so visibility checks and real clicks prove nothing.
+// Те же глобальные стили, что и в main.ts: без них ничего не скрывается адаптивно,
+// а оверлеи теряют порядок наложения, так что проверки видимости и реальные клики
+// ничего не доказывают.
 import '../src/styles/globals.css'

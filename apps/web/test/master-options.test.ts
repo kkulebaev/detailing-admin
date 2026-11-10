@@ -18,15 +18,15 @@ function master(overrides: Partial<Master>): Master {
 const ALWAYS = () => true
 
 describe('resolveMasterOptions', () => {
-  it('returns an empty list when data is undefined', () => {
+  it('возвращает пустой список, если data не определена', () => {
     expect(resolveMasterOptions(undefined, ALWAYS)).toEqual([])
   })
 
-  it('returns an empty list when the source list is empty', () => {
+  it('возвращает пустой список, если исходный список пуст', () => {
     expect(resolveMasterOptions([], ALWAYS)).toEqual([])
   })
 
-  it('returns every name when the filter always passes', () => {
+  it('возвращает все имена, если фильтр пропускает всех', () => {
     const rows = [
       master({ id: 1, name: 'Первый' }),
       master({ id: 2, name: 'Второй' }),
@@ -35,7 +35,7 @@ describe('resolveMasterOptions', () => {
     expect(resolveMasterOptions(rows, ALWAYS)).toEqual(['Первый', 'Второй', 'Третий'])
   })
 
-  it('excludes rows where canBeResponsible is false', () => {
+  it('исключает строки, где canBeResponsible равно false', () => {
     const rows = [
       master({ id: 1, name: 'Ответственный', canBeResponsible: true }),
       master({ id: 2, name: 'Не ответственный', canBeResponsible: false }),
@@ -43,7 +43,7 @@ describe('resolveMasterOptions', () => {
     expect(resolveMasterOptions(rows, (m) => m.canBeResponsible)).toEqual(['Ответственный'])
   })
 
-  it('returns an empty list when the role filter excludes everyone', () => {
+  it('возвращает пустой список, если фильтр по роли исключает всех', () => {
     const rows = [
       master({ id: 1, name: 'А', canBeResponsible: false }),
       master({ id: 2, name: 'Б', canBeResponsible: false }),

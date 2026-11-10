@@ -50,8 +50,8 @@ import {
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { FORM_SHOW_ERRORS_KEY } from '@/components/ui/form/injectionKeys'
 
-// Form field set used to narrow Zod issue paths into a literal union without a
-// type assertion. `Record<BookingField, true>` lets us use `in` for narrowing.
+// Набор полей формы для сужения путей Zod-ошибок до литерального union без
+// приведения типа. `Record<BookingField, true>` позволяет сужать через `in`.
 type BookingField =
   | 'dateFrom'
   | 'dateTo'
@@ -87,9 +87,9 @@ function isBookingField(s: string): s is BookingField {
   return s in BOOKING_FIELDS
 }
 
-// Master/responsible dropdowns are driven by the live `masters` table but must
-// never leave the booking flow dependent on Postgres — `resolveMasterOptions`
-// falls back to the hard-coded enum when the list is missing or empty.
+// Выпадающие списки мастера/ответственного строятся по живой таблице `masters`, но
+// никогда не должны делать оформление записи зависимым от Postgres — `resolveMasterOptions`
+// откатывается к зашитому enum, когда списка нет или он пуст.
 const { data: mastersData, asyncStatus: mastersStatus } = useMastersQuery()
 const mastersForMaster = computed(() =>
   resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
@@ -103,8 +103,8 @@ const mastersForResponsible = computed(() =>
 const mastersLoading = computed(
   () => mastersStatus.value === 'loading' && mastersData.value === undefined,
 )
-// Without the enum fallback, an unloaded or empty list leaves the master select
-// empty — warn explicitly so the form doesn't look silently broken.
+// Без запасного enum незагруженный или пустой список оставляет селект мастера
+// пустым — предупреждаем явно, чтобы форма не выглядела молча сломанной.
 const mastersWarning = computed(() => {
   if (mastersLoading.value || mastersForMaster.value.length > 0) return null
   return mastersData.value?.ok
@@ -112,10 +112,10 @@ const mastersWarning = computed(() => {
     : 'Список мастеров недоступен. Обновите страницу.'
 })
 
-// The «Отправить уведомление» toggle is meaningful once at least one selected
-// master has a Telegram ID on record. Names are unique in the masters table, so
-// matching selected names against the live list is safe; when the list can't
-// load there is no telegramId to check, so notifications stay unavailable.
+// Тоггл «Отправить уведомление» имеет смысл, когда хотя бы у одного выбранного
+// мастера записан Telegram ID. Имена в таблице masters уникальны, поэтому сверять
+// выбранные имена с живым списком безопасно; если список не загрузился, проверять
+// telegramId не по чему, и уведомления остаются недоступны.
 const selectedMasters = computed(() => {
   const list = mastersData.value?.ok ? mastersData.value.masters : undefined
   const names = values.master ?? []
@@ -138,23 +138,23 @@ const notifyHint = computed(() =>
   (values.master?.length ?? 0) > 0 ? 'У мастеров не указан Telegram ID' : 'Выберите мастера',
 )
 
-// ── Idempotency key: same across retries, regenerated on success ──────────────
+// ── Ключ идемпотентности: один на все повторы, перегенерируется после успеха ───
 const idempotencyKey = ref(uuid())
 
-// Kept in sync with `canNotifyMaster` below: on it defaults to enabled, off it
-// is force-disabled. The submit handler passes its value to the backend as
-// `notify`, which sends the master a Telegram message best-effort.
+// Синхронизирован с `canNotifyMaster` ниже: при true по умолчанию включён, при false
+// принудительно выключен. Обработчик отправки передаёт его значение на бэкенд как
+// `notify`, и тот best-effort шлёт мастеру сообщение в Telegram.
 const sendNotification = ref(true)
 
-// ── Calendar state ────────────────────────────────────────────────────────────
+// ── Состояние календаря ───────────────────────────────────────────────────────
 const localTz = getLocalTimeZone()
 const todayVal = today(localTz)
-// shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it)
+// shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает)
 const dateFromCal = shallowRef<DateValue>(todayVal)
 const dateToCal = shallowRef<DateValue>(todayVal)
 
-// Range mode (replaces the old Switch). When on, the second row
-// «Окончание работ» appears with its own date + time inputs.
+// Режим диапазона (заменяет старый Switch). Когда он включён, появляется вторая
+// строка «Окончание работ» со своими полями даты и времени.
 const isRangeMode = ref(false)
 
 const dateFromOpen = ref(false)
@@ -166,16 +166,16 @@ function calToString(d: DateValue): string {
   return `${dd}.${mm}.${d.year}`
 }
 
-// Date/time live in their own refs so the user can type directly into masked
-// text inputs. The calendar popover is just an alternative input that writes
-// back into these refs.
+// Дата/время живут в собственных ref, чтобы пользователь мог печатать прямо в
+// текстовые поля с маской. Поповер календаря — лишь альтернативный ввод, который
+// пишет обратно в эти ref.
 const dateFromText = ref(calToString(todayVal))
 const dateToText = ref(calToString(todayVal))
 const timeValue = ref('')
 const timeToValue = ref('')
 
-// Hide "Invalid" / regex error labels until the user actually tries to submit,
-// otherwise an empty initial form flashes red on mount.
+// Скрываем подписи ошибок «Invalid» / regex, пока пользователь реально не попробует
+// отправить форму, иначе пустая исходная форма мелькает красным при монтировании.
 const submitAttempted = ref(false)
 provide(FORM_SHOW_ERRORS_KEY, submitAttempted)
 
@@ -234,7 +234,7 @@ function sameDay(a: DateValue | undefined, b: DateValue | undefined): boolean {
   return a.year === b.year && a.month === b.month && a.day === b.day
 }
 
-// ── Unavailable banner (non-dismissable) ─────────────────────────────────────
+// ── Баннер недоступности (не закрывается) ────────────────────────────────────
 type UnavailableBanner =
   | {
       kind: 'headers_mismatch'
@@ -245,9 +245,9 @@ type UnavailableBanner =
   | { kind: 'not_configured'; message: string }
 const unavailableBanner = ref<UnavailableBanner | null>(null)
 
-// ── Phone input (raw display value + handlers) ──────────────────────────────
-// Starts empty so the placeholder is visible; typing '+', '7' or '8' as the
-// first character auto-expands to the +7 prefix.
+// ── Поле телефона (сырое отображаемое значение + обработчики) ───────────────
+// Изначально пустое, чтобы был виден плейсхолдер; ввод '+', '7' или '8' первым
+// символом автоматически разворачивается в префикс +7.
 const {
   phoneRaw,
   effectivePhone,
@@ -257,10 +257,10 @@ const {
   onClickPastePhone,
   resetPhone,
 } = usePhoneInput()
-// ── Client autofill (lookup by full phone) ───────────────────────────────────
-// Reads Postgres via the exact-phone lookup; strictly additive and silent on
-// failure — never gates the booking submit. The summary comes with the match, and
-// the server leaves out what the role may not see.
+// ── Автозаполнение клиента (поиск по полному телефону) ───────────────────────
+// Читает Postgres через поиск по точному телефону; строго дополняет форму и молчит
+// при ошибке — никогда не блокирует отправку записи. Сводка приходит вместе с
+// совпадением, а то, что роли видеть нельзя, сервер не отдаёт.
 const {
   matchedClient,
   matchedClientSummary,
@@ -268,8 +268,8 @@ const {
 } = useClientLookup(phoneRaw)
 const auth = useAuthStore()
 
-// Delay the spinner so a fast/cached lookup (resolves in <200ms) never flashes
-// it — only a genuinely slow round-trip shows the "searching" state.
+// Показываем спиннер с задержкой, чтобы быстрый/закэшированный поиск (<200 мс) не
+// мелькал им — состояние «ищем» видно только при реально медленном запросе.
 const showLookupSpinner = ref(false)
 let lookupSpinnerTimer: ReturnType<typeof setTimeout> | undefined
 watch(clientLookupLoading, (loading) => {
@@ -286,18 +286,18 @@ function formatMissed(m: MissedBookings): string {
   return `${parts.join(' · ')}. Последний раз — ${isoToDdmmyyyy(m.lastDate)}`
 }
 
-// ── License plate — sent as a separate `plate` field; the server joins it
-// with `car` (joinCar) for the sheet column and the bookings mirror. ────────
+// ── Госномер — отправляется отдельным полем `plate`; сервер склеивает его
+// с `car` (joinCar) для колонки таблицы и зеркала bookings. ────────
 const licensePlate = ref('')
-// ── Amount display value (formatted with thousand separators) ────────────────
+// ── Отображаемое значение суммы (с разделителями тысяч) ──────────────────────
 const amountRaw = ref('')
 
-// Latest sum of the picker's per-service prices (null when nothing selected).
-// Kept so «Сумма» can flag when it was hand-edited away from this total.
+// Последняя сумма цен услуг из пикера (null, если ничего не выбрано).
+// Хранится, чтобы «Сумма» могла пометить, что её вручную увели от этого итога.
 const servicesTotal = ref<number | null>(null)
 
-// Latest per-service breakdown from the picker — projected into the sheet's
-// «Услуга» cell at submit time (the form field itself stays a plain name CSV).
+// Последняя разбивка по услугам из пикера — при отправке попадает в ячейку «Услуга»
+// таблицы (само поле формы остаётся простым CSV из названий).
 const serviceBreakdown = ref<ServiceBreakdownRow[]>([])
 
 function formatAmount(digits: string): string {
@@ -309,8 +309,8 @@ function amountDigits(formatted: string): string {
   return formatted.replace(/\D/g, '')
 }
 
-// Signed difference between «Сумма» and the services total (current − total).
-// null when there's no total to compare against. Empty amount counts as 0.
+// Разница со знаком между «Сумма» и итогом по услугам (текущая − итог).
+// null, когда сравнивать не с чем. Пустая сумма считается за 0.
 const amountDelta = computed<number | null>(() => {
   if (servicesTotal.value === null) return null
   const digits = amountDigits(amountRaw.value)
@@ -318,11 +318,11 @@ const amountDelta = computed<number | null>(() => {
   return current - servicesTotal.value
 })
 
-// True when services are selected and «Сумма» no longer equals their total —
-// i.e. the operator typed an override (or used a +preset).
+// True, когда услуги выбраны, а «Сумма» уже не равна их итогу — т. е. оператор
+// ввёл своё значение (или воспользовался +пресетом).
 const amountOverridden = computed(() => amountDelta.value !== null && amountDelta.value !== 0)
 
-// «+2 500 ₽» / «−2 000 ₽» — how far the manual amount sits from the services total.
+// «+2 500 ₽» / «−2 000 ₽» — насколько ручная сумма отличается от итога по услугам.
 const amountDeltaLabel = computed(() => {
   const d = amountDelta.value ?? 0
   const sign = d > 0 ? '+' : '−'
@@ -335,10 +335,10 @@ function resetAmountToServices() {
   setFieldValue('amount', servicesTotal.value)
 }
 
-// ── Discount (₽ or %) ─────────────────────────────────────────────────────────
-// UI-only helper applied to «Сумма» (the base) to produce «Итого к оплате». On
-// submit the discounted total is what's saved to the sheet's amount column, and
-// a «Скидка …» line is appended to the note — there's no discount column.
+// ── Скидка (₽ или %) ──────────────────────────────────────────────────────────
+// Чисто UI-помощник: применяется к «Сумма» (базе) и даёт «Итого к оплате». При
+// отправке в колонку суммы таблицы сохраняется итог со скидкой, а к примечанию
+// дописывается строка «Скидка …» — отдельной колонки для скидки нет.
 const discountRaw = ref('')
 const discountUnit = ref<'rub' | 'pct'>('rub')
 
@@ -347,8 +347,8 @@ const baseAmount = computed(() => {
   return digits === '' ? 0 : parseInt(digits, 10)
 })
 
-// Discount in rubles, clamped so it never exceeds the base (% capped at 100).
-// Percentage is rounded to the nearest ruble.
+// Скидка в рублях, ограниченная так, чтобы не превышать базу (% не больше 100).
+// Процентная скидка округляется до ближайшего рубля.
 const discountAmount = computed(() => {
   const digits = discountRaw.value.replace(/\D/g, '')
   if (digits === '') return 0
@@ -384,8 +384,8 @@ function onDiscountInput(e: Event) {
   discountRaw.value = value
 }
 
-// Re-normalise the raw value when switching units: % strips grouping and caps
-// at 100; ₽ regroups with thousand separators.
+// Перенормализуем сырое значение при смене единиц: для % убираем группировку и
+// ограничиваем 100; для ₽ заново группируем разделителями тысяч.
 function setDiscountUnit(unit: 'rub' | 'pct') {
   if (unit === discountUnit.value) return
   discountUnit.value = unit
@@ -395,9 +395,9 @@ function setDiscountUnit(unit: 'rub' | 'pct') {
     unit === 'pct' ? String(Math.min(parseInt(digits, 10), 100)) : formatAmount(digits)
 }
 
-// «Скидка 10%» / «Скидка 950 ₽» — appended to the note on save. The concrete
-// rouble figure derived from a percent discount is intentionally omitted; only
-// the discount size itself is kept.
+// «Скидка 10%» / «Скидка 950 ₽» — дописывается к примечанию при сохранении.
+// Конкретная сумма в рублях, вычисленная из процентной скидки, намеренно не
+// пишется; сохраняется только сам размер скидки.
 function discountNoteLine(): string {
   if (!hasDiscount.value) return ''
   if (discountUnit.value === 'pct') {
@@ -407,10 +407,10 @@ function discountNoteLine(): string {
   return `Скидка ${formatAmount(String(discountAmount.value))} ₽`
 }
 
-// ── Quick-pick presets ───────────────────────────────────────────────────────
+// ── Пресеты быстрого выбора ──────────────────────────────────────────────────
 const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
 
-// Working hours of the detailing shop: 10:00–18:30 in 30-minute slots.
+// Часы работы детейлинга: 10:00–18:30 слотами по 30 минут.
 const TIME_PRESETS = [
   '10:00',
   '10:30',
@@ -432,10 +432,11 @@ const TIME_PRESETS = [
   '18:30',
 ] as const
 
-// ── Form ──────────────────────────────────────────────────────────────────────
-// Optional string-or-undefined fields need the type widened from the literal
-// `undefined` so vee-validate accepts later `setFieldValue('dateTo', '04.06.2026')`
-// calls. Same for `amount`, which transitions from `''` to a parsed number.
+// ── Форма ─────────────────────────────────────────────────────────────────────
+// Необязательным полям «строка или undefined» нужно расширить тип с литерала
+// `undefined`, чтобы vee-validate принимал последующие вызовы
+// `setFieldValue('dateTo', '04.06.2026')`. То же для `amount`, который переходит
+// из `''` в распарсенное число.
 interface BookingFormInitial {
   dateFrom: string
   dateTo: string | undefined
@@ -482,9 +483,9 @@ const {
   initialValues: initialFormValues,
 })
 
-// Keep the notification toggle in sync with availability: off when the selected
-// master has no Telegram ID, on once a notifiable master is picked. Declared
-// after useForm so the immediate run can read `values` (avoids a TDZ error).
+// Синхронизируем тоггл уведомления с доступностью: выключен, когда у выбранного
+// мастера нет Telegram ID, включён, как только выбран мастер, которого можно уведомить.
+// Объявлен после useForm, чтобы немедленный запуск мог прочитать `values` (без ошибки TDZ).
 watch(
   canNotifyMaster,
   (ok) => {
@@ -493,20 +494,20 @@ watch(
   { immediate: true },
 )
 
-// The phone input is bound to the raw string and lives outside a FormField (see
-// F7), so vee-validate never observes keystrokes and its «Укажите номер
-// телефона» error lingered after a failed submit. Mirror the effective value
-// into the form field on every change (setFieldValue validates by default) so
-// the error clears live once a number is entered.
+// Поле телефона привязано к сырой строке и живёт вне FormField (см. F7), поэтому
+// vee-validate не видит нажатий клавиш, и его ошибка «Укажите номер телефона»
+// оставалась висеть после неудачной отправки. Зеркалим действующее значение в поле
+// формы при каждом изменении (setFieldValue по умолчанию валидирует), чтобы
+// ошибка исчезала сразу, как только введён номер.
 watch(phoneRaw, () => {
   setFieldValue('phone', effectivePhone())
 })
 
-// On a match, overwrite name + the client's first car with the stored values
-// (whatever the operator typed or a draft restored is replaced). Guarded only
-// against wiping with a blank: skip the name when the client has none, skip the
-// car when the client has none. With several cars the rest stay available as
-// chips (see template) to switch «Марка и модель».
+// При совпадении перезаписываем имя и первую машину клиента сохранёнными значениями
+// (то, что ввёл оператор или восстановил черновик, заменяется). Защита только от
+// затирания пустым: имя пропускаем, если у клиента его нет, машину — если у клиента
+// нет машин. Если машин несколько, остальные доступны чипами (см. шаблон) для
+// переключения «Марка и модель».
 watch(matchedClient, (c) => {
   if (!c) return
   if (c.name.trim()) setFieldValue('name', c.name)
@@ -514,16 +515,16 @@ watch(matchedClient, (c) => {
   if (first) selectClientCar(first)
 })
 
-// Pick one of the matched client's cars: fill «Марка и модель» and the plate.
-// `plate` is not a vee-validate field (it's the separate `licensePlate` ref,
-// assembled into the payload on submit), so it's set on the ref directly and
-// re-masked to canonicalise a possibly non-canonical stored value.
+// Выбор одной из машин найденного клиента: заполняет «Марка и модель» и госномер.
+// `plate` — не поле vee-validate (это отдельный ref `licensePlate`, который
+// собирается в payload при отправке), поэтому он ставится прямо в ref и заново
+// маскируется, чтобы привести к каноничному виду возможно неканоничное сохранённое значение.
 function selectClientCar(car: Car) {
   setFieldValue('car', car.makeModel)
   licensePlate.value = maskLicensePlate(car.plate)
 }
 
-// ── Quick date chips ─────────────────────────────────────────────────────────
+// ── Чипы быстрого выбора даты ────────────────────────────────────────────────
 function shiftedDate(days: number): DateValue {
   return todayVal.add({ days })
 }
@@ -548,8 +549,8 @@ function toggleRangeMode() {
     return
   }
   isRangeMode.value = true
-  // Mirror dateFrom into dateTo so the user can adjust just the end, and a
-  // half-filled range never lands in the form fields.
+  // Копируем dateFrom в dateTo, чтобы пользователь мог поправить только конец, а
+  // наполовину заполненный диапазон никогда не попадал в поля формы.
   dateToCal.value = dateFromCal.value
   dateToText.value = dateFromText.value
   setFieldValue('dateTo', dateFromText.value)
@@ -575,7 +576,7 @@ function pickTimeTo(t: string) {
   setFieldValue('timeTo', t)
 }
 
-// ── Car suggestions (autocomplete) ───────────────────────────────────────────
+// ── Подсказки машины (автодополнение) ────────────────────────────────────────
 // Список подсказок сознательно собран на голом DOM, без Popover: на Android
 // выбор тапом не доезжал ни через `mousedown`, ни через `click`. Что здесь
 // принципиально и ломается при «упрощении»:
@@ -612,7 +613,7 @@ function selectCar(car: string) {
     // мог увести на него фокус — на мобильном это гасит клавиатуру.
     el.focus()
     // Фокус в поле означает, что Gboard может держать слово в композиции, а
-    // Vue's v-model не трогает DOM, пока выставлен `el.composing`. Коммитим
+    // v-model из Vue не трогает DOM, пока выставлен `el.composing`. Коммитим
     // композицию сами, иначе подсказка осядет только в состоянии формы.
     el.value = car
     el.setSelectionRange(car.length, car.length)
@@ -691,7 +692,7 @@ function onCarKeydown(e: KeyboardEvent) {
   }
 }
 
-// ── Date / time text input handlers ──────────────────────────────────────────
+// ── Обработчики текстовых полей даты / времени ───────────────────────────────
 function onDateFromTextInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
@@ -791,7 +792,7 @@ function onLicensePlateInput(e: Event) {
   }
 }
 
-// ── Amount input handler ──────────────────────────────────────────────────────
+// ── Обработчик поля суммы ─────────────────────────────────────────────────────
 function onAmountInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
@@ -814,9 +815,9 @@ function addAmount(delta: number) {
   setFieldValue('amount', next)
 }
 
-// Auto-fill «Сумма» from the picker's per-service prices. The field stays
-// editable — a manual value simply holds until the next selection/price
-// change recomputes the total.
+// Автозаполнение «Сумма» по ценам услуг из пикера. Поле остаётся
+// редактируемым — ручное значение просто держится до следующего изменения
+// выбора/цены, которое пересчитает итог.
 function onServicesTotal(total: number | null) {
   servicesTotal.value = total
   if (total === null) {
@@ -832,7 +833,7 @@ function onServiceBreakdown(rows: ServiceBreakdownRow[]) {
   serviceBreakdown.value = rows
 }
 
-// ── Calendar selection handlers ───────────────────────────────────────────────
+// ── Обработчики выбора в календаре ────────────────────────────────────────────
 function onDateFromSelect(date: DateValue | undefined) {
   if (!date) return
   dateFromCal.value = date
@@ -851,24 +852,24 @@ function onDateToSelect(date: DateValue | undefined) {
   dateToOpen.value = false
 }
 
-// ── Submit ────────────────────────────────────────────────────────────────────
+// ── Отправка ──────────────────────────────────────────────────────────────────
 const handleValidatedSubmit = handleSubmit(async (values) => {
   unavailableBanner.value = null
   const plate = licensePlate.value.trim()
-  // The toggle is force-disabled when the master has no Telegram ID, so its
-  // value is authoritative; the backend re-checks and never trusts it blindly.
+  // Тоггл принудительно выключен, когда у мастера нет Telegram ID, поэтому его
+  // значению можно верить; бэкенд перепроверяет и вслепую ему не доверяет.
   const payload = { ...values, plate: plate || undefined, notify: sendNotification.value }
-  // The «Услуга» cell gets the categorised breakdown (names only); the form
-  // field stays a plain name CSV for draft restore.
+  // В ячейку «Услуга» идёт разбивка по категориям (только названия); поле формы
+  // остаётся простым CSV из названий для восстановления черновика.
   if (serviceBreakdown.value.length > 0) {
     payload.service = formatServiceCell(serviceBreakdown.value)
-    // «Сумма» carries the arithmetic behind the total. `values.amount` is the
-    // pre-discount base; the formula subtracts the discount itself.
+    // «Сумма» несёт арифметику, из которой сложился итог. `values.amount` — база
+    // до скидки; формула сама вычитает скидку.
     const base = typeof values.amount === 'number' ? values.amount : 0
     payload.amountFormula = formatAmountFormula(serviceBreakdown.value, base, discountAmount.value)
   }
-  // Discount is applied at submit time: the sheet stores the discounted total
-  // and the discount is preserved as a note line (no dedicated column).
+  // Скидка применяется при отправке: в таблицу пишется итог со скидкой, а сама
+  // скидка сохраняется строкой в примечании (отдельной колонки нет).
   if (hasDiscount.value) {
     payload.amount = finalAmount.value
     payload.note = [values.note?.trim(), discountNoteLine()].filter(Boolean).join('\n')
@@ -927,13 +928,13 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
 async function onSubmit() {
   submitAttempted.value = true
   setFieldValue('phone', effectivePhone())
-  // Surface errors for all fields up front — handleSubmit alone does not
-  // propagate schema errors to registered FormFields that were never touched.
+  // Показываем ошибки всех полей сразу — один handleSubmit не передаёт ошибки
+  // схемы зарегистрированным FormField, которых ни разу не касались.
   await validate()
   await handleValidatedSubmit()
 }
 
-// Shared reset for both the clear-button and post-submit flows.
+// Общий сброс и для кнопки очистки, и после отправки.
 function resetFormState() {
   const fresh = today(localTz)
   resetForm({
@@ -978,13 +979,13 @@ function clearForm() {
   clearDraft()
 }
 
-// ── Draft persistence (localStorage) ─────────────────────────────────────────
-// v5: service field moved from free text to picker (selection restored from CSV
-// of service names against the loaded pricelist); carClass added.
+// ── Сохранение черновика (localStorage) ──────────────────────────────────────
+// v5: поле услуги перешло со свободного текста на пикер (выбор восстанавливается из CSV
+// названий услуг по загруженному прайс-листу); добавлен carClass.
 const DRAFT_KEY = 'detailing-admin:booking-draft:v5'
 
-// Draft schema is permissive on purpose — every field is optional so a
-// half-filled or older-version localStorage entry parses without bouncing back.
+// Схема черновика намеренно либеральна — все поля необязательны, чтобы наполовину
+// заполненная или более старая запись в localStorage парсилась без отказа.
 const draftSchema = z.object({
   dateFromText: z.string().optional(),
   dateToText: z.string().optional(),
@@ -1000,8 +1001,8 @@ const draftSchema = z.object({
   amountRaw: z.string().optional(),
   discountRaw: z.string().optional(),
   discountUnit: z.union([z.literal('rub'), z.literal('pct')]).optional(),
-  // Accepts the legacy single-string shape from pre-multi-master drafts (v5)
-  // alongside the current array — loadDraft() branches on which one it got.
+  // Принимает и устаревшую форму одной строки из черновиков до мультимастеров (v5),
+  // и текущий массив — loadDraft() ветвится в зависимости от того, что пришло.
   master: z.array(z.string()).or(z.string()).optional(),
   responsible: z.string().optional(),
   carClass: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
@@ -1013,7 +1014,7 @@ function clearDraft() {
   try {
     localStorage.removeItem(DRAFT_KEY)
   } catch {
-    /* storage may be disabled */
+    /* хранилище может быть отключено */
   }
 }
 
@@ -1038,8 +1039,8 @@ function saveDraft() {
       responsible: values.responsible,
       carClass: values.carClass,
     }
-    // `draft.master` is now an array — `[]` is truthy in JS, so a plain `||`
-    // check would call an untouched, empty-selection draft "meaningful".
+    // `draft.master` теперь массив — `[]` в JS truthy, поэтому простая проверка `||`
+    // сочла бы нетронутый черновик с пустым выбором «содержательным».
     const hasMaster = Array.isArray(draft.master) ? draft.master.length > 0 : Boolean(draft.master)
     const meaningful =
       draft.isRangeMode ||
@@ -1060,7 +1061,7 @@ function saveDraft() {
     }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
   } catch {
-    /* ignore */
+    /* игнорируем */
   }
 }
 
@@ -1107,9 +1108,9 @@ function loadDraft() {
     }
     if (d.discountUnit) discountUnit.value = d.discountUnit
     if (d.discountRaw) discountRaw.value = d.discountRaw
-    // Legacy (pre-multi-master) drafts stored `master` as a single string; a
-    // naive `.trim()` here would throw on the new array shape and the throw is
-    // swallowed by the outer catch below, silently losing the entire draft.
+    // Старые черновики (до мультимастеров) хранили `master` одной строкой; наивный
+    // `.trim()` здесь упал бы на новой форме-массиве, а исключение проглотил бы
+    // внешний catch ниже, и весь черновик молча потерялся бы.
     if (Array.isArray(d.master)) {
       if (d.master.length > 0) setFieldValue('master', d.master)
     } else if (typeof d.master === 'string' && d.master.trim()) {
@@ -1118,7 +1119,7 @@ function loadDraft() {
     if (d.responsible && d.responsible.trim()) setFieldValue('responsible', d.responsible)
     if (d.carClass) setFieldValue('carClass', d.carClass)
   } catch {
-    /* corrupted draft: ignore */
+    /* повреждённый черновик: игнорируем */
   }
 }
 
@@ -1242,7 +1243,7 @@ watch(
 
 <template>
   <div class="min-h-screen bg-muted/30">
-    <!-- Non-dismissable unavailable banner -->
+    <!-- Незакрываемый баннер недоступности -->
     <div
       v-if="unavailableBanner && unavailableBanner.kind === 'headers_mismatch'"
       class="bg-destructive text-destructive-foreground px-4 py-3 text-sm font-medium"
@@ -1285,7 +1286,7 @@ watch(
             <CardTitle class="text-base">Дата и время записи</CardTitle>
           </CardHeader>
           <CardContent class="px-4">
-            <!-- Quick date chips -->
+            <!-- Чипы быстрого выбора даты -->
             <div class="flex flex-wrap gap-2 mb-2">
               <button
                 type="button"
@@ -1322,7 +1323,7 @@ watch(
             </div>
 
             <div class="flex gap-2">
-              <!-- Date text input + calendar icon trigger -->
+              <!-- Текстовое поле даты + иконка-триггер календаря -->
               <div class="relative flex-1">
                 <Input
                   type="text"
@@ -1352,7 +1353,7 @@ watch(
                   </PopoverContent>
                 </Popover>
               </div>
-              <!-- Time text input (masked HH:MM) -->
+              <!-- Текстовое поле времени (маска HH:MM) -->
               <Input
                 type="text"
                 inputmode="numeric"
@@ -1364,7 +1365,7 @@ watch(
               />
             </div>
 
-            <!-- Time quick chips -->
+            <!-- Чипы быстрого выбора времени -->
             <div class="flex flex-wrap gap-1.5 mt-2">
               <button
                 v-for="t in TIME_PRESETS"
@@ -1385,14 +1386,14 @@ watch(
               {{ errors.time }}
             </p>
 
-            <!-- End of work — smoothly expands/collapses when toggling range mode.
-               Outer grid animates grid-template-rows 0fr↔1fr; inner overflow-hidden
-               clips during the transition. pt-4 on the innermost wrapper provides
-               spacing above the range section when expanded and collapses with the
-               row when hidden (preventing a ghost margin).
-               NB: 0fr suffix is `!` (Tailwind v4 important) — without it, Tailwind
-               emits grid-rows-[1fr] after grid-rows-[0fr] in source order, so the
-               baseline class always wins and the transition never sees a change. -->
+            <!-- Окончание работ — плавно раскрывается/сворачивается при переключении режима
+               диапазона. Внешний grid анимирует grid-template-rows 0fr↔1fr; внутренний
+               overflow-hidden обрезает содержимое во время перехода. pt-4 на самой внутренней
+               обёртке даёт отступ над секцией диапазона в раскрытом виде и схлопывается вместе
+               со строкой, когда она скрыта (без «призрачного» отступа).
+               NB: у 0fr суффикс `!` (important в Tailwind v4) — без него Tailwind выводит
+               grid-rows-[1fr] после grid-rows-[0fr] в порядке исходника, поэтому базовый
+               класс всегда побеждает, и переход не видит изменений. -->
             <Transition
               enter-active-class="transition-[grid-template-rows] duration-200 ease-out"
               leave-active-class="transition-[grid-template-rows] duration-200 ease-out"
@@ -1481,14 +1482,14 @@ watch(
           </CardHeader>
           <CardContent class="px-4">
             <div class="space-y-4">
-              <!-- Phone first: a matched number auto-fills the name below (feature
-                 5.1), so the phone leads the client section. -->
-              <!-- Phone (bound to raw masked string — outside FormField on purpose, see F7) -->
+              <!-- Сначала телефон: найденный номер автоматически заполняет имя ниже (фича
+                 5.1), поэтому телефон открывает секцию клиента. -->
+              <!-- Телефон (привязан к сырой строке с маской — намеренно вне FormField, см. F7) -->
               <div>
                 <div class="mb-2 flex items-center gap-2">
                   <Label>Номер телефона</Label>
-                  <!-- Spinner while an exact-match lookup is in flight, so the gap
-                     before a chip appears (or doesn't) reads as "searching", not silence. -->
+                  <!-- Спиннер, пока идёт поиск по точному совпадению, чтобы пауза до
+                     появления чипа (или его отсутствия) читалась как «ищем», а не как тишина. -->
                   <Spinner v-if="showLookupSpinner" class="size-4 text-muted-foreground" />
                 </div>
                 <div class="relative">
@@ -1551,8 +1552,8 @@ watch(
                     >
                       Последнее: {{ matchedClientSummary.lastService }}
                     </p>
-                    <!-- New tab: leaving the form would drop it mid-entry, and the
-                       card's close navigates to /clients, not back here. -->
+                    <!-- Новая вкладка: уход с формы бросил бы её на середине ввода, а
+                       закрытие карточки ведёт на /clients, а не обратно сюда. -->
                     <RouterLink
                       v-if="auth.isAdmin"
                       :to="{ name: 'client-detail', params: { id: matchedClient.id } }"
@@ -1635,8 +1636,8 @@ watch(
                 </FormItem>
               </FormField>
 
-              <!-- Client's cars as chips right under «Марка и модель» — the first is
-                 auto-filled; chips appear only with several, to switch to another. -->
+              <!-- Машины клиента чипами прямо под «Марка и модель» — первая подставляется
+                 автоматически; чипы появляются, только если машин несколько, чтобы переключиться. -->
               <div
                 v-if="matchedClient && matchedClient.cars.length > 1"
                 class="-mt-2 flex flex-wrap gap-1.5"
@@ -1680,10 +1681,10 @@ watch(
           </CardHeader>
           <CardContent class="px-4">
             <div class="space-y-4">
-              <!-- Bound via explicit props instead of `v-bind="componentField"`:
-                 componentField's fallthrough onInput/onChange DOM listeners
-                 land on the picker's root div and would overwrite `service`
-                 with text from any bubbling event (e.g. the price inputs). -->
+              <!-- Привязано явными пропсами вместо `v-bind="componentField"`:
+                 сквозные DOM-слушатели onInput/onChange из componentField
+                 попадают на корневой div пикера и перезаписывали бы `service`
+                 текстом любого всплывшего события (например, из полей цен). -->
               <FormField v-slot="{ value, handleChange }" name="service">
                 <FormItem>
                   <FormLabel>Услуга</FormLabel>
@@ -1835,10 +1836,10 @@ watch(
               <FormField v-slot="{ componentField }" name="master">
                 <FormItem>
                   <FormLabel>Мастер</FormLabel>
-                  <!-- No FormControl: its id/aria-* attrs are meant for the
-                     wrapped element directly, but the real button here sits
-                     behind Popover/PopoverTrigger layers (like the ServicePicker
-                     case above, componentField fallthrough isn't a plain input). -->
+                  <!-- Без FormControl: его атрибуты id/aria-* рассчитаны прямо на
+                     обёрнутый элемент, а настоящая кнопка здесь спрятана за
+                     слоями Popover/PopoverTrigger (как и в случае ServicePicker
+                     выше, сквозные атрибуты componentField — не простой input). -->
                   <MasterMultiSelect
                     v-bind="componentField"
                     :options="mastersForMaster"
@@ -1893,7 +1894,7 @@ watch(
       </div>
     </form>
 
-    <!-- Sticky submit bar (safe-area aware) -->
+    <!-- Липкая панель отправки (с учётом safe-area) -->
     <div
       class="fixed bottom-0 left-0 right-0 md:left-64 px-4 py-4 bg-background border-t border-border pb-safe"
     >

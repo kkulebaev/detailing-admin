@@ -3,9 +3,9 @@ import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { page } from 'vitest/browser'
 import { calendarDay } from './helpers/calendar'
 
-// In self mode the dialog must go through /api/me and never name a master: the
-// server takes the master from the session, so a masterId in the payload would
-// at best be ignored and at worst hint that the client can choose it.
+// В self-режиме диалог должен ходить через /api/me и никогда не указывать мастера:
+// сервер берёт мастера из сессии, поэтому masterId в payload в лучшем случае
+// проигнорируется, а в худшем — намекнёт, что клиент может его выбирать.
 
 const createWorkHoursMock = vi.fn()
 const createMyWorkHoursMock = vi.fn()
@@ -47,8 +47,8 @@ beforeEach(() => {
   createMyWorkHoursMock.mockResolvedValue({ ok: true, hours: { masterId: 4 } })
 })
 
-describe('WorkHoursFormDialog — self mode', () => {
-  it('creates through /api/me without a masterId', async () => {
+describe('WorkHoursFormDialog — self-режим', () => {
+  it('создаёт запись через /api/me без masterId', async () => {
     mountDialog()
 
     await button('ДД.ММ.ГГГГ').click()
@@ -66,7 +66,7 @@ describe('WorkHoursFormDialog — self mode', () => {
     expect(createWorkHoursMock).not.toHaveBeenCalled()
   })
 
-  it('disables calendar days outside the edit window', async () => {
+  it('блокирует дни календаря вне окна редактирования', async () => {
     mountDialog()
 
     await button('ДД.ММ.ГГГГ').click()

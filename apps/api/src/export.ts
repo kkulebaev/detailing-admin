@@ -1,12 +1,12 @@
-// Shared constants for the CSV export routes (bookings + clients), kept in one
-// place so the two routes can't drift apart.
+// Общие константы для маршрутов CSV-экспорта (bookings + clients) — в одном месте,
+// чтобы два маршрута не разошлись.
 
-// Hard cap on an export's rows — a safeguard against OOM on a runaway dataset,
-// not an expected limit (the mirror is small). Hitting it truncates the file
-// silently and logs a warning.
+// Жёсткий лимит строк экспорта — страховка от OOM на разросшемся наборе данных,
+// а не ожидаемое ограничение (зеркало небольшое). При его достижении файл молча
+// обрезается, а в лог пишется предупреждение.
 export const EXPORT_CAP = 10000
 
-// The shop operates in Moscow time (+7 phones, ru locale). Timestamps stored in
-// UTC are rendered in this zone in exports so «Создано» matches the local time
-// staff see, not raw UTC.
+// Студия работает по московскому времени (телефоны +7, локаль ru). Метки времени,
+// хранящиеся в UTC, в экспорте выводятся в этой зоне, чтобы «Создано» совпадало
+// с местным временем сотрудников, а не с сырым UTC.
 export const SHOP_TIMEZONE = 'Europe/Moscow'

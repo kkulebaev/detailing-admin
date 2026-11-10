@@ -10,8 +10,8 @@ export const ROLES = ['admin', 'booker', 'employee'] as const
 export const roleSchema = z.enum(ROLES)
 export type Role = (typeof ROLES)[number]
 
-// `users.role` is a plain varchar, so a stray value must not grant anything:
-// whatever isn't a known role collapses to the least privileged one.
+// `users.role` — обычный varchar, поэтому случайное значение не должно ничего давать:
+// всё, что не является известной ролью, сводится к наименее привилегированной.
 export function toRole(value: string): Role {
   const parsed = roleSchema.safeParse(value)
   return parsed.success ? parsed.data : 'employee'
@@ -21,7 +21,7 @@ export function canCreateBookings(role: Role): boolean {
   return role === 'admin' || role === 'booker'
 }
 
-// Edits touch only the Postgres mirror, never Sheets (see «Bookings DB mirror»).
+// Правки затрагивают только зеркало в Postgres, но не Sheets (см. «Bookings DB mirror»).
 export function canEditBookings(role: Role): boolean {
   return role === 'admin' || role === 'booker'
 }
@@ -30,9 +30,9 @@ export function canSeeAmounts(role: Role): boolean {
   return role === 'admin' || role === 'booker'
 }
 
-// Public projection of a user — never carries the password hash. `firstName`/
-// `lastName` may be empty strings for accounts provisioned before they were
-// added (the CLI can seed them, otherwise the user fills them in on the profile).
+// Публичная проекция пользователя — хеш пароля в ней не бывает никогда. `firstName`/
+// `lastName` могут быть пустыми строками у аккаунтов, созданных до появления этих полей
+// (их может заполнить CLI, иначе пользователь заполняет их сам в профиле).
 export const userPublicSchema = z.object({
   login: z.string(),
   role: roleSchema,
@@ -41,7 +41,7 @@ export const userPublicSchema = z.object({
 })
 export type UserPublic = z.infer<typeof userPublicSchema>
 
-// An account as the admin sees it when linking it to a master.
+// Аккаунт в том виде, в каком его видит админ при привязке к мастеру.
 export const accountSchema = userPublicSchema.extend({ id: z.string().uuid() })
 export type Account = z.infer<typeof accountSchema>
 
@@ -55,7 +55,7 @@ export const loginRequestSchema = z.object({
   login: z.string().min(1, 'Укажите логин').max(64),
   password: z.string().min(1, 'Укажите пароль').max(200),
   // "Запомнить меня": true → длинная сессия (AUTH_REMEMBER_TTL_SECONDS),
-  // false/отсутствует → обычный TTL. Optional (не .default()): @vee-validate/zod
+  // false/отсутствует → обычный TTL. Необязательное (не .default()): @vee-validate/zod
   // ломается на ZodDefault под Zod 4, а дефолт всё равно применяется на сервере.
   remember: z.boolean().optional(),
 })
@@ -78,9 +78,9 @@ export const updateProfileRequestSchema = z.object({
 })
 export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>
 
-// `stale_password` (HTTP 409) is returned when a concurrent change-password won
-// the conditional UPDATE (WHERE password_hash = <old>) — the current request's
-// view of the password is stale and it must re-fetch/retry, not report success.
+// `stale_password` (HTTP 409) возвращается, когда конкурирующий change-password выиграл
+// условный UPDATE (WHERE password_hash = <old>) — представление текущего запроса о пароле
+// устарело, и он должен перечитать/повторить, а не сообщать об успехе.
 export const stalePasswordConflictSchema = z.object({
   ok: z.literal(false),
   error: z.literal('conflict'),

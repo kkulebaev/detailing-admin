@@ -1,19 +1,20 @@
 /**
- * One-shot enrichment: populate `client_cars` from the "Запись 2026" sheet tab.
+ * Разовое обогащение: заполняет `client_cars` из вкладки «Запись 2026».
  *
  *   pnpm --filter @detailing-admin/api backfill:client-cars-sheet
  *
- * The going-forward ingest (`upsertClientCar` on each booking) is recent, so the
- * historical car registry was near-empty. The sheet is the source of truth and
- * carries phone (col D) + car (col E) for every booking, so we read it, resolve
- * each phone to an existing client, and upsert the car. Idempotent:
- * `upsertClientCar` is `onConflictDoNothing` on the normalized (client, make, plate)
- * key, so a re-run inserts nothing new. Read-only against the sheet.
+ * Текущий приём машин (`upsertClientCar` на каждой записи) появился недавно, поэтому
+ * исторический реестр машин был почти пуст. Таблица — источник истины и содержит
+ * телефон (столбец D) + машину (столбец E) для каждой записи, поэтому мы читаем её,
+ * сопоставляем каждый телефон с существующим клиентом и делаем upsert машины.
+ * Идемпотентно: `upsertClientCar` — это `onConflictDoNothing` по нормализованному
+ * ключу (client, make, plate), так что повторный запуск ничего нового не вставит.
+ * Таблицу только читает.
  *
- * Scope: the "Запись 2026" tab only (matches the DB mirror's coverage). Rows whose
- * phone doesn't resolve to a known client are skipped (no client to own the car);
- * clients are already seeded from the same sheet. Run `backfill:car-ids` afterwards
- * to link `bookings.car_id` against the freshly populated cars.
+ * Охват: только вкладка «Запись 2026» (совпадает с покрытием зеркала в БД). Строки,
+ * телефон которых не сопоставился с известным клиентом, пропускаются (машину некому
+ * присвоить); клиенты уже засеяны из той же таблицы. После этого запустите
+ * `backfill:car-ids`, чтобы связать `bookings.car_id` со свежезаполненными машинами.
  */
 import { google } from 'googleapis'
 import { normalizePhone } from '@detailing-admin/shared/phone'
@@ -32,10 +33,10 @@ function buildSheetsClient(): ReturnType<typeof google.sheets> {
 }
 
 /**
- * Reverse of `joinCar` for historical data: the make/model and an optional plate
- * were joined with ", ". Split on the LAST ", " so a make/model containing a comma
- * stays intact and the tail is the plate; no ", " → the whole string is the
- * make/model with an empty plate (the common case — most rows carry no plate).
+ * Обратная операция к `joinCar` для исторических данных: марка/модель и необязательный
+ * номер склеивались через ", ". Делим по ПОСЛЕДНЕМУ ", ", чтобы марка/модель с запятой
+ * осталась целой, а хвостом был номер; нет ", " → вся строка — марка/модель с пустым
+ * номером (типичный случай — в большинстве строк номера нет).
  */
 export function splitCar(joined: string): { makeModel: string; plate: string } {
   const idx = joined.lastIndexOf(', ')
@@ -61,7 +62,7 @@ export async function backfillClientCarsFromSheet(): Promise<SheetCarBackfillRes
   })
   const rows = res.data.values ?? []
   const header = rows[0] ?? []
-  // Byte-exact header contract (see EXPECTED_HEADERS): D=Номер, E=Машина.
+  // Побайтовый контракт заголовков (см. EXPECTED_HEADERS): D=Номер, E=Машина.
   if (String(header[3]) !== 'Номер' || String(header[4]) !== 'Машина') {
     throw new Error(`Unexpected sheet headers on "${tab}": D=${header[3]}, E=${header[4]}`)
   }
@@ -130,7 +131,7 @@ async function main(): Promise<void> {
   await closeDb()
 }
 
-// Only run when executed directly (not when imported by a test).
+// Запускается только при прямом вызове (не при импорте из теста).
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
     console.error(err)

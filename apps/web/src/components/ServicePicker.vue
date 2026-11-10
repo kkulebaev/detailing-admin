@@ -31,21 +31,21 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:carClass': [value: CarClass]
-  // Sum of the per-service editable prices; null when nothing is selected.
-  // Emitted only from user actions (select/remove/price edit/class switch) —
-  // NOT from draft-restore sync, so a drafted manual amount survives reload.
+  // Сумма редактируемых цен по услугам; null, если ничего не выбрано.
+  // Эмитится только из действий пользователя (выбор/удаление/правка цены/смена
+  // класса) — НЕ при синхронизации из черновика, чтобы ручная сумма пережила перезагрузку.
   'update:total': [value: number | null]
-  // Per-service breakdown (section + name + current price) for the sheet's
-  // «Услуга» cell. Unlike total, this fires on every change including restore —
-  // it doesn't feed back into any field, so there's no draft conflict.
+  // Разбивка по услугам (раздел + название + текущая цена) для ячейки «Услуга»
+  // в таблице. В отличие от total, срабатывает на каждое изменение, включая
+  // восстановление, — она не возвращается ни в одно поле, так что конфликта с черновиком нет.
   'update:breakdown': [value: ServiceBreakdownRow[]]
 }>()
 
 const CLASS_OPTIONS: readonly CarClass[] = [1, 2, 3, 4] as const
 const ROMAN: Record<CarClass, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
 
-// Pricelist is shared cache: this query and PricelistPage's both read from the
-// same key, so opening /pricelist after the form (or vice versa) is instant.
+// Прайс — общий кэш: этот запрос и запрос PricelistPage читают один ключ,
+// поэтому /pricelist после формы (и наоборот) открывается мгновенно.
 const { data: queryData, error: queryError, asyncStatus } = usePricelistQuery()
 
 const sections = computed<PricelistSection[]>(() => {
@@ -65,15 +65,15 @@ const loadError = computed<string | null>(() => {
 
 const open = ref(false)
 
-// Reka-UI's PopoverContent focus-traps on open and moves focus to the first
-// focusable child — the search field — which pops the mobile keyboard the
-// instant the dropdown opens. Prevent the auto-focus so the list opens
-// scroll/tap-first; the keyboard rises only when the user taps the search box.
+// PopoverContent из Reka-UI при открытии ловит фокус и переносит его на первый
+// фокусируемый элемент — поле поиска, — из-за чего мобильная клавиатура
+// выскакивает в момент открытия списка. Отключаем автофокус, чтобы список
+// сначала листали и тапали; клавиатура появляется, только когда тапнули по поиску.
 function onOpenAutoFocus(e: Event) {
   e.preventDefault()
 }
 
-// Selected service ids — ListboxRoot in multiple mode binds an array.
+// Id выбранных услуг — ListboxRoot в режиме multiple привязывает массив.
 const selectedIds = ref<number[]>([])
 
 const serviceById = computed(() => {
@@ -89,14 +89,14 @@ function formatServicePrice(svc: PricelistService): string {
   return `${priceFormatter.format(min)} – ${priceFormatter.format(max)} ₽`
 }
 
-// ── Editable per-service prices ──────────────────────────────────────────────
-// Keyed by service id; values are the masked input strings («12 000»).
-// Default is the class price (lower bound for ranges).
+// ── Редактируемые цены по услугам ────────────────────────────────────────────
+// Ключ — id услуги; значения — строки поля с маской («12 000»).
+// По умолчанию — цена класса (нижняя граница для диапазонов).
 const rawPrices = ref<Record<number, string>>({})
 
-// Per-service quantity, keyed by service id. Only «штучные» (countable)
-// services expose a stepper; every entry defaults to 1 and the line total is
-// unit price × quantity.
+// Количество по услугам, ключ — id услуги. Счётчик есть только у «штучных»
+// услуг; по умолчанию у каждой 1, а сумма строки — цена за единицу
+// × количество.
 const quantities = ref<Record<number, number>>({})
 const MAX_QTY = 99
 
@@ -116,8 +116,8 @@ function decQty(id: number) {
   setQty(id, qtyFor(id) - 1)
 }
 
-// Line total (unit price × quantity) for a selected service — drives both the
-// «N × цена = сумма» hint and the emitted total.
+// Сумма строки (цена за единицу × количество) для выбранной услуги — из неё
+// строятся и подсказка «N × цена = сумма», и эмитимый итог.
 function lineTotal(id: number): number {
   const unit = parseInt(priceDigits(rawPrices.value[id] ?? ''), 10) || 0
   return unit * qtyFor(id)
@@ -138,18 +138,18 @@ function defaultPriceFor(id: number): string {
   return formatDigits(String(servicePriceForClass(svc, props.carClass).min))
 }
 
-// Align price state with the current selection: newly picked services get the
-// class default, deselected ones are dropped. `resetAll` re-derives every
-// price (used when the car class changes — manual edits belong to the old
-// class's tariff and would be misleading to keep).
+// Приводит цены к текущему выбору: новые услуги получают цену класса по умолчанию,
+// снятые удаляются. `resetAll` пересчитывает все цены (при смене класса
+// машины — ручные правки относятся к тарифу старого класса, и сохранять их
+// значило бы вводить в заблуждение).
 function syncPricesToSelection(resetAll = false) {
   const next: Record<number, string> = {}
   const nextQty: Record<number, number> = {}
   for (const id of selectedIds.value) {
     const kept = rawPrices.value[id]
     next[id] = !resetAll && kept !== undefined ? kept : defaultPriceFor(id)
-    // Quantity is independent of the car class tariff — keep it across a class
-    // switch (resetAll) and only drop entries for deselected services.
+    // Количество не зависит от тарифа класса машины — сохраняем его при смене
+    // класса (resetAll) и удаляем только записи снятых услуг.
     nextQty[id] = quantities.value[id] ?? 1
   }
   rawPrices.value = next
@@ -184,7 +184,7 @@ watch(
   },
 )
 
-// Canonical CSV of selected names, ordered by section order in the pricelist.
+// Канонический CSV выбранных названий в порядке разделов прайса.
 function selectionToCsv(): string {
   const idSet = new Set(selectedIds.value)
   const names: string[] = []
@@ -201,18 +201,18 @@ function emitModelValue() {
   if (next !== props.modelValue) emit('update:modelValue', next)
 }
 
-// Re-derive selection from the parent's CSV (e.g. draft restore or clearForm).
-// Unmatched names are dropped — we then push the canonical CSV back so the form
-// value reflects what's actually selectable.
+// Восстанавливает выбор из CSV родителя (например, при восстановлении черновика
+// или clearForm). Несовпавшие названия отбрасываются — затем отдаём обратно
+// канонический CSV, чтобы значение формы отражало то, что реально можно выбрать.
 function syncSelectionFromString() {
   if (sections.value.length === 0) return
   const csv = (props.modelValue ?? '').trim()
-  // The parent echoes our own name-only CSV back through `modelValue`. That CSV
-  // can't tell apart two services sharing a name (e.g. «Крыша» exists in both
-  // «Полировка» and «Шумоизоляция»), so re-resolving an echo would silently swap
-  // the picked copy for another section's — and skip the total re-emit, leaving
-  // «Сумма» stale. If the CSV already matches the current selection, keep the
-  // ids (and prices) we have.
+  // Родитель возвращает наш же CSV из одних названий через `modelValue`. Этот CSV
+  // не различает две услуги с одинаковым названием (например, «Крыша» есть и в
+  // «Полировке», и в «Шумоизоляции»), поэтому повторное сопоставление эха тихо
+  // подменило бы выбранную копию услугой из другого раздела — и пропустило бы
+  // повторный эмит итога, оставив «Сумму» устаревшей. Если CSV уже совпадает
+  // с текущим выбором, оставляем имеющиеся id (и цены).
   if (csv === selectionToCsv()) return
   const names = csv
     ? csv
@@ -235,9 +235,9 @@ function syncSelectionFromString() {
   emitModelValue()
 }
 
-// Reka-UI ListboxRoot stores the original `value` type for each item, so in
-// multi-mode this comes back as `number[]`. Guard at runtime in case the
-// upstream contract ever changes (e.g. values stringified).
+// ListboxRoot из Reka-UI хранит исходный тип `value` каждого пункта, поэтому в
+// режиме multiple приходит `number[]`. Проверяем в рантайме на случай, если
+// контракт библиотеки изменится (например, значения станут строками).
 function onSelectionChange(next: unknown) {
   selectedIds.value = Array.isArray(next)
     ? next.filter((x): x is number => typeof x === 'number')
@@ -266,9 +266,9 @@ interface SelectedGroup {
   section: string
   rows: SelectedRow[]
 }
-// Selected services grouped under their section heading — some service names
-// (e.g. «Крыша», «Капот») exist in more than one section, so the category is
-// what disambiguates them in the picked list.
+// Выбранные услуги, сгруппированные под заголовками разделов: некоторые названия
+// (например, «Крыша», «Капот») есть в нескольких разделах, и только категория
+// различает их в списке выбранного.
 const selectedGroups = computed<SelectedGroup[]>(() => {
   const idSet = new Set(selectedIds.value)
   const groups: SelectedGroup[] = []
@@ -281,8 +281,8 @@ const selectedGroups = computed<SelectedGroup[]>(() => {
   return groups
 })
 
-// Flat, ordered breakdown for the sheet cell — carries the current (edited)
-// price of each selected service. Re-emitted whenever it changes.
+// Плоская упорядоченная разбивка для ячейки таблицы — с текущей (отредактированной)
+// ценой каждой выбранной услуги. Эмитится заново при каждом изменении.
 const selectedBreakdown = computed<ServiceBreakdownRow[]>(() => {
   const idSet = new Set(selectedIds.value)
   const rows: ServiceBreakdownRow[] = []
@@ -318,15 +318,15 @@ function pluralize(n: number, forms: [string, string, string]): string {
   return forms[2]
 }
 
-// Drive selection-sync off `sections` instead of `onMounted`: when the
-// pricelist is already in cache it's available synchronously and we can
-// project the parent's CSV → ids on the first render. Cache miss → fires
-// once data arrives.
+// Синхронизация выбора завязана на `sections`, а не на `onMounted`: когда прайс
+// уже в кэше, он доступен синхронно, и CSV родителя можно перевести в id уже
+// при первом рендере. Промах кэша → срабатывает, когда придут
+// данные.
 //
-// Why a one-shot guard: Colada refetches on focus by default, and each
-// refetch produces a fresh `sections` reference. Without the guard, every
-// refocus would re-project the parent's (potentially stale) CSV back into
-// `selectedIds`, racing with any local edits the user just made.
+// Зачем одноразовый guard: Colada по умолчанию перезапрашивает при фокусе, и
+// каждый перезапрос даёт новую ссылку `sections`. Без guard'а каждая
+// фокусировка заново переводила бы (возможно, устаревший) CSV родителя в
+// `selectedIds`, споря с только что сделанными локальными правками.
 let synced = false
 watch(
   sections,
@@ -342,7 +342,7 @@ watch(() => props.modelValue, syncSelectionFromString)
 
 <template>
   <div>
-    <!-- Class switcher -->
+    <!-- Переключатель класса -->
     <div class="flex flex-wrap items-center gap-2 mb-2">
       <span class="text-xs text-muted-foreground">Класс кузова</span>
       <div class="inline-flex rounded-md border border-input p-0.5 bg-background">
@@ -359,7 +359,7 @@ watch(() => props.modelValue, syncSelectionFromString)
       </div>
     </div>
 
-    <!-- Combobox trigger + popover -->
+    <!-- Триггер комбобокса + popover -->
     <Popover v-model:open="open">
       <PopoverTrigger as-child>
         <Button
@@ -415,12 +415,12 @@ watch(() => props.modelValue, syncSelectionFromString)
       <router-link to="/pricelist" class="underline">открыть прайс-лист</router-link>
     </p>
 
-    <!-- Selected services with editable prices.
-         @input.stop / @change.stop: if a parent ever binds vee-validate's
-         componentField on this component, its fallthrough `onInput`/`onChange`
-         DOM listeners on the root div would catch the events bubbling from the
-         price fields (input while typing, change on blur) and overwrite the
-         `service` form value with the typed price. -->
+    <!-- Выбранные услуги с редактируемыми ценами.
+         @input.stop / @change.stop: если родитель когда-нибудь привяжет к этому
+         компоненту componentField из vee-validate, его проброшенные DOM-обработчики
+         `onInput`/`onChange` на корневом div поймают всплывающие из полей цены
+         события (input при вводе, change на blur) и перезапишут значение
+         `service` формы введённой ценой. -->
     <div v-if="selectedIds.length" class="mt-3 space-y-3" @input.stop @change.stop>
       <fieldset
         v-for="group in selectedGroups"

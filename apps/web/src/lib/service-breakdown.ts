@@ -1,6 +1,7 @@
-// Per-service breakdown emitted by ServicePicker and projected into the sheet's
-// «Услуга» cell at submit time. The picker's internal `modelValue` stays a plain
-// name CSV (used to restore a draft), so this richer shape is a separate channel.
+// Разбивка по услугам, которую отдаёт ServicePicker и которая при отправке проецируется
+// в ячейку «Услуга» листа. Внутренний `modelValue` пикера остаётся простым CSV
+// из названий (по нему восстанавливается черновик), поэтому эта более богатая форма —
+// отдельный канал.
 
 export interface ServiceBreakdownRow {
   sectionId: number
@@ -12,9 +13,9 @@ export interface ServiceBreakdownRow {
   quantity: number
 }
 
-// «Услуга» cell text: one line per pricelist section, its services grouped on
-// that line. Prices are intentionally omitted from the sheet cell. Mirrors the
-// picker's category-card layout, e.g.:
+// Текст ячейки «Услуга»: по строке на каждый раздел прайслиста, услуги сгруппированы
+// в этой строке. Цены в ячейку листа намеренно не попадают. Повторяет
+// раскладку карточек категорий в пикере, например:
 //   Химчистка: Потолок, Багажник
 //   Тонировка: Задняя полусфера
 // Штучные услуги с количеством > 1 показываются как «Название ×N».
@@ -34,15 +35,15 @@ export function formatServiceCell(rows: ServiceBreakdownRow[]): string {
     .join('\n')
 }
 
-// «Сумма» cell formula reconstructing how the total was reached, e.g.
-// "=2000+3000-950" (services − discount) or "=1500*3+2000" (countable service).
-// A manual override of «Сумма» away from the services subtotal is preserved as
-// an extra signed term so the formula still evaluates to the saved amount, e.g.
-// "=2000-500" when the operator lowered the total by 500 ₽.
+// Формула ячейки «Сумма», показывающая, как получен итог, например
+// "=2000+3000-950" (услуги − скидка) или "=1500*3+2000" (штучная услуга).
+// Ручная правка «Суммы» в сторону от подытога по услугам сохраняется
+// отдельным слагаемым со знаком, чтобы формула всё равно давала сохранённую сумму, например
+// "=2000-500", когда оператор снизил итог на 500 ₽.
 //
-// `baseAmount` is the «Сумма» value before the discount; `discount` is the
-// discount in rubles (0 when none). Returns undefined when no services are
-// selected — nothing to derive, caller should send the bare number instead.
+// `baseAmount` — значение «Суммы» до скидки; `discount` — скидка
+// в рублях (0, если её нет). Возвращает undefined, если не выбрано ни одной услуги:
+// выводить нечего, вызывающий код должен отправить просто число.
 export function formatAmountFormula(
   rows: ServiceBreakdownRow[],
   baseAmount: number,

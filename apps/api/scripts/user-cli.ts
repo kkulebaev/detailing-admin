@@ -1,9 +1,9 @@
-// Shared helpers for the user provisioning CLIs (user-create / user-reset-password).
+// Общие хелперы для CLI заведения пользователей (user-create / user-reset-password).
 //
-// Env: loads apps/api/.env when present (local dev) but never requires it — in
-// prod the scripts run via `railway run`, which injects the service env straight
-// into process.env. Callers must import env-dependent modules dynamically AFTER
-// invoking loadLocalEnv(), mirroring gen-openapi.ts.
+// Env: загружает apps/api/.env, если он есть (локальная разработка), но не требует его —
+// на проде скрипты запускаются через `railway run`, который кладёт env сервиса прямо
+// в process.env. Модули, зависящие от env, вызывающий код должен импортировать
+// динамически ПОСЛЕ вызова loadLocalEnv(), как в gen-openapi.ts.
 import { createInterface } from 'node:readline'
 import { resolve } from 'node:path'
 
@@ -11,11 +11,11 @@ export function loadLocalEnv(): void {
   try {
     process.loadEnvFile(resolve(import.meta.dirname, '../.env'))
   } catch {
-    // No .env — rely on the ambient process.env (container / railway run).
+    // Нет .env — полагаемся на окружающий process.env (контейнер / railway run).
   }
 }
 
-/** Reads a single flag value: `--login foo` or `--login=foo`. */
+/** Читает значение одного флага: `--login foo` или `--login=foo`. */
 export function getArg(name: string): string | undefined {
   const argv = process.argv.slice(2)
   const eq = `--${name}=`
@@ -27,7 +27,7 @@ export function getArg(name: string): string | undefined {
   return undefined
 }
 
-/** Prompts for a password on the TTY without echoing keystrokes. */
+/** Запрашивает пароль в TTY, не отображая нажатия клавиш. */
 export function readHidden(prompt: string): Promise<string> {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout })
@@ -38,7 +38,7 @@ export function readHidden(prompt: string): Promise<string> {
         process.stdout.write(prompt)
         first = false
       }
-      // Swallow every echoed keystroke so the password never hits the terminal.
+      // Глотаем каждое эхо нажатия, чтобы пароль никогда не попал в терминал.
     }
     rl.question(prompt, (value) => {
       rl.close()

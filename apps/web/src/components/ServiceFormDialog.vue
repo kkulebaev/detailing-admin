@@ -124,7 +124,7 @@ async function submit() {
   if (trimmedName.length === 0) errs.name = 'Укажите название услуги'
   if (trimmedName.length > 200) errs.name = 'Максимум 200 символов'
 
-  // Empty max means a fixed price; a max equal to min collapses to fixed too.
+  // Пустой max означает фиксированную цену; max, равный min, тоже сводится к фиксированной.
   const parsedPrices: { min: number; max: number | null }[] = []
   classPrices.value.forEach((cp, i) => {
     const n = i + 1
@@ -220,8 +220,8 @@ async function submit() {
         <div class="grid min-w-0 gap-2">
           <Label for="service-section">Раздел</Label>
           <Select v-model="sectionId" :disabled="submitting">
-            <!-- Section names run long; without min-w-0 the nowrap trigger sets the
-                 grid track's min-content width and drags the dialog past its max width. -->
+            <!-- Названия разделов длинные; без min-w-0 триггер с nowrap задаёт min-content ширину
+                 трека сетки и растягивает диалог шире его максимальной ширины. -->
             <SelectTrigger
               id="service-section"
               class="w-full min-w-0 text-left *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate"

@@ -24,10 +24,10 @@ const router = useRouter()
 
 const loginError = ref<string | null>(null)
 
-// Field errors stay hidden until the first submit attempt, then update live as
-// the user corrects them — avoids "Укажите логин/пароль" flashing on blur or
-// mid-typing before the user has tried to submit. FormControl/Label/Message
-// read this key to gate their error UI.
+// Ошибки полей скрыты до первой попытки отправки, а затем обновляются на лету,
+// пока пользователь их исправляет, — чтобы «Укажите логин/пароль» не мелькало
+// на blur или посреди ввода до попытки отправить. FormControl/Label/Message
+// читают этот ключ, чтобы решить, показывать ли ошибку.
 const showErrors = ref(false)
 provide(FORM_SHOW_ERRORS_KEY, showErrors)
 
@@ -36,8 +36,8 @@ const { handleSubmit, isSubmitting, values, setFieldValue } = useForm({
   initialValues: { login: '', password: '', remember: false },
 })
 
-// Drop the server-side "wrong credentials" alert as soon as the user edits a
-// field, so a stale error doesn't linger while they retype.
+// Убираем серверное предупреждение «неверные учётные данные», как только
+// пользователь правит поле, чтобы устаревшая ошибка не висела, пока он вводит заново.
 watch(
   () => [values.login, values.password],
   () => {
@@ -68,8 +68,8 @@ const submit = handleSubmit(async (formValues) => {
   }
 })
 
-// Reveal validation errors only once the user actually tries to submit; from
-// then on they update live via vee-validate.
+// Ошибки валидации показываем, только когда пользователь действительно пытается
+// отправить форму; дальше они обновляются на лету через vee-validate.
 function onSubmit() {
   showErrors.value = true
   void submit()
@@ -148,12 +148,12 @@ function onSubmit() {
 <style scoped>
 .login-page {
   /*
-   * Brand orange (#f05000), scoped to this page only — the app-wide
-   * --primary/--ring stay neutral (see globals.css). --primary here is
-   * darkened from the raw brand hue: #f05000 on white text is only ~3.2:1,
-   * below WCAG AA (4.5:1), so the button surface uses a deeper shade of the
-   * same hue/chroma (~5.3:1) while --ring keeps the true brand color for
-   * focus outlines, where only 3:1 non-text contrast is required.
+   * Фирменный оранжевый (#f05000) только на этой странице — общие для
+   * приложения --primary/--ring остаются нейтральными (см. globals.css).
+   * --primary здесь темнее исходного фирменного тона: #f05000 под белым текстом
+   * даёт лишь ~3.2:1, ниже WCAG AA (4.5:1), поэтому фон кнопки — более глубокий
+   * оттенок того же тона/насыщенности (~5.3:1), а --ring сохраняет настоящий
+   * фирменный цвет для обводки фокуса, где нужен лишь контраст 3:1 для не-текста.
    */
   --brand: oklch(0.646 0.207 39);
   --primary: oklch(0.55 0.19 39);

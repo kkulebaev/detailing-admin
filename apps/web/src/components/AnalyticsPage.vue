@@ -38,10 +38,10 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-// ── Period ────────────────────────────────────────────────────────────────
-// Unlike BookingsPage, the period here has no «all months» state — the API
-// requires both `from` and `to`, so the pickers always hold a value and
-// default to the current month.
+// ── Период ────────────────────────────────────────────────────────────────
+// В отличие от BookingsPage, здесь у периода нет состояния «все месяцы» — API
+// требует и `from`, и `to`, поэтому в пикерах всегда есть значение, а по
+// умолчанию стоит текущий месяц.
 const monthOptions = buildMonthOptions()
 
 function lastDayOfMonth(year: number, month1: number): number {
@@ -53,16 +53,16 @@ function monthRange(key: string): [CalendarDate, CalendarDate] {
   return [new CalendarDate(y, m, 1), new CalendarDate(y, m, lastDayOfMonth(y, m))]
 }
 
-// Default period is month-to-date (1st of the current month → today), not the
-// whole calendar month — the remaining days have no bookings to report yet.
+// Период по умолчанию — с начала месяца (1-е число текущего месяца → сегодня), а не
+// весь календарный месяц: по оставшимся дням отчитываться ещё не о чем.
 const initTo = today(getLocalTimeZone())
 const initFrom = new CalendarDate(initTo.year, initTo.month, 1)
-// shallowRef preserves CalendarDate's #private field (Vue's UnwrapRef strips it).
+// shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dateFromCal = shallowRef<DateValue>(initFrom)
 const dateToCal = shallowRef<DateValue>(initTo)
 
-// Used to collapse the range popover's trigger label back to «Месяц ГГГГ»
-// when the picked range happens to span exactly one calendar month.
+// Нужно, чтобы свернуть подпись триггера поповера обратно в «Месяц ГГГГ»,
+// когда выбранный диапазон ровно совпадает с одним календарным месяцем.
 function monthKeyOf(from: DateValue, to: DateValue): string | null {
   if (from.day !== 1 || from.year !== to.year || from.month !== to.month) return null
   if (to.day !== lastDayOfMonth(to.year, to.month)) return null
@@ -73,8 +73,8 @@ function yearRange(year: number): [CalendarDate, CalendarDate] {
   return [new CalendarDate(year, 1, 1), new CalendarDate(year, 12, 31)]
 }
 
-// Mirrors monthKeyOf for the «ГГГГ» label: a full Jan 1 → Dec 31 span reads
-// back as a year.
+// Аналог monthKeyOf для подписи «ГГГГ»: полный диапазон 1 янв → 31 дек
+// читается как год.
 function yearKeyOf(from: DateValue, to: DateValue): string | null {
   if (from.day !== 1 || from.month !== 1) return null
   if (to.month !== 12 || to.day !== 31 || from.year !== to.year) return null
@@ -92,8 +92,8 @@ function applyYear(year: number) {
   dateToCal.value = to
 }
 
-// Quick presets: current month and the two before it, each labelled by its
-// month name («Август»/«Июль»/…), plus the current year («2026»).
+// Быстрые пресеты: текущий месяц и два предыдущих, каждый подписан названием
+// месяца («Август»/«Июль»/…), плюс текущий год («2026»).
 function monthKeyOffset(back: number): string {
   const t = today(getLocalTimeZone())
   const d = new CalendarDate(t.year, t.month, 1).subtract({ months: back })
@@ -105,9 +105,9 @@ const monthPresets = [0, 1, 2].map((back) => {
 })
 const currentYear = today(getLocalTimeZone()).year
 
-// ── Range popover ────────────────────────────────────────────────────────
-// The trigger label collapses to «Месяц ГГГГ» / «ГГГГ» when the range is
-// exactly a calendar month/year, otherwise it shows both bounds.
+// ── Поповер диапазона ────────────────────────────────────────────────────
+// Подпись триггера сворачивается в «Месяц ГГГГ» / «ГГГГ», когда диапазон ровно
+// равен календарному месяцу/году, иначе показывает обе границы.
 const rangeLabel = computed(() => {
   const monthKey = monthKeyOf(dateFromCal.value, dateToCal.value)
   if (monthKey) {
@@ -119,14 +119,14 @@ const rangeLabel = computed(() => {
 })
 
 const rangeOpen = ref(false)
-// Pending selection lives apart from dateFromCal/dateToCal so a half-made
-// range (only `start` picked) never reaches `params` and fires a request —
-// only a complete range gets committed, right below.
+// Незавершённый выбор хранится отдельно от dateFromCal/dateToCal, чтобы
+// недоделанный диапазон (выбран только `start`) не попал в `params` и не
+// отправил запрос — фиксируется только полный диапазон, чуть ниже.
 const pendingRange = shallowRef<DateRange>({ start: dateFromCal.value, end: dateToCal.value })
 
 watch(rangeOpen, (open) => {
-  // Re-seed the pending range from the applied one each time the popover
-  // opens, so a dismissed in-progress pick doesn't leak into the next open.
+  // При каждом открытии поповера заново заполняем pending-диапазон из применённого,
+  // чтобы брошенный на полпути выбор не просочился в следующее открытие.
   if (open) pendingRange.value = { start: dateFromCal.value, end: dateToCal.value }
 })
 
@@ -134,9 +134,9 @@ watch(
   pendingRange,
   (r) => {
     if (!r.start || !r.end) return
-    // Re-seeding on open sets pendingRange equal to the applied range; without
-    // this guard that echo would immediately commit and slam the popover shut
-    // the moment it opens. Only a range that actually differs closes it.
+    // Перезаполнение при открытии делает pendingRange равным применённому; без
+    // этой проверки такое эхо сразу закоммитилось бы и захлопнуло поповер
+    // в момент открытия. Закрывает его только реально отличающийся диапазон.
     if (r.start.compare(dateFromCal.value) === 0 && r.end.compare(dateToCal.value) === 0) return
     dateFromCal.value = r.start
     dateToCal.value = r.end
@@ -153,8 +153,8 @@ function pickPreset(apply: () => void) {
 const GRANULARITIES = ['day', 'week', 'month'] as const satisfies readonly AnalyticsGranularity[]
 const granularity = ref<AnalyticsGranularity>('day')
 
-// Tabs emits the raw StringOrNumber the reka-ui primitive accepts; narrow it
-// back to the enum instead of trusting the cast.
+// Tabs отдаёт сырой StringOrNumber, который принимает примитив reka-ui; сужаем
+// его обратно до enum, а не доверяем приведению типа.
 function onGranularityChange(v: string | number) {
   const next = GRANULARITIES.find((g) => g === String(v))
   if (next) granularity.value = next
@@ -168,12 +168,12 @@ const params = computed<GetApiAnalyticsOverviewParams>(() => ({
 
 const { data: queryData, error: queryError, asyncStatus } = useAnalyticsOverviewQuery(params)
 
-// Skeleton only on the very first load — background refetches keep the
-// previous period's numbers on screen (placeholderData), so `loading` is
-// false then.
+// Скелетон только при самой первой загрузке — фоновые перезапросы оставляют
+// на экране цифры предыдущего периода (placeholderData), поэтому `loading`
+// в этот момент false.
 const loading = computed(() => asyncStatus.value === 'loading' && queryData.value === undefined)
 
-// Delay the skeleton so a fast load doesn't flash it.
+// Показываем скелетон с задержкой, чтобы он не мелькал при быстрой загрузке.
 const showSkeleton = ref(false)
 let skeletonTimer: ReturnType<typeof setTimeout> | undefined
 watch(
@@ -200,9 +200,9 @@ const overview = computed(() => {
   return r?.ok ? r : null
 })
 
-// ── KPI row ──────────────────────────────────────────────────────────────
-// «Выручка», «Средний чек» and «Кол-во выдач» all share the «Выдана»-only
-// denominator (completedCount) — revenue and volume stay on the same basis.
+// ── Ряд KPI ──────────────────────────────────────────────────────────────
+// У «Выручка», «Средний чек» и «Кол-во выдач» общий знаменатель только по «Выдана»
+// (completedCount) — выручка и объём считаются на одной базе.
 const revenueTotal = computed(() => overview.value?.revenue.total ?? 0)
 const avgCheck = computed(() => overview.value?.revenue.avgCheck ?? 0)
 const completedCount = computed(() => overview.value?.revenue.completedCount ?? 0)
@@ -231,17 +231,17 @@ const deltaIcon = computed(() => {
   return pct > 0 ? TrendingUp : TrendingDown
 })
 
-// ── Revenue chart ────────────────────────────────────────────────────────
-// series is zero-filled server-side across the whole period, so it's never
-// empty for a non-empty range — no separate empty-state needed here.
+// ── График выручки ───────────────────────────────────────────────────────
+// series дозаполняется нулями на сервере по всему периоду, поэтому для непустого
+// диапазона он никогда не пуст — отдельное пустое состояние здесь не нужно.
 const series = computed<AnalyticsSeriesPoint[]>(() => overview.value?.revenue.series ?? [])
 
 const chartConfig: ChartConfig = {
   revenue: { label: 'Выручка', color: 'var(--chart-1)' },
 }
 
-// unovis wants a numeric X — plot by bucket index and format the tick from
-// the corresponding series entry instead of parsing dates in the accessor.
+// unovis нужен числовой X — строим по индексу бакета и форматируем тик по
+// соответствующему элементу series, а не парсим даты в accessor.
 function xAccessor(_d: AnalyticsSeriesPoint, i: number): number {
   return i
 }
@@ -250,22 +250,22 @@ function yAccessor(d: AnalyticsSeriesPoint): number {
   return d.revenue
 }
 
-// The Y axis's native SVG tick text is suppressed: its numbers are drawn
-// instead as an HTML overlay positioned inside the plot, so the chart keeps
-// a small left margin instead of a wide label gutter (see below).
+// Нативный SVG-текст тиков оси Y подавлен: числа вместо этого рисуются
+// HTML-оверлеем внутри области графика, так что у графика остаётся узкий
+// левый отступ, а не широкое поле под подписи (см. ниже).
 const noTick = () => ''
 
-// ── X axis ticks ─────────────────────────────────────────────────────────
-// A handful of evenly spaced bucket labels below the plot, not one per data
-// point (day granularity can have 30+ buckets). Fewer on narrow viewports so
-// labels don't crowd; `tickTextHideOverlapping` below is a second line of
-// defence for whatever count still doesn't fit.
+// ── Тики оси X ───────────────────────────────────────────────────────────
+// Несколько равномерно расставленных подписей бакетов под графиком, а не по одной
+// на точку (при дневной гранулярности бакетов может быть 30+). На узких экранах
+// их меньше, чтобы подписи не толпились; `tickTextHideOverlapping` ниже — вторая
+// линия защиты для того количества, что всё равно не влезает.
 const isDesktopViewport = useMediaQuery('(min-width: 640px)')
 const xTickCount = computed(() => (isDesktopViewport.value ? 6 : 4))
 
-// Picks `count` indices spread evenly across [0, n-1] (the same index domain
-// xAccessor plots on). Falls back to every index once n <= count, and dedupes
-// the rounded positions so a small n never yields repeated ticks.
+// Выбирает `count` индексов, равномерно распределённых по [0, n-1] (тот же домен
+// индексов, по которому строит xAccessor). При n <= count берёт все индексы и
+// убирает дубли округлённых позиций, чтобы при малом n тики не повторялись.
 function evenIndices(n: number, count: number): number[] {
   if (n <= 0) return []
   if (n <= count) return Array.from({ length: n }, (_, i) => i)
@@ -275,9 +275,9 @@ function evenIndices(n: number, count: number): number[] {
 
 const xTickValues = computed(() => evenIndices(series.value.length, xTickCount.value))
 
-// Short form for the axis gutter — formatBucketLabel() below (used in the
-// hover tooltip) spells out a week's full range or "Месяц ГГГГ", too wide to
-// repeat several times in a row here.
+// Короткая форма для подписей оси — formatBucketLabel() ниже (используется в
+// тултипе при наведении) выписывает полный диапазон недели или «Месяц ГГГГ»,
+// что слишком широко, чтобы повторять несколько раз подряд.
 function formatXTickLabel(bucket: string, g: AnalyticsGranularity): string {
   const [y, m, d] = bucket.split('-').map(Number)
   if (g === 'month') return `${String(m).padStart(2, '0')}.${y}`
@@ -289,20 +289,20 @@ function xTickFormat(i: number): string {
   return point ? formatXTickLabel(point.bucket, granularity.value) : ''
 }
 
-// unovis center-anchors tick labels by default, which is fine for interior
-// ticks but lets the first/last one straddle the domain edge — with the
-// 7-char month format ("01.2026") that pushes past the plot's 8px side
-// margin and gets clipped by the SVG's own overflow:hidden. Anchoring the
-// edge ticks inward keeps every character on-canvas.
+// unovis по умолчанию центрирует подписи тиков: для внутренних тиков это нормально,
+// но первый/последний вылезают за край домена — с 7-символьным форматом месяца
+// («01.2026») это выходит за 8px бокового отступа графика и обрезается
+// собственным overflow:hidden у SVG. Привязка крайних тиков внутрь оставляет
+// все символы на холсте.
 function xTickTextAlign(_v: number, i: number, values: number[]): 'left' | 'center' | 'right' {
   if (i === 0) return 'left'
   if (i === values.length - 1) return 'right'
   return 'center'
 }
 
-// Rounds a raw step to a "nice" 1/2/5/10 × 10^n multiple, mirroring d3's
-// tick-rounding heuristic (sqrt(50)/sqrt(10)/sqrt(2) thresholds) — this
-// keeps the axis from picking awkward values like "21750".
+// Округляет сырой шаг до «красивого» кратного 1/2/5/10 × 10^n, повторяя
+// эвристику округления тиков из d3 (пороги sqrt(50)/sqrt(10)/sqrt(2)) — так
+// ось не выбирает неудобные значения вроде «21750».
 function niceStep(rawStep: number): number {
   const magnitude = 10 ** Math.floor(Math.log10(rawStep))
   const residual = rawStep / magnitude
@@ -319,11 +319,11 @@ function niceStep(rawStep: number): number {
 
 const Y_TICK_COUNT = 5
 
-// Computed once here (instead of relying on unovis's own auto-ticking) so
-// the same values drive both the VisAxis grid lines and the HTML label
-// overlay below — they'd drift apart otherwise. `domainMax` gets ~10%
-// headroom above the top tick so the line and its label never get clipped
-// against the top of the plot.
+// Считается один раз здесь (а не через собственный авто-тикинг unovis), чтобы
+// одни и те же значения управляли и линиями сетки VisAxis, и HTML-оверлеем
+// подписей ниже — иначе они разъедутся. `domainMax` получает ~10% запаса над
+// верхним тиком, чтобы линия и её подпись не обрезались о верх
+// области графика.
 const yScale = computed(() => {
   const maxRevenue = Math.max(0, ...series.value.map((d) => d.revenue))
   const step = niceStep(Math.max(maxRevenue, 1) / (Y_TICK_COUNT - 1))
@@ -337,8 +337,8 @@ const yScale = computed(() => {
 })
 const yTickValues = computed(() => yScale.value.ticks.map((t) => t.value))
 
-// Compact form for the in-chart labels ("80 тыс.") — the full space-grouped
-// formatAmount() reads too wide sitting inside the plot area.
+// Компактная форма для подписей внутри графика («80 тыс.») — полный
+// formatAmount() с разбиением пробелами слишком широк внутри области графика.
 function formatCompactAmount(n: number): string {
   const abs = Math.abs(n)
   if (abs >= 1_000_000) return `${trimTrailingZero(n / 1_000_000)} млн`
@@ -350,9 +350,9 @@ function trimTrailingZero(n: number): string {
   return (Math.round(n * 10) / 10).toString().replace('.', ',')
 }
 
-// ── Hover tooltip ────────────────────────────────────────────────────────
-// `bucket` is 'YYYY-MM-DD' for day/week (week is its Monday) or 'YYYY-MM' for
-// month — format each into a reader-friendly label for the crosshair tooltip.
+// ── Тултип при наведении ─────────────────────────────────────────────────
+// `bucket` — это 'YYYY-MM-DD' для дня/недели (неделя — её понедельник) или 'YYYY-MM'
+// для месяца — форматируем каждый в понятную подпись для тултипа crosshair.
 function formatDdmm(y: number, m: number, d: number): string {
   return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.${y}`
 }
@@ -373,10 +373,10 @@ function formatBucketLabel(bucket: string, g: AnalyticsGranularity): string {
   return formatDdmm(y, m, d)
 }
 
-// Crosshair snaps to the nearest AnalyticsSeriesPoint and hands it here as-is
-// (see xAccessor/yAccessor above — same accessors the crosshair inherits from
-// VisLine). Colors come from the same design tokens ChartTooltipContent uses,
-// so the tooltip reads correctly in both themes.
+// Crosshair примагничивается к ближайшему AnalyticsSeriesPoint и передаёт его сюда
+// как есть (см. xAccessor/yAccessor выше — те же accessor'ы crosshair наследует от
+// VisLine). Цвета берутся из тех же дизайн-токенов, что и в ChartTooltipContent,
+// поэтому тултип корректно выглядит в обеих темах.
 function crosshairTemplate(d: AnalyticsSeriesPoint): string {
   return `
     <div class="min-w-32 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md">
@@ -393,10 +393,10 @@ function crosshairTemplate(d: AnalyticsSeriesPoint): string {
   `
 }
 
-// ── Clients block ────────────────────────────────────────────────────────
+// ── Блок клиентов ────────────────────────────────────────────────────────
 const clients = computed(() => overview.value?.clients ?? null)
-// Attributed clients only (new + returning); noClientCount is bookings without a
-// linked client, not a client bucket, so it stays out of the total.
+// Только клиенты с привязкой (новые + вернувшиеся); noClientCount — это записи без
+// привязанного клиента, а не группа клиентов, поэтому в итог он не входит.
 const totalClients = computed(() => {
   const c = clients.value
   return c ? c.newCount + c.returningCount : 0
@@ -415,7 +415,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
       <h1 class="text-2xl font-semibold">Аналитика</h1>
     </header>
 
-    <!-- Filters -->
+    <!-- Фильтры -->
     <div class="mb-6">
       <Popover v-model:open="rangeOpen">
         <PopoverTrigger as-child>
@@ -460,10 +460,10 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
     </Alert>
 
     <template v-else>
-      <!-- Skeleton mirrors the loaded layout's card chrome (header + padded
-           content) so its height matches the real sections — a bare-block
-           placeholder would be shorter than the chart/KPI cards and jerk the
-           page down on first load. -->
+      <!-- Скелетон повторяет обвязку карточек загруженного макета (заголовок +
+           контент с отступами), чтобы его высота совпадала с реальными секциями —
+           голый блок-заглушка был бы ниже карточек графика/KPI и дёргал бы
+           страницу вниз при первой загрузке. -->
       <template v-if="showSkeleton">
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card v-for="i in 4" :key="i">
@@ -510,7 +510,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
       </template>
 
       <template v-else>
-        <!-- KPI row -->
+        <!-- Ряд KPI -->
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card>
             <CardHeader>
@@ -563,7 +563,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
           </Card>
         </div>
 
-        <!-- Revenue chart -->
+        <!-- График выручки -->
         <Card class="mt-4">
           <CardHeader>
             <div class="flex flex-wrap items-start justify-between gap-2">
@@ -585,11 +585,11 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
           <CardContent>
             <div v-if="series.length" class="relative">
               <ChartContainer :config="chartConfig" class="h-80" cursor>
-                <!-- autoMargin (unovis default: true) grows the bottom margin
-                     further to fit the X axis's tick text as soon as it
-                     stops being empty, silently overriding `margin.bottom`
-                     below and desyncing it from the Y overlay's `bottom-7`
-                     inset. Disabling it keeps `margin` authoritative. -->
+                <!-- autoMargin (в unovis по умолчанию true) дополнительно
+                     увеличивает нижний отступ под текст тиков оси X, как только
+                     тот перестаёт быть пустым, молча перекрывая `margin.bottom`
+                     ниже и рассинхронизируя его с отступом `bottom-7` у
+                     Y-оверлея. Отключение оставляет главным `margin`. -->
                 <VisXYContainer
                   :data="series"
                   :margin="{ top: 8, right: 8, bottom: 28, left: 8 }"
@@ -621,16 +621,16 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
                   />
                 </VisXYContainer>
               </ChartContainer>
-              <!-- Mirrors VisXYContainer's own margin so the labels line up
-                   with the plot area exactly, sitting just above their
-                   gridline instead of in a dedicated axis gutter. `bottom-7`
-                   (28px) matches the container's larger bottom margin, which
-                   makes room for the X axis's own tick labels below the plot
-                   — top/left/right stay at `inset-*-2` (8px), matching those
-                   margins unchanged. `bg-card` backs each label so a data
-                   point crossing near the left edge (common with
-                   day-granularity data) doesn't run the line straight
-                   through the digits. -->
+              <!-- Повторяет собственный margin у VisXYContainer, чтобы подписи
+                   точно совпадали с областью графика и стояли прямо над своей
+                   линией сетки, а не в отдельном поле оси. `bottom-7` (28px)
+                   совпадает с увеличенным нижним отступом контейнера, который
+                   освобождает место под подписи тиков оси X под графиком —
+                   top/left/right остаются `inset-*-2` (8px), как и эти
+                   отступы. `bg-card` подложен под каждую подпись, чтобы точка
+                   данных у левого края (частое дело при дневной
+                   гранулярности) не проводила линию прямо
+                   сквозь цифры. -->
               <div class="pointer-events-none absolute inset-x-2 top-2 bottom-7 text-xs">
                 <span
                   v-for="tick in yScale.ticks"
@@ -646,7 +646,7 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
           </CardContent>
         </Card>
 
-        <!-- Clients -->
+        <!-- Клиенты -->
         <Card class="mt-4">
           <CardHeader>
             <CardTitle>Клиенты</CardTitle>
@@ -671,8 +671,8 @@ const topRows = computed<AnalyticsTopClient[]>(() => clients.value?.topBySum ?? 
               </div>
             </div>
 
-            <!-- Visually separate from new/returning: this counts bookings
-                 without a linked client, not a third client category. -->
+            <!-- Визуально отделено от новых/вернувшихся: здесь считаются записи
+                 без привязанного клиента, а не третья категория клиентов. -->
             <div class="rounded-md border border-dashed border-border p-3 text-sm">
               <span class="text-muted-foreground">Без клиента: </span>
               <span class="font-medium tabular-nums">{{ clients?.noClientCount ?? 0 }}</span>

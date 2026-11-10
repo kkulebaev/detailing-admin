@@ -8,13 +8,13 @@ import {
   InputGroupInput,
 } from '@/components/ui/input-group'
 
-// FormControl and vee-validate hand id, aria-* and listeners down as attrs: they
-// must reach the <input>, not the InputGroup wrapper, or the label and the error
-// state would point at a div.
+// FormControl и vee-validate передают id, aria-* и обработчики как attrs: они
+// должны попасть на <input>, а не на обёртку InputGroup, иначе label и состояние
+// ошибки указывали бы на div.
 defineOptions({ inheritAttrs: false })
 
-// A declared prop keeps class out of $attrs: sizing belongs on the group, whose
-// border is what the user sees as the field.
+// Объявленный prop не пускает class в $attrs: размеры задаются группе, ведь
+// пользователь видит полем именно её рамку.
 const props = defineProps<{ class?: HTMLAttributes['class'] }>()
 
 const model = defineModel<string>()
@@ -23,8 +23,8 @@ const visible = ref(false)
 
 <template>
   <InputGroup :class="props.class">
-    <!-- data-slot comes after $attrs because FormControl passes its own, and
-         InputGroup's focus ring is keyed on this exact value. -->
+    <!-- data-slot стоит после $attrs, потому что FormControl передаёт свой, а
+         кольцо фокуса InputGroup завязано именно на это значение. -->
     <InputGroupInput
       v-bind="$attrs"
       v-model="model"

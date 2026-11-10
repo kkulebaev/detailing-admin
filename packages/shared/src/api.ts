@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-// Shared response building blocks. Each route's response schema unions a
-// success variant with these — kept here so the wire-level error shapes stay
-// in one place and the web boundary can `safeParse` instead of casting.
+// Общие строительные блоки ответов. Схема ответа каждого роута — union
+// успешного варианта с этими схемами; они собраны здесь, чтобы формы ошибок
+// на проводе жили в одном месте, а веб-сторона могла делать `safeParse`, а не каст.
 
 export const validationIssueSchema = z.object({
   path: z.array(z.union([z.string(), z.number()])),
@@ -25,14 +25,14 @@ export const notFoundErrorSchema = z.object({
   error: z.literal('not_found'),
 })
 
-// 401 — no/invalid session. Verified statelessly (no DB read), so it is returned
-// even when Postgres is down.
+// 401 — сессии нет или она невалидна. Проверяется без состояния (без чтения из БД),
+// поэтому возвращается, даже когда Postgres лежит.
 export const unauthorizedErrorSchema = z.object({
   ok: z.literal(false),
   error: z.literal('unauthorized'),
 })
 
-// 403 — authenticated but the role lacks access to the resource.
+// 403 — пользователь аутентифицирован, но у его роли нет доступа к ресурсу.
 export const forbiddenErrorSchema = z.object({
   ok: z.literal(false),
   error: z.literal('forbidden'),
@@ -55,7 +55,7 @@ export const unavailableErrorSchema = z.object({
   message: z.string().optional(),
 })
 
-// DB-only unavailable (no `reason: 'headers_mismatch'`; that's a Sheets-side concern).
+// Недоступность только БД (без `reason: 'headers_mismatch'` — это забота стороны Sheets).
 export const dbUnavailableErrorSchema = z.object({
   ok: z.literal(false),
   error: z.literal('unavailable'),
@@ -63,10 +63,10 @@ export const dbUnavailableErrorSchema = z.object({
   message: z.string(),
 })
 
-// Outcome of the best-effort Telegram notification to the assigned master.
-// Present only when the client asked for one (`booking.notify`). `attempted`
-// without `delivered` means the write to Sheets still succeeded but the master
-// was not reached — the web form surfaces that as a warning, not an error.
+// Результат best-effort-уведомления в Telegram назначенному мастеру.
+// Есть только когда клиент его запросил (`booking.notify`). `attempted`
+// без `delivered` значит, что запись в Sheets прошла, но до мастера не
+// достучались — веб-форма показывает это как предупреждение, а не ошибку.
 export const notificationResultSchema = z.object({
   attempted: z.boolean(),
   delivered: z.boolean(),
@@ -93,8 +93,8 @@ export type ValidationIssue = z.infer<typeof validationIssueSchema>
 export type NotificationResult = z.infer<typeof notificationResultSchema>
 export type BookingApiResult = z.infer<typeof bookingApiResultSchema>
 
-// Legacy generic alias — kept so older import sites still compile. Prefer the
-// per-route schemas defined alongside their domain (e.g. clientMutationResponseSchema).
+// Устаревший обобщённый алиас — оставлен, чтобы старые места импорта компилировались.
+// Предпочитайте схемы конкретных роутов рядом с их доменом (напр. clientMutationResponseSchema).
 export type ApiResult<T> =
   | ({ ok: true } & T)
   | z.infer<typeof validationErrorSchema>

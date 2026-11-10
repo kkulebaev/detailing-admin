@@ -10,7 +10,7 @@ export function parseDdmmyyyy(s: string): Date {
 
   const date = new Date(Date.UTC(y, m - 1, d))
 
-  // Bounds-check via re-formatting: if the date rolled over, the parts won't match
+  // Проверка границ через обратное форматирование: если дата перекатилась, части не совпадут
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
     throw new Error('Invalid DD.MM.YYYY: ' + s)
   }
@@ -25,10 +25,10 @@ export function formatDdmmyyyy(d: Date): string {
   return `${dd}.${mm}.${yyyy}`
 }
 
-/** Convert a validated `DD.MM.YYYY` string to the ISO `YYYY-MM-DD` a Postgres
- * `date` column expects. Validates via parseDdmmyyyy first so a malformed input
- * throws rather than silently producing a bad ISO string. Timezone-free: works
- * on the string parts, not a local-time Date. */
+/** Переводит валидную строку `DD.MM.YYYY` в ISO `YYYY-MM-DD`, который ждёт колонка
+ * Postgres типа `date`. Сначала проверяет через parseDdmmyyyy, чтобы кривой ввод
+ * бросал ошибку, а не молча давал битую ISO-строку. Не зависит от часового пояса:
+ * работает с частями строки, а не с Date в локальном времени. */
 export function ddmmyyyyToIso(s: string): string {
   parseDdmmyyyy(s)
   const [dd, mm, yyyy] = s.split('.')

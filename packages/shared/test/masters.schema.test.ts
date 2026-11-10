@@ -4,17 +4,17 @@ import { masterInputSchema, reorderInputSchema } from '../src/masters.js'
 describe('masterInputSchema', () => {
   const base = { canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }
 
-  it('accepts a known name with the flag and null telegramId', () => {
+  it('принимает известное имя с флагом и telegramId = null', () => {
     const r = masterInputSchema.safeParse({ name: 'Иван Содель', ...base })
     expect(r.success).toBe(true)
   })
 
-  it('accepts an arbitrary new name outside the old enum', () => {
+  it('принимает произвольное новое имя вне старого enum', () => {
     const r = masterInputSchema.safeParse({ name: 'Новый Мастер', ...base })
     expect(r.success).toBe(true)
   })
 
-  it('rejects a payload missing canBeResponsible — no default, so PATCH omission cannot resurrect it', () => {
+  it('отклоняет payload без canBeResponsible — дефолта нет, поэтому пропуск в PATCH не воскресит его', () => {
     const r = masterInputSchema.safeParse({
       name: 'Пётр Новый',
       paidSalary: true,
@@ -23,7 +23,7 @@ describe('masterInputSchema', () => {
     expect(r.success).toBe(false)
   })
 
-  it('rejects a payload missing paidSalary — no default', () => {
+  it('отклоняет payload без paidSalary — дефолта нет', () => {
     const r = masterInputSchema.safeParse({
       name: 'Пётр Новый',
       canBeResponsible: true,
@@ -32,22 +32,22 @@ describe('masterInputSchema', () => {
     expect(r.success).toBe(false)
   })
 
-  it('trims surrounding whitespace', () => {
+  it('обрезает пробелы по краям', () => {
     const r = masterInputSchema.safeParse({ name: '  Иван Содель  ', ...base })
     assert(r.success)
     expect(r.data.name).toBe('Иван Содель')
   })
 
-  it('rejects an empty name', () => {
+  it('отклоняет пустое имя', () => {
     expect(masterInputSchema.safeParse({ name: '', ...base }).success).toBe(false)
     expect(masterInputSchema.safeParse({ name: '   ', ...base }).success).toBe(false)
   })
 
-  it.each(['=SUM(A1)', '+x', '-x', '@x'])('rejects injection-prefixed name %s', (name) => {
+  it.each(['=SUM(A1)', '+x', '-x', '@x'])('отклоняет имя с префиксом инъекции %s', (name) => {
     expect(masterInputSchema.safeParse({ name, ...base }).success).toBe(false)
   })
 
-  it('respects the supplied canBeResponsible value', () => {
+  it('учитывает переданное значение canBeResponsible', () => {
     const r = masterInputSchema.safeParse({
       name: 'Андрей и ко.',
       canBeResponsible: false,
@@ -59,7 +59,7 @@ describe('masterInputSchema', () => {
     expect(r.data.canBeResponsible).toBe(false)
   })
 
-  it('accepts a string telegramId', () => {
+  it('принимает строковый telegramId', () => {
     const r = masterInputSchema.safeParse({
       name: 'Иван Содель',
       canBeResponsible: true,
@@ -71,7 +71,7 @@ describe('masterInputSchema', () => {
     expect(r.data.telegramId).toBe('123456789')
   })
 
-  it('accepts a null telegramId', () => {
+  it('принимает telegramId = null', () => {
     const r = masterInputSchema.safeParse({
       name: 'Иван Содель',
       canBeResponsible: true,
@@ -83,7 +83,7 @@ describe('masterInputSchema', () => {
     expect(r.data.telegramId).toBeNull()
   })
 
-  it('accepts a linked account id and refuses a non-uuid one', () => {
+  it('принимает id привязанного аккаунта и отклоняет не-uuid', () => {
     const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
     expect(masterInputSchema.safeParse({ name: 'Иван', ...base, userId }).success).toBe(true)
     expect(masterInputSchema.safeParse({ name: 'Иван', ...base, userId: 'emp' }).success).toBe(
@@ -91,24 +91,24 @@ describe('masterInputSchema', () => {
     )
   })
 
-  it('requires userId on full-replace, so PATCH cannot silently unlink', () => {
+  it('требует userId при полной замене, чтобы PATCH не мог молча отвязать аккаунт', () => {
     const { userId: _omit, ...withoutUser } = base
     expect(masterInputSchema.safeParse({ name: 'Иван', ...withoutUser }).success).toBe(false)
   })
 })
 
 describe('reorderInputSchema', () => {
-  it('accepts an array of positive ids', () => {
+  it('принимает массив положительных id', () => {
     const r = reorderInputSchema.safeParse({ ids: [3, 1, 2] })
     expect(r.success).toBe(true)
   })
 
-  it('rejects non-positive ids', () => {
+  it('отклоняет неположительные id', () => {
     expect(reorderInputSchema.safeParse({ ids: [0, 1] }).success).toBe(false)
     expect(reorderInputSchema.safeParse({ ids: [-1] }).success).toBe(false)
   })
 
-  it('rejects non-integer ids', () => {
+  it('отклоняет нецелые id', () => {
     expect(reorderInputSchema.safeParse({ ids: [1.5] }).success).toBe(false)
   })
 })
