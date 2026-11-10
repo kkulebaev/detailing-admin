@@ -12,7 +12,12 @@ import salariesRouter from './routes/salaries.js'
 import analyticsRouter from './routes/analytics.js'
 import meRouter from './routes/me.js'
 import usersRouter from './routes/users.js'
-import { requireAuth, requireAdmin, requireBookingAccess } from './auth/middleware.js'
+import {
+  requireAuth,
+  requireAdmin,
+  requireBookingAccess,
+  requireBookingEdit,
+} from './auth/middleware.js'
 
 export function createApp() {
   // Built imperatively rather than chained so the OpenAPIHono type survives
@@ -48,11 +53,12 @@ export function createApp() {
   // bare collection path (POST /api/bookings) under Hono's matching, and the
   // stateless requireAuth keeps the booking flow independent of Postgres.
   // The bookings list (GET) is available to any authenticated role — the handler
-  // hides amounts by role. POST is the booking form; editing stays admin-only.
+  // hides amounts by role. POST is the booking form; edit, delete and readiness
+  // follow `canEditBookings`.
   app.use('/api/bookings/*', requireAuth)
   app.use('/api/bookings/*', (c, next) => {
     if (c.req.method === 'GET') return next()
-    return c.req.method === 'POST' ? requireBookingAccess(c, next) : requireAdmin(c, next)
+    return c.req.method === 'POST' ? requireBookingAccess(c, next) : requireBookingEdit(c, next)
   })
   // The form's autofill is the only part of the clients API a booker may reach:
   // the list, the card and the export stay admin-only.

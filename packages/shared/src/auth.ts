@@ -21,6 +21,11 @@ export function canCreateBookings(role: Role): boolean {
   return role === 'admin' || role === 'booker'
 }
 
+// Edits touch only the Postgres mirror, never Sheets (see «Bookings DB mirror»).
+export function canEditBookings(role: Role): boolean {
+  return role === 'admin' || role === 'booker'
+}
+
 export function canSeeAmounts(role: Role): boolean {
   return role === 'admin' || role === 'booker'
 }

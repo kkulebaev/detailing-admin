@@ -83,9 +83,9 @@ import {
 const ALL = '__all__'
 const FROM_TODAY = '__from_today__'
 
-// «Сумма» depends on the role (the API omits `amount` to match); editing is admin-only.
+// «Сумма» and editing depend on the role; the API enforces the same rules.
 const auth = useAuthStore()
-const isAdmin = computed(() => auth.user?.role === 'admin')
+const canEdit = computed(() => auth.canEditBookings)
 const canSeeAmounts = computed(() => auth.canSeeAmounts)
 // Плотный вид: одна запись занимает две строки таблицы (шапка записи + услуга,
 // готовность и действия под ней) вместо тринадцати колонок, живущих только за
@@ -98,12 +98,12 @@ const compact = useLocalStorage('bookings:compact', false)
 // это одна ячейка на всё (дата, имя, машина, услуга) плюс «₽», если сумма доступна.
 const columnCount = computed(() => {
   if (compact.value) return 1
-  return 11 + (canSeeAmounts.value ? 1 : 0) + (isAdmin.value ? 1 : 0)
+  return 11 + (canSeeAmounts.value ? 1 : 0) + (canEdit.value ? 1 : 0)
 })
 
 const invalidateBookings = useInvalidateBookings()
 
-// ── Inline readiness quick-change (admin) ──────────────────────────────────
+// ── Inline readiness quick-change ──────────────────────────────────────────
 // reka-ui Select rejects '', so the «нет статуса» option rides on a sentinel.
 const READINESS_NONE = '__none__'
 // Optimistic per-row state: the picked value shows immediately while the PATCH
@@ -770,7 +770,7 @@ function formatCreatedAt(iso: string): string {
           <col class="w-40" />
           <col class="w-40" />
           <col class="w-48" />
-          <col v-if="isAdmin" class="w-24" />
+          <col v-if="canEdit" class="w-24" />
         </colgroup>
         <TableHeader v-if="!isEmpty && !compact" class="sticky top-0 z-10 bg-muted">
           <TableRow>
@@ -788,7 +788,7 @@ function formatCreatedAt(iso: string): string {
             <TableHead class="px-4">Мастер</TableHead>
             <TableHead class="px-4">Ответственный</TableHead>
             <TableHead class="px-4">Примечание</TableHead>
-            <TableHead v-if="isAdmin" class="px-4 text-right">Действия</TableHead>
+            <TableHead v-if="canEdit" class="px-4 text-right">Действия</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -887,7 +887,7 @@ function formatCreatedAt(iso: string): string {
                     <ReadinessPicker
                       variant="plain"
                       :readiness="readinessOverride[row.id] ?? row.readiness"
-                      :readonly="!isAdmin"
+                      :readonly="!canEdit"
                       :disabled="savingReadiness[row.id]"
                       @update="(v) => onReadinessChange(row, v)"
                     />
@@ -946,7 +946,7 @@ function formatCreatedAt(iso: string): string {
                 {{ row.amount != null ? formatAmount(row.amount) : '—' }}
               </span>
             </TableCell>
-            <TableCell v-if="isAdmin" class="px-4 align-top">
+            <TableCell v-if="canEdit" class="px-4 align-top">
               <Select
                 :model-value="readinessSelectValue(row)"
                 :disabled="savingReadiness[row.id]"
@@ -973,7 +973,7 @@ function formatCreatedAt(iso: string): string {
             <TableCell class="px-4 align-top whitespace-normal text-muted-foreground">
               {{ row.note || '—' }}
             </TableCell>
-            <TableCell v-if="isAdmin" class="px-4 align-top text-right">
+            <TableCell v-if="canEdit" class="px-4 align-top text-right">
               <div class="inline-flex gap-1">
                 <Button
                   variant="ghost"
@@ -1009,7 +1009,7 @@ function formatCreatedAt(iso: string): string {
     <BookingDetailsDialog
       v-model:open="detailsOpen"
       :booking="detailsBooking"
-      :can-edit="isAdmin"
+      :can-edit="canEdit"
       :readiness-saving="detailsId ? savingReadiness[detailsId] : false"
       @edit="onDetailsEdit"
       @delete="onDetailsDelete"

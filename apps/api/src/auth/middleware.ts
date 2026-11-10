@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from 'hono'
-import { StatusCodes, canCreateBookings, type Role } from '@detailing-admin/shared'
+import { StatusCodes, canCreateBookings, canEditBookings, type Role } from '@detailing-admin/shared'
 import { getAuthToken } from './cookie.js'
 import { verifyToken, type AuthTokenClaims } from './jwt.js'
 
@@ -41,3 +41,4 @@ function requireRole(allowed: (role: Role) => boolean): MiddlewareHandler {
 
 export const requireAdmin = requireRole((role) => role === 'admin')
 export const requireBookingAccess = requireRole(canCreateBookings)
+export const requireBookingEdit = requireRole(canEditBookings)

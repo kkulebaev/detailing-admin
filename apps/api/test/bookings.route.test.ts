@@ -910,9 +910,13 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect((await res.json()).error).toBe('validation')
   })
 
-  it('PATCH from a non-admin role → 403 (writes stay admin-only)', async () => {
-    const booker = await patch(VALID_PAYLOAD, { Cookie: await bookerCookie() })
-    expect(booker.status).toBe(403)
+  it('PATCH from a booker → 200', async () => {
+    const res = await patch(VALID_PAYLOAD, { Cookie: await bookerCookie() })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(updateBooking)).toHaveBeenCalled()
+  })
+
+  it('PATCH from an employee → 403', async () => {
     const res = await patch(VALID_PAYLOAD, { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(updateBooking)).not.toHaveBeenCalled()
@@ -935,9 +939,13 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect((await del()).status).toBe(404)
   })
 
-  it('DELETE from a non-admin role → 403', async () => {
-    const booker = await del({ Cookie: await bookerCookie() })
-    expect(booker.status).toBe(403)
+  it('DELETE from a booker → 200', async () => {
+    const res = await del({ Cookie: await bookerCookie() })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID)
+  })
+
+  it('DELETE from an employee → 403', async () => {
     const res = await del({ Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(deleteBooking)).not.toHaveBeenCalled()
@@ -987,9 +995,13 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect((await patchReadiness({ readiness: 'Готова к выдаче' })).status).toBe(404)
   })
 
-  it('PATCH readiness from a non-admin role → 403', async () => {
-    const booker = await patchReadiness({ readiness: 'В работе' }, { Cookie: await bookerCookie() })
-    expect(booker.status).toBe(403)
+  it('PATCH readiness from a booker → 200', async () => {
+    const res = await patchReadiness({ readiness: 'В работе' }, { Cookie: await bookerCookie() })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе')
+  })
+
+  it('PATCH readiness from an employee → 403', async () => {
     const res = await patchReadiness({ readiness: 'В работе' }, { Cookie: await employeeCookie() })
     expect(res.status).toBe(403)
     expect(vi.mocked(updateBookingReadiness)).not.toHaveBeenCalled()

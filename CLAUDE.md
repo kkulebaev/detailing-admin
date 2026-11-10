@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Mobile-first admin panel for a detailing shop (UI brand: «Dazzle Detailing»). The core flow is the booking form: one submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`) — Sheets is the source of truth for **new** bookings. Around it the app manages, in Postgres: clients and their cars, the pricelist, masters, salaries (rates, hours, payouts), a structured `bookings` mirror, and revenue analytics. Access is behind login with three roles: `admin` (everything), `booker` (an employee who may also use the booking form) and `employee`.
+Mobile-first admin panel for a detailing shop (UI brand: «Dazzle Detailing»). The core flow is the booking form: one submission → one row appended to a fixed Google Sheet (`SPREADSHEET_ID`, tab `Запись 2026`) — Sheets is the source of truth for **new** bookings. Around it the app manages, in Postgres: clients and their cars, the pricelist, masters, salaries (rates, hours, payouts), a structured `bookings` mirror, and revenue analytics. Access is behind login with three roles: `admin` (everything), `booker` (an employee who may also use the booking form and edit or delete bookings) and `employee`.
 
 The `bookings` mirror is **stage 1 of migrating bookings off Sheets**: every booking is dual-written to Postgres best-effort alongside the authoritative Sheets append. Edits, deletes and readiness changes made in the app touch **only** Postgres (see «Bookings DB mirror» below).
 
@@ -103,8 +103,8 @@ pnpm workspace, three packages:
 
 Stateless HS256 JWT in an httpOnly cookie (`apps/api/src/auth/`); `requireAuth` only verifies the token, so it never touches Postgres and the booking flow stays DB-independent. Guards are wired in `server.ts`:
 - Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with three exceptions open to any authenticated role: `GET /api/bookings*` and `GET /api/masters*` (the bookings handler hides amounts from `employee`), and `/api/me/*`, whose handlers scope everything to the caller's own master.
-- `booker` additionally gets what the booking form needs: `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup` (exact phone only, no `totalSpent`). The clients list, card and export stay admin-only, and so does editing bookings.
-- The rules live in `canCreateBookings` / `canSeeAmounts` (shared). `toRole` narrows `users.role`, which is a plain varchar, so an unknown value becomes `employee`.
+- `booker` additionally gets what the booking form needs: `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup` (exact phone only, no `totalSpent`), plus editing bookings: `PATCH /api/bookings/{id}`, `DELETE /api/bookings/{id}` and `PATCH /api/bookings/{id}/readiness`. The clients list, card and export stay admin-only.
+- The rules live in `canCreateBookings` / `canEditBookings` / `canSeeAmounts` (shared). `toRole` narrows `users.role`, which is a plain varchar, so an unknown value becomes `employee`.
 - The role is a JWT claim and `/me` re-mints it from the old token, so `user:set-role` reaches a live session only after a fresh login.
 - The web router mirrors this with `meta.roles`; `homeRouteFor(role)` sends admins and bookers to `/`, employees to `/employee`.
 

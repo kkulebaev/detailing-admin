@@ -2,6 +2,7 @@ import { assert, describe, expect, it } from 'vitest'
 import {
   ROLES,
   canCreateBookings,
+  canEditBookings,
   canSeeAmounts,
   changePasswordRequestSchema,
   loginRequestSchema,
@@ -39,8 +40,8 @@ describe('toRole', () => {
 })
 
 describe('role permissions', () => {
-  it('lets admin and booker create bookings and see amounts, not employee', () => {
-    for (const can of [canCreateBookings, canSeeAmounts]) {
+  it('lets admin and booker create, edit and see amounts of bookings, not employee', () => {
+    for (const can of [canCreateBookings, canEditBookings, canSeeAmounts]) {
       expect(can('admin')).toBe(true)
       expect(can('booker')).toBe(true)
       expect(can('employee')).toBe(false)

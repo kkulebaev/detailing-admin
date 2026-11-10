@@ -52,6 +52,7 @@ export {
   ROLES,
   toRole,
   canCreateBookings,
+  canEditBookings,
   canSeeAmounts,
   roleSchema,
   userPublicSchema,

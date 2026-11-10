@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
+  canEditBookings as roleCanEditBookings,
   canSeeAmounts as roleCanSeeAmounts,
   type LoginRequest,
   type Role,
@@ -25,6 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
   const role = computed<Role | null>(() => user.value?.role ?? null)
   const isAdmin = computed(() => user.value?.role === 'admin')
   const canSeeAmounts = computed(() => !!role.value && roleCanSeeAmounts(role.value))
+  const canEditBookings = computed(() => !!role.value && roleCanEditBookings(role.value))
 
   // Full name once the user has filled it in; falls back to the login for
   // accounts provisioned before names existed (empty firstName/lastName).
@@ -87,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     role,
     isAdmin,
     canSeeAmounts,
+    canEditBookings,
     displayName,
     fetchMe,
     login,

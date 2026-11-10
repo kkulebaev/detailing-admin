@@ -48,7 +48,7 @@ Without this step nobody can log in — a fresh DB has zero users.
 All other `/api/*` routes require `requireAuth` + `requireAdmin`, except the
 reads `GET /api/bookings*` and `GET /api/masters*` and the self-service
 `/api/me/*`, which any authenticated role may call (see CLAUDE.md, «Self-service hours»).
-`booker` also gets `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup`.
+`booker` also gets `POST /api/bookings`, `GET /api/pricelist`, `GET /api/clients/lookup`, and booking edits: `PATCH`/`DELETE /api/bookings/{id}` and `PATCH /api/bookings/{id}/readiness`.
 A role change reaches a live session only after a fresh login: the role is a JWT
 claim, and the sliding refresh on `GET /me` keeps the old one.
 `requireAuth` is stateless (no DB), so the booking flow keeps working for
