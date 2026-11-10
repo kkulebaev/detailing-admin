@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
 import {
+  ArrowDown,
+  ArrowUp,
   Calendar as CalendarIcon,
   Download,
   Inbox,
@@ -24,6 +26,7 @@ import {
   deleteBooking,
   updateBookingReadiness,
   type GetApiBookingsParams,
+  type GetApiBookingsSort,
 } from '@/lib/bookings-api'
 import { downloadFile, exportFilename } from '@/lib/download'
 import { readinessRowClass } from '@/lib/readiness'
@@ -93,6 +96,11 @@ const canSeeAmounts = computed(() => auth.canSeeAmounts)
 // ширина экрана его не переопределяет, потому что на планшете осмысленны обе
 // раскладки, а угаданный за пользователя вид сбивает привычку.
 const compact = useLocalStorage('bookings:compact', false)
+const sort = useLocalStorage<GetApiBookingsSort>('bookings:sort', 'desc')
+
+function toggleSort() {
+  sort.value = sort.value === 'desc' ? 'asc' : 'desc'
+}
 
 // «#» + базовые 10 колонок; «Сумма» и «Действия» зависят от роли. Компактная запись —
 // это одна ячейка на всё (дата, имя, машина, услуга) плюс «₽», если сумма доступна.
@@ -316,11 +324,12 @@ const params = computed<GetApiBookingsParams>(() => ({
   master: masterFilter.value === ALL ? undefined : masterFilter.value,
   readiness: readinessFilter.value === ALL ? undefined : readinessFilter.value,
   q: searchDebounced.value.trim() || undefined,
+  sort: sort.value,
 }))
 
 // Any filter change returns to the first page; paging itself moves `offset`
 // directly and is intentionally excluded here.
-watch([monthKey, dayCal, masterFilter, readinessFilter, searchDebounced], () => {
+watch([monthKey, dayCal, masterFilter, readinessFilter, searchDebounced, sort], () => {
   resetToFirstPage()
 })
 
@@ -775,7 +784,22 @@ function formatCreatedAt(iso: string): string {
         <TableHeader v-if="!isEmpty && !compact" class="sticky top-0 z-10 bg-muted">
           <TableRow>
             <TableHead class="px-4 text-right">#</TableHead>
-            <TableHead class="px-4">Дата</TableHead>
+            <TableHead class="px-4" :aria-sort="sort === 'desc' ? 'descending' : 'ascending'">
+              <button
+                type="button"
+                class="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                :aria-label="
+                  sort === 'desc'
+                    ? 'Дата: сначала новые. Сортировать от старых к новым'
+                    : 'Дата: сначала старые. Сортировать от новых к старым'
+                "
+                @click="toggleSort"
+              >
+                Дата
+                <ArrowDown v-if="sort === 'desc'" class="size-3.5" />
+                <ArrowUp v-else class="size-3.5" />
+              </button>
+            </TableHead>
             <TableHead class="px-4">Время</TableHead>
             <TableHead class="px-4">Имя</TableHead>
             <TableHead class="px-4">Телефон</TableHead>
@@ -902,13 +926,13 @@ function formatCreatedAt(iso: string): string {
             :key="row.id"
             :class="readinessRowClass(row.readiness)"
           >
-            <!-- Сквозной порядковый номер на убывание: верхняя строка = total,
-                   консистентно между страницами (учитывает offset). -->
+            <!-- Сквозной номер по хронологии, консистентный между страницами
+                   (учитывает offset): у самой ранней записи 1 при любой сортировке. -->
             <TableCell
               class="px-4 align-top text-right tabular-nums text-muted-foreground"
               :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
             >
-              {{ total - offset - index }}
+              {{ sort === 'desc' ? total - offset - index : offset + index + 1 }}
             </TableCell>
             <TableCell class="px-4 align-top tabular-nums whitespace-normal">
               {{ formatDateCell(row) }}

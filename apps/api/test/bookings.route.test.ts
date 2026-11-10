@@ -636,7 +636,19 @@ describe('GET /api/bookings', () => {
       master: 'Иван Содель',
       readiness: undefined,
       q: 'Toyota',
+      sort: 'desc',
     })
+  })
+
+  it('forwards an ascending sort', async () => {
+    await getList('?sort=asc')
+    expect(vi.mocked(listBookings)).toHaveBeenCalledWith(expect.objectContaining({ sort: 'asc' }))
+  })
+
+  it('rejects an unknown sort → 400', async () => {
+    const res = await getList('?sort=sideways')
+    expect(res.status).toBe(400)
+    expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
   })
 
   it('returns 503 when DB is not ready, without querying', async () => {
@@ -760,6 +772,7 @@ describe('GET /api/bookings/export', () => {
       master: 'Иван Содель',
       readiness: 'В работе',
       q: 'Toyota',
+      sort: 'asc',
     })
     await getExport(`?${qs.toString()}`)
     expect(vi.mocked(listBookings)).toHaveBeenCalledWith({
@@ -770,6 +783,7 @@ describe('GET /api/bookings/export', () => {
       master: 'Иван Содель',
       readiness: 'В работе',
       q: 'Toyota',
+      sort: 'asc',
     })
   })
 

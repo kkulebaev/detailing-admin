@@ -123,6 +123,7 @@ const listQuerySchema = z.object({
   master: z.string().max(120).optional(),
   readiness: z.enum(READINESS).optional(),
   q: z.string().max(200).optional(),
+  sort: z.enum(['asc', 'desc']).default('desc'),
 })
 
 const getBookingsRoute = createRoute({
@@ -540,6 +541,7 @@ router.openapi(
         master: query.master,
         readiness: query.readiness,
         q: query.q,
+        sort: query.sort,
       })
       // Amounts depend on the role (the GET list is otherwise available to any
       // authenticated role); toBookingRow drops the internal id-links and
@@ -849,6 +851,7 @@ router.get('/export', async (c) => {
       master: query.master,
       readiness: query.readiness,
       q: query.q,
+      sort: query.sort,
     })
     const header = [
       'Дата',

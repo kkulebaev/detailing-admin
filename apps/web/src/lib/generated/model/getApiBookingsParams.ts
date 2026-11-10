@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { GetApiBookingsReadiness } from './getApiBookingsReadiness';
+import type { GetApiBookingsSort } from './getApiBookingsSort';
 
 export type GetApiBookingsParams = {
   /**
@@ -27,4 +28,5 @@ export type GetApiBookingsParams = {
   readiness?: GetApiBookingsReadiness;
   /** @maxLength 200 */
   q?: string;
+  sort?: GetApiBookingsSort;
 };

@@ -99,7 +99,7 @@ describe('listBookings master filter', () => {
   // method returns `this`, and each awaited terminal resolves the next queued
   // result. Query order for a master filter is: resolveMasterIds, items, count.
   // Each `.where()` call records its condition for inspection.
-  function fakeDb(selectResults: unknown[], captured: unknown[]) {
+  function fakeDb(selectResults: unknown[], captured: unknown[], ordered: unknown[][] = []) {
     const q = [...selectResults]
     const chain: Record<string, unknown> = {
       select: () => chain,
@@ -109,7 +109,10 @@ describe('listBookings master filter', () => {
         captured.push(w)
         return chain
       },
-      orderBy: () => chain,
+      orderBy: (...cols: unknown[]) => {
+        ordered.push(cols)
+        return chain
+      },
       limit: () => chain,
       offset: () => chain,
       then: (resolve: (v: unknown) => unknown) => resolve(q.shift() ?? []),
@@ -163,6 +166,20 @@ describe('listBookings master filter', () => {
 
     // undefined where → the stub still gets called with undefined.
     expect(captured[0]).toBeUndefined()
+  })
+
+  it.each([
+    [undefined, 'desc'],
+    ['desc', 'desc'],
+    ['asc', 'asc'],
+  ] as const)('orders by date then creation time, sort=%s → %s', async (sort, dir) => {
+    const ordered: unknown[][] = []
+    vi.mocked(getDb).mockReturnValue(fakeDb([[], [{ count: 0 }]], [], ordered) as never)
+
+    await listBookings({ limit: 10, offset: 0, sort })
+
+    const sqls = ordered[0].map((c) => new PgDialect().sqlToQuery(c as never).sql)
+    expect(sqls).toEqual([`"bookings"."date_from" ${dir}`, `"bookings"."created_at" ${dir}`])
   })
 })
 

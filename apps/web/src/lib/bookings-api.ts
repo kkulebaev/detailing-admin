@@ -12,9 +12,19 @@ import {
   patchApiBookingsId,
   patchApiBookingsIdReadiness,
 } from './generated/bookings/bookings'
-import type { GetApiBookingsParams, PatchApiBookingsIdBody } from './generated/model'
+import type {
+  GetApiBookingsParams,
+  GetApiBookingsSort,
+  PatchApiBookingsIdBody,
+} from './generated/model'
 
-export type { BookingRow, BookingsListResponse, GetApiBookingsParams, PatchApiBookingsIdBody }
+export type {
+  BookingRow,
+  BookingsListResponse,
+  GetApiBookingsParams,
+  GetApiBookingsSort,
+  PatchApiBookingsIdBody,
+}
 
 export function fetchBookings(params: GetApiBookingsParams): Promise<BookingsListResponse> {
   return unwrap<BookingsListResponse>(() => getApiBookings(params))

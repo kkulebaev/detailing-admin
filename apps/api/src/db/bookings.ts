@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm'
 import type { Booking as WireBooking } from '@detailing-admin/shared/booking'
 import type { BookingRow } from '@detailing-admin/shared/booking-row'
 import { joinCar } from '@detailing-admin/shared/car'
@@ -278,6 +278,8 @@ export interface ListBookingsParams {
   /** Free-text search across name/car/phone. A phone-looking term is normalized
    * to E.164 before matching the stored (E.164) phone. */
   q?: string
+  /** Direction for `dateFrom`; `createdAt` breaks ties in the same direction. */
+  sort?: 'asc' | 'desc'
 }
 
 export async function listBookings(
@@ -335,12 +337,13 @@ export async function listBookings(
   }
 
   const where = conds.length ? and(...conds) : undefined
+  const dir = p.sort === 'asc' ? asc : desc
 
   const items = await db
     .select()
     .from(bookings)
     .where(where)
-    .orderBy(desc(bookings.dateFrom), desc(bookings.createdAt))
+    .orderBy(dir(bookings.dateFrom), dir(bookings.createdAt))
     .limit(p.limit)
     .offset(p.offset)
 
