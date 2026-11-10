@@ -148,6 +148,13 @@
       "when": 1793952524855,
       "tag": "0020_aromatic_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794339860636,
+      "tag": "0021_majestic_tag",
+      "breakpoints": true
     }
   ]
 }

@@ -85,7 +85,7 @@ pnpm workspace, three packages:
 - **`packages/shared`** — Zod schemas that form the wire contract for every route: `bookingSchema` plus the booking-row/list/mutation schemas, clients and cars, masters, pricelist, salaries, analytics, auth. No build step; both apps import `.ts` directly via tsconfig path aliases (`@detailing-admin/shared/*` resolves to `packages/shared/src/*.ts`). Also exports enums (`READINESS`), helpers (`normalizePhone`, `parseDdmmyyyy`, `ddmmyyyyToIso`, `toCsv`), `bookingToRow`, `EXPECTED_HEADERS`, `StatusCodes`, and the `ApiResult` discriminated union.
 - **`apps/api`** — Hono via `@hono/zod-openapi` on `@hono/node-server`. Sheets writes via `googleapis`; Postgres via Drizzle (`drizzle-orm` + `postgres-js`); Telegram notifications via the Bot API (`telegram.ts`, `notify.ts`). Module-level state machine for boot health (see below). Routes (`apps/api/src/routes/`):
   - `/api/auth` — `login`, `logout`, `me` (GET/PATCH), `change-password`. Public; outside the guards.
-  - `/api/bookings` — `POST` (booking form), `GET` list, `GET /export` (CSV), `PATCH /{id}`, `DELETE /{id}`, `PATCH /{id}/readiness`.
+  - `/api/bookings` — `POST` (booking form), `GET` list, `GET /export` (CSV), `PATCH /{id}`, `DELETE /{id}`, `PATCH /{id}/readiness`; admin-only `GET /{id}/history`, `GET /deleted`, `POST /{id}/restore` (see «Booking audit log»).
   - `/api/clients` — list, `GET /{id}` (detail with history), CRUD, `GET /export`.
   - `/api/pricelist` — `GET` plus CRUD for `sections` and `services`.
   - `/api/masters` — list, CRUD, `PATCH /reorder`. A master may be linked to a login account (`userId`).
@@ -103,6 +103,7 @@ pnpm workspace, three packages:
 
 Stateless HS256 JWT in an httpOnly cookie (`apps/api/src/auth/`); `requireAuth` only verifies the token, so it never touches Postgres and the booking flow stays DB-independent. Guards are wired in `server.ts`:
 - Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with three exceptions open to any authenticated role: `GET /api/bookings*` and `GET /api/masters*` (the bookings handler hides amounts from `employee`), and `/api/me/*`, whose handlers scope everything to the caller's own master.
+- The booking audit endpoints (`/api/bookings/deleted`, `/{id}/history`, `/{id}/restore`) are admin-only despite their `GET`/`POST` methods: `BOOKINGS_ADMIN_ONLY` in `server.ts` matches them before the per-method branches.
 - `booker` additionally gets what the booking form needs: `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup` (exact phone only, no `totalSpent`), plus editing bookings: `PATCH /api/bookings/{id}`, `DELETE /api/bookings/{id}` and `PATCH /api/bookings/{id}/readiness`. The clients list, card and export stay admin-only.
 - The rules live in `canCreateBookings` / `canEditBookings` / `canSeeAmounts` (shared). `toRole` narrows `users.role`, which is a plain varchar, so an unknown value becomes `employee`.
 - The role is a JWT claim and `/me` re-mints it from the old token, so `user:set-role` reaches a live session only after a fresh login.
@@ -133,8 +134,18 @@ This is deliberate: Railway treats a crash-loop as zero healthy revisions, hidin
 - **Durable idempotency.** `bookings.idempotencyKey` is `UNIQUE` and the insert is `onConflictDoNothing` — a post-TTL client retry (which re-appends to Sheets, pre-existing behavior) will not create a second mirror row.
 - **Structured, not serialized.** Unlike the Sheets row, columns hold normalized values (phone in E.164, dates as `date`, amount as int) so the table can become the source of truth at cutover with minimal change. `bookingToDbRow()` maps the wire `Booking` → row (dates via `ddmmyyyyToIso`).
 - **Snapshots plus derived id-links.** `master text[]`, `responsible` and `car` are the as-written snapshots; `booking_masters`, `responsibleId` and `carId` are derived links resolved by name/plate. The links are nullable, use `set null`/`cascade`, and are healed by the `backfill:*` scripts — a failed link step never fails the request.
-- **Edits are DB-only.** `PATCH /{id}`, `DELETE /{id}` and `PATCH /{id}/readiness` change only the mirror; Sheets is not updated. After an in-app edit the mirror and the sheet disagree, which is a known gap until the cutover.
+- **Edits are DB-only.** `PATCH /{id}`, `DELETE /{id}`, `PATCH /{id}/readiness` and `POST /{id}/restore` change only the mirror; Sheets is not updated. After an in-app edit the mirror and the sheet disagree, which is a known gap until the cutover.
 - **Read side.** `GET /api/bookings` has filters (date range, master, readiness), phone-normalized search, and limit/offset paging; `GET /api/bookings/export` streams the same selection as CSV. The web page is `apps/web/src/components/BookingsPage.vue` at `/bookings`.
+
+### Booking audit log
+
+`audit_log` records who created, edited, deleted and restored each booking (`apps/api/src/db/audit.ts`, `db/bookings.ts`). Every mutation in `db/bookings.ts` takes an `AuditActor` (snapshot of the session's id, login and name) and writes its row in the **same transaction** as the change, locking the booking with `SELECT … FOR UPDATE` first so the «before» values are exact. An edit stores only the changed fields (`diffBookings` over `BOOKING_AUDITED_FIELDS`); a no-op save writes nothing. Derived links (`clientId`, `carId`, `responsibleId`) are not audited.
+- **Delete stays physical.** The full row plus its `booking_masters` links goes into `audit_log.snapshot`, so a deleted booking never leaks into any `bookings` read (list, analytics, client totals, FK checks) — there is deliberately no `deletedAt` column. Don't add one.
+- **Restore** re-inserts the latest snapshot with the same id; a client, car or master that disappeared meanwhile becomes a `null` link (snapshots stay). A second restore is a 409 `already_restored`.
+- **The trash** (`GET /api/bookings/deleted`) is the latest `delete` entry per id whose booking is currently absent, newest first, capped at 100.
+- History starts with the migration: older bookings have no `create` entry. `POST /api/bookings` logs `create` only when the mirror insert happens; seed scripts pass no actor and log nothing.
+- Like other in-app edits, none of this reaches Sheets.
+- Web: «История изменений» in `BookingDetailsDialog` and the «Удаленные» dialog (`DeletedBookingsDialog`) on `/bookings`, both admin-only.
 
 ### Telegram notifications
 

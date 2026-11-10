@@ -19,6 +19,9 @@ import {
   unavailableErrorSchema,
   validationErrorSchema,
   canSeeAmounts,
+  bookingHistoryOkSchema,
+  deletedBookingsOkSchema,
+  bookingRestoreConflictSchema,
 } from '@detailing-admin/shared'
 import type { BookingRow } from '@detailing-admin/shared'
 import {
@@ -35,11 +38,16 @@ import { selectCarId, upsertClientCarReturningId } from '../db/client-cars.js'
 import {
   deleteBooking,
   insertBooking,
+  listBookingHistory,
   listBookings,
+  listDeletedBookings,
+  restoreBooking,
   toBookingRow,
   updateBooking,
   updateBookingReadiness,
 } from '../db/bookings.js'
+import type { AuditActor } from '../db/audit.js'
+import type { AuthTokenClaims } from '../auth/jwt.js'
 import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
@@ -250,6 +258,124 @@ const patchReadinessRoute = createRoute({
   },
 })
 
+const historyRoute = createRoute({
+  method: 'get',
+  path: '/{id}/history',
+  tags: ['bookings'],
+  request: { params: idParamSchema },
+  responses: {
+    200: {
+      description: 'Booking audit history, oldest first',
+      content: { 'application/json': { schema: bookingHistoryOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+const deletedRoute = createRoute({
+  method: 'get',
+  path: '/deleted',
+  tags: ['bookings'],
+  responses: {
+    200: {
+      description: 'Recently deleted bookings',
+      content: { 'application/json': { schema: deletedBookingsOkSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+const restoreRoute = createRoute({
+  method: 'post',
+  path: '/{id}/restore',
+  tags: ['bookings'],
+  request: { params: idParamSchema },
+  responses: {
+    200: {
+      description: 'Booking restored from its deletion snapshot',
+      content: { 'application/json': { schema: bookingMutationOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    404: {
+      description: 'No deletion snapshot for this id',
+      content: { 'application/json': { schema: notFoundErrorSchema } },
+    },
+    409: {
+      description: 'Booking already restored',
+      content: { 'application/json': { schema: bookingRestoreConflictSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+// Корзина показывает последние удаления; старше этого — только через базу.
+const DELETED_LIST_LIMIT = 100
+
+function dbUnavailable(c: Context) {
+  return c.json(
+    {
+      ok: false as const,
+      error: 'unavailable' as const,
+      reason: 'not_configured' as const,
+      message: 'Database not configured or migrations failed',
+    },
+    StatusCodes.SERVICE_UNAVAILABLE,
+  )
+}
+
+function internalError(c: Context, requestId: string, event: string, err: unknown) {
+  baseLogger.error(
+    {
+      event,
+      request_id: requestId,
+      message: err instanceof Error ? err.message : String(err),
+      status: 500,
+    },
+    'Booking audit request failed',
+  )
+  return c.json(
+    { ok: false as const, error: 'internal' as const },
+    StatusCodes.INTERNAL_SERVER_ERROR,
+  )
+}
+
+// Кладется в журнал как снимок: имя в аккаунте может поменяться позже.
+function auditActor(user: AuthTokenClaims): AuditActor {
+  return {
+    id: user.sub,
+    login: user.login,
+    name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+  }
+}
+
 // Хук валидации отвечает за логирование, специфичное для записи, и переписывание путей,
 // чтобы и wire-формат, и строка лога на запрос оставались побайтово совместимыми с
 // реализацией до OpenAPI.
@@ -291,7 +417,7 @@ function bookingsValidationHook(
 const router = new OpenAPIHono<{ Variables: Vars }>({ defaultHook: bookingsValidationHook })
 
 // Middleware boot-guard. Проставляет request_id, при неудачном init() возвращает 503
-// БЕЗ записи в лог (план, §7), иначе передаёт дальше в openapi-валидацию + обработчик.
+// БЕЗ записи в лог (план, §7), иначе передает дальше в openapi-валидацию + обработчик.
 // Назначается императивно, потому что `.use()` у OpenAPIHono возвращает обычный `Hono`,
 // который в цепочке потерял бы метод `.openapi()`.
 router.use('/', async (c, next) => {
@@ -299,7 +425,7 @@ router.use('/', async (c, next) => {
   c.header('X-Request-Id', requestId)
   c.set('requestId', requestId)
 
-  // Boot-состояние (проверки заголовков/учётных данных Sheets) закрывает только путь записи.
+  // Boot-состояние (проверки заголовков/учетных данных Sheets) закрывает только путь записи.
   // Чтение GET обслуживается из Postgres и от Sheets не зависит — оно защищает
   // себя само через isDbReady().
   if (c.req.method !== 'POST') {
@@ -342,6 +468,8 @@ router.use('/', async (c, next) => {
 router.openapi(postBookingRoute, async (c) => {
   const requestId = c.get('requestId')
   const { 'idempotency-key': idempotencyKey } = c.req.valid('header')
+  // Типизирована как обязательная, но голый роутер (gen-openapi, тесты) живет без requireAuth.
+  const sessionUser: AuthTokenClaims | undefined = c.get('user')
 
   // Попадание в кэш идемпотентности — возвращаем закэшированный результат, не трогая Sheets.
   const cached = idempotency.get(idempotencyKey)
@@ -412,7 +540,7 @@ router.openapi(postBookingRoute, async (c) => {
   // Зеркалим клиента и запись в Postgres (best-effort; Sheets по-прежнему
   // источник истины). Сбои здесь никогда не блокируют запись — на этапе 1 БД
   // чисто дополнительная. Upsert клиента и зеркало записи независимы: если upsert
-  // упал, строка записи всё равно сохраняется с пустой связью с клиентом (снимок
+  // упал, строка записи все равно сохраняется с пустой связью с клиентом (снимок
   // имени/телефона делает строку самодостаточной).
   let clientOutcome: 'inserted' | 'updated' | 'unchanged' | 'skipped' | 'error' = 'skipped'
   let clientId: string | null = null
@@ -435,14 +563,14 @@ router.openapi(postBookingRoute, async (c) => {
       )
     }
 
-    // Best-effort приём машины клиента. Собственный try/catch (рядом с catch'ами
-    // upsert и зеркала, НЕ объединённый с ними) — сбой с машиной не должен
+    // Best-effort прием машины клиента. Собственный try/catch (рядом с catch'ами
+    // upsert и зеркала, НЕ объединенный с ними) — сбой с машиной не должен
     // подавить вставку в зеркало ниже. Пропускается без связанного клиента
     // (не к чему привязать) или при пустой марке/модели.
     if (clientId && booking.car) {
       try {
         // Возвращает id нормализованной строки машины, чтобы зеркало ниже атомарно
-        // связало `car_id`; при сбое carId остаётся null (запись продолжается).
+        // связало `car_id`; при сбое carId остается null (запись продолжается).
         carId = await upsertClientCarReturningId(clientId, booking.car, booking.plate ?? '')
       } catch (err) {
         baseLogger.warn(
@@ -461,6 +589,7 @@ router.openapi(postBookingRoute, async (c) => {
       // не создаст вторую строку зеркала.
       bookingPersisted = await insertBooking(booking, {
         idempotencyKey,
+        actor: sessionUser ? auditActor(sessionUser) : undefined,
         clientId,
         carId,
         sheetRow: appendResult.updatedRow,
@@ -479,7 +608,7 @@ router.openapi(postBookingRoute, async (c) => {
   }
 
   // Best-effort уведомление мастеру в Telegram. Выполняется после того, как запись
-  // попала в Sheets, и никогда её не блокирует — сбой лишь понижает ответ до
+  // попала в Sheets, и никогда ее не блокирует — сбой лишь понижает ответ до
   // предупреждения, которое показывает форма. Без запроса полностью пропускается.
   const notification = booking.notify ? await notifyMaster(booking) : undefined
 
@@ -595,7 +724,7 @@ router.openapi(
     try {
       // Заново связываем клиента (телефон мог измениться); best-effort — null при
       // пустом/ненормализуемом телефоне или временном сбое upsert (снимок
-      // имени/телефона всё равно обновляется).
+      // имени/телефона все равно обновляется).
       let clientId: string | null = null
       try {
         const up = await upsertClient(booking.phone, booking.name)
@@ -605,11 +734,11 @@ router.openapi(
       }
       // Best-effort повторная связь с машиной только на чтение: находит лишь машину, уже
       // лежащую в `client_cars` (без upsert — PATCH не должен копить строки машин). null
-      // без клиента, при сбое или ненайденной машине; истиной остаётся снимок.
+      // без клиента, при сбое или ненайденной машине; истиной остается снимок.
       const carId = clientId
         ? await selectCarId(clientId, booking.car, booking.plate ?? '').catch(() => null)
         : null
-      const updated = await updateBooking(id, booking, clientId, carId)
+      const updated = await updateBooking(id, booking, clientId, carId, auditActor(c.get('user')))
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
@@ -669,7 +798,7 @@ router.openapi(
 
     const { id } = c.req.valid('param')
     try {
-      const deleted = await deleteBooking(id)
+      const deleted = await deleteBooking(id, auditActor(c.get('user')))
       if (!deleted) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
@@ -718,7 +847,7 @@ router.openapi(
     const { id } = c.req.valid('param')
     const { readiness } = c.req.valid('json')
     try {
-      const updated = await updateBookingReadiness(id, readiness)
+      const updated = await updateBookingReadiness(id, readiness, auditActor(c.get('user')))
       if (!updated) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
@@ -758,7 +887,82 @@ router.openapi(
   defaultValidationHook,
 )
 
-/** ISO `YYYY-MM-DD` → `DD.MM.YYYY` для ячейки отчёта. */
+router.openapi(deletedRoute, async (c) => {
+  const requestId = uuidv4()
+  c.header('X-Request-Id', requestId)
+  if (!isDbReady()) return dbUnavailable(c)
+  try {
+    const entries = await listDeletedBookings(DELETED_LIST_LIMIT)
+    const items = entries.map((e) => ({
+      booking: toBookingRow(e.booking, { includeAmount: true }),
+      deletedAt: e.deletedAt.toISOString(),
+      deletedBy: e.deletedBy,
+    }))
+    return c.json({ ok: true as const, items }, StatusCodes.OK)
+  } catch (err) {
+    return internalError(c, requestId, 'bookings.deleted.error', err)
+  }
+})
+
+router.openapi(
+  historyRoute,
+  async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return dbUnavailable(c)
+    const { id } = c.req.valid('param')
+    try {
+      const rows = await listBookingHistory(id)
+      const items = rows.map((r) => ({
+        id: r.id,
+        action: r.action,
+        actorLogin: r.actorLogin,
+        actorName: r.actorName,
+        at: r.at.toISOString(),
+        changes: r.changes,
+      }))
+      return c.json({ ok: true as const, items }, StatusCodes.OK)
+    } catch (err) {
+      return internalError(c, requestId, 'bookings.history.error', err)
+    }
+  },
+  defaultValidationHook,
+)
+
+router.openapi(
+  restoreRoute,
+  async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return dbUnavailable(c)
+    const { id } = c.req.valid('param')
+    try {
+      const result = await restoreBooking(id, auditActor(c.get('user')))
+      if (!result.ok) {
+        if (result.reason === 'not_found') {
+          return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+        }
+        return c.json(
+          { ok: false as const, error: 'conflict' as const, reason: 'already_restored' as const },
+          StatusCodes.CONFLICT,
+        )
+      }
+      baseLogger.info(
+        { event: 'bookings.restore', request_id: requestId, booking_id: id, status: 200 },
+        'Booking restored',
+      )
+      return c.json(
+        { ok: true as const, booking: toBookingRow(result.booking, { includeAmount: true }) },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      return internalError(c, requestId, 'bookings.restore.error', err)
+    }
+  },
+  defaultValidationHook,
+)
+
+/** ISO `YYYY-MM-DD` → `DD.MM.YYYY` для ячейки отчета. */
 function isoDateCell(iso: string): string {
   return formatDdmmyyyy(new Date(iso))
 }

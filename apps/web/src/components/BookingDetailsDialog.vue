@@ -5,6 +5,7 @@ import type { BookingRow, Readiness } from '@detailing-admin/shared'
 import { isoToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
 import ReadinessPicker from './ReadinessPicker.vue'
+import BookingHistory from './BookingHistory.vue'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,11 +20,13 @@ import {
 // полей из тринадцати; тап по ней открывает этот диалог. Админы видят в футере
 // «Изменить»/«Удалить» — это единственный путь к редактированию и удалению, раз компактная
 // строка лишается своих кнопок. Сотрудники видят те же поля без футера: PATCH записей
-// им всё равно недоступен, но телефон и примечание им нужны.
+// им все равно недоступен, но телефон и примечание им нужны.
 const props = defineProps<{
   open: boolean
   booking: BookingRow | null
   canEdit: boolean
+  // Журнал показывает суммы и чужие действия, API отдает его только админу.
+  showHistory?: boolean
   readinessSaving?: boolean
 }>()
 
@@ -52,7 +55,7 @@ function formatAmount(n: number): string {
 }
 
 // Иначе reka-ui уводит фокус на первый интерактивный элемент — ссылку-телефон,
-// и та открывается с кольцом фокуса, читаясь как поле ввода. Фокус остаётся на
+// и та открывается с кольцом фокуса, читаясь как поле ввода. Фокус остается на
 // самом диалоге, так что Escape и Tab работают как обычно.
 function focusDialogItself(e: Event) {
   e.preventDefault()
@@ -62,7 +65,11 @@ function focusDialogItself(e: Event) {
 
 <template>
   <Dialog :open="props.open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent v-if="props.booking" class="max-w-md" @open-auto-focus="focusDialogItself">
+    <DialogContent
+      v-if="props.booking"
+      class="max-h-svh max-w-md overflow-y-auto"
+      @open-auto-focus="focusDialogItself"
+    >
       <DialogHeader>
         <DialogTitle>{{ props.booking.car || 'Без машины' }}</DialogTitle>
         <DialogDescription>{{ dateText }} · {{ timeText }}</DialogDescription>
@@ -123,6 +130,8 @@ function focusDialogItself(e: Event) {
         <dt class="text-muted-foreground">Примечание</dt>
         <dd class="col-span-2 break-words">{{ props.booking.note || '—' }}</dd>
       </dl>
+
+      <BookingHistory v-if="props.showHistory" :booking-id="props.booking.id" />
 
       <DialogFooter v-if="props.canEdit">
         <Button

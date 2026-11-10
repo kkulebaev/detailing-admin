@@ -3,12 +3,18 @@ import type {
   BookingsListResponse,
   BookingMutationResponse,
   BookingDeleteResponse,
+  BookingHistoryResponse,
+  BookingRestoreResponse,
+  DeletedBookingsResponse,
   Readiness,
 } from '@detailing-admin/shared'
 import { unwrap } from './api-client'
 import {
   deleteApiBookingsId,
   getApiBookings,
+  getApiBookingsDeleted,
+  getApiBookingsIdHistory,
+  postApiBookingsIdRestore,
   patchApiBookingsId,
   patchApiBookingsIdReadiness,
 } from './generated/bookings/bookings'
@@ -48,13 +54,25 @@ export function updateBookingReadiness(
   return unwrap<BookingMutationResponse>(() => patchApiBookingsIdReadiness(id, { readiness }))
 }
 
+export function fetchBookingHistory(id: string): Promise<BookingHistoryResponse> {
+  return unwrap<BookingHistoryResponse>(() => getApiBookingsIdHistory(id))
+}
+
+export function fetchDeletedBookings(): Promise<DeletedBookingsResponse> {
+  return unwrap<DeletedBookingsResponse>(() => getApiBookingsDeleted())
+}
+
+export function restoreBooking(id: string): Promise<BookingRestoreResponse> {
+  return unwrap<BookingRestoreResponse>(() => postApiBookingsIdRestore(id))
+}
+
 // Ключи пагинации отбрасываются: экспорт возвращает весь отфильтрованный набор, а не страницу.
 const EXPORT_OMIT = new Set(['limit', 'offset'])
 
 // Строит URL CSV-экспорта из ТЕХ ЖЕ параметров фильтра, что и список, поэтому
 // скачанный файл всегда совпадает с тем, что на экране. Query сериализуется ровно как в
 // сгенерированном orval построителе URL (URLSearchParams, undefined пропускаются), чтобы
-// не расходиться с запросом списка. Этот роут живёт вне OpenAPI/orval (CSV, а не
+// не расходиться с запросом списка. Этот роут живет вне OpenAPI/orval (CSV, а не
 // JSON), поэтому downloadFile обращается к нему raw-fetch'ем по URL.
 export function bookingsExportUrl(params: GetApiBookingsParams): string {
   const qs = new URLSearchParams()

@@ -42,6 +42,8 @@ const META = {
   sheetRange: 'Запись 2026!A5' as string | null,
 }
 
+const ACTOR = { id: 'u1', login: 'admin', name: 'Админ' }
+
 describe('bookingToDbRow', () => {
   it('маппит однодневную запись с ISO-датами и снимком телефона в E.164', () => {
     const row = bookingToDbRow(makeBooking(), META)
@@ -98,7 +100,7 @@ describe('фильтр по мастеру в listBookings', () => {
   // Thenable-заглушка query builder с очередью результатов на каждый await: каждый
   // метод цепочки возвращает `this`, а каждый await терминала резолвит следующий
   // результат из очереди. Порядок запросов при фильтре по мастеру: resolveMasterIds,
-  // items, count. Каждый вызов `.where()` запоминает своё условие для проверки.
+  // items, count. Каждый вызов `.where()` запоминает свое условие для проверки.
   function fakeDb(selectResults: unknown[], captured: unknown[], ordered: unknown[][] = []) {
     const q = [...selectResults]
     const chain: Record<string, unknown> = {
@@ -128,13 +130,13 @@ describe('фильтр по мастеру в listBookings', () => {
     // resolveMasterIds → [] (неизвестное имя); items → []; count → 0.
     vi.mocked(getDb).mockReturnValue(fakeDb([[], [], [{ count: 0 }]], captured) as never)
 
-    await listBookings({ limit: 10, offset: 0, master: 'Пётр' })
+    await listBookings({ limit: 10, offset: 0, master: 'Петр' })
 
     const rendered = renderAll(captured)
     const anyClause = rendered.find((r) => r.sql.includes('= ANY'))
     expect(anyClause).toBeTruthy()
     expect(anyClause!.sql).toContain('"master"')
-    expect(anyClause!.params).toContain('Пётр')
+    expect(anyClause!.params).toContain('Петр')
     // id не найден → нет ветки EXISTS по junction.
     expect(rendered.some((r) => /exists/i.test(r.sql))).toBe(false)
   })
@@ -143,10 +145,10 @@ describe('фильтр по мастеру в listBookings', () => {
     const captured: unknown[] = []
     // resolveMasterIds → id 9; items → []; count → 0.
     vi.mocked(getDb).mockReturnValue(
-      fakeDb([[{ id: 9, name: 'Пётр' }], [], [{ count: 0 }]], captured) as never,
+      fakeDb([[{ id: 9, name: 'Петр' }], [], [{ count: 0 }]], captured) as never,
     )
 
-    await listBookings({ limit: 10, offset: 0, master: 'Пётр' })
+    await listBookings({ limit: 10, offset: 0, master: 'Петр' })
 
     const rendered = renderAll(captured)
     const idClause = rendered.find((r) => /exists/i.test(r.sql) && r.sql.includes('= ANY'))
@@ -154,7 +156,7 @@ describe('фильтр по мастеру в listBookings', () => {
     // EXISTS по junction с найденным id ИЛИ имя из снимка.
     expect(idClause!.sql).toContain('booking_masters')
     expect(idClause!.params).toContain(9)
-    expect(idClause!.params).toContain('Пётр')
+    expect(idClause!.params).toContain('Петр')
   })
 
   it('не строит where, если фильтры не заданы', async () => {
@@ -164,7 +166,7 @@ describe('фильтр по мастеру в listBookings', () => {
 
     await listBookings({ limit: 10, offset: 0 })
 
-    // where равен undefined → заглушку всё равно вызывают с undefined.
+    // where равен undefined → заглушку все равно вызывают с undefined.
     expect(captured[0]).toBeUndefined()
   })
 
@@ -245,7 +247,7 @@ describe('withLiveMasterNames (обогащение при чтении чере
     expect(items[0].master).toEqual(['Живое А', 'Живое Б'])
   })
 
-  it('берёт снимок для несопоставленного слота и для ответственного с null', async () => {
+  it('берет снимок для несопоставленного слота и для ответственного с null', async () => {
     vi.mocked(getDb).mockReturnValue(
       fakeDb([
         [row()], // responsibleId равен null
@@ -260,13 +262,13 @@ describe('withLiveMasterNames (обогащение при чтении чере
     expect(items[0].responsible).toBe('Снимок Отв')
   })
 
-  it('берёт ответственного из снимка, если id больше не резолвится', async () => {
+  it('берет ответственного из снимка, если id больше не резолвится', async () => {
     vi.mocked(getDb).mockReturnValue(
       fakeDb([
         [row({ responsibleId: 99 })],
         [{ count: 1 }],
         [], // нет связей junction
-        [], // id ответственного 99 ни во что не резолвится (удалён)
+        [], // id ответственного 99 ни во что не резолвится (удален)
       ]) as never,
     )
 
@@ -306,6 +308,7 @@ function makeWriteDb(opts: {
     c.where = passthrough
     c.orderBy = passthrough
     c.limit = passthrough
+    c.for = passthrough
     c.returning = passthrough
     c.onConflictDoNothing = passthrough
     c.set = (v: Record<string, unknown>) => {
@@ -327,7 +330,9 @@ function makeWriteDb(opts: {
     return r ?? []
   }
 
-  const db = {
+  const db: Record<string, unknown> = {
+    // Транзакция выполняет колбэк на том же фейке: очереди общие.
+    transaction: (fn: (tx: unknown) => unknown) => fn(db),
     select: () => chain(() => pull(selectQ)),
     insert: () => chain(() => pull(insertQ)),
     update: () => chain(() => pull(updateQ)),
@@ -335,9 +340,9 @@ function makeWriteDb(opts: {
       capture.deletes++
       return chain(() => pull(deleteQ))
     },
-  } as unknown as ReturnType<typeof getDb>
+  }
 
-  return { db, capture }
+  return { db: db as unknown as ReturnType<typeof getDb>, capture }
 }
 
 afterEach(() => {
@@ -444,13 +449,14 @@ describe('id-ссылка на мастера в updateBooking', () => {
           { id: 1, name: 'Мастер А' },
           { id: 2, name: 'Мастер Б' },
         ],
+        [updatedRow],
       ],
       updateResults: [[updatedRow]],
       insertResults: [[]],
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9')
+    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9', ACTOR)
     expect(row).toEqual(updatedRow)
     // Поля, клиент, машина и id ответственного выставляются в одном атомарном update.
     expect(capture.sets[0]).toMatchObject({
@@ -463,7 +469,7 @@ describe('id-ссылка на мастера в updateBooking', () => {
     expect(capture.inserts[0]).toEqual([{ bookingId: 'bk1', masterId: 1, position: 0 }])
   })
 
-  it('возвращает обновлённую строку, даже если перезапись junction падает (best-effort)', async () => {
+  it('возвращает обновленную строку, даже если перезапись junction падает (best-effort)', async () => {
     const updatedRow = { id: 'bk1', master: ['Мастер А'] }
     const { db } = makeWriteDb({
       selectResults: [
@@ -471,6 +477,7 @@ describe('id-ссылка на мастера в updateBooking', () => {
           { id: 1, name: 'Мастер А' },
           { id: 2, name: 'Мастер Б' },
         ],
+        [updatedRow],
       ],
       updateResults: [[updatedRow]],
       // Повторный insert в junction отклоняется.
@@ -478,7 +485,7 @@ describe('id-ссылка на мастера в updateBooking', () => {
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9')
+    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9', ACTOR)
     // Инвариант PATCH: обновление полей сохраняется; сбой проглатывается и логируется.
     expect(row).toEqual(updatedRow)
     expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
@@ -495,9 +502,10 @@ describe('id-ссылка на мастера в updateBooking', () => {
       responsibleId: null,
     }
     const { db } = makeWriteDb({
-      // [0] resolveMasterIds, [1] связи junction для обогащения (после перезаписи).
+      // [0] resolveMasterIds, [1] блокировка строки, [2] связи junction для обогащения.
       selectResults: [
         [{ id: 1, name: 'Мастер А' }],
+        [updatedRow],
         [{ bookingId: 'bk1', position: 0, name: 'Живое А' }],
       ],
       updateResults: [[updatedRow]],
@@ -505,19 +513,19 @@ describe('id-ссылка на мастера в updateBooking', () => {
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9')
-    // Возвращённая строка несёт текущее имя мастера, а не снимок.
+    const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9', ACTOR)
+    // Возвращенная строка несет текущее имя мастера, а не снимок.
     expect(row?.master).toEqual(['Живое А'])
   })
 
   it('возвращает null (и пропускает junction), если ни одна запись не соответствует id', async () => {
     const { db, capture } = makeWriteDb({
-      selectResults: [[{ id: 1, name: 'Мастер А' }]],
-      updateResults: [[]],
+      // Блокировка не нашла строку → update не выполняется.
+      selectResults: [[{ id: 1, name: 'Мастер А' }], []],
     })
     vi.mocked(getDb).mockReturnValue(db)
 
-    const row = await updateBooking('missing', makeBooking(), null, null)
+    const row = await updateBooking('missing', makeBooking(), null, null, ACTOR)
     expect(row).toBeNull()
     expect(capture.deletes).toBe(0)
     expect(capture.inserts).toHaveLength(0)
@@ -558,7 +566,7 @@ describe('миграция 0016: семантика onDelete', () => {
     expect(sql).toMatch(/bookings_responsible_id_masters_id_fk[\s\S]*?ON DELETE set null/)
   })
 
-  it('задаёт junction составной первичный ключ', () => {
+  it('задает junction составной первичный ключ', () => {
     expect(sql).toContain('PRIMARY KEY("booking_id","master_id")')
   })
 
@@ -594,7 +602,7 @@ describe('backfillMasterIds', () => {
     await backfillMasterIds(tag as never)
 
     expect(calls).toHaveLength(5)
-    // Нормализация идёт первой, чтобы junction/обогащение видели одно имя на слот.
+    // Нормализация идет первой, чтобы junction/обогащение видели одно имя на слот.
     expect(calls[0]).toContain('UPDATE bookings')
     expect(calls[0]).toContain('string_to_array')
     expect(calls[0]).toContain('IS DISTINCT FROM')
@@ -668,14 +676,14 @@ describe('backfillCarIds', () => {
     expect(calls[0]).toContain('DISTINCT ON (bb.id)')
     expect(calls[0]).toContain('bb.car_id IS NULL')
     expect(calls[0]).toContain('b.car_id IS NULL')
-    // Диагностический подсчёт только читает.
+    // Диагностический подсчет только читает.
     expect(calls[1]).toContain('SELECT count(*)')
     expect(calls[1]).toContain('b.car_id IS NULL')
   })
 
-  it('сообщает число привязанных и ещё доступных для привязки', async () => {
+  it('сообщает число привязанных и еще доступных для привязки', async () => {
     const { backfillCarIds } = await importBackfill()
-    // UPDATE привязал 2 строки; 3 ещё можно привязать, но они не привязаны.
+    // UPDATE привязал 2 строки; 3 еще можно привязать, но они не привязаны.
     const { tag } = fakeSql([[{}, {}], [{ count: 3 }]])
 
     const res = await backfillCarIds(tag as never)

@@ -50,7 +50,7 @@ vi.mock('../src/db/client-cars.js', () => ({
 }))
 
 // Частичный мок: функции, обращающиеся к БД, заглушены, а чистый маппер toBookingRow
-// остаётся настоящим — регрессионные проверки GET-списка (id-ссылки отброшены, сумма
+// остается настоящим — регрессионные проверки GET-списка (id-ссылки отброшены, сумма
 // скрыта от не-админа) прогоняют вынесенный маппер через маршрут.
 vi.mock('../src/db/bookings.js', async (importActual) => {
   const actual = await importActual<typeof import('../src/db/bookings.js')>()
@@ -61,6 +61,9 @@ vi.mock('../src/db/bookings.js', async (importActual) => {
     updateBooking: vi.fn(),
     updateBookingReadiness: vi.fn(),
     deleteBooking: vi.fn(),
+    restoreBooking: vi.fn(),
+    listBookingHistory: vi.fn(),
+    listDeletedBookings: vi.fn(),
   }
 })
 
@@ -86,6 +89,9 @@ import {
   updateBooking,
   updateBookingReadiness,
   deleteBooking,
+  restoreBooking,
+  listBookingHistory,
+  listDeletedBookings,
 } from '../src/db/bookings.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
@@ -112,7 +118,11 @@ const APPEND_SUCCESS = {
   statusCode: 200,
 }
 
-// Выставляется в beforeEach — каждый защищённый запрос идёт с валидной cookie admin-сессии.
+// Снимки из adminCookie()/bookerCookie(): имя в них пустое.
+const ADMIN_ACTOR = { id: 'u-admin', login: 'admin', name: '' }
+const BOOKER_ACTOR = { id: 'u-booker', login: 'booker', name: '' }
+
+// Выставляется в beforeEach — каждый защищенный запрос идет с валидной cookie admin-сессии.
 let authCookie = ''
 
 function post(
@@ -187,7 +197,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(appendBooking)).toHaveBeenCalledTimes(2)
   })
 
-  it('после истечения TTL тот же ключ снова идёт в Sheets', async () => {
+  it('после истечения TTL тот же ключ снова идет в Sheets', async () => {
     vi.useFakeTimers()
     const key = 'ttl-key'
 
@@ -367,7 +377,7 @@ describe('POST /api/bookings', () => {
     expect(body.notification).toEqual({ attempted: true, delivered: true })
   })
 
-  it('запись всё равно создаётся и сообщает о неудачном уведомлении (best-effort)', async () => {
+  it('запись все равно создается и сообщает о неудачном уведомлении (best-effort)', async () => {
     vi.mocked(notifyMaster).mockResolvedValue({
       attempted: true,
       delivered: false,
@@ -399,7 +409,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(notifyMaster)).toHaveBeenCalledTimes(1)
   })
 
-  it('запись всё равно создаётся, если upsertClient падает (best-effort)', async () => {
+  it('запись все равно создается, если upsertClient падает (best-effort)', async () => {
     vi.mocked(upsertClient).mockRejectedValueOnce(new Error('db connection refused'))
     const res = await post(
       app,
@@ -435,6 +445,7 @@ describe('POST /api/bookings', () => {
         carId: 'car-uuid-9',
         sheetRow: 5,
         sheetRange: 'Запись 2026!A5',
+        actor: ADMIN_ACTOR,
       },
     )
   })
@@ -465,7 +476,7 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(upsertClientCarReturningId)).not.toHaveBeenCalled()
   })
 
-  it('запись всё равно создаётся, если insert в зеркало падает (best-effort)', async () => {
+  it('запись все равно создается, если insert в зеркало падает (best-effort)', async () => {
     vi.mocked(insertBooking).mockRejectedValueOnce(new Error('unique violation'))
     const res = await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-mirror-fail' })
     expect(res.status).toBe(201)
@@ -494,7 +505,7 @@ describe('POST /api/bookings', () => {
       'Toyota Camry',
       'А123АА77',
     )
-    // Найденный id машины передаётся в insert зеркала.
+    // Найденный id машины передается в insert зеркала.
     expect(vi.mocked(insertBooking)).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ carId: 'car-uuid-9' }),
@@ -857,7 +868,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   const del = (headers: Record<string, string> = { Cookie: cookie }) =>
     app.request(`/api/bookings/${ID}`, { method: 'DELETE', headers })
 
-  it('PATCH обновляет запись для admin → 200 с обновлённой строкой (без ключа идемпотентности)', async () => {
+  it('PATCH обновляет запись для admin → 200 с обновленной строкой (без ключа идемпотентности)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'updated',
       client: { id: 'client-uuid-1', phone: '+79991234567', name: 'Иван', createdAt: new Date() },
@@ -876,7 +887,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect(body.booking.car_id).toBeUndefined()
     expect(JSON.stringify(body.booking)).not.toContain('car-uuid-1')
     expect(vi.mocked(updateBooking)).toHaveBeenCalled()
-    // Ссылка на машину резолвится только чтением (selectCarId, а не upsert) и передаётся
+    // Ссылка на машину резолвится только чтением (selectCarId, а не upsert) и передается
     // в updateBooking, чтобы PATCH никогда не накапливал строки client_cars.
     expect(vi.mocked(selectCarId)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(
@@ -884,10 +895,11 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
       expect.any(Object),
       'client-uuid-1',
       'car-uuid-1',
+      ADMIN_ACTOR,
     )
   })
 
-  it('PATCH всё равно возвращает 200 с пустой ссылкой на машину, если selectCarId падает (best-effort)', async () => {
+  it('PATCH все равно возвращает 200 с пустой ссылкой на машину, если selectCarId падает (best-effort)', async () => {
     vi.mocked(upsertClient).mockResolvedValue({
       outcome: 'updated',
       client: { id: 'client-uuid-1', phone: '+79991234567', name: 'Иван', createdAt: new Date() },
@@ -900,6 +912,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
       expect.any(Object),
       'client-uuid-1',
       null,
+      ADMIN_ACTOR,
     )
   })
 
@@ -908,7 +921,13 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     const res = await patch(VALID_PAYLOAD)
     expect(res.status).toBe(200)
     expect(vi.mocked(selectCarId)).not.toHaveBeenCalled()
-    expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(ID, expect.any(Object), null, null)
+    expect(vi.mocked(updateBooking)).toHaveBeenCalledWith(
+      ID,
+      expect.any(Object),
+      null,
+      null,
+      ADMIN_ACTOR,
+    )
   })
 
   it('PATCH несуществующей записи → 404', async () => {
@@ -945,7 +964,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     const res = await del()
     expect(res.status).toBe(200)
     expect((await res.json()).ok).toBe(true)
-    expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID)
+    expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID, ADMIN_ACTOR)
   })
 
   it('DELETE несуществующей записи → 404', async () => {
@@ -956,7 +975,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   it('DELETE от booker → 200', async () => {
     const res = await del({ Cookie: await bookerCookie() })
     expect(res.status).toBe(200)
-    expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID)
+    expect(vi.mocked(deleteBooking)).toHaveBeenCalledWith(ID, BOOKER_ACTOR)
   })
 
   it('DELETE от employee → 403', async () => {
@@ -988,13 +1007,13 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     expect(body.booking.carId).toBeUndefined()
     expect(body.booking.car_id).toBeUndefined()
     expect(JSON.stringify(body.booking)).not.toContain('car-uuid-1')
-    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе')
+    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе', ADMIN_ACTOR)
   })
 
   it('PATCH readiness принимает пустое значение (сброшенный статус) → 200', async () => {
     const res = await patchReadiness({ readiness: '' })
     expect(res.status).toBe(200)
-    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, '')
+    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, '', ADMIN_ACTOR)
   })
 
   it('PATCH readiness отклоняет невалидное значение → 400', async () => {
@@ -1012,7 +1031,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   it('PATCH readiness от booker → 200', async () => {
     const res = await patchReadiness({ readiness: 'В работе' }, { Cookie: await bookerCookie() })
     expect(res.status).toBe(200)
-    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе')
+    expect(vi.mocked(updateBookingReadiness)).toHaveBeenCalledWith(ID, 'В работе', BOOKER_ACTOR)
   })
 
   it('PATCH readiness от employee → 403', async () => {
@@ -1024,6 +1043,151 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   it('PATCH readiness возвращает 503, если БД не готова', async () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     expect((await patchReadiness({ readiness: 'В работе' })).status).toBe(503)
+  })
+})
+
+describe('журнал и корзина записей', () => {
+  let app: ReturnType<typeof createApp>
+  let cookie = ''
+  const ID = '4f6d8b2a-1c3e-4a5b-9d7f-0e1a2b3c4d5e'
+  const ROW: Booking = {
+    id: ID,
+    idempotencyKey: 'key-1',
+    clientId: null,
+    name: 'Иван',
+    phone: '+79991234567',
+    car: 'Toyota Camry',
+    service: 'Полировка',
+    note: '',
+    amount: 7000,
+    amountFormula: null,
+    dateFrom: '2026-06-04',
+    dateTo: null,
+    timeFrom: '10:00',
+    timeTo: null,
+    readiness: 'Выдана',
+    master: ['Иван Содель'],
+    responsible: 'Иван Содель',
+    responsibleId: 7,
+    carId: 'car-uuid-1',
+    carClass: 3,
+    sheetRow: 5,
+    sheetRange: 'Запись 2026!A5',
+    createdAt: new Date('2026-06-01T12:00:00.000Z'),
+  }
+
+  beforeEach(async () => {
+    app = createApp()
+    cookie = await adminCookie()
+    vi.mocked(isDbReady).mockReturnValue(true)
+  })
+
+  const get = (path: string, headers: Record<string, string> = { Cookie: cookie }) =>
+    app.request(path, { headers })
+  const restore = (headers: Record<string, string> = { Cookie: cookie }) =>
+    app.request(`/api/bookings/${ID}/restore`, { method: 'POST', headers })
+
+  it('GET history отдает записи журнала без снимка', async () => {
+    vi.mocked(listBookingHistory).mockResolvedValue([
+      {
+        id: 1,
+        entity: 'booking',
+        entityId: ID,
+        action: 'update',
+        actorId: 'u-admin',
+        actorLogin: 'admin',
+        actorName: 'Анна',
+        changes: [{ field: 'amount', from: 5000, to: 7000 }],
+        snapshot: null,
+        at: new Date('2026-06-02T10:00:00.000Z'),
+      },
+      {
+        id: 2,
+        entity: 'booking',
+        entityId: ID,
+        action: 'delete',
+        actorId: 'u-admin',
+        actorLogin: 'admin',
+        actorName: 'Анна',
+        changes: null,
+        snapshot: { booking: { ...ROW, createdAt: ROW.createdAt.toISOString() }, masters: [] },
+        at: new Date('2026-06-03T10:00:00.000Z'),
+      },
+    ])
+    const res = await get(`/api/bookings/${ID}/history`)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.items).toEqual([
+      {
+        id: 1,
+        action: 'update',
+        actorLogin: 'admin',
+        actorName: 'Анна',
+        at: '2026-06-02T10:00:00.000Z',
+        changes: [{ field: 'amount', from: 5000, to: 7000 }],
+      },
+      {
+        id: 2,
+        action: 'delete',
+        actorLogin: 'admin',
+        actorName: 'Анна',
+        at: '2026-06-03T10:00:00.000Z',
+        changes: null,
+      },
+    ])
+  })
+
+  it('GET deleted отдает корзину с суммами и автором удаления', async () => {
+    vi.mocked(listDeletedBookings).mockResolvedValue([
+      { booking: ROW, deletedAt: new Date('2026-06-03T10:00:00.000Z'), deletedBy: 'Анна' },
+    ])
+    const res = await get('/api/bookings/deleted')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.items).toHaveLength(1)
+    expect(body.items[0]).toMatchObject({
+      deletedAt: '2026-06-03T10:00:00.000Z',
+      deletedBy: 'Анна',
+      booking: { id: ID, amount: 7000 },
+    })
+    expect(body.items[0].booking.idempotencyKey).toBeUndefined()
+  })
+
+  it('POST restore возвращает восстановленную запись', async () => {
+    vi.mocked(restoreBooking).mockResolvedValue({ ok: true, booking: ROW })
+    const res = await restore()
+    expect(res.status).toBe(200)
+    expect((await res.json()).booking.id).toBe(ID)
+    expect(vi.mocked(restoreBooking)).toHaveBeenCalledWith(ID, ADMIN_ACTOR)
+  })
+
+  it('POST restore без снимка → 404, повторный → 409', async () => {
+    vi.mocked(restoreBooking).mockResolvedValueOnce({ ok: false, reason: 'not_found' })
+    expect((await restore()).status).toBe(404)
+    vi.mocked(restoreBooking).mockResolvedValueOnce({ ok: false, reason: 'already_restored' })
+    const res = await restore()
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ ok: false, error: 'conflict', reason: 'already_restored' })
+  })
+
+  it.each([
+    ['booker', bookerCookie],
+    ['employee', employeeCookie],
+  ])('закрыто для %s → 403', async (_role, makeCookie) => {
+    const headers = { Cookie: await makeCookie() }
+    expect((await get(`/api/bookings/${ID}/history`, headers)).status).toBe(403)
+    expect((await get('/api/bookings/deleted', headers)).status).toBe(403)
+    expect((await restore(headers)).status).toBe(403)
+    expect(vi.mocked(listBookingHistory)).not.toHaveBeenCalled()
+    expect(vi.mocked(listDeletedBookings)).not.toHaveBeenCalled()
+    expect(vi.mocked(restoreBooking)).not.toHaveBeenCalled()
+  })
+
+  it('возвращает 503, если БД не готова', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    expect((await get(`/api/bookings/${ID}/history`)).status).toBe(503)
+    expect((await get('/api/bookings/deleted')).status).toBe(503)
+    expect((await restore()).status).toBe(503)
   })
 })
 

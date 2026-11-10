@@ -16,11 +16,11 @@ async function fillBooking(page: Page, client: { phone: string; name: string; ca
   await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: 'Не выбрано' }).click()
-  await page.getByRole('dialog').getByText('Мастер Пётр').click()
+  await page.getByRole('dialog').getByText('Мастер Петр').click()
   await page.keyboard.press('Escape')
 
   await page.getByRole('combobox', { name: 'Ответственный' }).click()
-  await page.getByRole('option', { name: 'Мастер Пётр' }).click()
+  await page.getByRole('option', { name: 'Мастер Петр' }).click()
 }
 
 test('сохраняет запись в таблицу и зеркало и уведомляет мастера', async ({ page }) => {
@@ -38,7 +38,7 @@ test('сохраняет запись в таблицу и зеркало и у�
   expect(row?.[1]).toBe('10:00')
   expect(row?.[4]).toBe('Kia Rio')
   expect(row?.[5]).toContain('Полировка кузова')
-  expect(row?.[9]).toBe('Мастер Пётр')
+  expect(row?.[9]).toBe('Мастер Петр')
   expect(telegramMessages.some((m) => m.chat_id === '100' && m.text.includes('Анна'))).toBe(true)
 
   await page.goto('/bookings')
@@ -56,7 +56,7 @@ test('поясняет каждое незаполненное поле по-р�
   expect((await fakesState()).sheetRows).toHaveLength(rowsBefore)
 })
 
-test('узнаёт вернувшегося клиента по телефону', async ({ page }) => {
+test('узнает вернувшегося клиента по телефону', async ({ page }) => {
   await login(page, 'e2e-admin')
   await fillBooking(page, { phone: '9160000002', name: 'Борис', car: 'Lada Vesta' })
   await page.getByRole('button', { name: 'Сохранить запись' }).click()
@@ -67,4 +67,33 @@ test('узнаёт вернувшегося клиента по телефону
 
   await expect(page.getByText('Найден клиент с именем: Борис')).toBeVisible()
   await expect(nameField(page)).toHaveValue('Борис')
+})
+
+test('удаленная запись возвращается из корзины, а история это помнит', async ({ page }) => {
+  await login(page, 'e2e-admin')
+  await fillBooking(page, { phone: '9160000003', name: 'Галина', car: 'Skoda Octavia' })
+  await page.getByRole('button', { name: 'Сохранить запись' }).click()
+  await expect(page.getByText('Запись сохранена')).toBeVisible()
+
+  await page.goto('/bookings')
+  await page.getByRole('button', { name: 'Удалить запись Галина' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Удалить' }).click()
+  await expect(page.getByText('Запись удалена')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Удалить запись Галина' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Удаленные' }).click()
+  const trash = page.getByRole('dialog', { name: 'Удаленные записи' })
+  await expect(trash.getByText('Skoda Octavia')).toBeVisible()
+  await trash.getByRole('button', { name: 'Восстановить' }).click()
+  await expect(page.getByText('Запись восстановлена')).toBeVisible()
+  await expect(trash.getByText('Удаленных записей нет')).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await page.getByLabel('Компактный режим').first().check()
+  await page.getByText('Галина').first().click()
+  await page.getByRole('button', { name: 'История изменений' }).click()
+  const details = page.getByRole('dialog', { name: 'Skoda Octavia' })
+  await expect(details.getByText('Создал(а) запись')).toBeVisible()
+  await expect(details.getByText('Удалил(а) запись')).toBeVisible()
+  await expect(details.getByText('Восстановил(а) запись')).toBeVisible()
 })

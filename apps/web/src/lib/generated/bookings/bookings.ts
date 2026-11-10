@@ -15,6 +15,13 @@ import type {
   GetApiBookings400,
   GetApiBookings500,
   GetApiBookings503,
+  GetApiBookingsDeleted200,
+  GetApiBookingsDeleted500,
+  GetApiBookingsDeleted503,
+  GetApiBookingsIdHistory200,
+  GetApiBookingsIdHistory400,
+  GetApiBookingsIdHistory500,
+  GetApiBookingsIdHistory503,
   GetApiBookingsParams,
   PatchApiBookingsId200,
   PatchApiBookingsId400,
@@ -33,7 +40,13 @@ import type {
   PostApiBookings500,
   PostApiBookings502,
   PostApiBookings503,
-  PostApiBookingsBody
+  PostApiBookingsBody,
+  PostApiBookingsIdRestore200,
+  PostApiBookingsIdRestore400,
+  PostApiBookingsIdRestore404,
+  PostApiBookingsIdRestore409,
+  PostApiBookingsIdRestore500,
+  PostApiBookingsIdRestore503
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
@@ -350,6 +363,158 @@ return orvalFetch<patchApiBookingsIdReadinessResponse>(getPatchApiBookingsIdRead
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(patchApiBookingsIdReadinessBody)
+  }
+);}
+
+
+export type getApiBookingsDeletedResponse200 = {
+  data: GetApiBookingsDeleted200
+  status: 200
+}
+
+export type getApiBookingsDeletedResponse500 = {
+  data: GetApiBookingsDeleted500
+  status: 500
+}
+
+export type getApiBookingsDeletedResponse503 = {
+  data: GetApiBookingsDeleted503
+  status: 503
+}
+
+export type getApiBookingsDeletedResponseSuccess = (getApiBookingsDeletedResponse200) & {
+  headers: Headers;
+};
+export type getApiBookingsDeletedResponseError = (getApiBookingsDeletedResponse500 | getApiBookingsDeletedResponse503) & {
+  headers: Headers;
+};
+
+export type getApiBookingsDeletedResponse = (getApiBookingsDeletedResponseSuccess | getApiBookingsDeletedResponseError)
+
+export const getGetApiBookingsDeletedUrl = () => {
+
+
+
+
+  return `/api/bookings/deleted`
+}
+
+export const getApiBookingsDeleted = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<getApiBookingsDeletedResponse> => {
+
+  return orvalFetch<getApiBookingsDeletedResponse>(getGetApiBookingsDeletedUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type getApiBookingsIdHistoryResponse200 = {
+  data: GetApiBookingsIdHistory200
+  status: 200
+}
+
+export type getApiBookingsIdHistoryResponse400 = {
+  data: GetApiBookingsIdHistory400
+  status: 400
+}
+
+export type getApiBookingsIdHistoryResponse500 = {
+  data: GetApiBookingsIdHistory500
+  status: 500
+}
+
+export type getApiBookingsIdHistoryResponse503 = {
+  data: GetApiBookingsIdHistory503
+  status: 503
+}
+
+export type getApiBookingsIdHistoryResponseSuccess = (getApiBookingsIdHistoryResponse200) & {
+  headers: Headers;
+};
+export type getApiBookingsIdHistoryResponseError = (getApiBookingsIdHistoryResponse400 | getApiBookingsIdHistoryResponse500 | getApiBookingsIdHistoryResponse503) & {
+  headers: Headers;
+};
+
+export type getApiBookingsIdHistoryResponse = (getApiBookingsIdHistoryResponseSuccess | getApiBookingsIdHistoryResponseError)
+
+export const getGetApiBookingsIdHistoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/bookings/${id}/history`
+}
+
+export const getApiBookingsIdHistory = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<getApiBookingsIdHistoryResponse> => {
+
+  return orvalFetch<getApiBookingsIdHistoryResponse>(getGetApiBookingsIdHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type postApiBookingsIdRestoreResponse200 = {
+  data: PostApiBookingsIdRestore200
+  status: 200
+}
+
+export type postApiBookingsIdRestoreResponse400 = {
+  data: PostApiBookingsIdRestore400
+  status: 400
+}
+
+export type postApiBookingsIdRestoreResponse404 = {
+  data: PostApiBookingsIdRestore404
+  status: 404
+}
+
+export type postApiBookingsIdRestoreResponse409 = {
+  data: PostApiBookingsIdRestore409
+  status: 409
+}
+
+export type postApiBookingsIdRestoreResponse500 = {
+  data: PostApiBookingsIdRestore500
+  status: 500
+}
+
+export type postApiBookingsIdRestoreResponse503 = {
+  data: PostApiBookingsIdRestore503
+  status: 503
+}
+
+export type postApiBookingsIdRestoreResponseSuccess = (postApiBookingsIdRestoreResponse200) & {
+  headers: Headers;
+};
+export type postApiBookingsIdRestoreResponseError = (postApiBookingsIdRestoreResponse400 | postApiBookingsIdRestoreResponse404 | postApiBookingsIdRestoreResponse409 | postApiBookingsIdRestoreResponse500 | postApiBookingsIdRestoreResponse503) & {
+  headers: Headers;
+};
+
+export type postApiBookingsIdRestoreResponse = (postApiBookingsIdRestoreResponseSuccess | postApiBookingsIdRestoreResponseError)
+
+export const getPostApiBookingsIdRestoreUrl = (id: string,) => {
+
+
+
+
+  return `/api/bookings/${id}/restore`
+}
+
+export const postApiBookingsIdRestore = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<postApiBookingsIdRestoreResponse> => {
+
+  return orvalFetch<postApiBookingsIdRestoreResponse>(getPostApiBookingsIdRestoreUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
   }
 );}
 

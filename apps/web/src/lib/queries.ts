@@ -11,7 +11,12 @@ import {
 import { fetchPricelist } from './pricelist-api'
 import { fetchAccounts, fetchMasters } from './masters-api'
 import { fetchMySalary } from './me-api'
-import { fetchBookings, type GetApiBookingsParams } from './bookings-api'
+import {
+  fetchBookingHistory,
+  fetchBookings,
+  fetchDeletedBookings,
+  type GetApiBookingsParams,
+} from './bookings-api'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 
 // Ключи запросов лежат рядом с composables, чтобы вызывающему коду не нужно было знать
@@ -29,7 +34,7 @@ export const MY_SALARY_KEY = ['my-salary'] as const
 // Реактивный ключ, чтобы смена поискового запроса, сортировки или пагинации
 // автоматически вызывала перезапрос. `params` — ref, который страница пересчитывает из
 // состояния фильтров; placeholderData держит на экране строки предыдущей страницы, пока
-// следующий запрос в полёте (без мигания загрузки).
+// следующий запрос в полете (без мигания загрузки).
 export function useClientsQuery(params: Ref<GetApiClientsParams>) {
   return useQuery({
     key: () => [...CLIENTS_KEY, params.value],
@@ -59,7 +64,7 @@ export function useClientDetailQuery(id: Ref<string | null>) {
 }
 
 // Автозаполнение в форме записи: находит клиента по полному E.164-
-// телефону. `e164` — computed на стороне формы (null, пока введённый телефон
+// телефону. `e164` — computed на стороне формы (null, пока введенный телефон
 // неполный); guard `enabled` держит запрос в простое, пока номер не станет
 // полным, а colada дедуплицирует/кэширует по ключу телефона, так что повторные совпадения
 // бесплатны.
@@ -95,7 +100,7 @@ export function useInvalidateMasters() {
   return () => cache.invalidateQueries({ key: MASTERS_KEY })
 }
 
-// `enabled` не даёт запросу, доступному только админу, уйти, пока не откроется диалог
+// `enabled` не дает запросу, доступному только админу, уйти, пока не откроется диалог
 // мастера; самой странице мастеров аккаунты не нужны.
 export function useAccountsQuery(enabled: Ref<boolean>) {
   return useQuery({
@@ -128,8 +133,26 @@ export function useBookingsQuery(params: Ref<GetApiBookingsParams>) {
     key: () => [...BOOKINGS_KEY, params.value],
     query: () => fetchBookings(params.value),
     // Держим на экране строки предыдущей страницы/фильтра, пока следующий запрос
-    // в полёте, чтобы быстрые перезапросы не мигали скелетоном загрузки.
+    // в полете, чтобы быстрые перезапросы не мигали скелетоном загрузки.
     placeholderData: (previous) => previous,
+  })
+}
+
+// Оба ключа лежат под BOOKINGS_KEY: любая правка, удаление или восстановление
+// через useInvalidateBookings() освежает и историю, и корзину.
+export function useBookingHistoryQuery(id: Ref<string | null>) {
+  return useQuery({
+    key: () => [...BOOKINGS_KEY, 'history', id.value ?? ''],
+    query: () => fetchBookingHistory(id.value ?? ''),
+    enabled: () => id.value != null,
+  })
+}
+
+export function useDeletedBookingsQuery(enabled: Ref<boolean>) {
+  return useQuery({
+    key: [...BOOKINGS_KEY, 'deleted'],
+    query: fetchDeletedBookings,
+    enabled: () => enabled.value,
   })
 }
 
@@ -140,7 +163,7 @@ export function useInvalidateBookings() {
 
 // Реактивный ключ, чтобы переключение месяца автоматически вызывало перезапрос. `month` —
 // выбранный на странице `YYYY-MM`; placeholderData держит строки предыдущего месяца на
-// экране, пока следующий запрос в полёте (без мигания загрузки).
+// экране, пока следующий запрос в полете (без мигания загрузки).
 export function useSalariesQuery(month: Ref<string>) {
   return useQuery({
     key: () => [...SALARIES_KEY, month.value],
@@ -175,7 +198,7 @@ export function useInvalidateSalaryEntries() {
 // Реактивный ключ, чтобы смена периода или гранулярности автоматически вызывала перезапрос.
 // `params` — ref, который страница пересчитывает из состояния фильтров; placeholderData
 // держит на экране цифры предыдущего периода, пока следующий запрос в
-// полёте (без мигания загрузки при каждой смене периода/гранулярности).
+// полете (без мигания загрузки при каждой смене периода/гранулярности).
 export function useAnalyticsOverviewQuery(params: Ref<GetApiAnalyticsOverviewParams>) {
   return useQuery({
     key: () => [...ANALYTICS_KEY, params.value],

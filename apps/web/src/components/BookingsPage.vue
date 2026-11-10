@@ -8,6 +8,7 @@ import {
   Inbox,
   Pencil,
   Search,
+  ArchiveRestore,
   SearchX,
   SlidersHorizontal,
   Trash2,
@@ -35,6 +36,7 @@ import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
 import BookingDetailsDialog from './BookingDetailsDialog.vue'
+import DeletedBookingsDialog from './DeletedBookingsDialog.vue'
 import ReadinessPicker from './ReadinessPicker.vue'
 import BookingEditDialog from './BookingEditDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -90,9 +92,11 @@ const FROM_TODAY = '__from_today__'
 const auth = useAuthStore()
 const canEdit = computed(() => auth.canEditBookings)
 const canSeeAmounts = computed(() => auth.canSeeAmounts)
+const isAdmin = computed(() => auth.isAdmin)
+const trashOpen = ref(false)
 // Плотный вид: одна запись занимает две строки таблицы (шапка записи + услуга,
 // готовность и действия под ней) вместо тринадцати колонок, живущих только за
-// счёт горизонтального скролла. Переключатель ручной и переживает перезагрузку —
+// счет горизонтального скролла. Переключатель ручной и переживает перезагрузку —
 // ширина экрана его не переопределяет, потому что на планшете осмысленны обе
 // раскладки, а угаданный за пользователя вид сбивает привычку.
 const compact = useLocalStorage('bookings:compact', false)
@@ -103,7 +107,7 @@ function toggleSort() {
 }
 
 // «#» + базовые 10 колонок; «Сумма» и «Действия» зависят от роли. Компактная запись —
-// это одна ячейка на всё (дата, имя, машина, услуга) плюс «₽», если сумма доступна.
+// это одна ячейка на все (дата, имя, машина, услуга) плюс «₽», если сумма доступна.
 const columnCount = computed(() => {
   if (compact.value) return 1
   return 11 + (canSeeAmounts.value ? 1 : 0) + (canEdit.value ? 1 : 0)
@@ -114,7 +118,7 @@ const invalidateBookings = useInvalidateBookings()
 // ── Быстрая смена готовности прямо в строке ────────────────────────────────
 // Select из reka-ui не принимает '', поэтому опция «нет статуса» держится на значении-маркере.
 const READINESS_NONE = '__none__'
-// Оптимистичное состояние строки: выбранное значение показывается сразу, пока идёт
+// Оптимистичное состояние строки: выбранное значение показывается сразу, пока идет
 // PATCH, а при ошибке откатывается к серверному.
 const readinessOverride = ref<Record<string, Readiness | ''>>({})
 const savingReadiness = ref<Record<string, boolean>>({})
@@ -151,7 +155,7 @@ async function onReadinessChange(row: BookingRow, selected: string) {
   } catch {
     toast.error('Не удалось обновить готовность')
   } finally {
-    // При успехе значение придёт в перезапрошенной строке; при ошибке это откатывает
+    // При успехе значение придет в перезапрошенной строке; при ошибке это откатывает
     // селект к серверному значению.
     clearReadinessPending(row.id)
   }
@@ -180,7 +184,7 @@ function openDetails(row: BookingRow) {
   detailsOpen.value = true
 }
 
-// Диалог поверх диалога reka-ui переживает плохо (focus scope второго встаёт до
+// Диалог поверх диалога reka-ui переживает плохо (focus scope второго встает до
 // того, как первый снял свой), поэтому следующий открываем на следующем тике.
 async function onDetailsEdit(row: BookingRow) {
   detailsOpen.value = false
@@ -238,7 +242,7 @@ async function confirmDelete() {
       await invalidateBookings()
       return
     }
-    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нём.
+    // Настоящая ошибка — оставляем диалог открытым и показываем причину в нем.
     deleteError.value =
       result.error === 'unavailable' ? result.message : 'Не удалось удалить запись'
   } catch {
@@ -249,20 +253,20 @@ async function confirmDelete() {
 }
 
 // ── Состояние фильтров ────────────────────────────────────────────────────────
-// Период — одно из четырёх: с сегодняшнего дня (по умолчанию), все записи, месяц
+// Период — одно из четырех: с сегодняшнего дня (по умолчанию), все записи, месяц
 // целиком или конкретный день. Выбранный день важнее `monthKey`.
 const monthKey = ref<string>(FROM_TODAY)
 // shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dayCal = shallowRef<DateValue | undefined>(undefined)
 const periodOpen = ref(false)
-// Месяц, открытый в календаре. Он же решает, какой месяц заберёт «Весь месяц».
+// Месяц, открытый в календаре. Он же решает, какой месяц заберет «Весь месяц».
 const todayCal = today(getLocalTimeZone())
 const periodPlaceholder = shallowRef<DateValue>(todayCal)
 const masterFilter = ref<string>(ALL)
 const readinessFilter = ref<Readiness | typeof ALL>(ALL)
 const searchInput = ref('')
 // Ручной debounce (вместо refDebounced), чтобы `resetFilters` мог сбросить его
-// синхронно — иначе запрос ещё 300 мс держит устаревший поисковый запрос после
+// синхронно — иначе запрос еще 300 мс держит устаревший поисковый запрос после
 // сброса, и таблица мелькает пустым состоянием до загрузки настоящих строк.
 const searchDebounced = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -280,7 +284,7 @@ const masterOptions = computed(() =>
 )
 
 // ── Фильтр периода ──────────────────────────────────────────────────────────
-// Один календарь на все режимы: клик по дню фильтрует по дню, «Весь месяц» берёт
+// Один календарь на все режимы: клик по дню фильтрует по дню, «Весь месяц» берет
 // открытый в шапке месяц, «Все записи» снимает фильтр. Селекты месяца и
 // года в шапке (layout="month-and-year") заменяют прежний выпадающий список —
 // иначе до месяца годичной давности пришлось бы долистывать стрелками.
@@ -399,14 +403,14 @@ const isEmpty = computed(
 )
 
 // Панель фильтров занимает половину мобильного экрана, поэтому на узком экране
-// она уезжает в шторку, а снаружи остаётся поиск и кнопка со счётчиком. Решает
+// она уезжает в шторку, а снаружи остается поиск и кнопка со счетчиком. Решает
 // только ширина: компактный режим меняет таблицу, а не панель.
 const isWideScreen = useMediaQuery('(min-width: 640px)')
 
 const filtersSheetOpen = ref(false)
 
 // Считаем только то, что спрятано в шторке: период на узком экране виден на
-// собственной кнопке и в счётчике был бы шумом.
+// собственной кнопке и в счетчике был бы шумом.
 const activeFilterCount = computed(() => {
   let n = 0
   if (masterFilter.value !== ALL) n += 1
@@ -417,7 +421,7 @@ const activeFilterCount = computed(() => {
 
 // Один набор разметки на две раскладки — строка на десктопе и шторка на мобиле;
 // иначе контролы пришлось бы держать в двух местах синхронно. Период отдельным
-// шаблоном: на узком экране он остаётся снаружи, а поиск уходит в шторку.
+// шаблоном: на узком экране он остается снаружи, а поиск уходит в шторку.
 const [DefinePeriod, ReusePeriod] = createReusableTemplate()
 const [DefineFilters, ReuseFilters] = createReusableTemplate()
 const [DefineSearch, ReuseSearch] = createReusableTemplate()
@@ -427,7 +431,7 @@ const hasCustomPeriod = computed(
 )
 
 // Решает только текст пустого состояния: период по умолчанию пользователь не
-// выбирал, поэтому «Ничего не найдено» при нём было бы неправдой.
+// выбирал, поэтому «Ничего не найдено» при нем было бы неправдой.
 const hasActiveFilters = computed(() => hasCustomPeriod.value || activeFilterCount.value > 0)
 
 // Шире, чем hasActiveFilters: период по умолчанию тоже скрывает записи, и сброс
@@ -482,7 +486,7 @@ function formatDateCell(row: BookingRow): string {
 }
 
 // Компактный вид роняет год: колонка иначе не влезает в узкий экран, а год почти
-// всегда задан фильтром месяца. Полная дата остаётся в `title` ячейки.
+// всегда задан фильтром месяца. Полная дата остается в `title` ячейки.
 function isoToDdmm(iso: string): string {
   const [, m, d] = iso.split('-')
   if (!m || !d) return iso
@@ -502,7 +506,7 @@ function formatTimeCompact(row: BookingRow): string {
 }
 
 // Вторая строка компактной записи. `service` многострочный (строка на секцию
-// прайса) — в один усечённый рядок он склеивается через « · ». Машина живёт
+// прайса) — в один усеченный рядок он склеивается через « · ». Машина живет
 // строкой выше: по ней запись узнают в первую очередь, имя вторично.
 function formatSummaryLine(row: BookingRow): string {
   const service = row.service.split('\n').filter(Boolean).join(' · ')
@@ -519,7 +523,7 @@ function formatAmount(n: number): string {
 }
 
 // createdAt — момент вставки строки в зеркало bookings (≈ время создания брони:
-// вставка идёт только после успешного append в Sheets). Показываем подсказкой на
+// вставка идет только после успешного append в Sheets). Показываем подсказкой на
 // порядковом номере, чтобы не занимать отдельную колонку.
 function formatCreatedAt(iso: string): string {
   const d = new Date(iso)
@@ -533,9 +537,9 @@ function formatCreatedAt(iso: string): string {
   })
 }
 
-// Заливка строки по статусу готовности живёт в lib/readiness.ts (общая с бейджем
+// Заливка строки по статусу готовности живет в lib/readiness.ts (общая с бейджем
 // карточки клиента) — перекрас статуса правится в одном месте. hover намеренно
-// отключён: базовый цвет помечен важным (`!`) и выигрывает над вшитым в TableRow
+// отключен: базовый цвет помечен важным (`!`) и выигрывает над вшитым в TableRow
 // `hover:bg-muted/50`; некрашеным строкам гасим тот же hover общей строкой.
 </script>
 
@@ -546,6 +550,15 @@ function formatCreatedAt(iso: string): string {
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Записи</h1>
+        <Button
+          v-if="isAdmin"
+          variant="ghost"
+          size="sm"
+          class="gap-1 text-muted-foreground"
+          @click="trashOpen = true"
+        >
+          <ArchiveRestore class="size-4" /> Удаленные
+        </Button>
       </header>
 
       <!-- Фильтры. Один набор контролов, две раскладки: строка над таблицей в
@@ -636,7 +649,7 @@ function formatCreatedAt(iso: string): string {
       <div v-if="!isWideScreen" class="mb-3 shrink-0 flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <!-- Период чаще всего и есть то, ради чего открывают фильтры, поэтому
-               он остаётся снаружи; текст поиска уехал в шторку. -->
+               он остается снаружи; текст поиска уехал в шторку. -->
           <div class="flex-1 [&_button]:w-full">
             <ReusePeriod />
           </div>
@@ -759,7 +772,7 @@ function formatCreatedAt(iso: string): string {
         :class="[{ 'table-fixed': !isEmpty, 'h-full': isEmpty, 'text-xs': compact }]"
       >
         <!-- Фиксированные ширины колонок, чтобы они не прыгали между страницами (table-fixed
-             берёт размеры колонок отсюда, а не из содержимого каждой страницы). Убираются,
+             берет размеры колонок отсюда, а не из содержимого каждой страницы). Убираются,
              когда пусто: фиксированные ширины делают таблицу намного шире экрана, и
              заглушка оказалась бы за горизонтальным скроллбаром, которому нечего
              прокручивать. -->
@@ -871,7 +884,7 @@ function formatCreatedAt(iso: string): string {
           </TableEmpty>
           <template v-else-if="compact">
             <!-- Две строки на запись: дата, время и имя сверху, машина и услуга
-                   одной усечённой строкой снизу. Остальные восемь полей — в
+                   одной усеченной строкой снизу. Остальные восемь полей — в
                    диалоге по тапу; готовность читается заливкой строки. -->
             <TableRow
               v-for="row in items"
@@ -946,7 +959,7 @@ function formatCreatedAt(iso: string): string {
             </TableCell>
             <TableCell class="px-4 align-top whitespace-normal">{{ row.car || '—' }}</TableCell>
             <TableCell class="px-4 align-top">
-              <!-- `service` разделён переводами строк (строка на секцию
+              <!-- `service` разделен переводами строк (строка на секцию
                      прайса); выводим его вертикальным списком, чтобы колонка
                      оставалась узкой, а не тянулась одной широкой строкой. -->
               <span class="block max-w-56 whitespace-pre-line leading-snug" :title="row.service">
@@ -957,7 +970,7 @@ function formatCreatedAt(iso: string): string {
               v-if="canSeeAmounts"
               class="px-4 align-top text-right whitespace-nowrap tabular-nums"
             >
-              <!-- Пунктирное подчёркивание сигналит, что у суммы есть формула,
+              <!-- Пунктирное подчеркивание сигналит, что у суммы есть формула,
                      показываемая тултипом при наведении. -->
               <span
                 :class="
@@ -1034,11 +1047,14 @@ function formatCreatedAt(iso: string): string {
       v-model:open="detailsOpen"
       :booking="detailsBooking"
       :can-edit="canEdit"
+      :show-history="isAdmin"
       :readiness-saving="detailsId ? savingReadiness[detailsId] : false"
       @edit="onDetailsEdit"
       @delete="onDetailsDelete"
       @readiness="(v) => detailsBooking && onReadinessChange(detailsBooking, v)"
     />
+
+    <DeletedBookingsDialog v-if="isAdmin" v-model:open="trashOpen" />
 
     <BookingEditDialog v-model:open="editDialogOpen" :booking="editTarget" @saved="onEditSaved" />
 
@@ -1049,7 +1065,8 @@ function formatCreatedAt(iso: string): string {
           <AlertDialogDescription>
             <template v-if="deleteTarget">
               Запись «{{ deleteTarget.name || deleteTarget.phone }}» на
-              {{ formatDateCell(deleteTarget) }} будет удалена. Действие нельзя отменить
+              {{ formatDateCell(deleteTarget) }} будет удалена.
+              {{ isAdmin ? 'Вернуть ее можно из «Удаленных»' : 'Вернуть ее сможет администратор' }}
             </template>
           </AlertDialogDescription>
         </AlertDialogHeader>

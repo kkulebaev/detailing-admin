@@ -5,6 +5,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   serial,
@@ -16,6 +17,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core'
 import type { Readiness } from '@detailing-admin/shared/enums'
+import type { AuditChange, BookingAuditAction } from '@detailing-admin/shared/booking-audit'
 
 // Аккаунты для входа. Создаются вне приложения через CLI `user:create` (без
 // самостоятельной регистрации). `passwordHash` хранит строку scrypt
@@ -27,7 +29,7 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 16 }).notNull(),
   // По умолчанию '', чтобы миграция была безопасна для уже существующих строк; пользователь
-  // заполняет их на странице профиля (или CLI задаёт их при создании).
+  // заполняет их на странице профиля (или CLI задает их при создании).
   firstName: varchar('first_name', { length: 120 }).notNull().default(''),
   lastName: varchar('last_name', { length: 120 }).notNull().default(''),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -50,7 +52,7 @@ export const clients = pgTable('clients', {
 export type Client = typeof clients.$inferSelect
 export type NewClient = typeof clients.$inferInsert
 
-// Best-effort автоматически накапливается из записей (см. приём в routes/bookings.ts);
+// Best-effort автоматически накапливается из записей (см. прием в routes/bookings.ts);
 // также цель будущего ручного CRUD. plate по умолчанию '' (не NULL) —
 // UNIQUE-индекс не дедуплицирует NULL, а машина с пустым госномером валидна.
 export const clientCars = pgTable(
@@ -77,14 +79,14 @@ export type NewClientCar = typeof clientCars.$inferInsert
 // пишется сюда дополнительно (best-effort) рядом с главным append в Sheets.
 // В отличие от сериализованной строки Sheets, столбцы хранят нормализованные значения
 // (телефон в E.164, даты как DATE, сумма как int), чтобы при переключении таблица могла
-// стать источником истины. `sheetRow`/`sheetRange` связывают строку с её строкой в Sheets;
+// стать источником истины. `sheetRow`/`sheetRange` связывают строку с ее строкой в Sheets;
 // столбца `status` нет, потому что вставка бывает только после
 // успешного append в Sheets.
 export const bookings = pgTable(
   'bookings',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    // Надёжная дедупликация: защищает от второй строки, когда клиент повторяет запрос
+    // Надежная дедупликация: защищает от второй строки, когда клиент повторяет запрос
     // с тем же ключом после истечения TTL in-memory идемпотентности (5 мин).
     idempotencyKey: text('idempotency_key').notNull().unique(),
     // Nullable: при пустом (не нормализуемом) телефоне связывать не с кем.
@@ -100,20 +102,20 @@ export const bookings = pgTable(
     dateTo: date('date_to'),
     timeFrom: varchar('time_from', { length: 5 }).notNull(),
     timeTo: varchar('time_to', { length: 5 }),
-    // В Postgres столбец остаётся свободным `text`; `$type` сужает только TS-тип до
+    // В Postgres столбец остается свободным `text`; `$type` сужает только TS-тип до
     // union READINESS (или '' для «нет статуса»), поэтому приведение на границе wire
     // не нужно. Только тип — без миграции и без эффекта в рантайме.
     readiness: text('readiness').notNull().default('').$type<Readiness | ''>(),
     master: text('master').array().notNull(),
     responsible: varchar('responsible', { length: 120 }).notNull(),
-    // Производная id-связь с ответственным мастером. Nullable: `responsible` остаётся
+    // Производная id-связь с ответственным мастером. Nullable: `responsible` остается
     // главным снимком «как записано»; у ненайденного имени просто нет id.
-    // `set null` при удалении мастера сохраняет строку (и её снимок) нетронутой.
+    // `set null` при удалении мастера сохраняет строку (и ее снимок) нетронутой.
     responsibleId: integer('responsible_id').references(() => masters.id, { onDelete: 'set null' }),
     // Производная id-связь с нормализованной строкой машины клиента. Nullable: склеенная
-    // строка `car` остаётся главным снимком «как записано»; у строки без клиента,
+    // строка `car` остается главным снимком «как записано»; у строки без клиента,
     // ненайденной или с похожим госномером просто нет id. `set null` при удалении машины
-    // сохраняет строку (и её снимок) — диалог клиента удаляет машины полной заменой
+    // сохраняет строку (и ее снимок) — диалог клиента удаляет машины полной заменой
     // (syncClientCars), так что restrict блокировал бы обычную правку; если машину
     // добавят снова, связь восстановит backfill.
     carId: uuid('car_id').references(() => clientCars.id, { onDelete: 'set null' }),
@@ -148,7 +150,7 @@ export const services = pgTable('services', {
     .references(() => sections.id),
   name: varchar('name', { length: 200 }).notNull(),
   description: text('description'),
-  // Штучная услуга: в форме записи у неё появляется счётчик количества,
+  // Штучная услуга: в форме записи у нее появляется счетчик количества,
   // а сумма считается как цена за единицу × количество.
   countable: boolean('countable').notNull().default(false),
   // Одна цена на класс кузова (I–IV); *Max равен NULL → фиксированная цена (*Min),
@@ -193,12 +195,12 @@ export type Master = typeof masters.$inferSelect
 export type NewMaster = typeof masters.$inferInsert
 
 // Связующая таблица для id-связи многие-ко-многим запись↔мастер. `master text[]` в
-// bookings остаётся главным снимком «как записано»; эта таблица несёт производную
+// bookings остается главным снимком «как записано»; эта таблица несет производную
 // ссылочную связь, которую сторона чтения превращает в актуальные имена мастеров (и
 // которая понадобится будущему JOIN сверки зарплат/часов). `position` привязывает связь
-// к её слоту в снимке: обогащение при чтении накладывает актуальное имя на
+// к ее слоту в снимке: обогащение при чтении накладывает актуальное имя на
 // `master[position]`, так что ненайденный слот чисто откатывается к снимку.
-// Оба FK каскадные: удаление записи чистит её связи, удаление мастера убирает
+// Оба FK каскадные: удаление записи чистит ее связи, удаление мастера убирает
 // его связи (имена в снимках записей не трогаются). Составной PK дедуплицирует,
 // поэтому insert идемпотентен при onConflictDoNothing.
 export const bookingMasters = pgTable(
@@ -223,9 +225,9 @@ export type NewBookingMaster = typeof bookingMasters.$inferInsert
 
 // Текущая почасовая ставка мастера — источник снимка, копируемого в каждую строку
 // work_hours. Намеренно ВНЕ `masters`: `GET /api/masters` делает `SELECT *`, открытый
-// всем авторизованным ролям, так что столбец ставки там утёк бы к сотрудникам.
+// всем авторизованным ролям, так что столбец ставки там утек бы к сотрудникам.
 // PK = masterId → одна строка на мастера; нет строки = ставка не задана (LEFT JOIN
-// даёт null, что отличается от ставки 0). Каскадное удаление допустимо: это
+// дает null, что отличается от ставки 0). Каскадное удаление допустимо: это
 // «текущее», а не история — история лежит в work_hours (restrict).
 export const masterRates = pgTable('master_rates', {
   masterId: integer('master_id')
@@ -287,3 +289,41 @@ export const payouts = pgTable(
 
 export type PayoutRow = typeof payouts.$inferSelect
 export type NewPayout = typeof payouts.$inferInsert
+
+// Журнал изменений. Удаление записи остается физическим, а полный снимок строки
+// (вместе со связями мастеров) уходит сюда в той же транзакции: так удаленная запись
+// не просачивается ни в одно чтение `bookings` (список, аналитика, суммы клиента),
+// но ее можно восстановить с тем же id. `entity`/`entityId` — текст, чтобы журнал
+// принимал и другие сущности, не только записи с uuid.
+// `actorLogin`/`actorName` — снимки на момент действия: аккаунт могут переименовать или
+// удалить (`set null`), а история должна остаться читаемой.
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: serial('id').primaryKey(),
+    entity: varchar('entity', { length: 32 }).notNull(),
+    entityId: text('entity_id').notNull(),
+    action: varchar('action', { length: 16 }).notNull().$type<BookingAuditAction>(),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    actorLogin: varchar('actor_login', { length: 64 }).notNull(),
+    actorName: text('actor_name').notNull().default(''),
+    // Для `update`: только изменившиеся поля, `{ поле: [было, стало] }`.
+    changes: jsonb('changes').$type<AuditChange[]>(),
+    // Для `delete`: все, что нужно для восстановления.
+    snapshot: jsonb('snapshot').$type<BookingSnapshot>(),
+    at: timestamp('at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('audit_log_entity_idx').on(t.entity, t.entityId, t.at),
+    index('audit_log_action_idx').on(t.entity, t.action, t.at),
+  ],
+)
+
+// После JSON `createdAt` становится строкой.
+export interface BookingSnapshot {
+  booking: Omit<Booking, 'createdAt'> & { createdAt: string }
+  masters: { masterId: number; position: number }[]
+}
+
+export type AuditLogRow = typeof auditLog.$inferSelect
+export type NewAuditLogRow = typeof auditLog.$inferInsert

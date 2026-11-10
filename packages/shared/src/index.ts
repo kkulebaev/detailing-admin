@@ -188,3 +188,28 @@ export type {
   SelfWorkHoursInput,
   MySalaryOk,
 } from './salaries.js'
+export {
+  BOOKING_AUDIT_ACTIONS,
+  BOOKING_AUDITED_FIELDS,
+  auditValueSchema,
+  auditChangeSchema,
+  bookingAuditEntrySchema,
+  bookingHistoryOkSchema,
+  bookingHistoryResponseSchema,
+  deletedBookingSchema,
+  deletedBookingsOkSchema,
+  deletedBookingsResponseSchema,
+  bookingRestoreConflictSchema,
+  bookingRestoreResponseSchema,
+} from './booking-audit.js'
+export type {
+  BookingAuditAction,
+  BookingAuditedField,
+  AuditValue,
+  AuditChange,
+  BookingAuditEntry,
+  BookingHistoryResponse,
+  DeletedBooking,
+  DeletedBookingsResponse,
+  BookingRestoreResponse,
+} from './booking-audit.js'
