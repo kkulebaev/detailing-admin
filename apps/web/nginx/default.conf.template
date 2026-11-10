@@ -27,6 +27,13 @@ server {
         try_files $uri =404;
     }
 
+    # В mime.types образа нет .webmanifest, и без этого он уходит как
+    # application/octet-stream. Имени с хешем у манифеста нет, поэтому без кеша.
+    location = /manifest.webmanifest {
+        default_type application/manifest+json;
+        add_header Cache-Control "no-cache";
+    }
+
     location / {
         # Обязательна перепроверка, иначе браузер продолжит ссылаться на чанки старого деплоя.
         add_header Cache-Control "no-cache";

@@ -3,6 +3,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* С viewport-fit=cover прижатая к низу панель уходит под полоску «домой» iPhone,
+   особенно в установленном приложении. max() сохраняет обычный отступ там, где
+   выреза нет и env() равен нулю. */
+@utility pb-safe {
+  padding-bottom: max(--spacing(4), env(safe-area-inset-bottom));
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
