@@ -535,6 +535,38 @@ describe('id-ссылка на мастера в updateBooking', () => {
     expect(row?.master).toEqual(['Живое А'])
   })
 
+  describe('формула суммы', () => {
+    // [0] resolveMasterIds, [1] блокировка строки «до».
+    async function saveOver(before: { amount: number; amountFormula: string | null }, over = {}) {
+      const { db, capture } = makeWriteDb({
+        selectResults: [[], [{ id: 'bk1', master: [], ...before }]],
+        updateResults: [[{ id: 'bk1', master: [] }]],
+      })
+      vi.mocked(getDb).mockReturnValue(db)
+      await updateBooking('bk1', makeBooking(over), null, null, ACTOR)
+      return capture.sets[0].amountFormula
+    }
+
+    it('сохраняет прежнюю формулу, если ее не прислали и сумма та же', async () => {
+      expect(await saveOver({ amount: 5000, amountFormula: '=2000+3000' })).toBe('=2000+3000')
+    })
+
+    it('сбрасывает формулу, если сумму поменяли вручную', async () => {
+      expect(
+        await saveOver({ amount: 5000, amountFormula: '=2000+3000' }, { amount: 6000 }),
+      ).toBeNull()
+    })
+
+    it('пишет присланную формулу', async () => {
+      expect(
+        await saveOver(
+          { amount: 5000, amountFormula: '=2000+3000' },
+          { amountFormula: '=1000+4000' },
+        ),
+      ).toBe('=1000+4000')
+    })
+  })
+
   it('возвращает null (и пропускает junction), если ни одна запись не соответствует id', async () => {
     const { db, capture } = makeWriteDb({
       // Блокировка не нашла строку → update не выполняется.

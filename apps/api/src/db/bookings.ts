@@ -296,9 +296,16 @@ export async function updateBooking(
   const row = await db.transaction(async (tx) => {
     const before = await lockBooking(tx, id)
     if (!before) return null
+    const fields = mapEditableFields(b)
+    // Диалог правки не знает формулу (она собирается из прайса только в форме записи)
+    // и не присылает ее; без этого каждое сохранение стирало бы формулу. Она верна, лишь
+    // пока сумма прежняя: ручная правка суммы делает ее устаревшей.
+    if (b.amountFormula === undefined) {
+      fields.amountFormula = fields.amount === before.amount ? before.amountFormula : null
+    }
     const [after] = await tx
       .update(bookings)
-      .set({ ...mapEditableFields(b), clientId, carId, responsibleId })
+      .set({ ...fields, clientId, carId, responsibleId })
       .where(eq(bookings.id, id))
       .returning()
     const changes = diffBookings(before, after)
