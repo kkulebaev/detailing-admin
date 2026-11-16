@@ -33,4 +33,6 @@ export type GetApiBookings200ItemsItem = {
   /** @nullable */
   sheetRange: string | null;
   createdAt: string;
+  /** @nullable */
+  createdBy: string | null;
 };

@@ -24,6 +24,7 @@ const ROWS: BookingRow[] = ['2026-11-21', '2026-11-20'].map((dateFrom, i) => ({
   sheetRow: null,
   sheetRange: null,
   createdAt: '2026-11-01T10:00:00.000Z',
+  createdBy: null,
 }))
 
 // Через hoisted, а не экспортом из мока: мок в browser mode теряет экспорты,

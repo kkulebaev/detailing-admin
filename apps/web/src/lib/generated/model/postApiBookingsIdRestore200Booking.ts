@@ -33,4 +33,6 @@ export type PostApiBookingsIdRestore200Booking = {
   /** @nullable */
   sheetRange: string | null;
   createdAt: string;
+  /** @nullable */
+  createdBy: string | null;
 };

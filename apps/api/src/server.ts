@@ -19,7 +19,7 @@ import {
   requireBookingEdit,
 } from './auth/middleware.js'
 
-const BOOKINGS_ADMIN_ONLY = /^\/api\/bookings\/(deleted|[^/]+\/(history|restore))$/
+const BOOKINGS_ADMIN_ONLY = /^\/api\/bookings\/(deleted|journal|[^/]+\/(history|restore))$/
 
 export function createApp() {
   // Собирается императивно, а не цепочкой, чтобы тип OpenAPIHono пережил

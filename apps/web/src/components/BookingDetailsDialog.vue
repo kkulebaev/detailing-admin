@@ -27,6 +27,7 @@ const props = defineProps<{
   canEdit: boolean
   // Журнал показывает суммы и чужие действия, API отдает его только админу.
   showHistory?: boolean
+  historyExpanded?: boolean
   readinessSaving?: boolean
 }>()
 
@@ -131,7 +132,12 @@ function focusDialogItself(e: Event) {
         <dd class="col-span-2 break-words">{{ props.booking.note || '—' }}</dd>
       </dl>
 
-      <BookingHistory v-if="props.showHistory" :booking-id="props.booking.id" />
+      <BookingHistory
+        v-if="props.showHistory"
+        :booking-id="props.booking.id"
+        :created-at="props.booking.createdAt"
+        :initially-expanded="props.historyExpanded"
+      />
 
       <DialogFooter v-if="props.canEdit">
         <Button

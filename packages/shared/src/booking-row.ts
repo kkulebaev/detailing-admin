@@ -37,6 +37,9 @@ export const bookingRowSchema = z.object({
   sheetRow: z.number().int().nullable(),
   sheetRange: z.string().nullable(),
   createdAt: z.string(),
+  // Кто добавил запись (имя аккаунта, иначе логин). null — запись старше журнала
+  // изменений или создана не из приложения.
+  createdBy: z.string().nullable(),
 })
 
 export type BookingRow = z.infer<typeof bookingRowSchema>

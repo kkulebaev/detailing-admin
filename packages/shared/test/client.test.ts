@@ -74,6 +74,7 @@ describe('clientDetailOkSchema', () => {
     sheetRow: 42,
     sheetRange: "'Запись 2026'!A42",
     createdAt: '2026-06-09T08:00:00.000Z',
+    createdBy: 'Админ',
   }
 
   it('принимает валидный payload карточки', () => {

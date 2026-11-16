@@ -93,6 +93,45 @@ export const deletedBookingsResponseSchema = z.union([
 
 export type DeletedBookingsResponse = z.infer<typeof deletedBookingsResponseSchema>
 
+// ── Общий журнал (GET /api/bookings/journal) ───────────────────────────────
+// Лента действий по всем записям, свежие первыми. Сводка нужна, чтобы событие читалось
+// без открытия записи; у удаленной записи она берется из снимка удаления.
+export const bookingJournalSummarySchema = z.object({
+  name: z.string(),
+  car: z.string(),
+  dateFrom: z.string(),
+  dateTo: z.string().nullable(),
+  timeFrom: z.string(),
+})
+
+export type BookingJournalSummary = z.infer<typeof bookingJournalSummarySchema>
+
+export const bookingJournalEntrySchema = bookingAuditEntrySchema.extend({
+  bookingId: z.string(),
+  // null — записи нет в таблице и нет снимка ее удаления (такого быть не должно,
+  // но журнал не должен падать из-за одной битой строки).
+  booking: bookingJournalSummarySchema.nullable(),
+  // Записи сейчас нет в таблице: она удалена и не восстановлена.
+  deleted: z.boolean(),
+})
+
+export type BookingJournalEntry = z.infer<typeof bookingJournalEntrySchema>
+
+export const bookingJournalOkSchema = z.object({
+  ok: z.literal(true),
+  items: z.array(bookingJournalEntrySchema),
+  hasMore: z.boolean(),
+})
+
+export const bookingJournalResponseSchema = z.union([
+  bookingJournalOkSchema,
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export type BookingJournalResponse = z.infer<typeof bookingJournalResponseSchema>
+
 // Двойной клик по «Восстановить» или вторая вкладка: запись уже вернулась в таблицу.
 export const bookingRestoreConflictSchema = z.object({
   ok: z.literal(false),

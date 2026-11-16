@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Calendar as CalendarIcon,
   Download,
+  History,
   Inbox,
   Pencil,
   Search,
@@ -37,6 +38,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
 import BookingDetailsDialog from './BookingDetailsDialog.vue'
 import DeletedBookingsDialog from './DeletedBookingsDialog.vue'
+import BookingJournalDialog from './BookingJournalDialog.vue'
 import ReadinessPicker from './ReadinessPicker.vue'
 import BookingEditDialog from './BookingEditDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -94,6 +96,7 @@ const canEdit = computed(() => auth.canEditBookings)
 const canSeeAmounts = computed(() => auth.canSeeAmounts)
 const isAdmin = computed(() => auth.isAdmin)
 const trashOpen = ref(false)
+const journalOpen = ref(false)
 // Плотный вид: одна запись занимает две строки таблицы (шапка записи + услуга,
 // готовность и действия под ней) вместо тринадцати колонок, живущих только за
 // счет горизонтального скролла. Переключатель ручной и переживает перезагрузку —
@@ -164,7 +167,8 @@ async function onReadinessChange(row: BookingRow, selected: string) {
 const editDialogOpen = ref(false)
 const editTarget = ref<BookingRow | null>(null)
 
-// Компактная строка показывает пять полей из тринадцати, остальные живут здесь.
+// Компактная строка показывает пять полей из тринадцати, остальные живут здесь; в полной
+// таблице админ открывает этот же диалог ради истории изменений.
 const detailsOpen = ref(false)
 // Держим id, а не саму строку: после смены готовности список перезапрашивается,
 // и снимок строки в диалоге показывал бы старый статус.
@@ -179,8 +183,13 @@ const detailsBooking = computed<BookingRow | null>(() => {
   return pending === undefined ? row : { ...row, readiness: pending }
 })
 
-function openDetails(row: BookingRow) {
+// Кнопка «История» открывает ту же карточку, но ради журнала: без этого его пришлось бы
+// раскрывать вторым кликом.
+const detailsHistoryExpanded = ref(false)
+
+function openDetails(row: BookingRow, opts: { history?: boolean } = {}) {
   detailsId.value = row.id
+  detailsHistoryExpanded.value = opts.history ?? false
   detailsOpen.value = true
 }
 
@@ -525,6 +534,11 @@ function formatAmount(n: number): string {
 // createdAt — момент вставки строки в зеркало bookings (≈ время создания брони:
 // вставка идет только после успешного append в Sheets). Показываем подсказкой на
 // порядковом номере, чтобы не занимать отдельную колонку.
+function createdTitle(row: BookingRow): string {
+  const at = `Добавлена: ${formatCreatedAt(row.createdAt)}`
+  return row.createdBy ? `${at} · ${row.createdBy}` : at
+}
+
 function formatCreatedAt(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
@@ -550,15 +564,24 @@ function formatCreatedAt(iso: string): string {
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0 flex flex-wrap items-start justify-between gap-4">
         <h1 class="text-2xl font-semibold">Записи</h1>
-        <Button
-          v-if="isAdmin"
-          variant="ghost"
-          size="sm"
-          class="gap-1 text-muted-foreground"
-          @click="trashOpen = true"
-        >
-          <ArchiveRestore class="size-4" /> Удаленные
-        </Button>
+        <div v-if="isAdmin" class="flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            class="gap-1 text-muted-foreground"
+            @click="journalOpen = true"
+          >
+            <History class="size-4" /> Журнал
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="gap-1 text-muted-foreground"
+            @click="trashOpen = true"
+          >
+            <ArchiveRestore class="size-4" /> Удаленные
+          </Button>
+        </div>
       </header>
 
       <!-- Фильтры. Один набор контролов, две раскладки: строка над таблицей в
@@ -792,7 +815,7 @@ function formatCreatedAt(iso: string): string {
           <col class="w-40" />
           <col class="w-40" />
           <col class="w-48" />
-          <col v-if="canEdit" class="w-24" />
+          <col v-if="canEdit" :class="isAdmin ? 'w-32' : 'w-24'" />
         </colgroup>
         <TableHeader v-if="!isEmpty && !compact" class="sticky top-0 z-10 bg-muted">
           <TableRow>
@@ -891,7 +914,7 @@ function formatCreatedAt(iso: string): string {
               :key="row.id"
               tabindex="0"
               :class="[readinessRowClass(row.readiness), 'cursor-pointer']"
-              :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
+              :title="createdTitle(row)"
               @click="openDetails(row)"
               @keydown.enter="openDetails(row)"
             >
@@ -943,7 +966,7 @@ function formatCreatedAt(iso: string): string {
                    (учитывает offset): у самой ранней записи 1 при любой сортировке. -->
             <TableCell
               class="px-4 align-top text-right tabular-nums text-muted-foreground"
-              :title="`Добавлена: ${formatCreatedAt(row.createdAt)}`"
+              :title="createdTitle(row)"
             >
               {{ sort === 'desc' ? total - offset - index : offset + index + 1 }}
             </TableCell>
@@ -1013,6 +1036,15 @@ function formatCreatedAt(iso: string): string {
             <TableCell v-if="canEdit" class="px-4 align-top text-right">
               <div class="inline-flex gap-1">
                 <Button
+                  v-if="isAdmin"
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="`История изменений записи ${row.name || row.phone}`"
+                  @click="openDetails(row, { history: true })"
+                >
+                  <History class="size-3.5" />
+                </Button>
+                <Button
                   variant="ghost"
                   size="icon-sm"
                   :aria-label="`Редактировать запись ${row.name || row.phone}`"
@@ -1048,6 +1080,7 @@ function formatCreatedAt(iso: string): string {
       :booking="detailsBooking"
       :can-edit="canEdit"
       :show-history="isAdmin"
+      :history-expanded="detailsHistoryExpanded"
       :readiness-saving="detailsId ? savingReadiness[detailsId] : false"
       @edit="onDetailsEdit"
       @delete="onDetailsDelete"
@@ -1055,6 +1088,7 @@ function formatCreatedAt(iso: string): string {
     />
 
     <DeletedBookingsDialog v-if="isAdmin" v-model:open="trashOpen" />
+    <BookingJournalDialog v-if="isAdmin" v-model:open="journalOpen" />
 
     <BookingEditDialog v-model:open="editDialogOpen" :booking="editTarget" @saved="onEditSaved" />
 

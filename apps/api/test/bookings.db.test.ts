@@ -276,6 +276,23 @@ describe('withLiveMasterNames (обогащение при чтении чере
     expect(items[0].master).toEqual(['Снимок А', 'Снимок Б'])
     expect(items[0].responsible).toBe('Снимок Отв')
   })
+
+  it('берет автора из записи `create` в журнале: имя, иначе логин, иначе null', async () => {
+    vi.mocked(getDb).mockReturnValue(
+      fakeDb([
+        [row({ id: 'bk1' }), row({ id: 'bk2' }), row({ id: 'bk3' })],
+        [{ count: 3 }],
+        [], // нет связей junction
+        [
+          { entityId: 'bk1', actorLogin: 'anna', actorName: 'Анна' },
+          { entityId: 'bk2', actorLogin: 'booker', actorName: '' },
+        ], // записи `create` в журнале; у bk3 ее нет
+      ]) as never,
+    )
+
+    const { items } = await listBookings({ limit: 10, offset: 0 })
+    expect(items.map((i) => i.createdBy)).toEqual(['Анна', 'booker', null])
+  })
 })
 
 // Thenable-фейк query builder с очередями результатов на каждую операцию. Терминальные
@@ -457,7 +474,7 @@ describe('id-ссылка на мастера в updateBooking', () => {
     vi.mocked(getDb).mockReturnValue(db)
 
     const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9', ACTOR)
-    expect(row).toEqual(updatedRow)
+    expect(row).toEqual({ ...updatedRow, createdBy: null })
     // Поля, клиент, машина и id ответственного выставляются в одном атомарном update.
     expect(capture.sets[0]).toMatchObject({
       clientId: 'client-1',
@@ -487,7 +504,7 @@ describe('id-ссылка на мастера в updateBooking', () => {
 
     const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9', ACTOR)
     // Инвариант PATCH: обновление полей сохраняется; сбой проглатывается и логируется.
-    expect(row).toEqual(updatedRow)
+    expect(row).toEqual({ ...updatedRow, createdBy: null })
     expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'booking.junction_update_failed' }),
       expect.any(String),

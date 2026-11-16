@@ -5,6 +5,7 @@ import { joinCar } from '@detailing-admin/shared/car'
 import { ddmmyyyyToIso } from '@detailing-admin/shared/date'
 import { normalizePhone } from '@detailing-admin/shared/phone'
 import type { Readiness } from '@detailing-admin/shared/enums'
+import type { BookingAuditAction } from '@detailing-admin/shared/booking-audit'
 import { getDb } from './client.js'
 import { resolveMasterIds } from './masters.js'
 import {
@@ -162,12 +163,49 @@ async function withLiveMasterNames(rows: Booking[]): Promise<Booking[]> {
   })
 }
 
+/** Строка `bookings` с автором для показа в списке. `null` — автора нет в журнале:
+ * запись старше журнала или пришла из seed-скрипта. */
+export type BookingWithCreator = Booking & { createdBy: string | null }
+
+/** Автор берется из журнала, а не из столбца `bookings`: после удаления и
+ * восстановления строка вставляется заново, а запись `create` в журнале остается. */
+async function withCreators(rows: Booking[]): Promise<BookingWithCreator[]> {
+  if (rows.length === 0) return []
+  const entries = await getDb()
+    .select({
+      entityId: auditLog.entityId,
+      actorLogin: auditLog.actorLogin,
+      actorName: auditLog.actorName,
+    })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entity, BOOKING_ENTITY),
+        eq(auditLog.action, 'create'),
+        inArray(
+          auditLog.entityId,
+          rows.map((r) => r.id),
+        ),
+      ),
+    )
+  const creators = new Map(entries.map((e) => [e.entityId, e.actorName || e.actorLogin]))
+  return rows.map((r) => ({ ...r, createdBy: creators.get(r.id) ?? null }))
+}
+
+/** Обогащение при любом чтении записей: актуальные имена мастеров и автор. */
+async function enrichForRead(rows: Booking[]): Promise<BookingWithCreator[]> {
+  return withCreators(await withLiveMasterNames(rows))
+}
+
 /** Переводит сохраненную строку `bookings` в wire-форму. Отбрасывает все три внутренние
  * id-связи (`idempotencyKey`, `responsibleId`, `carId` — в wire-ответ они никогда не входят)
  * и сериализует `createdAt`. `amount`/`amountFormula` только для админа: включаются лишь
  * при `includeAmount` — вызывающий не-админ обязан передать `false`, чтобы денежные
  * поля в ответе отсутствовали (undefined). */
-export function toBookingRow(row: Booking, opts: { includeAmount: boolean }): BookingRow {
+export function toBookingRow(
+  row: BookingWithCreator,
+  opts: { includeAmount: boolean },
+): BookingRow {
   const {
     idempotencyKey: _idempotencyKey,
     responsibleId: _responsibleId,
@@ -187,7 +225,10 @@ export function toBookingRow(row: Booking, opts: { includeAmount: boolean }): Bo
 /** Полная история записей одного клиента, новые первыми. Берет `limit + 1` строк, чтобы
  * вызывающий мог отметить усечение без второго COUNT; `bookings_client_id_idx` делает
  * это дешево. Актуальные имена мастеров накладываются, как на любом пути чтения. */
-export async function listBookingsByClientId(clientId: string, limit: number): Promise<Booking[]> {
+export async function listBookingsByClientId(
+  clientId: string,
+  limit: number,
+): Promise<BookingWithCreator[]> {
   const db = getDb()
   const rows = await db
     .select()
@@ -195,7 +236,7 @@ export async function listBookingsByClientId(clientId: string, limit: number): P
     .where(eq(bookings.clientId, clientId))
     .orderBy(desc(bookings.dateFrom), desc(bookings.createdAt))
     .limit(limit + 1)
-  return withLiveMasterNames(rows)
+  return enrichForRead(rows)
 }
 
 /** Best-effort вставка в зеркало. Идемпотентна по `idempotencyKey`: дубль ключа —
@@ -248,7 +289,7 @@ export async function updateBooking(
   clientId: string | null,
   carId: string | null,
   actor: AuditActor,
-): Promise<Booking | null> {
+): Promise<BookingWithCreator | null> {
   const db = getDb()
   const ids = await resolveMasterIds([...b.master, b.responsible])
   const responsibleId = ids.get(b.responsible.trim()) ?? null
@@ -282,7 +323,7 @@ export async function updateBooking(
       'Booking master id-link update failed — fields saved, links stale',
     )
   }
-  const [enriched] = await withLiveMasterNames([row])
+  const [enriched] = await enrichForRead([row])
   return enriched
 }
 
@@ -292,7 +333,7 @@ export async function updateBookingReadiness(
   id: string,
   readiness: Readiness | '',
   actor: AuditActor,
-): Promise<Booking | null> {
+): Promise<BookingWithCreator | null> {
   const db = getDb()
   const row = await db.transaction(async (tx) => {
     const before = await lockBooking(tx, id)
@@ -307,7 +348,7 @@ export async function updateBookingReadiness(
     return after
   })
   if (!row) return null
-  const [enriched] = await withLiveMasterNames([row])
+  const [enriched] = await enrichForRead([row])
   return enriched
 }
 
@@ -333,7 +374,7 @@ export async function deleteBooking(id: string, actor: AuditActor): Promise<bool
 }
 
 export type RestoreResult =
-  | { ok: true; booking: Booking }
+  | { ok: true; booking: BookingWithCreator }
   | { ok: false; reason: 'not_found' | 'already_restored' }
 
 /** Возвращает удаленную запись из последнего снимка с тем же id. Клиент, машина или
@@ -341,7 +382,8 @@ export type RestoreResult =
  * остаются), как и при любом другом сбое производных связей. */
 export async function restoreBooking(id: string, actor: AuditActor): Promise<RestoreResult> {
   const db = getDb()
-  const restored = await db.transaction(async (tx): Promise<RestoreResult> => {
+  type Restored = { ok: true; booking: Booking } | Extract<RestoreResult, { ok: false }>
+  const restored = await db.transaction(async (tx): Promise<Restored> => {
     const [entry] = await tx
       .select({ snapshot: auditLog.snapshot })
       .from(auditLog)
@@ -401,7 +443,7 @@ export async function restoreBooking(id: string, actor: AuditActor): Promise<Res
     return { ok: true, booking: row }
   })
   if (!restored.ok) return restored
-  const [enriched] = await withLiveMasterNames([restored.booking])
+  const [enriched] = await enrichForRead([restored.booking])
   return { ok: true, booking: enriched }
 }
 
@@ -415,8 +457,96 @@ export async function listBookingHistory(id: string): Promise<AuditLogRow[]> {
     .orderBy(asc(auditLog.at), asc(auditLog.id))
 }
 
+export interface BookingJournalRow {
+  entry: AuditLogRow
+  booking: Pick<Booking, 'name' | 'car' | 'dateFrom' | 'dateTo' | 'timeFrom'> | null
+  deleted: boolean
+}
+
+/** Общий журнал по всем записям, свежие первыми. Берет `limit + 1` строк, чтобы
+ * вызывающий узнал о продолжении без COUNT по всему журналу. Сводка записи — из
+ * таблицы, а для отсутствующей записи — из последнего снимка ее удаления. */
+export async function listBookingJournal(p: {
+  limit: number
+  offset: number
+  actorId?: string
+  action?: BookingAuditAction
+}): Promise<BookingJournalRow[]> {
+  const { limit, offset } = p
+  const db = getDb()
+  const entries = await db
+    .select()
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entity, BOOKING_ENTITY),
+        p.actorId ? eq(auditLog.actorId, p.actorId) : undefined,
+        p.action ? eq(auditLog.action, p.action) : undefined,
+      ),
+    )
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(limit + 1)
+    .offset(offset)
+  if (entries.length === 0) return []
+
+  const ids = [...new Set(entries.map((e) => e.entityId))]
+  const summaryCols = {
+    id: bookings.id,
+    name: bookings.name,
+    car: bookings.car,
+    dateFrom: bookings.dateFrom,
+    dateTo: bookings.dateTo,
+    timeFrom: bookings.timeFrom,
+  }
+  const live = await db
+    .select(summaryCols)
+    .from(bookings)
+    // entity_id — текст, а сравнение uuid с не-uuid строкой упало бы, поэтому приводим id.
+    .where(inArray(sql`${bookings.id}::text`, ids))
+  const summaries = new Map<string, BookingJournalRow['booking']>(
+    live.map(({ id, ...rest }) => [id, rest]),
+  )
+
+  const missing = ids.filter((id) => !summaries.has(id))
+  const deleted = new Set(missing)
+  if (missing.length > 0) {
+    const snaps = await db
+      .selectDistinctOn([auditLog.entityId], {
+        entityId: auditLog.entityId,
+        snapshot: auditLog.snapshot,
+      })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.entity, BOOKING_ENTITY),
+          eq(auditLog.action, 'delete'),
+          inArray(auditLog.entityId, missing),
+        ),
+      )
+      .orderBy(auditLog.entityId, desc(auditLog.at), desc(auditLog.id))
+    for (const s of snaps) {
+      const b = s.snapshot?.booking
+      if (b) {
+        summaries.set(s.entityId, {
+          name: b.name,
+          car: b.car,
+          dateFrom: b.dateFrom,
+          dateTo: b.dateTo,
+          timeFrom: b.timeFrom,
+        })
+      }
+    }
+  }
+
+  return entries.map((entry) => ({
+    entry,
+    booking: summaries.get(entry.entityId) ?? null,
+    deleted: deleted.has(entry.entityId),
+  }))
+}
+
 export interface DeletedBookingEntry {
-  booking: Booking
+  booking: BookingWithCreator
   deletedAt: Date
   deletedBy: string
 }
@@ -450,7 +580,7 @@ export async function listDeletedBookings(limit: number): Promise<DeletedBooking
     const booking: Booking = { ...snap.booking, createdAt: new Date(snap.booking.createdAt) }
     return [{ booking, deletedAt: r.at, deletedBy: r.actorName || r.actorLogin }]
   })
-  const enriched = await withLiveMasterNames(items.map((i) => i.booking))
+  const enriched = await enrichForRead(items.map((i) => i.booking))
   return items.map((item, i) => ({ ...item, booking: enriched[i] }))
 }
 
@@ -472,7 +602,7 @@ export interface ListBookingsParams {
 
 export async function listBookings(
   p: ListBookingsParams,
-): Promise<{ items: Booking[]; total: number }> {
+): Promise<{ items: BookingWithCreator[]; total: number }> {
   const db = getDb()
 
   const conds = []
@@ -540,5 +670,5 @@ export async function listBookings(
     .from(bookings)
     .where(where)
 
-  return { items: await withLiveMasterNames(items), total: countRow?.count ?? 0 }
+  return { items: await enrichForRead(items), total: countRow?.count ?? 0 }
 }

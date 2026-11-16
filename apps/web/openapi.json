@@ -1548,6 +1548,10 @@
                           },
                           "createdAt": {
                             "type": "string"
+                          },
+                          "createdBy": {
+                            "type": "string",
+                            "nullable": true
                           }
                         },
                         "required": [
@@ -1568,7 +1572,8 @@
                           "carClass",
                           "sheetRow",
                           "sheetRange",
-                          "createdAt"
+                          "createdAt",
+                          "createdBy"
                         ]
                       }
                     },
@@ -1998,6 +2003,10 @@
                         },
                         "createdAt": {
                           "type": "string"
+                        },
+                        "createdBy": {
+                          "type": "string",
+                          "nullable": true
                         }
                       },
                       "required": [
@@ -2018,7 +2027,8 @@
                         "carClass",
                         "sheetRow",
                         "sheetRange",
-                        "createdAt"
+                        "createdAt",
+                        "createdBy"
                       ]
                     }
                   },
@@ -2538,6 +2548,10 @@
                         },
                         "createdAt": {
                           "type": "string"
+                        },
+                        "createdBy": {
+                          "type": "string",
+                          "nullable": true
                         }
                       },
                       "required": [
@@ -2558,7 +2572,8 @@
                         "carClass",
                         "sheetRow",
                         "sheetRange",
-                        "createdAt"
+                        "createdAt",
+                        "createdBy"
                       ]
                     }
                   },
@@ -2843,6 +2858,10 @@
                               },
                               "createdAt": {
                                 "type": "string"
+                              },
+                              "createdBy": {
+                                "type": "string",
+                                "nullable": true
                               }
                             },
                             "required": [
@@ -2863,7 +2882,8 @@
                               "carClass",
                               "sheetRow",
                               "sheetRange",
-                              "createdAt"
+                              "createdAt",
+                              "createdBy"
                             ]
                           },
                           "deletedAt": {
@@ -2884,6 +2904,341 @@
                   "required": [
                     "ok",
                     "items"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bookings/journal": {
+      "get": {
+        "tags": [
+          "bookings"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "actorId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "create",
+                "update",
+                "delete",
+                "restore"
+              ]
+            },
+            "required": false,
+            "name": "action",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit entries across all bookings, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "create",
+                              "update",
+                              "delete",
+                              "restore"
+                            ]
+                          },
+                          "actorLogin": {
+                            "type": "string"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "changes": {
+                            "type": "array",
+                            "nullable": true,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "field": {
+                                  "type": "string"
+                                },
+                                "from": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "nullable": true
+                                    },
+                                    {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  ]
+                                },
+                                "to": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "nullable": true
+                                    },
+                                    {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "field",
+                                "from",
+                                "to"
+                              ]
+                            }
+                          },
+                          "bookingId": {
+                            "type": "string"
+                          },
+                          "booking": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "car": {
+                                "type": "string"
+                              },
+                              "dateFrom": {
+                                "type": "string"
+                              },
+                              "dateTo": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "timeFrom": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "car",
+                              "dateFrom",
+                              "dateTo",
+                              "timeFrom"
+                            ]
+                          },
+                          "deleted": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "action",
+                          "actorLogin",
+                          "actorName",
+                          "at",
+                          "changes",
+                          "bookingId",
+                          "booking",
+                          "deleted"
+                        ]
+                      }
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "items",
+                    "hasMore"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            }
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "issues"
                   ]
                 }
               }
@@ -3340,6 +3695,10 @@
                         },
                         "createdAt": {
                           "type": "string"
+                        },
+                        "createdBy": {
+                          "type": "string",
+                          "nullable": true
                         }
                       },
                       "required": [
@@ -3360,7 +3719,8 @@
                         "carClass",
                         "sheetRow",
                         "sheetRange",
-                        "createdAt"
+                        "createdAt",
+                        "createdBy"
                       ]
                     }
                   },
@@ -4029,6 +4389,10 @@
                           },
                           "createdAt": {
                             "type": "string"
+                          },
+                          "createdBy": {
+                            "type": "string",
+                            "nullable": true
                           }
                         },
                         "required": [
@@ -4049,7 +4413,8 @@
                           "carClass",
                           "sheetRow",
                           "sheetRange",
-                          "createdAt"
+                          "createdAt",
+                          "createdBy"
                         ]
                       }
                     },

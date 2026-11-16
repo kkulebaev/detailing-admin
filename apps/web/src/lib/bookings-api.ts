@@ -4,6 +4,7 @@ import type {
   BookingMutationResponse,
   BookingDeleteResponse,
   BookingHistoryResponse,
+  BookingJournalResponse,
   BookingRestoreResponse,
   DeletedBookingsResponse,
   Readiness,
@@ -14,11 +15,13 @@ import {
   getApiBookings,
   getApiBookingsDeleted,
   getApiBookingsIdHistory,
+  getApiBookingsJournal,
   postApiBookingsIdRestore,
   patchApiBookingsId,
   patchApiBookingsIdReadiness,
 } from './generated/bookings/bookings'
 import type {
+  GetApiBookingsJournalParams,
   GetApiBookingsParams,
   GetApiBookingsSort,
   PatchApiBookingsIdBody,
@@ -56,6 +59,12 @@ export function updateBookingReadiness(
 
 export function fetchBookingHistory(id: string): Promise<BookingHistoryResponse> {
   return unwrap<BookingHistoryResponse>(() => getApiBookingsIdHistory(id))
+}
+
+export function fetchBookingJournal(
+  params: GetApiBookingsJournalParams,
+): Promise<BookingJournalResponse> {
+  return unwrap<BookingJournalResponse>(() => getApiBookingsJournal(params))
 }
 
 export function fetchDeletedBookings(): Promise<DeletedBookingsResponse> {

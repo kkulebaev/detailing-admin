@@ -13,10 +13,12 @@ import { fetchAccounts, fetchMasters } from './masters-api'
 import { fetchMySalary } from './me-api'
 import {
   fetchBookingHistory,
+  fetchBookingJournal,
   fetchBookings,
   fetchDeletedBookings,
   type GetApiBookingsParams,
 } from './bookings-api'
+import type { GetApiBookingsJournalParams } from './generated/model'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 
 // Ключи запросов лежат рядом с composables, чтобы вызывающему коду не нужно было знать
@@ -145,6 +147,26 @@ export function useBookingHistoryQuery(id: Ref<string | null>) {
     key: () => [...BOOKINGS_KEY, 'history', id.value ?? ''],
     query: () => fetchBookingHistory(id.value ?? ''),
     enabled: () => id.value != null,
+  })
+}
+
+// «Показать еще» растит limit, а не листает offset: лента свежими сверху, и новое
+// событие между запросами сдвинуло бы страницы, дав дубль на стыке.
+export function useBookingJournalQuery(
+  enabled: Ref<boolean>,
+  params: Ref<GetApiBookingsJournalParams>,
+) {
+  return useQuery({
+    key: () => [
+      ...BOOKINGS_KEY,
+      'journal',
+      params.value.limit ?? 0,
+      params.value.actorId ?? '',
+      params.value.action ?? '',
+    ],
+    query: () => fetchBookingJournal(params.value),
+    enabled: () => enabled.value,
+    placeholderData: (previous) => previous,
   })
 }
 

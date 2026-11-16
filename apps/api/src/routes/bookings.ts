@@ -20,6 +20,8 @@ import {
   validationErrorSchema,
   canSeeAmounts,
   bookingHistoryOkSchema,
+  bookingJournalOkSchema,
+  BOOKING_AUDIT_ACTIONS,
   deletedBookingsOkSchema,
   bookingRestoreConflictSchema,
 } from '@detailing-admin/shared'
@@ -39,6 +41,7 @@ import {
   deleteBooking,
   insertBooking,
   listBookingHistory,
+  listBookingJournal,
   listBookings,
   listDeletedBookings,
   restoreBooking,
@@ -267,6 +270,39 @@ const historyRoute = createRoute({
     200: {
       description: 'Booking audit history, oldest first',
       content: { 'application/json': { schema: bookingHistoryOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+// Потолок выше, чем у списка: веб подгружает ленту, растя limit, а не offset.
+const journalQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  actorId: z.string().uuid().optional(),
+  action: z.enum(BOOKING_AUDIT_ACTIONS).optional(),
+})
+
+const journalRoute = createRoute({
+  method: 'get',
+  path: '/journal',
+  tags: ['bookings'],
+  request: { query: journalQuerySchema },
+  responses: {
+    200: {
+      description: 'Audit entries across all bookings, newest first',
+      content: { 'application/json': { schema: bookingJournalOkSchema } },
     },
     400: {
       description: 'Validation error',
@@ -905,6 +941,35 @@ router.openapi(deletedRoute, async (c) => {
 })
 
 router.openapi(
+  journalRoute,
+  async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return dbUnavailable(c)
+    const query = c.req.valid('query')
+    const { limit } = query
+    try {
+      const rows = await listBookingJournal(query)
+      const items = rows.slice(0, limit).map(({ entry, booking, deleted }) => ({
+        id: entry.id,
+        bookingId: entry.entityId,
+        action: entry.action,
+        actorLogin: entry.actorLogin,
+        actorName: entry.actorName,
+        at: entry.at.toISOString(),
+        changes: entry.changes,
+        booking,
+        deleted,
+      }))
+      return c.json({ ok: true as const, items, hasMore: rows.length > limit }, StatusCodes.OK)
+    } catch (err) {
+      return internalError(c, requestId, 'bookings.journal.error', err)
+    }
+  },
+  defaultValidationHook,
+)
+
+router.openapi(
   historyRoute,
   async (c) => {
     const requestId = uuidv4()
@@ -1002,6 +1067,7 @@ function bookingCsvRow(r: BookingRow, includeAmount: boolean): string[] {
     r.master.join(', '),
     r.responsible,
     isoDateTimeCell(r.createdAt),
+    r.createdBy ?? '',
   ]
 }
 
@@ -1068,6 +1134,7 @@ router.get('/export', async (c) => {
       'Мастера',
       'Ответственный',
       'Создано',
+      'Добавил',
     ]
     const rows = items.map((row) =>
       bookingCsvRow(toBookingRow(row, { includeAmount }), includeAmount),

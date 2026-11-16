@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { Booking } from '../src/db/schema.js'
+import type { BookingWithCreator } from '../src/db/bookings.js'
 
 vi.mock('../src/env.js', () => ({
   env: {
@@ -83,7 +83,7 @@ const CAR = { id: 'car-1', makeModel: 'Toyota Camry', plate: 'А123АА77' }
 // Сохраненная строка записи (в форме schema.$inferSelect). В `master` уже лежит
 // актуальное имя — withLiveMasterNames работает внутри замоканного
 // listBookingsByClientId, так что роут просто пропускает его дальше.
-const BOOKING_ROW: Booking = {
+const BOOKING_ROW: BookingWithCreator = {
   id: 'dddddddd-4444-4444-4444-444444444444',
   idempotencyKey: 'key-1',
   clientId: CLIENT.id,
@@ -107,6 +107,7 @@ const BOOKING_ROW: Booking = {
   sheetRow: 42,
   sheetRange: "'Запись 2026'!A42",
   createdAt: new Date('2026-06-09T08:00:00.000Z'),
+  createdBy: null,
 }
 
 const STATS = {

@@ -54,6 +54,7 @@ const BOOKING = {
   sheetRow: 5,
   sheetRange: null,
   createdAt: '2026-06-01T12:00:00.000Z',
+  createdBy: null,
 } satisfies DeletedBooking['booking']
 
 function deleted(): DeletedBookingsResponse {

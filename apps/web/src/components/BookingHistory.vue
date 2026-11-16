@@ -2,31 +2,48 @@
 import { computed, ref, watch } from 'vue'
 import { ChevronDown, History } from '@lucide/vue'
 import { useBookingHistoryQuery } from '@/lib/queries'
-import {
-  auditActionLabel,
-  auditActor,
-  auditFieldLabel,
-  formatAuditTime,
-  formatAuditValue,
-} from '@/lib/booking-audit'
+import { formatAuditMoment } from '@/lib/booking-audit'
+import AuditEntryItem from './AuditEntryItem.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const props = defineProps<{ bookingId: string }>()
+const props = defineProps<{
+  bookingId: string
+  // Момент создания из самой записи: нужен, когда в журнале нет события `create`.
+  createdAt: string
+  initiallyExpanded?: boolean
+}>()
 
 // Журнал нужен редко, поэтому запрос уходит только когда блок раскрыли.
-const expanded = ref(false)
+const expanded = ref(props.initiallyExpanded ?? false)
 const queryId = computed(() => (expanded.value ? props.bookingId : null))
 const { data, isLoading, error } = useBookingHistoryQuery(queryId)
 
 watch(
   () => props.bookingId,
-  () => (expanded.value = false),
+  () => (expanded.value = props.initiallyExpanded ?? false),
 )
 
-const items = computed(() => {
+const logged = computed(() => {
   const d = data.value
   return d?.ok ? [...d.items].reverse() : []
+})
+
+// История начинается с создания записи. У записей старше журнала события `create` нет,
+// поэтому достраиваем его из `createdAt`; автор пустой — его тогда не записывали.
+const items = computed(() => {
+  if (logged.value.some((e) => e.action === 'create')) return logged.value
+  return [
+    ...logged.value,
+    {
+      id: -1,
+      action: 'create' as const,
+      actorLogin: '',
+      actorName: '',
+      at: props.createdAt,
+      changes: null,
+    },
+  ]
 })
 const failed = computed(() => error.value != null || (data.value != null && !data.value.ok))
 </script>
@@ -45,31 +62,26 @@ const failed = computed(() => error.value != null || (data.value != null && !dat
       <ChevronDown class="size-4 transition-transform" :class="expanded && 'rotate-180'" />
     </Button>
 
-    <div v-if="expanded" class="mt-2 max-h-72 overflow-y-auto text-sm">
-      <div v-if="isLoading" class="space-y-2">
-        <Skeleton class="h-10 w-full" />
-        <Skeleton class="h-10 w-full" />
+    <div v-if="expanded" class="mt-3 max-h-80 overflow-y-auto">
+      <div v-if="isLoading" class="space-y-3">
+        <Skeleton class="h-12 w-full" />
+        <Skeleton class="h-12 w-full" />
       </div>
-      <p v-else-if="failed" class="text-destructive">Не удалось загрузить историю</p>
-      <p v-else-if="items.length === 0" class="text-muted-foreground">
-        Изменений пока нет. Журнал ведется с момента его появления в приложении.
-      </p>
-      <ol v-else class="space-y-3">
-        <li v-for="entry in items" :key="entry.id">
-          <div class="text-xs text-muted-foreground tabular-nums">
-            {{ formatAuditTime(entry.at) }} · {{ auditActor(entry) }}
-          </div>
-          <div>{{ auditActionLabel(entry.action) }}</div>
-          <ul v-if="entry.changes?.length" class="mt-1 space-y-0.5">
-            <li v-for="change in entry.changes" :key="change.field" class="break-words">
-              <span class="text-muted-foreground">{{ auditFieldLabel(change.field) }}:</span>
-              <span class="line-through decoration-muted-foreground/60">
-                {{ formatAuditValue(change.field, change.from) }}
-              </span>
-              →
-              <span>{{ formatAuditValue(change.field, change.to) }}</span>
-            </li>
-          </ul>
+      <p v-else-if="failed" class="text-sm text-destructive">Не удалось загрузить историю</p>
+      <!-- Линия между иконками связывает события в одну хронологию записи. Она стоит
+           на половине ширины кружка (size-7 → 3.5) и не тянется ниже последнего. -->
+      <ol v-else>
+        <li v-for="(entry, i) in items" :key="entry.id" class="relative pb-4 last:pb-0">
+          <span
+            v-if="i < items.length - 1"
+            class="absolute top-8 bottom-0 left-3.5 w-px bg-border"
+            aria-hidden="true"
+          />
+          <AuditEntryItem :entry="entry" :time="formatAuditMoment(entry.at)">
+            <p v-if="entry.id < 0" class="text-xs text-muted-foreground">
+              Автор неизвестен: запись создана до появления журнала
+            </p>
+          </AuditEntryItem>
         </li>
       </ol>
     </div>

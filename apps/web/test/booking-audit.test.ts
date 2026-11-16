@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { auditActor, auditFieldLabel, formatAuditValue } from '@/lib/booking-audit'
+import {
+  auditActor,
+  auditDayLabel,
+  auditFieldLabel,
+  formatAuditValue,
+  isEmptyAuditValue,
+  visibleAuditChanges,
+} from '@/lib/booking-audit'
 
 describe('formatAuditValue', () => {
   it('показывает пустое значение прочерком', () => {
@@ -28,5 +35,39 @@ describe('подписи журнала', () => {
   it('берет логин, когда имя в аккаунте не заполнено', () => {
     expect(auditActor({ actorName: '', actorLogin: 'admin' })).toBe('admin')
     expect(auditActor({ actorName: 'Анна К', actorLogin: 'admin' })).toBe('Анна К')
+  })
+})
+
+describe('время события', () => {
+  // Полдень, чтобы сдвиг пояса устройства не перекинул дату через полночь.
+  const now = new Date(2026, 10, 16, 12, 0)
+  const at = (y: number, m: number, d: number) => new Date(y, m, d, 9, 30).toISOString()
+
+  it('называет сегодня и вчера словами', () => {
+    expect(auditDayLabel(at(2026, 10, 16), now)).toBe('Сегодня')
+    expect(auditDayLabel(at(2026, 10, 15), now)).toBe('Вчера')
+  })
+
+  it('пишет дату словами и добавляет год только для прошлых лет', () => {
+    expect(auditDayLabel(at(2026, 10, 10), now)).toBe('10 ноября')
+    expect(auditDayLabel(at(2025, 11, 31), now)).toBe('31 декабря 2025 г.')
+  })
+})
+
+describe('изменения для показа', () => {
+  it('прячет формулу суммы', () => {
+    const changes = [
+      { field: 'amount', from: 5000, to: 6000 },
+      { field: 'amountFormula', from: '=5000', to: null },
+    ]
+    expect(visibleAuditChanges(changes).map((c) => c.field)).toEqual(['amount'])
+    expect(visibleAuditChanges(null)).toEqual([])
+  })
+
+  it('считает пустыми null, пустую строку и пустой список', () => {
+    expect(isEmptyAuditValue(null)).toBe(true)
+    expect(isEmptyAuditValue('')).toBe(true)
+    expect(isEmptyAuditValue([])).toBe(true)
+    expect(isEmptyAuditValue(0)).toBe(false)
   })
 })

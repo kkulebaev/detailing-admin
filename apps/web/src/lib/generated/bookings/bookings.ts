@@ -22,6 +22,11 @@ import type {
   GetApiBookingsIdHistory400,
   GetApiBookingsIdHistory500,
   GetApiBookingsIdHistory503,
+  GetApiBookingsJournal200,
+  GetApiBookingsJournal400,
+  GetApiBookingsJournal500,
+  GetApiBookingsJournal503,
+  GetApiBookingsJournalParams,
   GetApiBookingsParams,
   PatchApiBookingsId200,
   PatchApiBookingsId400,
@@ -402,6 +407,62 @@ export const getGetApiBookingsDeletedUrl = () => {
 export const getApiBookingsDeleted = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<getApiBookingsDeletedResponse> => {
 
   return orvalFetch<getApiBookingsDeletedResponse>(getGetApiBookingsDeletedUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type getApiBookingsJournalResponse200 = {
+  data: GetApiBookingsJournal200
+  status: 200
+}
+
+export type getApiBookingsJournalResponse400 = {
+  data: GetApiBookingsJournal400
+  status: 400
+}
+
+export type getApiBookingsJournalResponse500 = {
+  data: GetApiBookingsJournal500
+  status: 500
+}
+
+export type getApiBookingsJournalResponse503 = {
+  data: GetApiBookingsJournal503
+  status: 503
+}
+
+export type getApiBookingsJournalResponseSuccess = (getApiBookingsJournalResponse200) & {
+  headers: Headers;
+};
+export type getApiBookingsJournalResponseError = (getApiBookingsJournalResponse400 | getApiBookingsJournalResponse500 | getApiBookingsJournalResponse503) & {
+  headers: Headers;
+};
+
+export type getApiBookingsJournalResponse = (getApiBookingsJournalResponseSuccess | getApiBookingsJournalResponseError)
+
+export const getGetApiBookingsJournalUrl = (params?: GetApiBookingsJournalParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/bookings/journal?${stringifiedParams}` : `/api/bookings/journal`
+}
+
+export const getApiBookingsJournal = async (params?: GetApiBookingsJournalParams, options?: Parameters<typeof orvalFetch>[1]): Promise<getApiBookingsJournalResponse> => {
+
+  return orvalFetch<getApiBookingsJournalResponse>(getGetApiBookingsJournalUrl(params),
   {
     ...options,
     method: 'GET'

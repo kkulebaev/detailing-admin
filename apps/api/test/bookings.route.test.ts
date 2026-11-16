@@ -64,6 +64,7 @@ vi.mock('../src/db/bookings.js', async (importActual) => {
     restoreBooking: vi.fn(),
     listBookingHistory: vi.fn(),
     listDeletedBookings: vi.fn(),
+    listBookingJournal: vi.fn(),
   }
 })
 
@@ -82,7 +83,7 @@ import {
 } from '../src/boot.js'
 import { upsertClient } from '../src/db/clients.js'
 import { selectCarId, upsertClientCarReturningId } from '../src/db/client-cars.js'
-import type { Booking } from '../src/db/schema.js'
+import type { BookingWithCreator } from '../src/db/bookings.js'
 import {
   insertBooking,
   listBookings,
@@ -92,6 +93,7 @@ import {
   restoreBooking,
   listBookingHistory,
   listDeletedBookings,
+  listBookingJournal,
 } from '../src/db/bookings.js'
 import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
@@ -570,7 +572,7 @@ describe('GET /api/bookings', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''
 
-  const SAMPLE_ROW: Booking = {
+  const SAMPLE_ROW: BookingWithCreator = {
     id: '11111111-1111-1111-1111-111111111111',
     idempotencyKey: 'key-1',
     clientId: null,
@@ -594,6 +596,7 @@ describe('GET /api/bookings', () => {
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
+    createdBy: 'Админ',
   }
 
   beforeEach(async () => {
@@ -708,7 +711,7 @@ describe('GET /api/bookings/export', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''
 
-  const SAMPLE_ROW: Booking = {
+  const SAMPLE_ROW: BookingWithCreator = {
     id: '11111111-1111-1111-1111-111111111111',
     idempotencyKey: 'key-1',
     clientId: null,
@@ -732,6 +735,7 @@ describe('GET /api/bookings/export', () => {
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
+    createdBy: 'Админ',
   }
 
   beforeEach(async () => {
@@ -822,7 +826,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''
   const ID = '4f6d8b2a-1c3e-4a5b-9d7f-0e1a2b3c4d5e'
-  const UPDATED_ROW: Booking = {
+  const UPDATED_ROW: BookingWithCreator = {
     id: ID,
     idempotencyKey: 'key-1',
     clientId: null,
@@ -846,6 +850,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
+    createdBy: 'Админ',
   }
 
   beforeEach(async () => {
@@ -1050,7 +1055,7 @@ describe('журнал и корзина записей', () => {
   let app: ReturnType<typeof createApp>
   let cookie = ''
   const ID = '4f6d8b2a-1c3e-4a5b-9d7f-0e1a2b3c4d5e'
-  const ROW: Booking = {
+  const ROW: BookingWithCreator = {
     id: ID,
     idempotencyKey: 'key-1',
     clientId: null,
@@ -1074,6 +1079,7 @@ describe('журнал и корзина записей', () => {
     sheetRow: 5,
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
+    createdBy: 'Админ',
   }
 
   beforeEach(async () => {
@@ -1153,6 +1159,64 @@ describe('журнал и корзина записей', () => {
     expect(body.items[0].booking.idempotencyKey).toBeUndefined()
   })
 
+  it('GET journal отдает ленту со сводкой записи и флагом продолжения', async () => {
+    const entry = (id: number, action: 'create' | 'update') => ({
+      id,
+      entity: 'booking',
+      entityId: ID,
+      action,
+      actorId: 'u-admin',
+      actorLogin: 'admin',
+      actorName: 'Анна',
+      changes: action === 'update' ? [{ field: 'amount', from: 5000, to: 7000 }] : null,
+      snapshot: null,
+      at: new Date(`2026-06-0${id}T10:00:00.000Z`),
+    })
+    const summary = {
+      name: 'Иван',
+      car: 'Toyota Camry',
+      dateFrom: '2026-06-04',
+      dateTo: null,
+      timeFrom: '10:00',
+    }
+    // limit + 1 строк от БД значит, что есть продолжение; лишняя строка в ответ не идет.
+    vi.mocked(listBookingJournal).mockResolvedValue([
+      { entry: entry(3, 'update'), booking: summary, deleted: false },
+      { entry: entry(2, 'create'), booking: summary, deleted: false },
+    ])
+    const actorId = '11111111-2222-4333-8444-555555555555'
+    const res = await get(`/api/bookings/journal?limit=1&offset=5&actorId=${actorId}&action=update`)
+    expect(res.status).toBe(200)
+    expect(vi.mocked(listBookingJournal)).toHaveBeenCalledWith({
+      limit: 1,
+      offset: 5,
+      actorId,
+      action: 'update',
+    })
+    expect(await res.json()).toEqual({
+      ok: true,
+      hasMore: true,
+      items: [
+        {
+          id: 3,
+          bookingId: ID,
+          action: 'update',
+          actorLogin: 'admin',
+          actorName: 'Анна',
+          at: '2026-06-03T10:00:00.000Z',
+          changes: [{ field: 'amount', from: 5000, to: 7000 }],
+          booking: summary,
+          deleted: false,
+        },
+      ],
+    })
+  })
+
+  it('GET journal отклоняет неизвестное действие', async () => {
+    expect((await get('/api/bookings/journal?action=hack')).status).toBe(400)
+    expect(vi.mocked(listBookingJournal)).not.toHaveBeenCalled()
+  })
+
   it('POST restore возвращает восстановленную запись', async () => {
     vi.mocked(restoreBooking).mockResolvedValue({ ok: true, booking: ROW })
     const res = await restore()
@@ -1177,7 +1241,9 @@ describe('журнал и корзина записей', () => {
     const headers = { Cookie: await makeCookie() }
     expect((await get(`/api/bookings/${ID}/history`, headers)).status).toBe(403)
     expect((await get('/api/bookings/deleted', headers)).status).toBe(403)
+    expect((await get('/api/bookings/journal', headers)).status).toBe(403)
     expect((await restore(headers)).status).toBe(403)
+    expect(vi.mocked(listBookingJournal)).not.toHaveBeenCalled()
     expect(vi.mocked(listBookingHistory)).not.toHaveBeenCalled()
     expect(vi.mocked(listDeletedBookings)).not.toHaveBeenCalled()
     expect(vi.mocked(restoreBooking)).not.toHaveBeenCalled()
@@ -1187,6 +1253,7 @@ describe('журнал и корзина записей', () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     expect((await get(`/api/bookings/${ID}/history`)).status).toBe(503)
     expect((await get('/api/bookings/deleted')).status).toBe(503)
+    expect((await get('/api/bookings/journal')).status).toBe(503)
     expect((await restore()).status).toBe(503)
   })
 })

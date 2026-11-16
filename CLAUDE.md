@@ -85,7 +85,7 @@ pnpm workspace, three packages:
 - **`packages/shared`** — Zod schemas that form the wire contract for every route: `bookingSchema` plus the booking-row/list/mutation schemas, clients and cars, masters, pricelist, salaries, analytics, auth. No build step; both apps import `.ts` directly via tsconfig path aliases (`@detailing-admin/shared/*` resolves to `packages/shared/src/*.ts`). Also exports enums (`READINESS`), helpers (`normalizePhone`, `parseDdmmyyyy`, `ddmmyyyyToIso`, `toCsv`), `bookingToRow`, `EXPECTED_HEADERS`, `StatusCodes`, and the `ApiResult` discriminated union.
 - **`apps/api`** — Hono via `@hono/zod-openapi` on `@hono/node-server`. Sheets writes via `googleapis`; Postgres via Drizzle (`drizzle-orm` + `postgres-js`); Telegram notifications via the Bot API (`telegram.ts`, `notify.ts`). Module-level state machine for boot health (see below). Routes (`apps/api/src/routes/`):
   - `/api/auth` — `login`, `logout`, `me` (GET/PATCH), `change-password`. Public; outside the guards.
-  - `/api/bookings` — `POST` (booking form), `GET` list, `GET /export` (CSV), `PATCH /{id}`, `DELETE /{id}`, `PATCH /{id}/readiness`; admin-only `GET /{id}/history`, `GET /deleted`, `POST /{id}/restore` (see «Booking audit log»).
+  - `/api/bookings` — `POST` (booking form), `GET` list, `GET /export` (CSV), `PATCH /{id}`, `DELETE /{id}`, `PATCH /{id}/readiness`; admin-only `GET /{id}/history`, `GET /journal`, `GET /deleted`, `POST /{id}/restore` (see «Booking audit log»).
   - `/api/clients` — list, `GET /{id}` (detail with history), CRUD, `GET /export`.
   - `/api/pricelist` — `GET` plus CRUD for `sections` and `services`.
   - `/api/masters` — list, CRUD, `PATCH /reorder`. A master may be linked to a login account (`userId`).
@@ -103,7 +103,7 @@ pnpm workspace, three packages:
 
 Stateless HS256 JWT in an httpOnly cookie (`apps/api/src/auth/`); `requireAuth` only verifies the token, so it never touches Postgres and the booking flow stays DB-independent. Guards are wired in `server.ts`:
 - Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with three exceptions open to any authenticated role: `GET /api/bookings*` and `GET /api/masters*` (the bookings handler hides amounts from `employee`), and `/api/me/*`, whose handlers scope everything to the caller's own master.
-- The booking audit endpoints (`/api/bookings/deleted`, `/{id}/history`, `/{id}/restore`) are admin-only despite their `GET`/`POST` methods: `BOOKINGS_ADMIN_ONLY` in `server.ts` matches them before the per-method branches.
+- The booking audit endpoints (`/api/bookings/deleted`, `/journal`, `/{id}/history`, `/{id}/restore`) are admin-only despite their `GET`/`POST` methods: `BOOKINGS_ADMIN_ONLY` in `server.ts` matches them before the per-method branches.
 - `booker` additionally gets what the booking form needs: `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup` (exact phone only, no `totalSpent`), plus editing bookings: `PATCH /api/bookings/{id}`, `DELETE /api/bookings/{id}` and `PATCH /api/bookings/{id}/readiness`. The clients list, card and export stay admin-only.
 - The rules live in `canCreateBookings` / `canEditBookings` / `canSeeAmounts` (shared). `toRole` narrows `users.role`, which is a plain varchar, so an unknown value becomes `employee`.
 - The role is a JWT claim and `/me` re-mints it from the old token, so `user:set-role` reaches a live session only after a fresh login.
@@ -142,10 +142,13 @@ This is deliberate: Railway treats a crash-loop as zero healthy revisions, hidin
 `audit_log` records who created, edited, deleted and restored each booking (`apps/api/src/db/audit.ts`, `db/bookings.ts`). Every mutation in `db/bookings.ts` takes an `AuditActor` (snapshot of the session's id, login and name) and writes its row in the **same transaction** as the change, locking the booking with `SELECT … FOR UPDATE` first so the «before» values are exact. An edit stores only the changed fields (`diffBookings` over `BOOKING_AUDITED_FIELDS`); a no-op save writes nothing. Derived links (`clientId`, `carId`, `responsibleId`) are not audited.
 - **Delete stays physical.** The full row plus its `booking_masters` links goes into `audit_log.snapshot`, so a deleted booking never leaks into any `bookings` read (list, analytics, client totals, FK checks) — there is deliberately no `deletedAt` column. Don't add one.
 - **Restore** re-inserts the latest snapshot with the same id; a client, car or master that disappeared meanwhile becomes a `null` link (snapshots stay). A second restore is a 409 `already_restored`.
+- **The journal** (`GET /api/bookings/journal`) is every entry across all bookings, newest first, with a booking summary (from the live row, or the latest delete snapshot when the booking is gone) and a `deleted` flag, optionally filtered by `actorId` and `action`. It pages by `limit` + `hasMore` (`limit` up to 500); the web grows `limit` instead of moving `offset`, so a fresh event can't shift pages and duplicate a row.
 - **The trash** (`GET /api/bookings/deleted`) is the latest `delete` entry per id whose booking is currently absent, newest first, capped at 100.
 - History starts with the migration: older bookings have no `create` entry. `POST /api/bookings` logs `create` only when the mirror insert happens; seed scripts pass no actor and log nothing.
 - Like other in-app edits, none of this reaches Sheets.
-- Web: «История изменений» in `BookingDetailsDialog` and the «Удаленные» dialog (`DeletedBookingsDialog`) on `/bookings`, both admin-only.
+- **Author (`createdBy`)** is read from the `create` entry on every bookings read (`enrichForRead` in `db/bookings.ts`), not stored on `bookings`, so it survives delete + restore. It reaches every role, but the bookings table has no column for it: it shows in the row tooltip, as the `create` event at the bottom of the booking history and in the CSV export; `null` for bookings older than the log.
+- Booking history always ends with creation: for a booking older than the log, `BookingHistory` synthesizes a `create` event from `createdAt` with no author.
+- Web: «История изменений» in `BookingDetailsDialog` (in the full table admins open it with the history button in «Действия»), the «Журнал» dialog (`BookingJournalDialog`) and the «Удаленные» dialog (`DeletedBookingsDialog`) on `/bookings`, all admin-only.
 
 ### Telegram notifications
 

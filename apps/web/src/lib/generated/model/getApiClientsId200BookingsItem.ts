@@ -33,4 +33,6 @@ export type GetApiClientsId200BookingsItem = {
   /** @nullable */
   sheetRange: string | null;
   createdAt: string;
+  /** @nullable */
+  createdBy: string | null;
 };
