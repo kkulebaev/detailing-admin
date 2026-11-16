@@ -200,14 +200,29 @@ const displayName = computed(() => {
           <Button variant="outline" size="sm" class="mt-3" @click="close">К списку клиентов</Button>
         </div>
 
-        <!-- Загрузка: скелетоны плиток + истории. Также покрывает короткое окно
+        <!-- Загрузка: скелетоны в порядке контента (машины, плитки, история). Также покрывает короткое окно
            после прихода данных, но до конца анимации появления. -->
-        <div v-else-if="showSkeleton" class="space-y-6 p-4">
+        <div v-else-if="showSkeleton" class="space-y-6 p-4" aria-hidden="true">
+          <div class="space-y-2">
+            <Skeleton class="h-4 w-20" />
+            <Skeleton class="h-4 w-48" />
+          </div>
           <div class="grid grid-cols-2 gap-3">
             <Skeleton v-for="i in 2" :key="i" class="h-20 w-full" />
           </div>
-          <div class="space-y-3">
-            <Skeleton v-for="i in 4" :key="i" class="h-16 w-full" />
+          <div class="space-y-2">
+            <Skeleton class="mb-2 h-4 w-16" />
+            <div v-for="i in 3" :key="i" class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex justify-between gap-2">
+                <Skeleton class="h-4 w-24" />
+                <Skeleton class="h-5 w-20 rounded-full" />
+              </div>
+              <Skeleton class="h-4 w-44" />
+              <div class="flex justify-between gap-2">
+                <Skeleton class="h-4 w-28" />
+                <Skeleton class="h-4 w-16" />
+              </div>
+            </div>
           </div>
         </div>
 

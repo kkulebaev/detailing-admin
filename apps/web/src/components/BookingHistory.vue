@@ -4,8 +4,8 @@ import { ChevronDown, History } from '@lucide/vue'
 import { useBookingHistoryQuery } from '@/lib/queries'
 import { formatAuditMoment } from '@/lib/booking-audit'
 import AuditEntryItem from './AuditEntryItem.vue'
+import AuditEntrySkeleton from './AuditEntrySkeleton.vue'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 
 const props = defineProps<{
   bookingId: string
@@ -80,10 +80,9 @@ const failed = computed(() => error.value != null || (data.value != null && !dat
     <!-- Своя прокрутка только на широком экране: на телефоне вложенный скролл внутри
          прокручиваемой карточки обрезал последнее событие и ловил свайп. -->
     <div v-if="expanded" class="mt-3 sm:max-h-80 sm:overflow-y-auto sm:overscroll-contain">
-      <div v-if="isPending" class="space-y-3">
-        <Skeleton class="h-12 w-full" />
-        <Skeleton class="h-12 w-full" />
-      </div>
+      <!-- Повторяет форму одного события: создание есть у любой записи, а сколько
+           будет остальных, до загрузки неизвестно. -->
+      <AuditEntrySkeleton v-if="isPending" />
       <p v-else-if="failed" class="text-sm text-destructive">Не удалось загрузить историю</p>
       <!-- Линия между иконками связывает события в одну хронологию записи. Она стоит
            на половине ширины кружка (size-7 → 3.5) и не тянется ниже последнего. -->

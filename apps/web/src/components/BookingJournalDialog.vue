@@ -9,6 +9,7 @@ import {
   formatAuditClock,
 } from '@/lib/booking-audit'
 import AuditEntryItem from './AuditEntryItem.vue'
+import AuditEntrySkeleton from './AuditEntrySkeleton.vue'
 import { isoToDdmmyyyy } from '@/lib/date'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,7 +58,7 @@ const params = computed(() => ({
 }))
 
 const open = toRef(props, 'open')
-const { data, isLoading, isPlaceholderData, error } = useBookingJournalQuery(open, params)
+const { data, isPending, isPlaceholderData, error } = useBookingJournalQuery(open, params)
 const { data: accountsData } = useAccountsQuery(open)
 
 const accounts = computed(() => {
@@ -142,8 +143,11 @@ function bookingWhen(entry: BookingJournalEntry): string {
       </SheetHeader>
 
       <div class="flex-1 overflow-y-auto px-4 pb-safe">
-        <div v-if="isLoading && items.length === 0" class="space-y-3 pt-4">
-          <Skeleton v-for="i in 4" :key="i" class="h-16 w-full" />
+        <div v-if="isPending" class="pt-4">
+          <Skeleton class="mb-4 h-3 w-16" />
+          <div class="space-y-4">
+            <AuditEntrySkeleton v-for="i in 4" :key="i" with-booking />
+          </div>
         </div>
         <p v-else-if="failed" class="pt-4 text-sm text-destructive">Не удалось загрузить журнал</p>
         <p v-else-if="items.length === 0" class="pt-4 text-sm text-muted-foreground">

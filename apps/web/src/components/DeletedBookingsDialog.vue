@@ -22,7 +22,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'update:open', v: boolean): void }>()
 
-const { data, isLoading, error } = useDeletedBookingsQuery(toRef(props, 'open'))
+// `isPending`, а не `isLoading`: тот true и при фоновом обновлении, и скелетон
+// закрывал бы уже загруженный список.
+const { data, isPending, error } = useDeletedBookingsQuery(toRef(props, 'open'))
 const invalidateBookings = useInvalidateBookings()
 
 const items = computed(() => (data.value?.ok ? data.value.items : []))
@@ -72,10 +74,17 @@ async function onRestore(item: DeletedBooking) {
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="isLoading" class="space-y-2">
-        <Skeleton class="h-20 w-full" />
-        <Skeleton class="h-20 w-full" />
-      </div>
+      <ul v-if="isPending" class="divide-y" aria-hidden="true">
+        <li v-for="i in 2" :key="i" class="flex items-start justify-between gap-3 py-3">
+          <div class="min-w-0 flex-1 space-y-2">
+            <Skeleton class="h-4 w-1/2" />
+            <Skeleton class="h-4 w-full" />
+            <Skeleton class="h-4 w-3/4" />
+            <Skeleton class="h-3 w-4/5" />
+          </div>
+          <Skeleton class="h-8 w-32 shrink-0" />
+        </li>
+      </ul>
       <p v-else-if="failed" class="text-sm text-destructive">Не удалось загрузить корзину</p>
       <p v-else-if="items.length === 0" class="text-sm text-muted-foreground">
         Удаленных записей нет
