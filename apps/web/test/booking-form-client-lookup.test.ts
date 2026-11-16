@@ -28,6 +28,12 @@ vi.mock('@/composables/use-client-lookup', () => ({
 vi.mock('@/lib/queries', () => ({
   useMastersQuery: () => ({ data: ref({ ok: true, masters: [] }), asyncStatus: ref('idle') }),
   usePricelistQuery: () => ({ data: ref({ ok: true, sections: [] }) }),
+  // Настоящий useQuery вычисляет ключ сразу при вызове: читаем диапазон так же,
+  // чтобы обращение к полям формы до useForm падало и здесь.
+  useScheduleQuery: (range: { value: unknown }) => {
+    void range.value
+    return { data: ref(undefined) }
+  },
 }))
 
 vi.mock('@/lib/api', () => ({ submitBooking: vi.fn() }))

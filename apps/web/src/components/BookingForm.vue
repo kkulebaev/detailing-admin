@@ -9,7 +9,12 @@ import { toast } from 'vue-sonner'
 import { Calendar as CalendarIcon, Pencil, TriangleAlert, User } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
-import { bookingSchema, DEFAULT_CAR_CLASS, MAX_MASTERS } from '@detailing-admin/shared'
+import {
+  bookingSchema,
+  ddmmyyyyToIso,
+  DEFAULT_CAR_CLASS,
+  MAX_MASTERS,
+} from '@detailing-admin/shared'
 import type { BookingApiResult, CarClass, MissedBookings } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
 import { usePricelistQuery, useMastersQuery } from '@/lib/queries'
@@ -26,6 +31,7 @@ import {
 } from '@/lib/service-breakdown'
 import { usePhoneInput, formatPastedPhone } from '@/composables/use-phone-input'
 import { useClientLookup } from '@/composables/use-client-lookup'
+import { useDaysOffWarning } from '@/composables/use-days-off-warning'
 import type { Car } from '@/lib/clients-api'
 
 import { Button } from '@/components/ui/button'
@@ -482,6 +488,23 @@ const {
   validationSchema: toTypedSchema(bookingSchema),
   initialValues: initialFormValues,
 })
+
+// Поля дат — текст, который вводят посимвольно: пока строка неполная, предупреждать не о чем.
+// Длина важна: `01.12.202` парсится как 202 год и дал бы запрос, который API отклонит.
+function safeIso(ddmmyyyy: string | undefined): string | null {
+  if (ddmmyyyy?.length !== 10) return null
+  try {
+    return ddmmyyyyToIso(ddmmyyyy)
+  } catch {
+    return null
+  }
+}
+// После useForm: запрос графика сразу читает `values`, а раньше это ошибка TDZ.
+const daysOff = useDaysOffWarning(
+  computed(() => safeIso(values.dateFrom)),
+  computed(() => safeIso(values.dateTo)),
+  computed(() => values.master ?? []),
+)
 
 // Синхронизируем тоггл уведомления с доступностью: выключен, когда у выбранного
 // мастера нет Telegram ID, включен, как только выбран мастер, которого можно уведомить.
@@ -1847,6 +1870,13 @@ watch(
                     class="min-h-11"
                   />
                   <FormMessage />
+                  <Alert v-if="daysOff.length > 0" variant="destructive">
+                    <TriangleAlert />
+                    <AlertTitle>Выходной по графику</AlertTitle>
+                    <AlertDescription>
+                      <p v-for="line in daysOff" :key="line">{{ line }}</p>
+                    </AlertDescription>
+                  </Alert>
                 </FormItem>
               </FormField>
 

@@ -74,6 +74,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Мастера', requiresAuth: true, roles: ['admin'] },
   },
   {
+    path: '/schedule',
+    name: 'schedule',
+    component: () => import('@/components/SchedulePage.vue'),
+    meta: { title: 'График', requiresAuth: true, roles: ['admin', 'booker', 'employee'] },
+  },
+  {
     path: '/salaries',
     name: 'salaries',
     component: () => import('@/components/SalariesPage.vue'),

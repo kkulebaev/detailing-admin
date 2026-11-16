@@ -155,6 +155,13 @@
       "when": 1794339860636,
       "tag": "0021_majestic_tag",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794834016809,
+      "tag": "0022_goofy_blink",
+      "breakpoints": true
     }
   ]
 }

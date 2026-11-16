@@ -2,6 +2,7 @@
 import { computed, watch, type Component } from 'vue'
 import {
   BarChart3,
+  CalendarDays,
   CalendarPlus,
   ClipboardList,
   Clock,
@@ -38,7 +39,7 @@ interface NavItem {
   roles: readonly Role[]
 }
 
-// Сотрудники видят список записей и свои часы, букер дополнительно получает
+// Сотрудники видят список записей, график и свои часы, букер дополнительно получает
 // форму записи; все остальное — только для админа.
 const NAV_ITEMS: readonly NavItem[] = [
   {
@@ -56,6 +57,12 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'clients' }, label: 'Клиенты', icon: Users, roles: ['admin'] },
   { to: { name: 'pricelist' }, label: 'Прайс', icon: ReceiptText, roles: ['admin'] },
   { to: { name: 'masters' }, label: 'Мастера', icon: Wrench, roles: ['admin'] },
+  {
+    to: { name: 'schedule' },
+    label: 'График',
+    icon: CalendarDays,
+    roles: ['admin', 'booker', 'employee'],
+  },
   { to: { name: 'salaries' }, label: 'Зарплаты', icon: Wallet, roles: ['admin'] },
   { to: { name: 'analytics' }, label: 'Аналитика', icon: BarChart3, roles: ['admin'] },
   { to: { name: 'employee' }, label: 'Мои часы', icon: Clock, roles: ['booker', 'employee'] },

@@ -12,6 +12,7 @@ import salariesRouter from './routes/salaries.js'
 import analyticsRouter from './routes/analytics.js'
 import meRouter from './routes/me.js'
 import usersRouter from './routes/users.js'
+import scheduleRouter from './routes/schedule.js'
 import {
   requireAuth,
   requireAdmin,
@@ -88,6 +89,9 @@ export function createApp() {
   // у сотрудников; управление ими (POST/PATCH/DELETE) остается только для админа.
   app.use('/api/masters/*', requireAuth)
   app.use('/api/masters/*', (c, next) => (c.req.method === 'GET' ? next() : requireAdmin(c, next)))
+  // График видят все роли (форма записи у booker'а предупреждает о выходных), правит админ.
+  app.use('/api/schedule/*', requireAuth)
+  app.use('/api/schedule/*', (c, next) => (c.req.method === 'GET' ? next() : requireAdmin(c, next)))
 
   app.route('/healthz', healthzRouter)
   app.route('/api/bookings', bookingsRouter)
@@ -98,6 +102,7 @@ export function createApp() {
   app.route('/api/analytics', analyticsRouter)
   app.route('/api/users', usersRouter)
   app.route('/api/me', meRouter)
+  app.route('/api/schedule', scheduleRouter)
 
   app.notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
 

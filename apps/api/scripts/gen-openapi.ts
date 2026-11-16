@@ -37,6 +37,7 @@ const { default: salariesRouter } = await import('../src/routes/salaries.js')
 const { default: analyticsRouter } = await import('../src/routes/analytics.js')
 const { default: usersRouter } = await import('../src/routes/users.js')
 const { default: meRouter } = await import('../src/routes/me.js')
+const { default: scheduleRouter } = await import('../src/routes/schedule.js')
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -56,6 +57,7 @@ export function buildOpenApiDocument() {
     .route('/api/analytics', analyticsRouter)
     .route('/api/users', usersRouter)
     .route('/api/me', meRouter)
+    .route('/api/schedule', scheduleRouter)
 
   return app.getOpenAPIDocument({
     openapi: '3.0.0',

@@ -264,6 +264,20 @@ export const workHours = pgTable(
 export type WorkHoursRow = typeof workHours.$inferSelect
 export type NewWorkHours = typeof workHours.$inferInsert
 
+// Хранятся только рабочие дни: строка есть — мастер работает, нет — выходной.
+// `cascade`: в отличие от часов и выплат, график не история денег, а мастера и так
+// не удаляют, только архивируют.
+export const masterSchedule = pgTable(
+  'master_schedule',
+  {
+    masterId: integer('master_id')
+      .notNull()
+      .references(() => masters.id, { onDelete: 'cascade' }),
+    workDate: date('work_date').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.masterId, t.workDate] })],
+)
+
 // Разовые суммы, не связанные с отработанными часами: премии, компенсации и
 // (отрицательные) удержания. Снимка ставки нет по замыслу — сумма
 // самодостаточна. `restrict`, как у work_hours: это история выплат.

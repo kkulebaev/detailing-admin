@@ -93,16 +93,17 @@ pnpm workspace, three packages:
   - `/api/analytics/overview` — revenue totals, series, retention, top clients.
   - `/api/users` — login accounts, for the master form's account picker.
   - `/api/me` — the signed-in account's own hours: `GET /salary`, CRUD for `hours` (see «Self-service hours»).
+  - `/api/schedule` — masters' working days: `GET ?from&to`, `PATCH` one day (see «Masters' schedule»).
   - `GET /healthz`, `GET /openapi.json`.
 - **`apps/web`** — Vue 3 + Vite + Tailwind v4 + shadcn-vue + vue-router + Pinia (`stores/auth.ts`). SPA wrapped by `AppLayout` + `AppSidebar`. The API client is **orval-generated** from `apps/web/openapi.json` into `src/lib/generated/` (never hand-edit it); `src/lib/*-api.ts` wrap it. Pages (`src/router.ts`):
   - `/` booking form (`BookingForm.vue`, admin + booker) — `vee-validate` + `@vee-validate/zod` with the shared schema via `toTypedSchema(bookingSchema)`; phone lookup autofills the client and their cars (`use-client-lookup`).
-  - `/bookings` (`BookingsPage.vue`, all roles), `/clients` and `/clients/:id` (`ClientsPage.vue` — both paths mount the same instance so the detail dialog slides over the live list), `/pricelist`, `/masters`, `/salaries`, `/analytics` (admin).
+  - `/bookings` (`BookingsPage.vue`, all roles), `/clients` and `/clients/:id` (`ClientsPage.vue` — both paths mount the same instance so the detail dialog slides over the live list), `/pricelist`, `/masters`, `/salaries`, `/analytics` (admin), `/schedule` (`SchedulePage.vue`, all roles, only admins edit).
   - `/employee` («Мои часы», `MyHoursPage.vue`), `/profile`, `/login` in `src/pages/`.
 
 ### Auth and roles
 
 Stateless HS256 JWT in an httpOnly cookie (`apps/api/src/auth/`); `requireAuth` only verifies the token, so it never touches Postgres and the booking flow stays DB-independent. Guards are wired in `server.ts`:
-- Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with three exceptions open to any authenticated role: `GET /api/bookings*` and `GET /api/masters*` (the bookings handler hides amounts from `employee`), and `/api/me/*`, whose handlers scope everything to the caller's own master.
+- Everything under `/api` except `/api/auth` requires auth and is **admin-only**, with four exceptions open to any authenticated role: `GET /api/bookings*` (the handler hides amounts from `employee`), `GET /api/masters*`, `GET /api/schedule*`, and `/api/me/*`, whose handlers scope everything to the caller's own master.
 - The booking audit endpoints (`/api/bookings/deleted`, `/journal`, `/{id}/history`, `/{id}/restore`) are admin-only despite their `GET`/`POST` methods: `BOOKINGS_ADMIN_ONLY` in `server.ts` matches them before the per-method branches.
 - `booker` additionally gets what the booking form needs: `POST /api/bookings`, `GET /api/pricelist` and `GET /api/clients/lookup` (exact phone only, no `totalSpent`), plus editing bookings: `PATCH /api/bookings/{id}`, `DELETE /api/bookings/{id}` and `PATCH /api/bookings/{id}/readiness`. The clients list, card and export stay admin-only.
 - The rules live in `canCreateBookings` / `canEditBookings` / `canSeeAmounts` (shared). `toRole` narrows `users.role`, which is a plain varchar, so an unknown value becomes `employee`.
@@ -165,6 +166,10 @@ If the form sets `notify: true`, `notifyMaster()` sends a message to every assig
 ### Self-service hours («Мои часы»)
 
 An account is linked to at most one master via `masters.userId` (UNIQUE, set by the admin in `MasterFormDialog`). `/api/me` resolves that master from the session's `sub` on every request — the body never carries a `masterId`, and another master's record answers 404. The employee sees their own month (hours, rate, payouts, total) and may add, edit and delete **hours** only inside a rolling window of `SELF_EDIT_WINDOW_DAYS` (7) days ending today in `SHOP_TIMEZONE`; both the old and the new date of an edit must be inside it. Older days and payouts stay admin-only, so a month that may already be paid out can't shift. The server sends the window (`editableFrom`/`editableTo`) so the page never computes «today» itself.
+
+### Masters' schedule
+
+`master_schedule` stores **only working days** (`masterId` + `workDate`, composite PK, `cascade`); a missing row is a day off. `GET /api/schedule?from&to` (≤ `SCHEDULE_MAX_RANGE_DAYS`, archived masters excluded) is open to every role; `PATCH /api/schedule` `{ masterId, date, working }` is admin-only and idempotent. The booking form and `BookingEditDialog` (future dates only — old bookings predate the schedule) warn (never block) when a chosen master is off on a booking day via `useDaysOffWarning` → shared `findDaysOff`. Any unmarked day is off, even in a month nobody has filled in yet, so the warning also nudges the admin to fill in the schedule. The warning loads whole months (`scheduleMonthsRange`) so it shares the cache with the schedule page. Like the masters dropdown, the warning is best-effort and never makes the form depend on Postgres.
 
 ### CSV export
 

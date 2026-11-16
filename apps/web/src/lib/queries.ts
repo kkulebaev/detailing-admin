@@ -20,6 +20,8 @@ import {
 } from './bookings-api'
 import type { GetApiBookingsJournalParams } from './generated/model'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
+import { fetchSchedule } from './schedule-api'
+import type { ScheduleQuery } from '@detailing-admin/shared'
 
 // Ключи запросов лежат рядом с composables, чтобы вызывающему коду не нужно было знать
 // конкретную строку — после мутации он просто вызывает `useInvalidate*()`.
@@ -32,6 +34,7 @@ export const SALARY_ENTRIES_KEY = ['salary-entries'] as const
 export const ANALYTICS_KEY = ['analytics'] as const
 export const ACCOUNTS_KEY = ['accounts'] as const
 export const MY_SALARY_KEY = ['my-salary'] as const
+export const SCHEDULE_KEY = ['schedule'] as const
 
 // Реактивный ключ, чтобы смена поискового запроса, сортировки или пагинации
 // автоматически вызывала перезапрос. `params` — ref, который страница пересчитывает из
@@ -225,6 +228,18 @@ export function useAnalyticsOverviewQuery(params: Ref<GetApiAnalyticsOverviewPar
   return useQuery({
     key: () => [...ANALYTICS_KEY, params.value],
     query: () => fetchAnalyticsOverview(params.value),
+    placeholderData: (previous) => previous,
+  })
+}
+
+// `range` равен null, пока его не из чего вывести (у формы нет даты), — запрос простаивает.
+// Страница и форма записи берут одинаковые диапазоны целых месяцев, поэтому делят кэш.
+export function useScheduleQuery(range: Ref<ScheduleQuery | null>) {
+  return useQuery({
+    key: () => [...SCHEDULE_KEY, range.value?.from ?? '', range.value?.to ?? ''],
+    // enabled включает запрос только при range != null, так что утверждение ! безопасно.
+    query: () => fetchSchedule(range.value!),
+    enabled: () => range.value != null,
     placeholderData: (previous) => previous,
   })
 }

@@ -9,7 +9,7 @@ import {
 // Строгая календарная дата ISO (YYYY-MM-DD). Regex фиксирует форму; refine
 // отсекает невозможные даты (напр. 2026-02-31): прогоняет через Date туда и обратно
 // и проверяет, что части уцелели, — тот же прием, что в parseDdmmyyyy.
-const isoDate = z
+export const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата должна быть в формате ГГГГ-ММ-ДД')
   .refine((s) => {
@@ -50,7 +50,7 @@ export type RateInput = z.infer<typeof rateInputSchema>
 
 export const workHoursInputSchema = z.object({
   masterId: z.number().int().positive(),
-  workDate: isoDate,
+  workDate: isoDateSchema,
   hours: workHours,
   note: workHoursNote.optional(),
 })
@@ -60,7 +60,7 @@ export type WorkHoursInput = z.infer<typeof workHoursInputSchema>
 // Правка записи никогда не переснимает ставку, поэтому masterId и ставки здесь
 // нет по построению — меняются только день/часы/заметка.
 export const workHoursUpdateSchema = z.object({
-  workDate: isoDate.optional(),
+  workDate: isoDateSchema.optional(),
   hours: workHours.optional(),
   note: workHoursNote.optional(),
 })
@@ -77,7 +77,7 @@ export type SelfWorkHoursInput = z.infer<typeof selfWorkHoursInputSchema>
 // (отрицательные) удержания. Ставка не участвует — сумма самостоятельна.
 export const payoutInputSchema = z.object({
   masterId: z.number().int().positive(),
-  payoutDate: isoDate,
+  payoutDate: isoDateSchema,
   amount: payoutAmount,
   note: payoutNote.optional(),
 })
@@ -86,7 +86,7 @@ export type PayoutInput = z.infer<typeof payoutInputSchema>
 
 // Мастер при правке не меняется — тот же контракт, что у рабочих часов.
 export const payoutUpdateSchema = z.object({
-  payoutDate: isoDate.optional(),
+  payoutDate: isoDateSchema.optional(),
   amount: payoutAmount.optional(),
   note: payoutNote.optional(),
 })

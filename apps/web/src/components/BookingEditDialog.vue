@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import { Calendar as CalendarIcon, X } from '@lucide/vue'
+import { Calendar as CalendarIcon, TriangleAlert, X } from '@lucide/vue'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
 import {
@@ -16,6 +16,8 @@ import { calToDdmmyyyy } from '@/lib/date'
 import { useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { formatPastedPhone, usePhoneInput } from '@/composables/use-phone-input'
+import { useDaysOffWarning } from '@/composables/use-days-off-warning'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -93,6 +95,13 @@ const {
 } = usePhoneInput()
 
 const { data: mastersData } = useMastersQuery()
+// Пока диалог закрыт, даты пусты, и запрос графика простаивает.
+const daysOff = useDaysOffWarning(
+  computed(() => (props.open ? (dateFromCal.value?.toString() ?? null) : null)),
+  computed(() => dateToCal.value?.toString() ?? null),
+  master,
+  { skipPast: true },
+)
 
 // Добавляем текущих мастеров/ответственного записи, даже если их уже нет в
 // актуальном списке, чтобы правка молча не потеряла значение, которое уже есть в строке.
@@ -554,6 +563,13 @@ async function submit() {
           <p v-if="fieldErrors.master" class="text-sm text-destructive">
             {{ fieldErrors.master }}
           </p>
+          <Alert v-if="daysOff.length > 0" variant="destructive">
+            <TriangleAlert />
+            <AlertTitle>Выходной по графику</AlertTitle>
+            <AlertDescription>
+              <p v-for="line in daysOff" :key="line">{{ line }}</p>
+            </AlertDescription>
+          </Alert>
         </div>
 
         <!-- Ответственный -->
