@@ -32,8 +32,10 @@ const actor = computed(() => auditActor(props.entry))
       <component :is="meta.icon" class="size-3.5" />
     </span>
     <div class="min-w-0 flex-1">
-      <div class="flex items-baseline justify-between gap-2">
-        <div class="min-w-0 truncate">
+      <!-- Перенос вместо обрезки: на узком экране длинное время («10 ноября, 05:25»)
+           уходит на свою строку, а не съедает действие до «изм…». -->
+      <div class="flex flex-wrap items-baseline justify-between gap-x-2">
+        <div class="min-w-0 break-words">
           <template v-if="actor">
             <span class="font-medium">{{ actor }}</span>
             <span class="text-muted-foreground"> · {{ meta.noun }}</span>
@@ -48,13 +50,15 @@ const actor = computed(() => auditActor(props.entry))
         </time>
       </div>
       <slot />
+      <!-- Подпись по ширине самой длинной: в трети ширины на телефоне «Ответственный»
+           налезал на значение. -->
       <dl
         v-if="changes.length"
-        class="mt-2 grid grid-cols-3 gap-x-3 gap-y-1.5 rounded-md bg-muted/50 px-3 py-2"
+        class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 rounded-md bg-muted/50 px-3 py-2"
       >
         <template v-for="change in changes" :key="change.field">
           <dt class="text-muted-foreground">{{ auditFieldLabel(change.field) }}</dt>
-          <dd class="col-span-2 break-words">
+          <dd class="min-w-0 break-words">
             <template v-if="!isEmptyAuditValue(change.from)">
               <span class="text-muted-foreground line-through decoration-muted-foreground/60">
                 {{ formatAuditValue(change.field, change.from) }}

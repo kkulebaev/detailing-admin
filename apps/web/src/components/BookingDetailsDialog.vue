@@ -68,7 +68,7 @@ function focusDialogItself(e: Event) {
   <Dialog :open="props.open" @update:open="(v) => emit('update:open', v)">
     <DialogContent
       v-if="props.booking"
-      class="max-h-svh max-w-md overflow-y-auto"
+      class="max-h-svh max-w-md overflow-y-auto pb-safe sm:pb-6"
       @open-auto-focus="focusDialogItself"
     >
       <DialogHeader>

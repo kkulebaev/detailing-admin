@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { ChevronDown, History } from '@lucide/vue'
 import { useBookingHistoryQuery } from '@/lib/queries'
 import { formatAuditMoment } from '@/lib/booking-audit'
@@ -17,7 +17,9 @@ const props = defineProps<{
 // Журнал нужен редко, поэтому запрос уходит только когда блок раскрыли.
 const expanded = ref(props.initiallyExpanded ?? false)
 const queryId = computed(() => (expanded.value ? props.bookingId : null))
-const { data, isLoading, error } = useBookingHistoryQuery(queryId)
+// `isPending`, а не `isLoading`: тот true и при фоновом обновлении, и скелетон
+// закрывал бы уже загруженную из кэша историю.
+const { data, isPending, error } = useBookingHistoryQuery(queryId)
 
 watch(
   () => props.bookingId,
@@ -45,11 +47,24 @@ const items = computed(() => {
     },
   ]
 })
+const root = useTemplateRef<HTMLElement>('root')
+// Кнопка «История» открывает карточку ради истории, а та внизу, под полями записи.
+// Прокручиваем к ней, когда она отрисована с данными (из кэша — сразу).
+watch(
+  () => props.initiallyExpanded && data.value != null,
+  async (ready) => {
+    if (!ready) return
+    await nextTick()
+    root.value?.scrollIntoView({ block: 'start' })
+  },
+  { immediate: true },
+)
+
 const failed = computed(() => error.value != null || (data.value != null && !data.value.ok))
 </script>
 
 <template>
-  <div class="border-t pt-3">
+  <div ref="root" class="border-t pt-3">
     <Button
       variant="ghost"
       size="sm"
@@ -62,8 +77,10 @@ const failed = computed(() => error.value != null || (data.value != null && !dat
       <ChevronDown class="size-4 transition-transform" :class="expanded && 'rotate-180'" />
     </Button>
 
-    <div v-if="expanded" class="mt-3 max-h-80 overflow-y-auto">
-      <div v-if="isLoading" class="space-y-3">
+    <!-- Своя прокрутка только на широком экране: на телефоне вложенный скролл внутри
+         прокручиваемой карточки обрезал последнее событие и ловил свайп. -->
+    <div v-if="expanded" class="mt-3 sm:max-h-80 sm:overflow-y-auto sm:overscroll-contain">
+      <div v-if="isPending" class="space-y-3">
         <Skeleton class="h-12 w-full" />
         <Skeleton class="h-12 w-full" />
       </div>

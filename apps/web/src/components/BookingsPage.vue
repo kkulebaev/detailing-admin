@@ -568,7 +568,7 @@ function formatCreatedAt(iso: string): string {
           <Button
             variant="ghost"
             size="sm"
-            class="gap-1 text-muted-foreground"
+            class="h-10 gap-1 text-muted-foreground sm:h-8"
             @click="journalOpen = true"
           >
             <History class="size-4" /> Журнал
@@ -576,7 +576,7 @@ function formatCreatedAt(iso: string): string {
           <Button
             variant="ghost"
             size="sm"
-            class="gap-1 text-muted-foreground"
+            class="h-10 gap-1 text-muted-foreground sm:h-8"
             @click="trashOpen = true"
           >
             <ArchiveRestore class="size-4" /> Удаленные
@@ -815,7 +815,7 @@ function formatCreatedAt(iso: string): string {
           <col class="w-40" />
           <col class="w-40" />
           <col class="w-48" />
-          <col v-if="canEdit" :class="isAdmin ? 'w-32' : 'w-24'" />
+          <col v-if="canEdit" :class="isAdmin ? 'w-44 sm:w-36' : 'w-32 sm:w-28'" />
         </colgroup>
         <TableHeader v-if="!isEmpty && !compact" class="sticky top-0 z-10 bg-muted">
           <TableRow>
@@ -1034,11 +1034,14 @@ function formatCreatedAt(iso: string): string {
               {{ row.note || '—' }}
             </TableCell>
             <TableCell v-if="canEdit" class="px-4 align-top text-right">
-              <div class="inline-flex gap-1">
+              <!-- На телефоне кнопки крупнее и дальше друг от друга: по иконкам 32 px
+                   рядом легко попасть в «Удалить» вместо «Изменить». -->
+              <div class="inline-flex gap-2 sm:gap-1">
                 <Button
                   v-if="isAdmin"
                   variant="ghost"
                   size="icon-sm"
+                  class="size-10 sm:size-8"
                   :aria-label="`История изменений записи ${row.name || row.phone}`"
                   @click="openDetails(row, { history: true })"
                 >
@@ -1047,6 +1050,7 @@ function formatCreatedAt(iso: string): string {
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  class="size-10 sm:size-8"
                   :aria-label="`Редактировать запись ${row.name || row.phone}`"
                   @click="openEdit(row)"
                 >
@@ -1055,6 +1059,7 @@ function formatCreatedAt(iso: string): string {
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  class="size-10 sm:size-8"
                   :aria-label="`Удалить запись ${row.name || row.phone}`"
                   @click="askDelete(row)"
                 >

@@ -113,8 +113,11 @@ function bookingWhen(entry: BookingJournalEntry): string {
         <SheetDescription>Кто и что делал с записями</SheetDescription>
         <div class="mt-2 grid grid-cols-2 gap-2">
           <Select v-model="actorFilter">
-            <SelectTrigger size="sm" class="w-full" aria-label="Сотрудник">
-              <SelectValue />
+            <SelectTrigger
+              class="w-full min-w-0 data-[size=default]:h-10 *:data-[slot=select-value]:block sm:data-[size=default]:h-8"
+              aria-label="Сотрудник"
+            >
+              <SelectValue class="truncate" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem :value="ALL">Все сотрудники</SelectItem>
@@ -122,8 +125,11 @@ function bookingWhen(entry: BookingJournalEntry): string {
             </SelectContent>
           </Select>
           <Select v-model="actionFilter">
-            <SelectTrigger size="sm" class="w-full" aria-label="Действие">
-              <SelectValue />
+            <SelectTrigger
+              class="w-full min-w-0 data-[size=default]:h-10 *:data-[slot=select-value]:block sm:data-[size=default]:h-8"
+              aria-label="Действие"
+            >
+              <SelectValue class="truncate" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem :value="ALL">Все действия</SelectItem>
@@ -135,7 +141,7 @@ function bookingWhen(entry: BookingJournalEntry): string {
         </div>
       </SheetHeader>
 
-      <div class="flex-1 overflow-y-auto px-4 pb-6">
+      <div class="flex-1 overflow-y-auto px-4 pb-safe">
         <div v-if="isLoading && items.length === 0" class="space-y-3 pt-4">
           <Skeleton v-for="i in 4" :key="i" class="h-16 w-full" />
         </div>
@@ -170,7 +176,7 @@ function bookingWhen(entry: BookingJournalEntry): string {
             v-if="hasMore && limit < MAX_LIMIT"
             variant="outline"
             size="sm"
-            class="mt-6 w-full"
+            class="mt-6 h-10 w-full sm:h-8"
             :disabled="isPlaceholderData"
             @click="limit = Math.min(limit + PAGE, MAX_LIMIT)"
           >
