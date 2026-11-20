@@ -21,6 +21,7 @@ import {
 import type { GetApiBookingsJournalParams } from './generated/model'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 import { fetchSchedule } from './schedule-api'
+import { fetchMyScheduleRequests, fetchPendingScheduleRequests } from './schedule-requests-api'
 import type { ScheduleQuery } from '@detailing-admin/shared'
 
 // Ключи запросов лежат рядом с composables, чтобы вызывающему коду не нужно было знать
@@ -35,6 +36,8 @@ export const ANALYTICS_KEY = ['analytics'] as const
 export const ACCOUNTS_KEY = ['accounts'] as const
 export const MY_SALARY_KEY = ['my-salary'] as const
 export const SCHEDULE_KEY = ['schedule'] as const
+export const SCHEDULE_REQUESTS_KEY = ['schedule-requests'] as const
+export const MY_SCHEDULE_REQUESTS_KEY = ['my-schedule-requests'] as const
 
 // Реактивный ключ, чтобы смена поискового запроса, сортировки или пагинации
 // автоматически вызывала перезапрос. `params` — ref, который страница пересчитывает из
@@ -241,5 +244,23 @@ export function useScheduleQuery(range: Ref<ScheduleQuery | null>) {
     query: () => fetchSchedule(range.value!),
     enabled: () => range.value != null,
     placeholderData: (previous) => previous,
+  })
+}
+
+// Только для админа: сайдбар показывает счетчик, страница графика — сами заявки.
+// `enabled` не дает запросу уйти от других ролей, которым API ответит 403.
+export function usePendingScheduleRequestsQuery(enabled: Ref<boolean>) {
+  return useQuery({
+    key: SCHEDULE_REQUESTS_KEY,
+    query: fetchPendingScheduleRequests,
+    enabled: () => enabled.value,
+  })
+}
+
+export function useMyScheduleRequestsQuery(enabled: Ref<boolean>) {
+  return useQuery({
+    key: MY_SCHEDULE_REQUESTS_KEY,
+    query: fetchMyScheduleRequests,
+    enabled: () => enabled.value,
   })
 }

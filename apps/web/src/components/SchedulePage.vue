@@ -6,11 +6,22 @@ import { toast } from 'vue-sonner'
 import { getLocalTimeZone, today } from '@internationalized/date'
 import { isoDaysBetween, monthScheduleRange } from '@detailing-admin/shared'
 import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
-import { SCHEDULE_KEY, useMastersQuery, useScheduleQuery } from '@/lib/queries'
+import {
+  MY_SCHEDULE_REQUESTS_KEY,
+  SCHEDULE_KEY,
+  useMastersQuery,
+  useMyScheduleRequestsQuery,
+  useScheduleQuery,
+} from '@/lib/queries'
 import { saveSchedule } from '@/lib/schedule-api'
+import { submitScheduleRequest } from '@/lib/schedule-requests-api'
+import { dayLabel } from '@/lib/schedule-format'
 import { useAuthStore } from '@/stores/auth'
 import { useQueryCache } from '@pinia/colada'
+import MyScheduleRequestCard from '@/components/MyScheduleRequestCard.vue'
+import ScheduleRequestsPanel from '@/components/ScheduleRequestsPanel.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -22,22 +33,9 @@ import {
 } from '@/components/ui/select'
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const
-const MONTHS_GENITIVE = [
-  'января',
-  'февраля',
-  'марта',
-  'апреля',
-  'мая',
-  'июня',
-  'июля',
-  'августа',
-  'сентября',
-  'октября',
-  'ноября',
-  'декабря',
-] as const
 
 const auth = useAuthStore()
+// Админ правит график напрямую, остальные — заявкой на согласование своего мастера.
 const canEdit = computed(() => auth.isAdmin)
 const isWideScreen = useMediaQuery('(min-width: 768px)')
 
@@ -48,24 +46,50 @@ const range = computed(() => monthScheduleRange(month.value))
 
 const { data: scheduleData, error: scheduleError, asyncStatus } = useScheduleQuery(range)
 const { data: mastersData, error: mastersError } = useMastersQuery()
+// Нужен всем ролям: по нему страница узнает своего мастера и выделяет его строку,
+// в том числе у админа, привязанного к мастеру.
+const { data: myRequestsData } = useMyScheduleRequestsQuery(computed(() => true))
 const queryCache = useQueryCache()
 
 const masters = computed(() => (mastersData.value?.ok ? mastersData.value.masters : []))
 
-const todayIso = today(getLocalTimeZone()).toString()
+const myRequests = computed(() => (myRequestsData.value?.ok ? myRequestsData.value : null))
+const ownMasterId = computed(() => myRequests.value?.masterId ?? null)
+const pendingRequest = computed(
+  () => myRequests.value?.requests.find((r) => r.status === 'pending') ?? null,
+)
+// Наложение заявки исчезает, как только перечитан список заявок, а одобренные дни
+// приходят отдельным запросом графика. Без перечитывания график на это время
+// показал бы дни откатившимися.
+watch(
+  () => pendingRequest.value?.id,
+  (now, before) => {
+    if (before !== undefined && now !== before) {
+      void queryCache.invalidateQueries({ key: SCHEDULE_KEY }).catch(() => {})
+    }
+  },
+)
+
+// Новую заявку не подать, пока прежняя ждет решения.
+const canRequest = computed(
+  () => !canEdit.value && ownMasterId.value !== null && pendingRequest.value === null,
+)
+
+// «Сегодня» — день студии с сервера, а не по часам телефона.
+const todayIso = computed(() => myRequests.value?.today ?? today(getLocalTimeZone()).toString())
 const days = computed(() =>
   isoDaysBetween(range.value.from, range.value.to).map((iso) => {
     const [y, m, d] = iso.split('-').map(Number)
     const weekday = (new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay() + 6) % 7
-    return { iso, day: d!, weekday, weekend: weekday >= 5, today: iso === todayIso }
+    return { iso, day: d!, weekday, weekend: weekday >= 5, today: iso === todayIso.value }
   }),
 )
 
 // Пустые ячейки перед первым числом, чтобы календарь на телефоне начинался с понедельника.
 const leadingBlanks = computed(() => days.value[0]?.weekday ?? 0)
 
-// Черновик админа: только дни, отличные от сохраненных. Переживает смену месяца
-// и мастера, чтобы график можно было заполнить целиком и сохранить одним разом.
+// Черновик: только дни, отличные от сохраненных. Переживает смену месяца и мастера,
+// чтобы график можно было заполнить целиком и сохранить (или отправить) одним разом.
 const drafts = reactive(new Map<string, boolean>())
 const saving = ref(false)
 const dirtyCount = computed(() => drafts.size)
@@ -85,18 +109,37 @@ const serverWorking = computed(() => {
   return set
 })
 
+// Дни из заявки на согласовании рисуются поверх графика, как черновик: сотрудник
+// видит, что попросил, пока админ не решил.
+const requested = computed(() => {
+  const map = new Map<string, boolean>()
+  const r = pendingRequest.value
+  if (r) for (const d of r.days) map.set(`${r.masterId}|${d.date}`, d.working)
+  return map
+})
+
 function isWorking(masterId: number, iso: string): boolean {
   const key = `${masterId}|${iso}`
-  return drafts.get(key) ?? serverWorking.value.has(key)
+  return drafts.get(key) ?? requested.value.get(key) ?? serverWorking.value.has(key)
 }
 
-function isDraft(masterId: number, iso: string): boolean {
-  return drafts.has(`${masterId}|${iso}`)
+function isChanged(masterId: number, iso: string): boolean {
+  const key = `${masterId}|${iso}`
+  return drafts.has(key) || requested.value.has(key)
+}
+
+function canToggle(masterId: number, iso: string): boolean {
+  if (canEdit.value) return true
+  return canRequest.value && masterId === ownMasterId.value
+}
+
+function isOwn(masterId: number): boolean {
+  return masterId === ownMasterId.value
 }
 
 function cellClass(masterId: number, iso: string, filled: string): string {
   const working = isWorking(masterId, iso)
-  if (!isDraft(masterId, iso))
+  if (!isChanged(masterId, iso))
     return working ? `border-primary bg-primary ${filled}` : 'border-border'
   // Несохраненная отметка бледнее сохраненной, а снятая — пунктиром, чтобы до
   // сохранения было видно, что именно изменится.
@@ -108,39 +151,72 @@ function workingCount(masterId: number): number {
 }
 
 function toggle(masterId: number, iso: string) {
-  if (!canEdit.value || !dataReady.value || saving.value) return
+  if (!canToggle(masterId, iso) || !dataReady.value || saving.value) return
   const key = `${masterId}|${iso}`
   const working = !isWorking(masterId, iso)
   if (working === serverWorking.value.has(key)) drafts.delete(key)
   else drafts.set(key, working)
 }
 
-async function save() {
-  if (saving.value || drafts.size === 0) return
-  const days = [...drafts].map(([key, working]) => {
+function draftDays() {
+  return [...drafts].map(([key, working]) => {
     const [masterId, date] = key.split('|')
     return { masterId: Number(masterId), date: date!, working }
   })
+}
+
+async function saveAsAdmin() {
+  const result = await saveSchedule({ days: draftDays() })
+  if (!result.ok) {
+    toast.error(
+      result.error === 'not_found'
+        ? 'Мастер не найден — обновите страницу'
+        : result.error === 'unavailable'
+          ? result.message
+          : 'Не удалось сохранить график',
+    )
+    return
+  }
+  // Черновик снимается после перечитывания, иначе ячейки на миг мигнули бы старым
+  // графиком. Форма записи держит свои диапазоны графика — пусть тоже перечитает.
+  await queryCache.invalidateQueries({ key: SCHEDULE_KEY }).catch(() => {})
+  drafts.clear()
+  toast.success('График сохранен')
+}
+
+const REQUEST_ERRORS = {
+  not_linked: 'Аккаунт не привязан к мастеру — обратитесь к администратору',
+  too_far: 'Так далеко вперед заявку подать нельзя',
+} as const
+
+async function sendRequest() {
+  const result = await submitScheduleRequest({
+    days: draftDays().map(({ date, working }) => ({ date, working })),
+  })
+  if (!result.ok) {
+    if (result.error === 'validation') {
+      toast.error('reason' in result ? REQUEST_ERRORS[result.reason] : 'Проверьте выбранные дни')
+    } else if (result.error === 'conflict') {
+      toast.error('У вас уже есть заявка на согласовании')
+    } else if (result.error === 'unavailable') {
+      toast.error(result.message)
+    } else {
+      toast.error('Не удалось отправить заявку')
+    }
+    return
+  }
+  await queryCache.invalidateQueries({ key: MY_SCHEDULE_REQUESTS_KEY }).catch(() => {})
+  drafts.clear()
+  toast.success('Заявка отправлена на согласование')
+}
+
+async function save() {
+  if (saving.value || drafts.size === 0) return
   saving.value = true
   try {
-    const result = await saveSchedule({ days })
-    if (!result.ok) {
-      toast.error(
-        result.error === 'not_found'
-          ? 'Мастер не найден — обновите страницу'
-          : result.error === 'unavailable'
-            ? result.message
-            : 'Не удалось сохранить график',
-      )
-      return
-    }
-    // Черновик снимается после перечитывания, иначе ячейки на миг мигнули бы старым
-    // графиком. Форма записи держит свои диапазоны графика — пусть тоже перечитает.
-    await queryCache.invalidateQueries({ key: SCHEDULE_KEY }).catch(() => {})
-    drafts.clear()
-    toast.success('График сохранен')
+    await (canEdit.value ? saveAsAdmin() : sendRequest())
   } catch {
-    toast.error('Не удалось сохранить график')
+    toast.error(canEdit.value ? 'Не удалось сохранить график' : 'Не удалось отправить заявку')
   } finally {
     saving.value = false
   }
@@ -150,21 +226,30 @@ function discard() {
   drafts.clear()
 }
 
-const LEAVE_PROMPT = 'Есть несохраненные изменения графика. Уйти без сохранения?'
-onBeforeRouteLeave(() => drafts.size === 0 || window.confirm(LEAVE_PROMPT))
+onBeforeRouteLeave(
+  () => drafts.size === 0 || window.confirm('Есть несохраненные изменения графика. Уйти без них?'),
+)
 useEventListener(window, 'beforeunload', (e: BeforeUnloadEvent) => {
   if (drafts.size > 0) e.preventDefault()
 })
 
-function dayLabel(iso: string): string {
-  const [, m, d] = iso.split('-').map(Number)
-  return `${d} ${MONTHS_GENITIVE[m! - 1]}`
-}
-
 const selectedMasterId = ref<string>('')
+// Сотруднику на телефоне сразу открывается его собственный календарь. Мастера и
+// привязка грузятся разными запросами в любом порядке, поэтому на своего мастера
+// переключаем один раз, когда известны оба, — дальше выбор за пользователем.
+// Ручной выбор тоже считается: пришедшая позже привязка его не перебьет.
+let ownPicked = false
+function onMasterPicked() {
+  ownPicked = true
+}
 watch(
-  masters,
-  (list) => {
+  [masters, ownMasterId],
+  ([list, own]) => {
+    if (!ownPicked && own !== null && list.some((m) => m.id === own)) {
+      ownPicked = true
+      selectedMasterId.value = String(own)
+      return
+    }
     if (!list.some((m) => String(m.id) === selectedMasterId.value)) {
       selectedMasterId.value = list[0] ? String(list[0].id) : ''
     }
@@ -174,6 +259,12 @@ watch(
 const selectedMaster = computed(() =>
   masters.value.find((m) => String(m.id) === selectedMasterId.value),
 )
+
+const hint = computed(() => {
+  if (canEdit.value) return 'Отметьте рабочие дни и нажмите «Сохранить»'
+  if (canRequest.value) return 'Отметьте дни, которые хотите изменить, и отправьте заявку'
+  return null
+})
 
 const error = computed<string | null>(() => {
   if (scheduleError.value || mastersError.value) return 'Проверьте соединение и обновите страницу'
@@ -194,11 +285,12 @@ const showSkeleton = computed(
     <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold">График</h1>
-        <p v-if="canEdit" class="mt-1 text-sm text-muted-foreground">
-          Отметьте рабочие дни и нажмите «Сохранить»
-        </p>
+        <p v-if="hint" class="mt-1 text-sm text-muted-foreground">{{ hint }}</p>
       </div>
     </header>
+
+    <ScheduleRequestsPanel v-if="canEdit" />
+    <MyScheduleRequestCard v-else-if="myRequests" :requests="myRequests.requests" />
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
       <div class="flex w-full flex-col gap-1 sm:w-auto">
@@ -217,24 +309,33 @@ const showSkeleton = computed(
 
       <div v-if="!isWideScreen && masters.length > 0" class="flex w-full flex-col gap-1">
         <span class="text-xs text-muted-foreground">Мастер</span>
-        <Select v-model="selectedMasterId">
+        <Select v-model="selectedMasterId" @update:model-value="onMasterPicked">
           <SelectTrigger size="sm" class="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="m in masters" :key="m.id" :value="String(m.id)">
-              {{ m.name }}
+              {{ isOwn(m.id) ? `${m.name} (вы)` : m.name }}
             </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <div class="flex items-center gap-4 text-xs text-muted-foreground sm:ml-auto">
+      <div
+        class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:ml-auto"
+      >
         <span class="flex items-center gap-1.5">
           <span class="size-3 rounded-sm bg-primary" /> Рабочий
         </span>
         <span class="flex items-center gap-1.5">
           <span class="size-3 rounded-sm border border-border" /> Выходной
+        </span>
+        <span v-if="canEdit || ownMasterId !== null" class="flex items-center gap-1.5">
+          <span class="flex gap-0.5">
+            <span class="size-3 rounded-sm border border-primary bg-primary/50" />
+            <span class="size-3 rounded-sm border border-dashed border-primary" />
+          </span>
+          {{ canEdit ? 'Не сохранено' : 'Не согласовано' }}
         </span>
       </div>
     </div>
@@ -285,12 +386,26 @@ const showSkeleton = computed(
         </thead>
         <tbody>
           <tr v-for="m in masters" :key="m.id" class="border-b border-border last:border-b-0">
-            <td class="sticky left-0 z-10 bg-background px-3 py-1.5 font-medium">
-              {{ m.name }}
+            <!-- Свой мастер отмечен полосой, жирным именем и бейджем, без фона: фон делал строку похожей на
+                 неактивную. Полоса — псевдоэлемент, потому что при border-collapse рамка
+                 закрепленной ячейки не рисуется. Фон непрозрачный, иначе под ячейкой
+                 просвечивали бы дни при прокрутке. -->
+            <td
+              class="sticky left-0 z-10 bg-background px-3 py-1.5 font-medium"
+              :class="
+                isOwn(m.id)
+                  ? 'font-semibold before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary'
+                  : ''
+              "
+            >
+              <span class="flex items-center gap-2">
+                <span>{{ m.name }}</span>
+                <Badge v-if="isOwn(m.id)">Вы</Badge>
+              </span>
             </td>
             <td v-for="d in days" :key="d.iso" class="p-0.5" :class="{ 'bg-muted/60': d.weekend }">
               <button
-                v-if="canEdit"
+                v-if="canToggle(m.id, d.iso)"
                 type="button"
                 class="block size-9 rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 :class="[
@@ -305,7 +420,7 @@ const showSkeleton = computed(
                 v-else
                 role="img"
                 class="size-9 rounded-md border"
-                :class="isWorking(m.id, d.iso) ? 'border-primary bg-primary' : 'border-border'"
+                :class="cellClass(m.id, d.iso, '')"
                 :aria-label="`${m.name}, ${dayLabel(d.iso)}: ${isWorking(m.id, d.iso) ? 'рабочий' : 'выходной'}`"
               />
             </td>
@@ -329,23 +444,34 @@ const showSkeleton = computed(
       </div>
       <div class="grid grid-cols-7 gap-1">
         <div v-for="n in leadingBlanks" :key="`blank-${n}`" />
-        <component
-          :is="canEdit ? 'button' : 'div'"
-          :role="canEdit ? undefined : 'img'"
-          v-for="d in days"
-          :key="d.iso"
-          :type="canEdit ? 'button' : undefined"
-          class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors"
-          :class="[
-            cellClass(selectedMaster.id, d.iso, 'text-primary-foreground'),
-            { 'ring-2 ring-foreground ring-offset-1': d.today },
-          ]"
-          :aria-pressed="canEdit ? isWorking(selectedMaster.id, d.iso) : undefined"
-          :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}`"
-          @click="toggle(selectedMaster.id, d.iso)"
-        >
-          {{ d.day }}
-        </component>
+        <template v-for="d in days" :key="d.iso">
+          <button
+            v-if="canToggle(selectedMaster.id, d.iso)"
+            type="button"
+            class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors"
+            :class="[
+              cellClass(selectedMaster.id, d.iso, 'text-primary-foreground'),
+              { 'ring-2 ring-foreground ring-offset-1': d.today },
+            ]"
+            :aria-pressed="isWorking(selectedMaster.id, d.iso)"
+            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}`"
+            @click="toggle(selectedMaster.id, d.iso)"
+          >
+            {{ d.day }}
+          </button>
+          <div
+            v-else
+            role="img"
+            class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums"
+            :class="[
+              cellClass(selectedMaster.id, d.iso, 'text-primary-foreground'),
+              { 'ring-2 ring-foreground ring-offset-1': d.today },
+            ]"
+            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}`"
+          >
+            {{ d.day }}
+          </div>
+        </template>
       </div>
       <p class="mt-3 text-sm text-muted-foreground">
         Рабочих дней: <span class="tabular-nums">{{ workingCount(selectedMaster.id) }}</span>
@@ -353,16 +479,20 @@ const showSkeleton = computed(
     </div>
 
     <div
-      v-if="canEdit && dirtyCount > 0"
-      class="sticky bottom-2 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background p-3 shadow-md"
+      v-if="dirtyCount > 0"
+      class="sticky bottom-2 z-20 mt-4 flex flex-col gap-3 rounded-md border border-border bg-background p-3 shadow-md sm:flex-row sm:items-center sm:justify-between"
     >
-      <span class="text-sm">
-        Несохраненных изменений: <span class="tabular-nums">{{ dirtyCount }}</span>
+      <span class="text-sm font-medium">
+        {{ canEdit ? 'Несохраненных изменений' : 'Изменений в заявке' }}:
+        <span class="tabular-nums">{{ dirtyCount }}</span>
       </span>
       <div class="flex gap-2">
-        <Button variant="outline" size="sm" :disabled="saving" @click="discard">Отменить</Button>
-        <Button size="sm" :disabled="saving" @click="save">
-          {{ saving ? 'Сохранение…' : 'Сохранить' }}
+        <Button variant="outline" size="sm" class="h-10 sm:h-8" :disabled="saving" @click="discard">
+          Отменить
+        </Button>
+        <Button size="sm" class="h-10 flex-1 sm:h-8 sm:flex-none" :disabled="saving" @click="save">
+          <template v-if="canEdit">{{ saving ? 'Сохранение…' : 'Сохранить' }}</template>
+          <template v-else>{{ saving ? 'Отправка…' : 'Отправить на согласование' }}</template>
         </Button>
       </div>
     </div>

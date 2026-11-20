@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { page } from 'vitest/browser'
-import type { Master } from '@detailing-admin/shared'
+import type { Master, ScheduleRequest } from '@detailing-admin/shared'
 import { monthScheduleRange } from '@detailing-admin/shared'
 import { currentMonthKey } from '@/lib/month-options'
 
@@ -12,6 +12,14 @@ const state = await vi.hoisted(async () => {
     schedule: ref<{ masterId: number; dates: string[] }[]>([]),
     // Диапазон, к которому относится ответ: прошлый месяц имитирует placeholderData.
     from: ref(''),
+    // Ответ /api/me/schedule-requests; null — запрос не нужен (админ).
+    my: ref<{
+      ok: true
+      masterId: number | null
+      today: string
+      requests: ScheduleRequest[]
+    } | null>(null),
+    pending: ref<ScheduleRequest[]>([]),
   }
 })
 
@@ -31,6 +39,12 @@ vi.mock('@/lib/queries', async () => {
   const { computed, ref } = await vi.importActual<typeof import('vue')>('vue')
   return {
     SCHEDULE_KEY: ['schedule'],
+    SCHEDULE_REQUESTS_KEY: ['schedule-requests'],
+    MY_SCHEDULE_REQUESTS_KEY: ['my-schedule-requests'],
+    useMyScheduleRequestsQuery: () => ({ data: computed(() => state.my.value ?? undefined) }),
+    usePendingScheduleRequestsQuery: () => ({
+      data: computed(() => ({ ok: true, requests: state.pending.value })),
+    }),
     useScheduleQuery: () => ({
       data: computed(() => ({
         ok: true,
@@ -67,12 +81,24 @@ vi.mock('@/lib/schedule-api', () => ({ saveSchedule: vi.fn() }))
 
 vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }))
 
+vi.mock('@/lib/schedule-requests-api', () => ({
+  submitScheduleRequest: vi.fn(),
+  withdrawScheduleRequest: vi.fn(),
+  approveScheduleRequest: vi.fn(),
+  rejectScheduleRequest: vi.fn(),
+}))
+
 vi.mock('vue-sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))
 
 import SchedulePage from '@/components/SchedulePage.vue'
 import { saveSchedule } from '@/lib/schedule-api'
+import {
+  approveScheduleRequest,
+  rejectScheduleRequest,
+  submitScheduleRequest,
+} from '@/lib/schedule-requests-api'
 import { toast } from 'vue-sonner'
 
 const month = currentMonthKey()
@@ -101,7 +127,12 @@ describe('SchedulePage', () => {
     state.isAdmin.value = true
     state.from.value = monthScheduleRange(month).from
     state.schedule.value = [{ masterId: 1, dates: [`${month}-01`] }]
+    state.my.value = null
+    state.pending.value = []
     vi.mocked(saveSchedule).mockReset()
+    vi.mocked(submitScheduleRequest).mockReset()
+    vi.mocked(approveScheduleRequest).mockReset()
+    vi.mocked(rejectScheduleRequest).mockReset()
     vi.mocked(toast.error).mockReset()
   })
 
@@ -202,5 +233,136 @@ describe('SchedulePage', () => {
     await page.getByRole('button', { name: secondDayLabel }).click()
 
     expect(page.getByRole('button', { name: 'Сохранить' }).elements()).toHaveLength(0)
+  })
+
+  describe('заявки сотрудника', () => {
+    const today = `${month}-15`
+    const futureLabel = dayLabel(20)
+    const pastLabel = dayLabel(10)
+
+    beforeEach(() => {
+      state.isAdmin.value = false
+      state.my.value = { ok: true, masterId: 1, today, requests: [] }
+    })
+
+    it('сотрудник отмечает свои дни, в том числе прошедшие, и отправляет заявку', async () => {
+      vi.mocked(submitScheduleRequest).mockResolvedValue({
+        ok: true,
+        request: {} as ScheduleRequest,
+      })
+      mount(SchedulePage, { attachTo: document.body })
+
+      const past = page.getByRole('button', { name: pastLabel })
+      const future = page.getByRole('button', { name: futureLabel })
+      await past.click()
+      await future.click()
+      await expect.element(past).toHaveAttribute('aria-pressed', 'true')
+      await expect.element(future).toHaveAttribute('aria-pressed', 'true')
+
+      await page.getByRole('button', { name: 'Отправить на согласование' }).click()
+
+      expect(submitScheduleRequest).toHaveBeenCalledWith({
+        days: [
+          { date: `${month}-10`, working: true },
+          { date: `${month}-20`, working: true },
+        ],
+      })
+      expect(saveSchedule).not.toHaveBeenCalled()
+    })
+
+    it('пока заявка на согласовании, новую не собрать, а просьба видна в графике', async () => {
+      state.my.value = {
+        ok: true,
+        masterId: 1,
+        today,
+        requests: [
+          {
+            id: 3,
+            masterId: 1,
+            masterName: 'Иван',
+            status: 'pending',
+            days: [{ date: `${month}-20`, working: true }],
+            comment: null,
+            createdAt: '2026-11-20T08:00:00.000Z',
+            decidedAt: null,
+            decidedByName: null,
+          },
+        ],
+      }
+      mount(SchedulePage, { attachTo: document.body })
+
+      await expect.element(page.getByText('Заявка на согласовании')).toBeInTheDocument()
+      await expect
+        .element(page.getByRole('img', { name: `${futureLabel}: рабочий` }))
+        .toBeInTheDocument()
+      expect(page.getByRole('button', { name: /^Иван, / }).elements()).toHaveLength(0)
+    })
+
+    it('без привязки к мастеру отмечать нечего', async () => {
+      state.my.value = { ok: true, masterId: null, today, requests: [] }
+      mount(SchedulePage, { attachTo: document.body })
+
+      await expect.element(page.getByText('Иван', { exact: true })).toBeInTheDocument()
+      expect(page.getByRole('button', { name: /^Иван, / }).elements()).toHaveLength(0)
+      expect(page.getByText('Вы', { exact: true }).elements()).toHaveLength(0)
+    })
+
+    it('свой мастер выделен в таблице', async () => {
+      mount(SchedulePage, { attachTo: document.body })
+
+      await expect.element(page.getByText('Вы', { exact: true })).toBeInTheDocument()
+    })
+  })
+
+  describe('согласование админом', () => {
+    const request: ScheduleRequest = {
+      id: 3,
+      masterId: 1,
+      masterName: 'Иван',
+      status: 'pending',
+      days: [
+        { date: `${month}-20`, working: true },
+        { date: `${month}-21`, working: false },
+      ],
+      comment: null,
+      createdAt: '2026-11-20T08:00:00.000Z',
+      decidedAt: null,
+      decidedByName: null,
+    }
+
+    beforeEach(() => {
+      state.pending.value = [request]
+    })
+
+    it('админ, привязанный к мастеру, тоже видит себя в таблице', async () => {
+      state.my.value = { ok: true, masterId: 1, today: `${month}-15`, requests: [] }
+      mount(SchedulePage, { attachTo: document.body })
+
+      await expect.element(page.getByText('Вы', { exact: true })).toBeInTheDocument()
+      expect(page.getByText('Заявка на согласовании').elements()).toHaveLength(0)
+    })
+
+    it('админ видит заявку и одобряет ее', async () => {
+      vi.mocked(approveScheduleRequest).mockResolvedValue({ ok: true })
+      mount(SchedulePage, { attachTo: document.body })
+
+      await expect
+        .element(page.getByText(new RegExp(`Рабочие:\\s*20 ${monthName}`)))
+        .toBeInTheDocument()
+      await page.getByRole('button', { name: 'Одобрить заявку: Иван' }).click()
+
+      expect(approveScheduleRequest).toHaveBeenCalledWith(3)
+    })
+
+    it('админ отклоняет заявку с комментарием', async () => {
+      vi.mocked(rejectScheduleRequest).mockResolvedValue({ ok: true })
+      mount(SchedulePage, { attachTo: document.body })
+
+      await page.getByRole('button', { name: 'Отклонить заявку: Иван' }).click()
+      await page.getByLabelText(/Комментарий/).fill('Нет замены')
+      await page.getByRole('button', { name: 'Отклонить', exact: true }).click()
+
+      expect(rejectScheduleRequest).toHaveBeenCalledWith(3, { comment: 'Нет замены' })
+    })
   })
 })
