@@ -14,6 +14,7 @@ import {
 import { deletePayout, deleteWorkHours } from '@/lib/salaries-api'
 import { useSalariesQuery, useInvalidateSalaries, useInvalidateSalaryEntries } from '@/lib/queries'
 import { buildMonthOptions, currentMonthKey, formatMonthAccusative } from '@/lib/month-options'
+import { monthParam, useQueryParam } from '@/composables/use-query-param'
 import { formatAmount, formatSigned } from '@/lib/money'
 import MasterEntries from './MasterEntries.vue'
 import PayoutFormDialog from './PayoutFormDialog.vue'
@@ -58,6 +59,7 @@ const isWideScreen = useMediaQuery('(min-width: 640px)')
 
 const monthOptions = buildMonthOptions()
 const month = ref(currentMonthKey())
+useQueryParam('month', month, monthParam(monthOptions, currentMonthKey))
 
 const invalidateSalaries = useInvalidateSalaries()
 const invalidateSalaryEntries = useInvalidateSalaryEntries()
