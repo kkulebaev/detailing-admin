@@ -12,6 +12,7 @@ import {
 import { deleteMyWorkHours } from '@/lib/me-api'
 import { useInvalidateMySalary, useMySalaryQuery } from '@/lib/queries'
 import { buildMonthOptions, currentMonthKey, formatMonthAccusative } from '@/lib/month-options'
+import { monthParam, useQueryParam } from '@/composables/use-query-param'
 import { formatAmount, formatSigned } from '@/lib/money'
 import WorkHoursFormDialog from '@/components/WorkHoursFormDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -39,6 +40,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 // Будущие месяцы бессмысленны для уже отработанных часов.
 const monthOptions = buildMonthOptions(0)
 const month = ref(currentMonthKey())
+useQueryParam('month', month, monthParam(monthOptions, currentMonthKey))
 
 const invalidateMySalary = useInvalidateMySalary()
 const { data: queryData, error: queryError, asyncStatus } = useMySalaryQuery(month)

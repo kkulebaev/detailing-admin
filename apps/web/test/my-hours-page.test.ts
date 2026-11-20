@@ -25,6 +25,7 @@ vi.mock('vue-sonner', () => ({
 }))
 
 import MyHoursPage from '@/pages/MyHoursPage.vue'
+import { createTestRouter } from './helpers/router'
 
 const linked: MySalaryOk = {
   ok: true,
@@ -70,10 +71,11 @@ const linked: MySalaryOk = {
   ],
 }
 
-function mountPage() {
+async function mountPage(path = '/') {
+  const router = await createTestRouter(path)
   return mount(MyHoursPage, {
     attachTo: document.body,
-    global: { stubs: { WorkHoursFormDialog: true } },
+    global: { plugins: [router], stubs: { WorkHoursFormDialog: true } },
   })
 }
 
@@ -88,14 +90,14 @@ describe('MyHoursPage', () => {
 
   it('объясняет, что аккаунт не привязан, вместо того чтобы показывать нули', async () => {
     data.value = { ...linked, master: null, entries: [], hourlyRate: null }
-    mountPage()
+    await mountPage()
     await expect.element(page.getByText('Аккаунт не привязан к мастеру')).toBeVisible()
     await expect.element(addHours()).not.toBeInTheDocument()
   })
 
   it('показывает итоги за месяц', async () => {
     data.value = linked
-    const w = mountPage()
+    const w = await mountPage()
     await expect.element(addHours()).toBeVisible()
     const text = w.text()
     expect(text).toContain('Петр')
@@ -107,7 +109,7 @@ describe('MyHoursPage', () => {
 
   it('предлагает редактирование и удаление только для часов внутри окна', async () => {
     data.value = linked
-    mountPage()
+    await mountPage()
     await expect
       .element(page.getByRole('button', { name: 'Редактировать часы за 24 октября' }))
       .toBeVisible()
@@ -120,7 +122,7 @@ describe('MyHoursPage', () => {
 
   it('блокирует добавление часов, пока не задана ставка', async () => {
     data.value = { ...linked, hourlyRate: null }
-    mountPage()
+    await mountPage()
     await expect.element(addHours()).toBeDisabled()
     await expect.element(page.getByText(/Ставка еще не задана/)).toBeVisible()
   })
