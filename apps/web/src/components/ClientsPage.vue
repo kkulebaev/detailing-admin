@@ -27,6 +27,13 @@ import { downloadFile, exportFilename } from '@/lib/download'
 import { formatPhone } from '@/lib/phone'
 import { useClientsQuery, useInvalidateClients } from '@/lib/queries'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
+import {
+  enumParam,
+  pageParam,
+  textParam,
+  useQueryParam,
+  watchFilters,
+} from '@/composables/use-query-param'
 import ClientFormDialog from './ClientFormDialog.vue'
 import ClientDetailDialog from './ClientDetailDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -94,7 +101,26 @@ const SORT_COLUMNS: readonly { key: SortColumn; label: string }[] = [
   { key: 'createdAt', label: 'Добавлен' },
 ]
 
-const { limit: LIMIT, offset, page, resetToFirstPage } = useOffsetPagination()
+const { limit: LIMIT, offset, page, resetToFirstPage, keepWithin } = useOffsetPagination()
+
+// Карточка клиента — тот же экземпляр страницы на /clients/:id, поэтому параметры
+// списка принадлежат обоим маршрутам и переносятся в адрес карточки.
+const LIST_ROUTES = ['clients', 'client-detail']
+const search = computed({
+  get: () => searchDebounced.value,
+  set: (v: string) => {
+    clearTimeout(searchTimer)
+    searchInput.value = v
+    searchDebounced.value = v
+  },
+})
+useQueryParam('q', search, { ...textParam(), routes: LIST_ROUTES })
+useQueryParam('sort', sort, {
+  ...enumParam(['name', 'phone', 'createdAt'], 'name'),
+  routes: LIST_ROUTES,
+})
+useQueryParam('dir', dir, { ...enumParam(['asc', 'desc'], 'asc'), routes: LIST_ROUTES })
+useQueryParam('page', page, { ...pageParam(), routes: LIST_ROUTES })
 
 const params = computed<GetApiClientsParams>(() => ({
   limit: LIMIT,
@@ -106,7 +132,7 @@ const params = computed<GetApiClientsParams>(() => ({
 
 // Любое изменение фильтра/сортировки возвращает на первую страницу; пагинация сама
 // двигает `offset` напрямую и намеренно сюда не входит.
-watch([searchDebounced, sort, dir], () => {
+watchFilters([searchDebounced, sort, dir], () => {
   resetToFirstPage()
 })
 
@@ -130,7 +156,7 @@ watch(
 )
 
 function openDetail(id: string) {
-  router.push({ name: 'client-detail', params: { id } })
+  router.push({ name: 'client-detail', params: { id }, query: route.query })
 }
 
 const data = computed<Client[]>(() => {
@@ -142,6 +168,7 @@ const total = computed(() => {
   const r = queryData.value
   return r?.ok ? r.total : 0
 })
+keepWithin(total)
 
 // Скелетон только при самой первой загрузке — фоновые перезапросы оставляют видимыми
 // прежние строки (placeholderData в useClientsQuery), поэтому `loading` тогда false.

@@ -93,7 +93,7 @@ function close() {
   if (typeof back === 'string' && (back === '/clients' || back.startsWith('/clients?'))) {
     router.back()
   } else {
-    router.push({ name: 'clients' })
+    router.push({ name: 'clients', query: router.currentRoute.value.query })
   }
 }
 
