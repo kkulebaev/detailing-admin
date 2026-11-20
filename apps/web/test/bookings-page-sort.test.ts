@@ -52,12 +52,14 @@ vi.mock('vue-sonner', () => ({
 }))
 
 import BookingsPage from '@/components/BookingsPage.vue'
+import { createTestRouter } from './helpers/router'
 
-function mountPage() {
+async function mountPage(path = '/') {
+  const router = await createTestRouter(path)
   return mount(BookingsPage, {
     attachTo: document.body,
     global: {
-      plugins: [createPinia()],
+      plugins: [createPinia(), router],
       stubs: { BookingDetailsDialog: true, BookingEditDialog: true },
     },
   })
@@ -76,7 +78,7 @@ describe('BookingsPage — сортировка по дате', () => {
   })
 
   it('по умолчанию запрашивает сначала новые', async () => {
-    mountPage()
+    await mountPage()
     expect(captured.params.value.sort).toBe('desc')
     await expect.element(sortButton()).toHaveAccessibleName(/сначала новые/)
     // Хронологический номер: верхняя строка первой страницы — последняя из 30.
@@ -84,7 +86,7 @@ describe('BookingsPage — сортировка по дате', () => {
   })
 
   it('переключает направление из заголовка «Дата» и запоминает его', async () => {
-    const wrapper = mountPage()
+    const wrapper = await mountPage()
 
     await sortButton().click()
 
@@ -93,7 +95,7 @@ describe('BookingsPage — сортировка по дате', () => {
     await expect.poll(firstRowNumber).toBe('1')
 
     wrapper.unmount()
-    mountPage()
+    await mountPage()
     expect(captured.params.value.sort).toBe('asc')
 
     await sortButton().click()

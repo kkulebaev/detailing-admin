@@ -30,12 +30,14 @@ vi.mock('vue-sonner', () => ({
 }))
 
 import BookingsPage from '@/components/BookingsPage.vue'
+import { createTestRouter } from './helpers/router'
 
-function mountPage() {
+async function mountPage(path = '/') {
+  const router = await createTestRouter(path)
   return mount(BookingsPage, {
     attachTo: document.body,
     global: {
-      plugins: [createPinia()],
+      plugins: [createPinia(), router],
       stubs: {
         BookingDetailsDialog: true,
         BookingEditDialog: true,
@@ -66,21 +68,21 @@ describe('BookingsPage — период по умолчанию', () => {
   })
 
   it('запрашивает записи с сегодняшнего дня без конечной даты', async () => {
-    mountPage()
+    await mountPage()
     expect(captured.params.value.dateFrom).toBe('05.11.2026')
     expect(captured.params.value.dateTo).toBeUndefined()
     await expect.element(button('С 05.11.2026')).toBeVisible()
   })
 
   it('оставляет пустое состояние периода по умолчанию и предлагает сброс', async () => {
-    mountPage()
+    await mountPage()
     await expect.element(page.getByText('Нет записей с сегодняшнего дня')).toBeVisible()
     await expect.element(page.getByText('Ничего не найдено')).not.toBeInTheDocument()
     await expect.element(button('Сбросить')).toBeVisible()
   })
 
   it('при сбросе переключает период по умолчанию на «Все записи»', async () => {
-    mountPage()
+    await mountPage()
 
     await button('Сбросить').click()
 
@@ -91,7 +93,7 @@ describe('BookingsPage — период по умолчанию', () => {
   })
 
   it('при сбросе переключает выбранный месяц на «Все записи»', async () => {
-    mountPage()
+    await mountPage()
 
     await choosePeriod('С 05.11.2026', 'Весь месяц')
     await expect.element(page.getByText('Ничего не найдено')).toBeVisible()
@@ -105,7 +107,7 @@ describe('BookingsPage — период по умолчанию', () => {
   })
 
   it('прячет сброс, когда в «Все записи» сбрасывать уже нечего', async () => {
-    mountPage()
+    await mountPage()
 
     await choosePeriod('С 05.11.2026', 'Все записи')
 
@@ -118,12 +120,56 @@ describe('BookingsPage — период по умолчанию', () => {
   })
 
   it('возвращается к умолчанию по «С сегодня»', async () => {
-    mountPage()
+    await mountPage()
 
     await choosePeriod('С 05.11.2026', 'Все записи')
     await choosePeriod('Все записи', 'С сегодня')
 
     await expect.element(button('С 05.11.2026')).toBeVisible()
     expect(captured.params.value.dateFrom).toBe('05.11.2026')
+  })
+
+  describe('фильтры в адресе', () => {
+    it('открывает месяц, мастера, готовность и страницу из адреса', async () => {
+      await mountPage(
+        `/?period=2026-10&master=${encodeURIComponent('Иван')}&readiness=${encodeURIComponent('В работе')}&page=2`,
+      )
+
+      expect(captured.params.value).toMatchObject({
+        dateFrom: '01.10.2026',
+        dateTo: '31.10.2026',
+        master: 'Иван',
+        readiness: 'В работе',
+        offset: 50,
+      })
+      await expect.element(button('Октябрь 2026')).toBeVisible()
+    })
+
+    it('открывает день из адреса', async () => {
+      await mountPage('/?period=2026-11-12')
+
+      expect(captured.params.value).toMatchObject({ dateFrom: '12.11.2026', dateTo: '12.11.2026' })
+      await expect.element(button('12.11.2026')).toBeVisible()
+    })
+
+    it('смена периода пишется в адрес и сбрасывает страницу', async () => {
+      const wrapper = await mountPage('/?page=3')
+      const router = wrapper.vm.$router
+
+      await choosePeriod('С 05.11.2026', 'Все записи')
+
+      await expect.poll(() => router.currentRoute.value.query).toEqual({ period: 'all' })
+      expect(captured.params.value.offset).toBe(0)
+    })
+
+    it('адрес без периода возвращает календарь на текущий месяц', async () => {
+      const wrapper = await mountPage('/?period=2026-03')
+      const router = wrapper.vm.$router
+
+      await router.push('/')
+      await choosePeriod('С 05.11.2026', 'Весь месяц')
+
+      expect(captured.params.value).toMatchObject({ dateFrom: '01.11.2026', dateTo: '30.11.2026' })
+    })
   })
 })

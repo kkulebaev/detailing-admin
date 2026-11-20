@@ -19,7 +19,7 @@ import { toast } from 'vue-sonner'
 import { createReusableTemplate, useLocalStorage, useMediaQuery } from '@vueuse/core'
 import type { DateValue } from 'reka-ui'
 import { READINESS, type BookingRow, type Readiness } from '@detailing-admin/shared'
-import { getLocalTimeZone, today } from '@internationalized/date'
+import { CalendarDate, getLocalTimeZone, parseDate, today } from '@internationalized/date'
 import { MONTH_NAMES } from '@/lib/month-options'
 import { calToDdmmyyyy, isoToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
@@ -36,6 +36,16 @@ import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
+import {
+  enumParam,
+  isIsoDay,
+  isIsoMonth,
+  pageParam,
+  textParam,
+  useQueryParam,
+  watchFilters,
+  type QueryParamOptions,
+} from '@/composables/use-query-param'
 import BookingDetailsDialog from './BookingDetailsDialog.vue'
 import DeletedBookingsDialog from './DeletedBookingsDialog.vue'
 import BookingJournalDialog from './BookingJournalDialog.vue'
@@ -285,7 +295,58 @@ watch(searchInput, (v) => {
 })
 onUnmounted(() => clearTimeout(searchTimer))
 
-const { limit: LIMIT, offset, page, resetToFirstPage } = useOffsetPagination()
+const { limit: LIMIT, offset, page, resetToFirstPage, keepWithin } = useOffsetPagination()
+
+// ── Фильтры в адресе ─────────────────────────────────────────────────────────
+// Период в адресе одной строкой: пусто — с сегодня, `all`, `YYYY-MM` или день
+// `YYYY-MM-DD`. Календарь открывается на выбранном месяце, а не на сегодняшнем.
+const period = computed({
+  get: () => {
+    if (dayCal.value) return dayCal.value.toString()
+    if (monthKey.value === ALL) return 'all'
+    return monthKey.value === FROM_TODAY ? '' : monthKey.value
+  },
+  set: (v: string) => {
+    if (v.length === 10) {
+      const d = parseDate(v)
+      dayCal.value = d
+      monthKey.value = FROM_TODAY
+      periodPlaceholder.value = d
+      return
+    }
+    dayCal.value = undefined
+    monthKey.value = v === 'all' ? ALL : v || FROM_TODAY
+    if (v.length === 7) {
+      const [y, m] = v.split('-').map(Number)
+      periodPlaceholder.value = new CalendarDate(y!, m!, 1)
+    } else {
+      // Иначе «Весь месяц» после сброса через сайдбар взял бы месяц из прошлой ссылки.
+      periodPlaceholder.value = todayCal
+    }
+  },
+})
+const periodParam: QueryParamOptions<string> = {
+  parse: (raw) => (raw === 'all' || isIsoMonth(raw) || isIsoDay(raw) ? raw : undefined),
+  serialize: (v) => v,
+  defaultValue: () => '',
+}
+const search = computed({
+  get: () => searchDebounced.value,
+  set: (v: string) => {
+    clearTimeout(searchTimer)
+    searchInput.value = v
+    searchDebounced.value = v
+  },
+})
+useQueryParam('period', period, periodParam)
+useQueryParam('master', masterFilter, {
+  parse: (raw) => raw || undefined,
+  serialize: (v) => (v === ALL ? '' : v),
+  defaultValue: () => ALL,
+})
+useQueryParam('readiness', readinessFilter, enumParam([ALL, ...READINESS], ALL))
+useQueryParam('q', search, textParam())
+useQueryParam('page', page, pageParam())
 
 const { data: mastersData } = useMastersQuery()
 const masterOptions = computed(() =>
@@ -342,7 +403,7 @@ const params = computed<GetApiBookingsParams>(() => ({
 
 // Любое изменение фильтра возвращает на первую страницу; пагинация сама двигает
 // `offset` напрямую и намеренно сюда не входит.
-watch([monthKey, dayCal, masterFilter, readinessFilter, searchDebounced, sort], () => {
+watchFilters([monthKey, dayCal, masterFilter, readinessFilter, searchDebounced, sort], () => {
   resetToFirstPage()
 })
 
@@ -357,6 +418,7 @@ const total = computed(() => {
   const r = queryData.value
   return r?.ok ? r.total : 0
 })
+keepWithin(total)
 
 // Скелетон только при самой первой загрузке — фоновые перезапросы оставляют видимыми
 // прежние строки (placeholderData в useBookingsQuery), поэтому `loading` тогда false.
