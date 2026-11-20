@@ -3,7 +3,8 @@ import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { page } from 'vitest/browser'
 import type { Master, ScheduleRequest } from '@detailing-admin/shared'
 import { monthScheduleRange } from '@detailing-admin/shared'
-import { currentMonthKey } from '@/lib/month-options'
+import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
+import { createTestRouter } from './helpers/router'
 
 const state = await vi.hoisted(async () => {
   const { ref } = await import('vue')
@@ -79,7 +80,10 @@ vi.mock('@vueuse/core', async () => {
 
 vi.mock('@/lib/schedule-api', () => ({ saveSchedule: vi.fn() }))
 
-vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }))
+vi.mock('vue-router', async () => ({
+  ...(await vi.importActual<typeof import('vue-router')>('vue-router')),
+  onBeforeRouteLeave: vi.fn(),
+}))
 
 vi.mock('@/lib/schedule-requests-api', () => ({
   submitScheduleRequest: vi.fn(),
@@ -142,7 +146,10 @@ describe('SchedulePage', () => {
       expect(days).toHaveLength(2)
       return { ok: true }
     })
-    mount(SchedulePage, { attachTo: document.body })
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
 
     const first = page.getByRole('button', { name: dayLabel(1) })
     const second = page.getByRole('button', { name: secondDayLabel })
@@ -166,8 +173,62 @@ describe('SchedulePage', () => {
     await expect.element(first).toHaveAttribute('aria-pressed', 'false')
   })
 
+  describe('месяц в адресе', () => {
+    const next = buildMonthOptions(1, 0)[0]!
+    const current = buildMonthOptions(0, 0)[0]!
+
+    async function mountAt(path: string) {
+      const router = await createTestRouter(path)
+      mount(SchedulePage, { attachTo: document.body, global: { plugins: [router] } })
+      return router
+    }
+
+    it('открывает месяц из query', async () => {
+      await mountAt(`/?month=${next.value}`)
+
+      await expect.element(page.getByRole('combobox')).toHaveTextContent(next.label)
+    })
+
+    it('незнакомый месяц заменяется текущим и пропадает из адреса', async () => {
+      const router = await mountAt('/?month=1999-01')
+
+      await expect.element(page.getByRole('combobox')).toHaveTextContent(current.label)
+      await expect.poll(() => router.currentRoute.value.query.month).toBeUndefined()
+    })
+
+    it('выбранный месяц пишется в query, а текущий убирается из него', async () => {
+      const router = await mountAt('/?keep=1')
+
+      await page.getByRole('combobox').click()
+      await page.getByRole('option', { name: next.label }).click()
+      await expect.poll(() => router.currentRoute.value.query.month).toBe(next.value)
+
+      await page.getByRole('combobox').click()
+      await page.getByRole('option', { name: current.label }).click()
+      await expect.poll(() => router.currentRoute.value.query.month).toBeUndefined()
+      expect(router.currentRoute.value.query.keep).toBe('1')
+    })
+
+    it('адрес без месяца возвращает к текущему и не теряет черновик', async () => {
+      const router = await mountAt('/')
+      const second = page.getByRole('button', { name: secondDayLabel })
+      await second.click()
+
+      await router.push(`/?month=${next.value}`)
+      await expect.element(page.getByRole('combobox')).toHaveTextContent(next.label)
+      await router.push('/')
+
+      await expect.element(page.getByRole('combobox')).toHaveTextContent(current.label)
+      await expect.element(second).toHaveAttribute('aria-pressed', 'true')
+      await expect.element(page.getByText('Несохраненных изменений: 1')).toBeInTheDocument()
+    })
+  })
+
   it('повторный тап возвращает день как был, и сохранять нечего', async () => {
-    mount(SchedulePage, { attachTo: document.body })
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
 
     const second = page.getByRole('button', { name: secondDayLabel })
     await second.click()
@@ -179,7 +240,10 @@ describe('SchedulePage', () => {
   })
 
   it('«Отменить» сбрасывает черновик', async () => {
-    mount(SchedulePage, { attachTo: document.body })
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
 
     const second = page.getByRole('button', { name: secondDayLabel })
     await second.click()
@@ -191,7 +255,10 @@ describe('SchedulePage', () => {
 
   it('при ошибке сохранения черновик остается', async () => {
     vi.mocked(saveSchedule).mockResolvedValue({ ok: false, error: 'internal' })
-    mount(SchedulePage, { attachTo: document.body })
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
 
     const second = page.getByRole('button', { name: secondDayLabel })
     await second.click()
@@ -205,7 +272,10 @@ describe('SchedulePage', () => {
   it('двойной тап по «Сохранить» шлет один запрос', async () => {
     let release: (v: { ok: true }) => void = () => {}
     vi.mocked(saveSchedule).mockReturnValue(new Promise((r) => (release = r)))
-    mount(SchedulePage, { attachTo: document.body })
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
 
     await page.getByRole('button', { name: secondDayLabel }).click()
     const save = page.getByRole('button', { name: 'Сохранить' })
@@ -218,7 +288,10 @@ describe('SchedulePage', () => {
 
   it('сотрудник видит график, но не может его менять', async () => {
     state.isAdmin.value = false
-    mount(SchedulePage, { attachTo: document.body })
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
 
     await expect.element(page.getByText('Иван', { exact: true })).toBeInTheDocument()
     expect(page.getByRole('button', { name: /^Иван, / }).elements()).toHaveLength(0)
@@ -226,7 +299,10 @@ describe('SchedulePage', () => {
 
   it('пока на экране прошлый месяц, отметки не видны и не ставятся', async () => {
     state.from.value = '1999-01-01'
-    mount(SchedulePage, { attachTo: document.body })
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
 
     const first = page.getByRole('button', { name: secondDayLabel.replace(', 2 ', ', 1 ') })
     await expect.element(first).toHaveAttribute('aria-pressed', 'false')
@@ -250,7 +326,10 @@ describe('SchedulePage', () => {
         ok: true,
         request: {} as ScheduleRequest,
       })
-      mount(SchedulePage, { attachTo: document.body })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
 
       const past = page.getByRole('button', { name: pastLabel })
       const future = page.getByRole('button', { name: futureLabel })
@@ -289,7 +368,10 @@ describe('SchedulePage', () => {
           },
         ],
       }
-      mount(SchedulePage, { attachTo: document.body })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
 
       await expect.element(page.getByText('Заявка на согласовании')).toBeInTheDocument()
       await expect
@@ -300,7 +382,10 @@ describe('SchedulePage', () => {
 
     it('без привязки к мастеру отмечать нечего', async () => {
       state.my.value = { ok: true, masterId: null, today, requests: [] }
-      mount(SchedulePage, { attachTo: document.body })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
 
       await expect.element(page.getByText('Иван', { exact: true })).toBeInTheDocument()
       expect(page.getByRole('button', { name: /^Иван, / }).elements()).toHaveLength(0)
@@ -308,7 +393,10 @@ describe('SchedulePage', () => {
     })
 
     it('свой мастер выделен в таблице', async () => {
-      mount(SchedulePage, { attachTo: document.body })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
 
       await expect.element(page.getByText('Вы', { exact: true })).toBeInTheDocument()
     })
@@ -336,7 +424,10 @@ describe('SchedulePage', () => {
 
     it('админ, привязанный к мастеру, тоже видит себя в таблице', async () => {
       state.my.value = { ok: true, masterId: 1, today: `${month}-15`, requests: [] }
-      mount(SchedulePage, { attachTo: document.body })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
 
       await expect.element(page.getByText('Вы', { exact: true })).toBeInTheDocument()
       expect(page.getByText('Заявка на согласовании').elements()).toHaveLength(0)
@@ -344,7 +435,10 @@ describe('SchedulePage', () => {
 
     it('админ видит заявку и одобряет ее', async () => {
       vi.mocked(approveScheduleRequest).mockResolvedValue({ ok: true })
-      mount(SchedulePage, { attachTo: document.body })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
 
       await expect
         .element(page.getByText(new RegExp(`Рабочие:\\s*20 ${monthName}`)))
@@ -356,7 +450,10 @@ describe('SchedulePage', () => {
 
     it('админ отклоняет заявку с комментарием', async () => {
       vi.mocked(rejectScheduleRequest).mockResolvedValue({ ok: true })
-      mount(SchedulePage, { attachTo: document.body })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
 
       await page.getByRole('button', { name: 'Отклонить заявку: Иван' }).click()
       await page.getByLabelText(/Комментарий/).fill('Нет замены')

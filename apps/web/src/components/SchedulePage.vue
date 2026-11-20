@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner'
 import { getLocalTimeZone, today } from '@internationalized/date'
 import { isoDaysBetween, monthScheduleRange } from '@detailing-admin/shared'
 import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
+import { monthParam, useQueryParam } from '@/composables/use-query-param'
 import {
   MY_SCHEDULE_REQUESTS_KEY,
   SCHEDULE_KEY,
@@ -39,9 +40,11 @@ const auth = useAuthStore()
 const canEdit = computed(() => auth.isAdmin)
 const isWideScreen = useMediaQuery('(min-width: 768px)')
 
-const month = ref(currentMonthKey())
 // График составляют наперед, поэтому вперед смотрим дальше, чем на странице зарплат.
 const monthOptions = buildMonthOptions(3, 12)
+
+const month = ref(currentMonthKey())
+useQueryParam('month', month, monthParam(monthOptions, currentMonthKey))
 const range = computed(() => monthScheduleRange(month.value))
 
 const { data: scheduleData, error: scheduleError, asyncStatus } = useScheduleQuery(range)
