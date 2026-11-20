@@ -32,9 +32,9 @@ import {
   type WorkHoursPatch,
 } from '../db/salaries.js'
 import type { Master, WorkHoursRow } from '../db/schema.js'
-import { SHOP_TIMEZONE } from '../export.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
+import { shopToday } from '../shop-date.js'
 
 // «Мои часы»: вошедший аккаунт работает только с привязанным к нему мастером
 // (masters.userId) и ни с чем больше. Мастер определяется на каждый запрос по `sub`
@@ -49,12 +49,6 @@ const idParamSchema = z.object({
 
 const workHoursMutationOk = z.object({ ok: z.literal(true), hours: workHoursSchema })
 const deleteOk = z.object({ ok: z.literal(true) })
-
-// Окно редактирования — календарное правило, поэтому «сегодня» — это день студии,
-// а не UTC-день сервера: около полуночи они расходятся.
-function shopToday(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: SHOP_TIMEZONE }).format(new Date())
-}
 
 function unavailable(c: Context) {
   return c.json(
