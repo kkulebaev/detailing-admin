@@ -15,6 +15,7 @@ import {
   X,
 } from '@lucide/vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useIntervalFn } from '@vueuse/core'
 import type { Role } from '@detailing-admin/shared'
 import AppLogo from '@/components/AppLogo.vue'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
+import { usePendingScheduleRequestsQuery } from '@/lib/queries'
 import { useAuthStore } from '@/stores/auth'
 
 interface NavItem {
@@ -81,6 +83,22 @@ const navItems = computed(() => {
   return NAV_ITEMS.filter((item) => item.roles.includes(role))
 })
 
+// Админ узнает о новых заявках на график только по этому счетчику — уведомлений нет.
+const isAdmin = computed(() => auth.isAdmin)
+const { data: pendingRequests, refresh: refreshPending } = usePendingScheduleRequestsQuery(isAdmin)
+// Заявка от сотрудника не вызывает у админа никакого события, а вкладку держат открытой
+// часами — без опроса счетчик ждал бы смены фокуса окна.
+useIntervalFn(() => {
+  if (isAdmin.value) void refreshPending()
+}, 60_000)
+const pendingCount = computed(() =>
+  pendingRequests.value?.ok ? pendingRequests.value.requests.length : 0,
+)
+
+function badgeFor(item: NavItem): number {
+  return item.to.name === 'schedule' ? pendingCount.value : 0
+}
+
 const route = useRoute()
 const router = useRouter()
 const { isMobile, setOpenMobile } = useSidebar()
@@ -126,6 +144,17 @@ async function onLogout() {
                 <RouterLink :to="item.to">
                   <component :is="item.icon" />
                   <span>{{ item.label }}</span>
+                  <!-- Внутри ссылки, а не SidebarMenuBadge: тот позиционируется абсолютно
+                       под размер кнопки и у пунктов size="lg" уезжал вверх. -->
+                  <span
+                    v-if="badgeFor(item) > 0"
+                    class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs leading-none font-semibold text-white tabular-nums"
+                  >
+                    <span aria-hidden="true">{{
+                      badgeFor(item) > 99 ? '99+' : badgeFor(item)
+                    }}</span>
+                    <span class="sr-only">, заявок на согласование: {{ badgeFor(item) }}</span>
+                  </span>
                 </RouterLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
