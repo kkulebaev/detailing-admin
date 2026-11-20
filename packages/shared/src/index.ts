@@ -229,10 +229,18 @@ export {
   scheduleListResponseSchema,
   scheduleDayInputSchema,
   scheduleDayResponseSchema,
+  scheduleUpdateInputSchema,
+  SCHEDULE_MAX_CHANGES,
   isoDaysBetween,
   scheduleRangeDays,
   scheduleMonthsRange,
   monthScheduleRange,
   findDaysOff,
 } from './schedule.js'
-export type { ScheduleQuery, MasterSchedule, ScheduleDayInput, MasterDaysOff } from './schedule.js'
+export type {
+  ScheduleQuery,
+  MasterSchedule,
+  ScheduleDayInput,
+  ScheduleUpdateInput,
+  MasterDaysOff,
+} from './schedule.js'

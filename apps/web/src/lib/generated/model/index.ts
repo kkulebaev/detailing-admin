@@ -464,6 +464,7 @@ export * from './patchApiSchedule503';
 export * from './patchApiSchedule503Error';
 export * from './patchApiSchedule503Reason';
 export * from './patchApiScheduleBody';
+export * from './patchApiScheduleBodyDaysItem';
 export * from './postApiAuthChangePassword200';
 export * from './postApiAuthChangePassword400';
 export * from './postApiAuthChangePassword400Error';

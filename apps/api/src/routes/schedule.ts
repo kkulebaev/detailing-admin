@@ -7,14 +7,14 @@ import {
   dbUnavailableErrorSchema,
   internalErrorSchema,
   notFoundErrorSchema,
-  scheduleDayInputSchema,
   scheduleOkSchema,
   scheduleQuerySchema,
   scheduleRangeDays,
+  scheduleUpdateInputSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
-import { ScheduleError, listSchedule, setScheduleDay } from '../db/schedule.js'
+import { ScheduleError, listSchedule, setScheduleDays } from '../db/schedule.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
@@ -75,19 +75,19 @@ const listScheduleRoute = createRoute({
   },
 })
 
-const setScheduleDayRoute = createRoute({
+const setScheduleDaysRoute = createRoute({
   method: 'patch',
   path: '/',
   tags: ['schedule'],
-  request: { body: { content: { 'application/json': { schema: scheduleDayInputSchema } } } },
+  request: { body: { content: { 'application/json': { schema: scheduleUpdateInputSchema } } } },
   responses: {
     200: {
-      description: 'Day marked as working or off',
+      description: 'Days marked as working or off, all in one transaction',
       content: { 'application/json': { schema: z.object({ ok: z.literal(true) }) } },
     },
     400: respValidation,
     404: {
-      description: 'Master not found or archived',
+      description: 'A master not found or archived; nothing saved',
       content: { 'application/json': { schema: notFoundErrorSchema } },
     },
     500: respInternal,
@@ -122,32 +122,25 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return internal(c, 'schedule.list.error', requestId, err)
     }
   })
-  .openapi(setScheduleDayRoute, async (c) => {
+  .openapi(setScheduleDaysRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
 
-    const { masterId, date, working } = c.req.valid('json')
+    const { days } = c.req.valid('json')
     try {
-      await setScheduleDay(masterId, date, working)
+      await setScheduleDays(days)
       baseLogger.info(
-        {
-          event: 'schedule.day.set',
-          request_id: requestId,
-          master_id: masterId,
-          date,
-          working,
-          status: 200,
-        },
-        'Schedule day set',
+        { event: 'schedule.days.set', request_id: requestId, count: days.length, status: 200 },
+        'Schedule days set',
       )
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       if (err instanceof ScheduleError) {
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
-      return internal(c, 'schedule.day.error', requestId, err)
+      return internal(c, 'schedule.days.error', requestId, err)
     }
   })
 

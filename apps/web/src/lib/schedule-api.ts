@@ -3,8 +3,8 @@ import {
   scheduleDayResponseSchema,
   scheduleListResponseSchema,
   type MasterSchedule,
-  type ScheduleDayInput,
   type ScheduleQuery,
+  type ScheduleUpdateInput,
 } from '@detailing-admin/shared'
 import { unwrap } from './api-client'
 import { getApiSchedule, patchApiSchedule } from './generated/schedule/schedule'
@@ -18,6 +18,6 @@ export function fetchSchedule(range: ScheduleQuery): Promise<ScheduleListResult>
   return unwrap<ScheduleListResult>(() => getApiSchedule(range))
 }
 
-export function setScheduleDay(payload: ScheduleDayInput): Promise<ScheduleDayResult> {
+export function saveSchedule(payload: ScheduleUpdateInput): Promise<ScheduleDayResult> {
   return unwrap<ScheduleDayResult>(() => patchApiSchedule(payload))
 }

@@ -47,6 +47,17 @@ export const scheduleDayInputSchema = z.object({
 
 export type ScheduleDayInput = z.infer<typeof scheduleDayInputSchema>
 
+// Месяц всех мастеров с запасом; больше за одно сохранение админ не наберет.
+export const SCHEDULE_MAX_CHANGES = 1000
+
+// Админ отмечает дни черновиком и сохраняет пачкой: одна транзакция, так что
+// график не остается сохраненным наполовину.
+export const scheduleUpdateInputSchema = z.object({
+  days: z.array(scheduleDayInputSchema).min(1).max(SCHEDULE_MAX_CHANGES),
+})
+
+export type ScheduleUpdateInput = z.infer<typeof scheduleUpdateInputSchema>
+
 export const scheduleDayResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
   validationErrorSchema,

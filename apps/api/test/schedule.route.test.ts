@@ -47,12 +47,12 @@ vi.mock('../src/db/schedule.js', () => {
       this.name = 'ScheduleError'
     }
   }
-  return { ScheduleError, listSchedule: vi.fn(), setScheduleDay: vi.fn() }
+  return { ScheduleError, listSchedule: vi.fn(), setScheduleDays: vi.fn() }
 })
 
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
-import { ScheduleError, listSchedule, setScheduleDay } from '../src/db/schedule.js'
+import { ScheduleError, listSchedule, setScheduleDays } from '../src/db/schedule.js'
 import { adminCookie, bookerCookie, employeeCookie } from './auth-helpers.js'
 
 function req(
@@ -68,6 +68,7 @@ function req(
 }
 
 const day = { masterId: 1, date: '2026-11-16', working: true }
+const body = { days: [day] }
 
 describe('/api/schedule', () => {
   let app: ReturnType<typeof createApp>
@@ -76,7 +77,7 @@ describe('/api/schedule', () => {
     app = createApp()
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(listSchedule).mockReset()
-    vi.mocked(setScheduleDay).mockReset()
+    vi.mocked(setScheduleDays).mockReset()
   })
 
   it('GET без сессии → 401', async () => {
@@ -119,37 +120,43 @@ describe('/api/schedule', () => {
   })
 
   it('PATCH без сессии → 401', async () => {
-    const res = await req(app, 'PATCH', { body: day, cookie: '' })
+    const res = await req(app, 'PATCH', { body, cookie: '' })
     expect(res.status).toBe(401)
-    expect(vi.mocked(setScheduleDay)).not.toHaveBeenCalled()
+    expect(vi.mocked(setScheduleDays)).not.toHaveBeenCalled()
   })
 
   it('PATCH доступен только админу', async () => {
     for (const cookie of [await employeeCookie(), await bookerCookie()]) {
-      const res = await req(app, 'PATCH', { body: day, cookie })
+      const res = await req(app, 'PATCH', { body, cookie })
       expect(res.status).toBe(403)
     }
-    expect(vi.mocked(setScheduleDay)).not.toHaveBeenCalled()
+    expect(vi.mocked(setScheduleDays)).not.toHaveBeenCalled()
   })
 
-  it('PATCH от админа отмечает день', async () => {
-    vi.mocked(setScheduleDay).mockResolvedValue()
-    const res = await req(app, 'PATCH', { body: day, cookie: await adminCookie() })
+  it('PATCH от админа сохраняет дни пачкой', async () => {
+    vi.mocked(setScheduleDays).mockResolvedValue()
+    const res = await req(app, 'PATCH', { body, cookie: await adminCookie() })
     expect(res.status).toBe(200)
-    expect(vi.mocked(setScheduleDay)).toHaveBeenCalledWith(1, '2026-11-16', true)
+    expect(vi.mocked(setScheduleDays)).toHaveBeenCalledWith([day])
   })
 
   it('PATCH для архивного или несуществующего мастера → 404', async () => {
-    vi.mocked(setScheduleDay).mockRejectedValue(new ScheduleError('not_found'))
-    const res = await req(app, 'PATCH', { body: day, cookie: await adminCookie() })
+    vi.mocked(setScheduleDays).mockRejectedValue(new ScheduleError('not_found'))
+    const res = await req(app, 'PATCH', { body, cookie: await adminCookie() })
     expect(res.status).toBe(404)
   })
 
   it('PATCH с несуществующей датой → 400', async () => {
     const res = await req(app, 'PATCH', {
-      body: { ...day, date: '2026-02-30' },
+      body: { days: [{ ...day, date: '2026-02-30' }] },
       cookie: await adminCookie(),
     })
     expect(res.status).toBe(400)
+  })
+
+  it('PATCH с пустым списком дней → 400', async () => {
+    const res = await req(app, 'PATCH', { body: { days: [] }, cookie: await adminCookie() })
+    expect(res.status).toBe(400)
+    expect(vi.mocked(setScheduleDays)).not.toHaveBeenCalled()
   })
 })

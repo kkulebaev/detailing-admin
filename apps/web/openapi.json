@@ -12400,23 +12400,36 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "masterId": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "exclusiveMinimum": true
-                  },
-                  "date": {
-                    "type": "string",
-                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-                  },
-                  "working": {
-                    "type": "boolean"
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "masterId": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "date": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "working": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "masterId",
+                        "date",
+                        "working"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000
                   }
                 },
                 "required": [
-                  "masterId",
-                  "date",
-                  "working"
+                  "days"
                 ]
               }
             }
@@ -12424,7 +12437,7 @@
         },
         "responses": {
           "200": {
-            "description": "Day marked as working or off",
+            "description": "Days marked as working or off, all in one transaction",
             "content": {
               "application/json": {
                 "schema": {
@@ -12502,7 +12515,7 @@
             }
           },
           "404": {
-            "description": "Master not found or archived",
+            "description": "A master not found or archived; nothing saved",
             "content": {
               "application/json": {
                 "schema": {

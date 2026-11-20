@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
+import { useEventListener, useMediaQuery } from '@vueuse/core'
+import { onBeforeRouteLeave } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getLocalTimeZone, today } from '@internationalized/date'
 import { isoDaysBetween, monthScheduleRange } from '@detailing-admin/shared'
 import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
 import { SCHEDULE_KEY, useMastersQuery, useScheduleQuery } from '@/lib/queries'
-import { setScheduleDay } from '@/lib/schedule-api'
+import { saveSchedule } from '@/lib/schedule-api'
 import { useAuthStore } from '@/stores/auth'
 import { useQueryCache } from '@pinia/colada'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -62,11 +64,11 @@ const days = computed(() =>
 // Пустые ячейки перед первым числом, чтобы календарь на телефоне начинался с понедельника.
 const leadingBlanks = computed(() => days.value[0]?.weekday ?? 0)
 
-// Отметка видна сразу, не дожидаясь ответа, и снимается, когда график перечитан:
-// иначе она закрыла бы правку, сделанную в другой вкладке.
-const overrides = reactive(new Map<string, boolean>())
-const pending = reactive(new Set<string>())
-watch(month, () => overrides.clear())
+// Черновик админа: только дни, отличные от сохраненных. Переживает смену месяца
+// и мастера, чтобы график можно было заполнить целиком и сохранить одним разом.
+const drafts = reactive(new Map<string, boolean>())
+const saving = ref(false)
+const dirtyCount = computed(() => drafts.size)
 
 // placeholderData держит прошлый месяц, пока грузится новый: без этой сверки новый
 // месяц на мгновение выглядел бы пустым, и админ мог бы начать заполнять его заново.
@@ -85,24 +87,44 @@ const serverWorking = computed(() => {
 
 function isWorking(masterId: number, iso: string): boolean {
   const key = `${masterId}|${iso}`
-  return overrides.get(key) ?? serverWorking.value.has(key)
+  return drafts.get(key) ?? serverWorking.value.has(key)
+}
+
+function isDraft(masterId: number, iso: string): boolean {
+  return drafts.has(`${masterId}|${iso}`)
+}
+
+function cellClass(masterId: number, iso: string, filled: string): string {
+  const working = isWorking(masterId, iso)
+  if (!isDraft(masterId, iso))
+    return working ? `border-primary bg-primary ${filled}` : 'border-border'
+  // Несохраненная отметка бледнее сохраненной, а снятая — пунктиром, чтобы до
+  // сохранения было видно, что именно изменится.
+  return working ? `border-primary bg-primary/50 ${filled}` : 'border-dashed border-primary'
 }
 
 function workingCount(masterId: number): number {
   return days.value.filter((d) => isWorking(masterId, d.iso)).length
 }
 
-async function toggle(masterId: number, iso: string) {
-  if (!canEdit.value || !dataReady.value) return
+function toggle(masterId: number, iso: string) {
+  if (!canEdit.value || !dataReady.value || saving.value) return
   const key = `${masterId}|${iso}`
-  if (pending.has(key)) return
   const working = !isWorking(masterId, iso)
-  overrides.set(key, working)
-  pending.add(key)
+  if (working === serverWorking.value.has(key)) drafts.delete(key)
+  else drafts.set(key, working)
+}
+
+async function save() {
+  if (saving.value || drafts.size === 0) return
+  const days = [...drafts].map(([key, working]) => {
+    const [masterId, date] = key.split('|')
+    return { masterId: Number(masterId), date: date!, working }
+  })
+  saving.value = true
   try {
-    const result = await setScheduleDay({ masterId, date: iso, working })
+    const result = await saveSchedule({ days })
     if (!result.ok) {
-      overrides.delete(key)
       toast.error(
         result.error === 'not_found'
           ? 'Мастер не найден — обновите страницу'
@@ -112,17 +134,27 @@ async function toggle(masterId: number, iso: string) {
       )
       return
     }
+    // Черновик снимается после перечитывания, иначе ячейки на миг мигнули бы старым
+    // графиком. Форма записи держит свои диапазоны графика — пусть тоже перечитает.
+    await queryCache.invalidateQueries({ key: SCHEDULE_KEY }).catch(() => {})
+    drafts.clear()
+    toast.success('График сохранен')
   } catch {
-    overrides.delete(key)
     toast.error('Не удалось сохранить график')
-    return
   } finally {
-    pending.delete(key)
+    saving.value = false
   }
-  // Форма записи держит в кэше свои диапазоны графика — пусть тоже перечитает.
-  await queryCache.invalidateQueries({ key: SCHEDULE_KEY }).catch(() => {})
-  if (!pending.has(key)) overrides.delete(key)
 }
+
+function discard() {
+  drafts.clear()
+}
+
+const LEAVE_PROMPT = 'Есть несохраненные изменения графика. Уйти без сохранения?'
+onBeforeRouteLeave(() => drafts.size === 0 || window.confirm(LEAVE_PROMPT))
+useEventListener(window, 'beforeunload', (e: BeforeUnloadEvent) => {
+  if (drafts.size > 0) e.preventDefault()
+})
 
 function dayLabel(iso: string): string {
   const [, m, d] = iso.split('-').map(Number)
@@ -163,7 +195,7 @@ const showSkeleton = computed(
       <div>
         <h1 class="text-2xl font-semibold">График</h1>
         <p v-if="canEdit" class="mt-1 text-sm text-muted-foreground">
-          Нажмите на день, чтобы отметить его рабочим или выходным
+          Отметьте рабочие дни и нажмите «Сохранить»
         </p>
       </div>
     </header>
@@ -261,11 +293,10 @@ const showSkeleton = computed(
                 v-if="canEdit"
                 type="button"
                 class="block size-9 rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                :class="
-                  isWorking(m.id, d.iso)
-                    ? 'border-primary bg-primary hover:bg-primary/85'
-                    : 'border-border hover:bg-accent'
-                "
+                :class="[
+                  cellClass(m.id, d.iso, 'hover:bg-primary/85'),
+                  { 'hover:bg-accent': !isWorking(m.id, d.iso) },
+                ]"
                 :aria-pressed="isWorking(m.id, d.iso)"
                 :aria-label="`${m.name}, ${dayLabel(d.iso)}`"
                 @click="toggle(m.id, d.iso)"
@@ -306,9 +337,7 @@ const showSkeleton = computed(
           :type="canEdit ? 'button' : undefined"
           class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors"
           :class="[
-            isWorking(selectedMaster.id, d.iso)
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border',
+            cellClass(selectedMaster.id, d.iso, 'text-primary-foreground'),
             { 'ring-2 ring-foreground ring-offset-1': d.today },
           ]"
           :aria-pressed="canEdit ? isWorking(selectedMaster.id, d.iso) : undefined"
@@ -321,6 +350,21 @@ const showSkeleton = computed(
       <p class="mt-3 text-sm text-muted-foreground">
         Рабочих дней: <span class="tabular-nums">{{ workingCount(selectedMaster.id) }}</span>
       </p>
+    </div>
+
+    <div
+      v-if="canEdit && dirtyCount > 0"
+      class="sticky bottom-2 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background p-3 shadow-md"
+    >
+      <span class="text-sm">
+        Несохраненных изменений: <span class="tabular-nums">{{ dirtyCount }}</span>
+      </span>
+      <div class="flex gap-2">
+        <Button variant="outline" size="sm" :disabled="saving" @click="discard">Отменить</Button>
+        <Button size="sm" :disabled="saving" @click="save">
+          {{ saving ? 'Сохранение…' : 'Сохранить' }}
+        </Button>
+      </div>
     </div>
   </div>
 </template>

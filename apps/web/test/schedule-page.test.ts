@@ -63,14 +63,16 @@ vi.mock('@vueuse/core', async () => {
   return { ...actual, useMediaQuery: () => ref(true) }
 })
 
-vi.mock('@/lib/schedule-api', () => ({ setScheduleDay: vi.fn() }))
+vi.mock('@/lib/schedule-api', () => ({ saveSchedule: vi.fn() }))
+
+vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }))
 
 vi.mock('vue-sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))
 
 import SchedulePage from '@/components/SchedulePage.vue'
-import { setScheduleDay } from '@/lib/schedule-api'
+import { saveSchedule } from '@/lib/schedule-api'
 import { toast } from 'vue-sonner'
 
 const month = currentMonthKey()
@@ -88,7 +90,9 @@ const MONTHS = [
   'ноября',
   'декабря',
 ]
-const secondDayLabel = `Иван, 2 ${MONTHS[Number(month.slice(5)) - 1]}`
+const monthName = MONTHS[Number(month.slice(5)) - 1]
+const dayLabel = (d: number) => `Иван, ${d} ${monthName}`
+const secondDayLabel = dayLabel(2)
 
 enableAutoUnmount(afterEach)
 
@@ -97,38 +101,88 @@ describe('SchedulePage', () => {
     state.isAdmin.value = true
     state.from.value = monthScheduleRange(month).from
     state.schedule.value = [{ masterId: 1, dates: [`${month}-01`] }]
-    vi.mocked(setScheduleDay).mockReset()
+    vi.mocked(saveSchedule).mockReset()
     vi.mocked(toast.error).mockReset()
   })
 
-  it('админ отмечает день рабочим', async () => {
-    vi.mocked(setScheduleDay).mockImplementation(async ({ date }) => {
-      state.schedule.value = [{ masterId: 1, dates: [`${month}-01`, date] }]
+  it('отметки не уходят на сервер, пока админ не нажмет «Сохранить»', async () => {
+    vi.mocked(saveSchedule).mockImplementation(async ({ days }) => {
+      state.schedule.value = [{ masterId: 1, dates: [`${month}-02`] }]
+      expect(days).toHaveLength(2)
       return { ok: true }
     })
     mount(SchedulePage, { attachTo: document.body })
 
-    const cell = page.getByRole('button', { name: secondDayLabel })
-    await expect.element(cell).toHaveAttribute('aria-pressed', 'false')
-    await cell.click()
+    const first = page.getByRole('button', { name: dayLabel(1) })
+    const second = page.getByRole('button', { name: secondDayLabel })
+    await second.click()
+    await first.click()
+    await expect.element(second).toHaveAttribute('aria-pressed', 'true')
+    await expect.element(first).toHaveAttribute('aria-pressed', 'false')
+    expect(saveSchedule).not.toHaveBeenCalled()
+    await expect.element(page.getByText('Несохраненных изменений: 2')).toBeInTheDocument()
 
-    expect(setScheduleDay).toHaveBeenCalledWith({
-      masterId: 1,
-      date: `${month}-02`,
-      working: true,
+    await page.getByRole('button', { name: 'Сохранить' }).click()
+
+    expect(saveSchedule).toHaveBeenCalledWith({
+      days: expect.arrayContaining([
+        { masterId: 1, date: `${month}-02`, working: true },
+        { masterId: 1, date: `${month}-01`, working: false },
+      ]),
     })
-    await expect.element(cell).toHaveAttribute('aria-pressed', 'true')
+    await expect.element(page.getByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
+    await expect.element(second).toHaveAttribute('aria-pressed', 'true')
+    await expect.element(first).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('при ошибке сохранения отметка откатывается', async () => {
-    vi.mocked(setScheduleDay).mockResolvedValue({ ok: false, error: 'internal' })
+  it('повторный тап возвращает день как был, и сохранять нечего', async () => {
     mount(SchedulePage, { attachTo: document.body })
 
-    const cell = page.getByRole('button', { name: secondDayLabel })
-    await cell.click()
+    const second = page.getByRole('button', { name: secondDayLabel })
+    await second.click()
+    await expect.element(page.getByRole('button', { name: 'Сохранить' })).toBeInTheDocument()
+    await second.click()
 
-    await expect.element(cell).toHaveAttribute('aria-pressed', 'false')
-    expect(toast.error).toHaveBeenCalled()
+    await expect.element(second).toHaveAttribute('aria-pressed', 'false')
+    await expect.element(page.getByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
+  })
+
+  it('«Отменить» сбрасывает черновик', async () => {
+    mount(SchedulePage, { attachTo: document.body })
+
+    const second = page.getByRole('button', { name: secondDayLabel })
+    await second.click()
+    await page.getByRole('button', { name: 'Отменить' }).click()
+
+    await expect.element(second).toHaveAttribute('aria-pressed', 'false')
+    expect(saveSchedule).not.toHaveBeenCalled()
+  })
+
+  it('при ошибке сохранения черновик остается', async () => {
+    vi.mocked(saveSchedule).mockResolvedValue({ ok: false, error: 'internal' })
+    mount(SchedulePage, { attachTo: document.body })
+
+    const second = page.getByRole('button', { name: secondDayLabel })
+    await second.click()
+    await page.getByRole('button', { name: 'Сохранить' }).click()
+
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalled())
+    await expect.element(second).toHaveAttribute('aria-pressed', 'true')
+    await expect.element(page.getByRole('button', { name: 'Сохранить' })).toBeEnabled()
+  })
+
+  it('двойной тап по «Сохранить» шлет один запрос', async () => {
+    let release: (v: { ok: true }) => void = () => {}
+    vi.mocked(saveSchedule).mockReturnValue(new Promise((r) => (release = r)))
+    mount(SchedulePage, { attachTo: document.body })
+
+    await page.getByRole('button', { name: secondDayLabel }).click()
+    const save = page.getByRole('button', { name: 'Сохранить' })
+    await save.click()
+    await expect.element(page.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
+    release({ ok: true })
+
+    expect(saveSchedule).toHaveBeenCalledTimes(1)
   })
 
   it('сотрудник видит график, но не может его менять', async () => {
@@ -139,19 +193,6 @@ describe('SchedulePage', () => {
     expect(page.getByRole('button', { name: /^Иван, / }).elements()).toHaveLength(0)
   })
 
-  it('двойной тап по дню, пока идет сохранение, шлет один запрос', async () => {
-    let release: (v: { ok: true }) => void = () => {}
-    vi.mocked(setScheduleDay).mockReturnValue(new Promise((r) => (release = r)))
-    mount(SchedulePage, { attachTo: document.body })
-
-    const cell = page.getByRole('button', { name: secondDayLabel })
-    await cell.click()
-    await cell.click()
-    release({ ok: true })
-
-    expect(setScheduleDay).toHaveBeenCalledTimes(1)
-  })
-
   it('пока на экране прошлый месяц, отметки не видны и не ставятся', async () => {
     state.from.value = '1999-01-01'
     mount(SchedulePage, { attachTo: document.body })
@@ -160,6 +201,6 @@ describe('SchedulePage', () => {
     await expect.element(first).toHaveAttribute('aria-pressed', 'false')
     await page.getByRole('button', { name: secondDayLabel }).click()
 
-    expect(setScheduleDay).not.toHaveBeenCalled()
+    expect(page.getByRole('button', { name: 'Сохранить' }).elements()).toHaveLength(0)
   })
 })

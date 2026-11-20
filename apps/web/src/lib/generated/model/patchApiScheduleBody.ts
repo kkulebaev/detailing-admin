@@ -5,11 +5,12 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
+import type { PatchApiScheduleBodyDaysItem } from './patchApiScheduleBodyDaysItem';
 
 export type PatchApiScheduleBody = {
-  /** @exclusiveMinimum 0 */
-  masterId: number;
-  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
-  date: string;
-  working: boolean;
+  /**
+     * @minItems 1
+     * @maxItems 1000
+     */
+  days: PatchApiScheduleBodyDaysItem[];
 };

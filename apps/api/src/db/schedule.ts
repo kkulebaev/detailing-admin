@@ -1,5 +1,5 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm'
-import type { MasterSchedule } from '@detailing-admin/shared'
+import { and, asc, eq, gte, inArray, lte, or } from 'drizzle-orm'
+import type { MasterSchedule, ScheduleDayInput } from '@detailing-admin/shared'
 import { getDb } from './client.js'
 import { masterSchedule, masters } from './schema.js'
 
@@ -36,26 +36,36 @@ export async function listSchedule(from: string, to: string): Promise<MasterSche
   return [...byMaster].map(([masterId, dates]) => ({ masterId, dates }))
 }
 
-// Идемпотентно: повторное «рабочий» или «выходной» для того же дня ничего не меняет,
-// так что двойной тап или повтор запроса безопасны.
-export async function setScheduleDay(
-  masterId: number,
-  date: string,
-  working: boolean,
-): Promise<void> {
+// Все или ничего: если хоть один мастер архивный или не найден, не пишется ни один
+// день. Идемпотентно — повтор того же сохранения ничего не меняет.
+export async function setScheduleDays(days: readonly ScheduleDayInput[]): Promise<void> {
   const db = getDb()
-  const [master] = await db
-    .select({ id: masters.id })
-    .from(masters)
-    .where(and(eq(masters.id, masterId), eq(masters.archived, false)))
-    .limit(1)
-  if (!master) throw new ScheduleError('not_found')
+  await db.transaction(async (tx) => {
+    const ids = [...new Set(days.map((d) => d.masterId))]
+    const found = await tx
+      .select({ id: masters.id })
+      .from(masters)
+      .where(and(inArray(masters.id, ids), eq(masters.archived, false)))
+    if (found.length !== ids.length) throw new ScheduleError('not_found')
 
-  if (working) {
-    await db.insert(masterSchedule).values({ masterId, workDate: date }).onConflictDoNothing()
-  } else {
-    await db
-      .delete(masterSchedule)
-      .where(and(eq(masterSchedule.masterId, masterId), eq(masterSchedule.workDate, date)))
-  }
+    const working = days.filter((d) => d.working)
+    const off = days.filter((d) => !d.working)
+    if (working.length > 0) {
+      await tx
+        .insert(masterSchedule)
+        .values(working.map((d) => ({ masterId: d.masterId, workDate: d.date })))
+        .onConflictDoNothing()
+    }
+    if (off.length > 0) {
+      await tx
+        .delete(masterSchedule)
+        .where(
+          or(
+            ...off.map((d) =>
+              and(eq(masterSchedule.masterId, d.masterId), eq(masterSchedule.workDate, d.date)),
+            ),
+          ),
+        )
+    }
+  })
 }
