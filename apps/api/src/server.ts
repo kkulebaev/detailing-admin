@@ -13,6 +13,8 @@ import analyticsRouter from './routes/analytics.js'
 import meRouter from './routes/me.js'
 import usersRouter from './routes/users.js'
 import scheduleRouter from './routes/schedule.js'
+import scheduleRequestsRouter from './routes/schedule-requests.js'
+import myScheduleRequestsRouter from './routes/my-schedule-requests.js'
 import {
   requireAuth,
   requireAdmin,
@@ -92,6 +94,8 @@ export function createApp() {
   // График видят все роли (форма записи у booker'а предупреждает о выходных), правит админ.
   app.use('/api/schedule/*', requireAuth)
   app.use('/api/schedule/*', (c, next) => (c.req.method === 'GET' ? next() : requireAdmin(c, next)))
+  // Заявки сотрудников рассматривает админ; сами сотрудники подают их через /api/me.
+  app.use('/api/schedule-requests/*', requireAuth, requireAdmin)
 
   app.route('/healthz', healthzRouter)
   app.route('/api/bookings', bookingsRouter)
@@ -102,7 +106,9 @@ export function createApp() {
   app.route('/api/analytics', analyticsRouter)
   app.route('/api/users', usersRouter)
   app.route('/api/me', meRouter)
+  app.route('/api/me/schedule-requests', myScheduleRequestsRouter)
   app.route('/api/schedule', scheduleRouter)
+  app.route('/api/schedule-requests', scheduleRequestsRouter)
 
   app.notFound((c) => c.json({ ok: false as const, error: 'not_found' as const }, 404))
 

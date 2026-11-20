@@ -11,11 +11,20 @@ import type {
   DeleteApiMeHoursId404,
   DeleteApiMeHoursId500,
   DeleteApiMeHoursId503,
+  DeleteApiMeScheduleRequestsId200,
+  DeleteApiMeScheduleRequestsId400,
+  DeleteApiMeScheduleRequestsId404,
+  DeleteApiMeScheduleRequestsId409,
+  DeleteApiMeScheduleRequestsId500,
+  DeleteApiMeScheduleRequestsId503,
   GetApiMeSalary200,
   GetApiMeSalary400,
   GetApiMeSalary500,
   GetApiMeSalary503,
   GetApiMeSalaryParams,
+  GetApiMeScheduleRequests200,
+  GetApiMeScheduleRequests500,
+  GetApiMeScheduleRequests503,
   PatchApiMeHoursId200,
   PatchApiMeHoursId400,
   PatchApiMeHoursId404,
@@ -26,7 +35,13 @@ import type {
   PostApiMeHours400,
   PostApiMeHours500,
   PostApiMeHours503,
-  PostApiMeHoursBody
+  PostApiMeHoursBody,
+  PostApiMeScheduleRequests201,
+  PostApiMeScheduleRequests400,
+  PostApiMeScheduleRequests409,
+  PostApiMeScheduleRequests500,
+  PostApiMeScheduleRequests503,
+  PostApiMeScheduleRequestsBody
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
@@ -264,6 +279,177 @@ export const getDeleteApiMeHoursIdUrl = (id: string,) => {
 export const deleteApiMeHoursId = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<deleteApiMeHoursIdResponse> => {
 
   return orvalFetch<deleteApiMeHoursIdResponse>(getDeleteApiMeHoursIdUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+export type getApiMeScheduleRequestsResponse200 = {
+  data: GetApiMeScheduleRequests200
+  status: 200
+}
+
+export type getApiMeScheduleRequestsResponse500 = {
+  data: GetApiMeScheduleRequests500
+  status: 500
+}
+
+export type getApiMeScheduleRequestsResponse503 = {
+  data: GetApiMeScheduleRequests503
+  status: 503
+}
+
+export type getApiMeScheduleRequestsResponseSuccess = (getApiMeScheduleRequestsResponse200) & {
+  headers: Headers;
+};
+export type getApiMeScheduleRequestsResponseError = (getApiMeScheduleRequestsResponse500 | getApiMeScheduleRequestsResponse503) & {
+  headers: Headers;
+};
+
+export type getApiMeScheduleRequestsResponse = (getApiMeScheduleRequestsResponseSuccess | getApiMeScheduleRequestsResponseError)
+
+export const getGetApiMeScheduleRequestsUrl = () => {
+
+
+
+
+  return `/api/me/schedule-requests`
+}
+
+export const getApiMeScheduleRequests = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<getApiMeScheduleRequestsResponse> => {
+
+  return orvalFetch<getApiMeScheduleRequestsResponse>(getGetApiMeScheduleRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type postApiMeScheduleRequestsResponse201 = {
+  data: PostApiMeScheduleRequests201
+  status: 201
+}
+
+export type postApiMeScheduleRequestsResponse400 = {
+  data: PostApiMeScheduleRequests400
+  status: 400
+}
+
+export type postApiMeScheduleRequestsResponse409 = {
+  data: PostApiMeScheduleRequests409
+  status: 409
+}
+
+export type postApiMeScheduleRequestsResponse500 = {
+  data: PostApiMeScheduleRequests500
+  status: 500
+}
+
+export type postApiMeScheduleRequestsResponse503 = {
+  data: PostApiMeScheduleRequests503
+  status: 503
+}
+
+export type postApiMeScheduleRequestsResponseSuccess = (postApiMeScheduleRequestsResponse201) & {
+  headers: Headers;
+};
+export type postApiMeScheduleRequestsResponseError = (postApiMeScheduleRequestsResponse400 | postApiMeScheduleRequestsResponse409 | postApiMeScheduleRequestsResponse500 | postApiMeScheduleRequestsResponse503) & {
+  headers: Headers;
+};
+
+export type postApiMeScheduleRequestsResponse = (postApiMeScheduleRequestsResponseSuccess | postApiMeScheduleRequestsResponseError)
+
+export const getPostApiMeScheduleRequestsUrl = () => {
+
+
+
+
+  return `/api/me/schedule-requests`
+}
+
+export const postApiMeScheduleRequests = async (postApiMeScheduleRequestsBody?: PostApiMeScheduleRequestsBody, options?: Parameters<typeof orvalFetch>[1]): Promise<postApiMeScheduleRequestsResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<postApiMeScheduleRequestsResponse>(getPostApiMeScheduleRequestsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(postApiMeScheduleRequestsBody)
+  }
+);}
+
+
+export type deleteApiMeScheduleRequestsIdResponse200 = {
+  data: DeleteApiMeScheduleRequestsId200
+  status: 200
+}
+
+export type deleteApiMeScheduleRequestsIdResponse400 = {
+  data: DeleteApiMeScheduleRequestsId400
+  status: 400
+}
+
+export type deleteApiMeScheduleRequestsIdResponse404 = {
+  data: DeleteApiMeScheduleRequestsId404
+  status: 404
+}
+
+export type deleteApiMeScheduleRequestsIdResponse409 = {
+  data: DeleteApiMeScheduleRequestsId409
+  status: 409
+}
+
+export type deleteApiMeScheduleRequestsIdResponse500 = {
+  data: DeleteApiMeScheduleRequestsId500
+  status: 500
+}
+
+export type deleteApiMeScheduleRequestsIdResponse503 = {
+  data: DeleteApiMeScheduleRequestsId503
+  status: 503
+}
+
+export type deleteApiMeScheduleRequestsIdResponseSuccess = (deleteApiMeScheduleRequestsIdResponse200) & {
+  headers: Headers;
+};
+export type deleteApiMeScheduleRequestsIdResponseError = (deleteApiMeScheduleRequestsIdResponse400 | deleteApiMeScheduleRequestsIdResponse404 | deleteApiMeScheduleRequestsIdResponse409 | deleteApiMeScheduleRequestsIdResponse500 | deleteApiMeScheduleRequestsIdResponse503) & {
+  headers: Headers;
+};
+
+export type deleteApiMeScheduleRequestsIdResponse = (deleteApiMeScheduleRequestsIdResponseSuccess | deleteApiMeScheduleRequestsIdResponseError)
+
+export const getDeleteApiMeScheduleRequestsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/me/schedule-requests/${id}`
+}
+
+export const deleteApiMeScheduleRequestsId = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<deleteApiMeScheduleRequestsIdResponse> => {
+
+  return orvalFetch<deleteApiMeScheduleRequestsIdResponse>(getDeleteApiMeScheduleRequestsIdUrl(id),
   {
     ...options,
     method: 'DELETE'

@@ -8,4 +8,5 @@ export * from './me/me';
 export * from './pricelist/pricelist';
 export * from './salaries/salaries';
 export * from './schedule/schedule';
+export * from './schedule-requests/schedule-requests';
 export * from './users/users';

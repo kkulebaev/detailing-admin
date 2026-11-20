@@ -237,6 +237,33 @@ export {
   monthScheduleRange,
   findDaysOff,
 } from './schedule.js'
+export {
+  SCHEDULE_REQUEST_MAX_DAYS,
+  SCHEDULE_REQUEST_HORIZON_DAYS,
+  MY_SCHEDULE_REQUESTS_LIMIT,
+  SCHEDULE_REQUEST_STATUSES,
+  scheduleRequestDaySchema,
+  scheduleRequestInputSchema,
+  scheduleRequestSchema,
+  myScheduleRequestsOkSchema,
+  myScheduleRequestsResponseSchema,
+  scheduleRequestRejectedErrorSchema,
+  scheduleRequestConflictSchema,
+  scheduleRequestSubmitResponseSchema,
+  scheduleRequestsOkSchema,
+  scheduleRequestsResponseSchema,
+  scheduleRequestRejectInputSchema,
+  scheduleRequestActionResponseSchema,
+  scheduleRequestDatesProblem,
+} from './schedule-requests.js'
+export type {
+  ScheduleRequestStatus,
+  ScheduleRequestDay,
+  ScheduleRequestInput,
+  ScheduleRequest,
+  MyScheduleRequestsOk,
+  ScheduleRequestRejectInput,
+} from './schedule-requests.js'
 export type {
   ScheduleQuery,
   MasterSchedule,

@@ -17,6 +17,10 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core'
 import type { Readiness } from '@detailing-admin/shared/enums'
+import type {
+  ScheduleRequestDay,
+  ScheduleRequestStatus,
+} from '@detailing-admin/shared/schedule-requests'
 import type { AuditChange, BookingAuditAction } from '@detailing-admin/shared/booking-audit'
 
 // Аккаунты для входа. Создаются вне приложения через CLI `user:create` (без
@@ -277,6 +281,39 @@ export const masterSchedule = pgTable(
   },
   (t) => [primaryKey({ columns: [t.masterId, t.workDate] })],
 )
+
+// Заявка сотрудника на изменение своего графика. Дни — снимок заявки в jsonb: их
+// не ищут по дате, а применяются они к master_schedule только при одобрении.
+// Частичный UNIQUE держит у мастера не больше одной заявки на согласовании.
+// `decidedByName` — снимок, как в журнале: аккаунт админа могут переименовать или удалить.
+export const scheduleRequests = pgTable(
+  'schedule_requests',
+  {
+    id: serial('id').primaryKey(),
+    masterId: integer('master_id')
+      .notNull()
+      .references(() => masters.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 16 })
+      .notNull()
+      .default('pending')
+      .$type<ScheduleRequestStatus>(),
+    days: jsonb('days').notNull().$type<ScheduleRequestDay[]>(),
+    comment: text('comment'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    decidedAt: timestamp('decided_at'),
+    decidedById: uuid('decided_by_id').references(() => users.id, { onDelete: 'set null' }),
+    decidedByName: text('decided_by_name'),
+  },
+  (t) => [
+    uniqueIndex('schedule_requests_one_pending')
+      .on(t.masterId)
+      .where(sql`${t.status} = 'pending'`),
+    index('schedule_requests_master_idx').on(t.masterId, t.createdAt),
+    check('schedule_requests_status', sql`${t.status} in ('pending', 'approved', 'rejected')`),
+  ],
+)
+
+export type ScheduleRequestRow = typeof scheduleRequests.$inferSelect
 
 // Разовые суммы, не связанные с отработанными часами: премии, компенсации и
 // (отрицательные) удержания. Снимка ставки нет по замыслу — сумма

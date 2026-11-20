@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, inArray, lte, or } from 'drizzle-orm'
 import type { MasterSchedule, ScheduleDayInput } from '@detailing-admin/shared'
-import { getDb } from './client.js'
+import type { Tx } from './audit.js'
+import { getDb, type Db } from './client.js'
 import { masterSchedule, masters } from './schema.js'
 
 export class ScheduleError extends Error {
@@ -39,33 +40,39 @@ export async function listSchedule(from: string, to: string): Promise<MasterSche
 // Все или ничего: если хоть один мастер архивный или не найден, не пишется ни один
 // день. Идемпотентно — повтор того же сохранения ничего не меняет.
 export async function setScheduleDays(days: readonly ScheduleDayInput[]): Promise<void> {
-  const db = getDb()
-  await db.transaction(async (tx) => {
-    const ids = [...new Set(days.map((d) => d.masterId))]
-    const found = await tx
-      .select({ id: masters.id })
-      .from(masters)
-      .where(and(inArray(masters.id, ids), eq(masters.archived, false)))
-    if (found.length !== ids.length) throw new ScheduleError('not_found')
+  await getDb().transaction((tx) => applyScheduleDays(tx, days))
+}
 
-    const working = days.filter((d) => d.working)
-    const off = days.filter((d) => !d.working)
-    if (working.length > 0) {
-      await tx
-        .insert(masterSchedule)
-        .values(working.map((d) => ({ masterId: d.masterId, workDate: d.date })))
-        .onConflictDoNothing()
-    }
-    if (off.length > 0) {
-      await tx
-        .delete(masterSchedule)
-        .where(
-          or(
-            ...off.map((d) =>
-              and(eq(masterSchedule.masterId, d.masterId), eq(masterSchedule.workDate, d.date)),
-            ),
+// Без своей транзакции: одобрение заявки применяет дни в той же транзакции, что
+// и смену статуса.
+export async function applyScheduleDays(
+  tx: Db | Tx,
+  days: readonly ScheduleDayInput[],
+): Promise<void> {
+  const ids = [...new Set(days.map((d) => d.masterId))]
+  const found = await tx
+    .select({ id: masters.id })
+    .from(masters)
+    .where(and(inArray(masters.id, ids), eq(masters.archived, false)))
+  if (found.length !== ids.length) throw new ScheduleError('not_found')
+
+  const working = days.filter((d) => d.working)
+  const off = days.filter((d) => !d.working)
+  if (working.length > 0) {
+    await tx
+      .insert(masterSchedule)
+      .values(working.map((d) => ({ masterId: d.masterId, workDate: d.date })))
+      .onConflictDoNothing()
+  }
+  if (off.length > 0) {
+    await tx
+      .delete(masterSchedule)
+      .where(
+        or(
+          ...off.map((d) =>
+            and(eq(masterSchedule.masterId, d.masterId), eq(masterSchedule.workDate, d.date)),
           ),
-        )
-    }
-  })
+        ),
+      )
+  }
 }
