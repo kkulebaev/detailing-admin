@@ -2,7 +2,7 @@
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { Calendar as CalendarIcon, Minus, TrendingDown, TrendingUp } from '@lucide/vue'
 import type { DateRange, DateValue } from 'reka-ui'
-import { CalendarDate, getLocalTimeZone, today } from '@internationalized/date'
+import { CalendarDate, getLocalTimeZone, parseDate, today } from '@internationalized/date'
 import { useMediaQuery } from '@vueuse/core'
 import { VisAxis, VisLine, VisXYContainer } from '@unovis/vue'
 import type {
@@ -14,6 +14,7 @@ import { calToDdmmyyyy } from '@/lib/date'
 import { formatPhone } from '@/lib/phone'
 import { buildMonthOptions, MONTH_NAMES } from '@/lib/month-options'
 import { useAnalyticsOverviewQuery } from '@/lib/queries'
+import { dayRangeParam, enumParam, useQueryParam } from '@/composables/use-query-param'
 import type { GetApiAnalyticsOverviewParams } from '@/lib/analytics-api'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -60,6 +61,22 @@ const initFrom = new CalendarDate(initTo.year, initTo.month, 1)
 // shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dateFromCal = shallowRef<DateValue>(initFrom)
 const dateToCal = shallowRef<DateValue>(initTo)
+
+// Период в адресе одной строкой `YYYY-MM-DD..YYYY-MM-DD`: границы проверяются
+// вместе, и перевернутый диапазон из старой ссылки не доходит до API.
+const period = computed({
+  get: () => `${dateFromCal.value.toString()}..${dateToCal.value.toString()}`,
+  set: (v: string) => {
+    const [from, to] = v.split('..')
+    dateFromCal.value = parseDate(from!)
+    dateToCal.value = parseDate(to!)
+  },
+})
+useQueryParam(
+  'period',
+  period,
+  dayRangeParam(() => `${initFrom.toString()}..${initTo.toString()}`),
+)
 
 // Нужно, чтобы свернуть подпись триггера поповера обратно в «Месяц ГГГГ»,
 // когда выбранный диапазон ровно совпадает с одним календарным месяцем.
@@ -152,6 +169,7 @@ function pickPreset(apply: () => void) {
 
 const GRANULARITIES = ['day', 'week', 'month'] as const satisfies readonly AnalyticsGranularity[]
 const granularity = ref<AnalyticsGranularity>('day')
+useQueryParam('granularity', granularity, enumParam(GRANULARITIES, 'day'))
 
 // Tabs отдает сырой StringOrNumber, который принимает примитив reka-ui; сужаем
 // его обратно до enum, а не доверяем приведению типа.
