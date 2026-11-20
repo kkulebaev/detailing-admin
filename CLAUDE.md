@@ -92,8 +92,9 @@ pnpm workspace, three packages:
   - `/api/salaries` — summary, `PATCH /rates`, `GET /entries`, CRUD for `hours` and `payouts`.
   - `/api/analytics/overview` — revenue totals, series, retention, top clients.
   - `/api/users` — login accounts, for the master form's account picker.
-  - `/api/me` — the signed-in account's own hours: `GET /salary`, CRUD for `hours` (see «Self-service hours»).
-  - `/api/schedule` — masters' working days: `GET ?from&to`, `PATCH` one day (see «Masters' schedule»).
+  - `/api/me` — the signed-in account's own hours: `GET /salary`, CRUD for `hours` (see «Self-service hours»), plus own schedule requests under `/schedule-requests`.
+  - `/api/schedule` — masters' working days: `GET ?from&to`, `PATCH` a batch of days (see «Masters' schedule»).
+  - `/api/schedule-requests` — admin review of employees' schedule requests: `GET` pending, `POST /{id}/approve`, `POST /{id}/reject`; employees submit via `/api/me/schedule-requests` (`GET`, `POST`, `DELETE /{id}`).
   - `GET /healthz`, `GET /openapi.json`.
 - **`apps/web`** — Vue 3 + Vite + Tailwind v4 + shadcn-vue + vue-router + Pinia (`stores/auth.ts`). SPA wrapped by `AppLayout` + `AppSidebar`. The API client is **orval-generated** from `apps/web/openapi.json` into `src/lib/generated/` (never hand-edit it); `src/lib/*-api.ts` wrap it. Pages (`src/router.ts`):
   - `/` booking form (`BookingForm.vue`, admin + booker) — `vee-validate` + `@vee-validate/zod` with the shared schema via `toTypedSchema(bookingSchema)`; phone lookup autofills the client and their cars (`use-client-lookup`).
@@ -170,6 +171,14 @@ An account is linked to at most one master via `masters.userId` (UNIQUE, set by 
 ### Masters' schedule
 
 `master_schedule` stores **only working days** (`masterId` + `workDate`, composite PK, `cascade`); a missing row is a day off. `GET /api/schedule?from&to` (≤ `SCHEDULE_MAX_RANGE_DAYS`, archived masters excluded) is open to every role; `PATCH /api/schedule` `{ days: [{ masterId, date, working }] }` is admin-only, idempotent and all-or-nothing (one transaction; an archived or unknown master is a 404 and nothing is saved). The page keeps the admin's marks as a draft and sends them only on «Сохранить»; leaving the page with a draft asks for confirmation. The booking form and `BookingEditDialog` (future dates only — old bookings predate the schedule) warn (never block) when a chosen master is off on a booking day via `useDaysOffWarning` → shared `findDaysOff`. Any unmarked day is off, even in a month nobody has filled in yet, so the warning also nudges the admin to fill in the schedule. The warning loads whole months (`scheduleMonthsRange`) so it shares the cache with the schedule page. Like the masters dropdown, the warning is best-effort and never makes the form depend on Postgres.
+
+### Schedule requests
+
+A non-admin linked to a master (`masters.userId`) changes their own schedule only through a request: on `/schedule` they mark days of their own master (past days too — that is how a master fixes days worked off-schedule; only `SCHEDULE_REQUEST_HORIZON_DAYS` ahead is capped) and send them to `POST /api/me/schedule-requests`; the master comes from the session, never from the body. `schedule_requests` stores the days as a jsonb snapshot `[{ date, working }]` — only the changes, not the whole month — and a partial UNIQUE keeps at most one `pending` request per master (a second submit is a 409 `pending_exists`). The employee may withdraw a pending request, which deletes the row.
+- Any admin decides the whole request: approve applies all its days to `master_schedule` (`applyScheduleDays`) and flips the status in **one transaction**, with the request locked `FOR UPDATE` so a second admin gets 409 `already_decided`; reject only stores an optional comment. `decidedByName` is a snapshot, like the audit log's actor.
+- Notifications are in-app only: a pending counter on «График» in the sidebar for admins (polled every minute), a panel on `/schedule` for admins, and a card with the latest decision (shown for 7 days) for the employee. No Telegram.
+- Requests of archived masters are hidden from the admin list, and approving one is a 404.
+- The page learns the viewer's own master from `GET /api/me/schedule-requests` (`masterId`) for every role, admins included, and highlights that row (and marks it «(вы)» in the phone picker); `UserPublic` carries no id to match `masters.userId` client-side.
 
 ### CSV export
 
