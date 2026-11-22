@@ -174,15 +174,22 @@ describe('фильтр по мастеру в listBookings', () => {
     [undefined, 'desc'],
     ['desc', 'desc'],
     ['asc', 'asc'],
-  ] as const)('сортирует по дате, затем по времени создания, sort=%s → %s', async (sort, dir) => {
-    const ordered: unknown[][] = []
-    vi.mocked(getDb).mockReturnValue(fakeDb([[], [{ count: 0 }]], [], ordered) as never)
+  ] as const)(
+    'сортирует по дате, времени записи, затем по времени создания, sort=%s → %s',
+    async (sort, dir) => {
+      const ordered: unknown[][] = []
+      vi.mocked(getDb).mockReturnValue(fakeDb([[], [{ count: 0 }]], [], ordered) as never)
 
-    await listBookings({ limit: 10, offset: 0, sort })
+      await listBookings({ limit: 10, offset: 0, sort })
 
-    const sqls = ordered[0].map((c) => new PgDialect().sqlToQuery(c as never).sql)
-    expect(sqls).toEqual([`"bookings"."date_from" ${dir}`, `"bookings"."created_at" ${dir}`])
-  })
+      const sqls = ordered[0].map((c) => new PgDialect().sqlToQuery(c as never).sql)
+      expect(sqls).toEqual([
+        `"bookings"."date_from" ${dir}`,
+        `"bookings"."time_from" ${dir}`,
+        `"bookings"."created_at" ${dir}`,
+      ])
+    },
+  )
 })
 
 describe('withLiveMasterNames (обогащение при чтении через listBookings)', () => {

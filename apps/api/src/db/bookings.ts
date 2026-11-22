@@ -603,7 +603,9 @@ export interface ListBookingsParams {
   /** Свободный поиск по имени/машине/телефону. Похожий на телефон запрос нормализуется
    * в E.164 перед сравнением с сохраненным (E.164) телефоном. */
   q?: string
-  /** Направление для `dateFrom`; ничьи разрешает `createdAt` в том же направлении. */
+  /** Направление для `dateFrom`, затем `timeFrom`; ничьи разрешает `createdAt` в том же
+   * направлении. `timeFrom` — `ЧЧ:ММ` с ведущим нулем, поэтому строковый порядок совпадает
+   * со временным. */
   sort?: 'asc' | 'desc'
 }
 
@@ -668,7 +670,7 @@ export async function listBookings(
     .select()
     .from(bookings)
     .where(where)
-    .orderBy(dir(bookings.dateFrom), dir(bookings.createdAt))
+    .orderBy(dir(bookings.dateFrom), dir(bookings.timeFrom), dir(bookings.createdAt))
     .limit(p.limit)
     .offset(p.offset)
 
