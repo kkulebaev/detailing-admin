@@ -5,6 +5,7 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
+import type { PatchApiBookingsIdReadiness200BookingServicesItem } from './patchApiBookingsIdReadiness200BookingServicesItem';
 
 export type PatchApiBookingsIdReadiness200Booking = {
   id: string;
@@ -18,6 +19,8 @@ export type PatchApiBookingsIdReadiness200Booking = {
   amount?: number;
   /** @nullable */
   amountFormula?: string | null;
+  services?: PatchApiBookingsIdReadiness200BookingServicesItem[];
+  discount?: number;
   dateFrom: string;
   /** @nullable */
   dateTo: string | null;

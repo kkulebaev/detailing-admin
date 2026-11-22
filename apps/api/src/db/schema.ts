@@ -22,6 +22,7 @@ import type {
   ScheduleRequestStatus,
 } from '@detailing-admin/shared/schedule-requests'
 import type { AuditChange, BookingAuditAction } from '@detailing-admin/shared/booking-audit'
+import type { BookingServiceLine } from '@detailing-admin/shared/booking'
 
 // Аккаунты для входа. Создаются вне приложения через CLI `user:create` (без
 // самостоятельной регистрации). `passwordHash` хранит строку scrypt
@@ -102,6 +103,9 @@ export const bookings = pgTable(
     note: text('note').notNull().default(''),
     amount: integer('amount').notNull(),
     amountFormula: text('amount_formula'),
+    // Скидка в рублях, уже вычтенная из `amount`; нужна, чтобы пересчет суммы по
+    // услугам при правке не терял ее.
+    discount: integer('discount').notNull().default(0),
     dateFrom: date('date_from').notNull(),
     dateTo: date('date_to'),
     timeFrom: varchar('time_from', { length: 5 }).notNull(),
@@ -226,6 +230,34 @@ export const bookingMasters = pgTable(
 
 export type BookingMaster = typeof bookingMasters.$inferSelect
 export type NewBookingMaster = typeof bookingMasters.$inferInsert
+
+// Услуги записи построчно, в порядке `position`. Раздел, название и цена — снимки
+// «как выбрали» (цену в форме можно поправить вручную, а прайс потом меняется), а
+// `serviceId` — производная связь: `set null` при удалении услуги из прайса
+// оставляет строку на снимке. Текст `bookings.service` остается тем, что ушло в лист.
+export const bookingServices = pgTable(
+  'booking_services',
+  {
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'cascade' }),
+    position: smallint('position').notNull(),
+    serviceId: integer('service_id').references(() => services.id, { onDelete: 'set null' }),
+    section: varchar('section', { length: 120 }).notNull(),
+    name: varchar('name', { length: 200 }).notNull(),
+    price: integer('price').notNull(),
+    quantity: smallint('quantity').notNull().default(1),
+  },
+  (t) => [
+    primaryKey({ columns: [t.bookingId, t.position] }),
+    index('booking_services_service_id_idx').on(t.serviceId),
+    check('booking_services_price_nonnegative', sql`${t.price} >= 0`),
+    check('booking_services_quantity_positive', sql`${t.quantity} >= 1`),
+  ],
+)
+
+export type BookingServiceRow = typeof bookingServices.$inferSelect
+export type NewBookingServiceRow = typeof bookingServices.$inferInsert
 
 // Текущая почасовая ставка мастера — источник снимка, копируемого в каждую строку
 // work_hours. Намеренно ВНЕ `masters`: `GET /api/masters` делает `SELECT *`, открытый
@@ -374,6 +406,8 @@ export const auditLog = pgTable(
 export interface BookingSnapshot {
   booking: Omit<Booking, 'createdAt'> & { createdAt: string }
   masters: { masterId: number; position: number }[]
+  // Нет в снимках, снятых до появления строк услуг.
+  services?: BookingServiceLine[]
 }
 
 export type AuditLogRow = typeof auditLog.$inferSelect

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, ilike, inArray, lte, notExists, or, sql } from 'drizzle-orm'
-import type { Booking as WireBooking } from '@detailing-admin/shared/booking'
+import type { BookingServiceLine, Booking as WireBooking } from '@detailing-admin/shared/booking'
 import type { BookingRow } from '@detailing-admin/shared/booking-row'
 import { joinCar } from '@detailing-admin/shared/car'
 import { ddmmyyyyToIso } from '@detailing-admin/shared/date'
@@ -11,10 +11,12 @@ import { resolveMasterIds } from './masters.js'
 import {
   auditLog,
   bookingMasters,
+  bookingServices,
   bookings,
   clientCars,
   clients,
   masters,
+  services as pricelistServices,
   type AuditLogRow,
   type Booking,
   type BookingSnapshot,
@@ -62,6 +64,7 @@ function mapEditableFields(b: WireBooking) {
     // (валидация отклоняет ее до запуска обработчика).
     amount: typeof b.amount === 'number' ? b.amount : 0,
     amountFormula: b.amountFormula ?? null,
+    discount: b.discount ?? 0,
     dateFrom: ddmmyyyyToIso(b.dateFrom),
     dateTo: b.dateTo ? ddmmyyyyToIso(b.dateTo) : null,
     timeFrom: b.time,
@@ -163,13 +166,66 @@ async function withLiveMasterNames(rows: Booking[]): Promise<Booking[]> {
   })
 }
 
-/** Строка `bookings` с автором для показа в списке. `null` — автора нет в журнале:
- * запись старше журнала или пришла из seed-скрипта. */
-export type BookingWithCreator = Booking & { createdBy: string | null }
+/** Строки услуг для вставки. Связь с услугой, которой уже нет в прайсе (удалили, пока
+ * форма была открыта, или удалили до восстановления записи), обнуляется: иначе FK
+ * уронил бы всю запись, а строка и так держится на снимке. */
+async function serviceLineRows(db: Tx, bookingId: string, lines: BookingServiceLine[]) {
+  const ids = [...new Set(lines.map((l) => l.serviceId).filter((v): v is number => v != null))]
+  const live = new Set(
+    ids.length > 0
+      ? (
+          await db
+            .select({ id: pricelistServices.id })
+            .from(pricelistServices)
+            .where(inArray(pricelistServices.id, ids))
+        ).map((s) => s.id)
+      : [],
+  )
+  return lines.map((l, position) => ({
+    bookingId,
+    position,
+    serviceId: l.serviceId != null && live.has(l.serviceId) ? l.serviceId : null,
+    section: l.section,
+    name: l.name,
+    price: l.price,
+    quantity: l.quantity,
+  }))
+}
+
+async function insertServiceLines(tx: Tx, bookingId: string, lines: BookingServiceLine[]) {
+  if (lines.length === 0) return
+  await tx.insert(bookingServices).values(await serviceLineRows(tx, bookingId, lines))
+}
+
+async function loadServiceLines(
+  db: Pick<Tx, 'select'>,
+  bookingIds: string[],
+): Promise<Map<string, BookingServiceLine[]>> {
+  const byBooking = new Map<string, BookingServiceLine[]>()
+  if (bookingIds.length === 0) return byBooking
+  const rows = await db
+    .select()
+    .from(bookingServices)
+    .where(inArray(bookingServices.bookingId, bookingIds))
+    .orderBy(asc(bookingServices.bookingId), asc(bookingServices.position))
+  for (const { bookingId, position: _position, ...line } of rows) {
+    const list = byBooking.get(bookingId) ?? []
+    list.push(line)
+    byBooking.set(bookingId, list)
+  }
+  return byBooking
+}
+
+/** Строка `bookings` с автором и услугами для показа в списке. `createdBy: null` —
+ * автора нет в журнале: запись старше журнала или пришла из seed-скрипта. */
+export type BookingWithCreator = Booking & {
+  createdBy: string | null
+  services: BookingServiceLine[]
+}
 
 /** Автор берется из журнала, а не из столбца `bookings`: после удаления и
  * восстановления строка вставляется заново, а запись `create` в журнале остается. */
-async function withCreators(rows: Booking[]): Promise<BookingWithCreator[]> {
+async function withCreators(rows: Booking[]): Promise<(Booking & { createdBy: string | null })[]> {
   if (rows.length === 0) return []
   const entries = await getDb()
     .select({
@@ -192,9 +248,14 @@ async function withCreators(rows: Booking[]): Promise<BookingWithCreator[]> {
   return rows.map((r) => ({ ...r, createdBy: creators.get(r.id) ?? null }))
 }
 
-/** Обогащение при любом чтении записей: актуальные имена мастеров и автор. */
+/** Обогащение при любом чтении записей: актуальные имена мастеров, автор и услуги. */
 async function enrichForRead(rows: Booking[]): Promise<BookingWithCreator[]> {
-  return withCreators(await withLiveMasterNames(rows))
+  const withNames = await withCreators(await withLiveMasterNames(rows))
+  const lines = await loadServiceLines(
+    getDb(),
+    rows.map((r) => r.id),
+  )
+  return withNames.map((r) => ({ ...r, services: lines.get(r.id) ?? [] }))
 }
 
 /** Переводит сохраненную строку `bookings` в wire-форму. Отбрасывает все три внутренние
@@ -213,12 +274,14 @@ export function toBookingRow(
     createdAt,
     amount,
     amountFormula,
+    discount,
+    services,
     ...rest
   } = row
   return {
     ...rest,
     createdAt: createdAt.toISOString(),
-    ...(opts.includeAmount ? { amount, amountFormula } : {}),
+    ...(opts.includeAmount ? { amount, amountFormula, discount, services } : {}),
   }
 }
 
@@ -257,6 +320,20 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
       .onConflictDoNothing({ target: bookings.idempotencyKey })
       .returning({ id: bookings.id })
     if (inserted.length === 0) return null
+    // Точка сохранения: сбой строк услуг (например, услугу удалили из прайса между
+    // проверкой и вставкой) не должен утянуть за собой саму строку зеркала.
+    try {
+      await tx.transaction((sp) => insertServiceLines(sp, inserted[0].id, b.services ?? []))
+    } catch (err) {
+      baseLogger.warn(
+        {
+          event: 'booking.services_insert_failed',
+          booking_id: inserted[0].id,
+          message: err instanceof Error ? err.message : String(err),
+        },
+        'Booking service lines insert failed — booking mirrored without lines',
+      )
+    }
     if (meta.actor) await recordBookingAudit(tx, meta.actor, inserted[0].id, 'create')
     return inserted[0].id
   })
@@ -302,6 +379,11 @@ export async function updateBooking(
     // пока сумма прежняя: ручная правка суммы делает ее устаревшей.
     if (b.amountFormula === undefined) {
       fields.amountFormula = fields.amount === before.amount ? before.amountFormula : null
+    }
+    if (b.discount === undefined) fields.discount = before.discount
+    if (b.services !== undefined) {
+      await tx.delete(bookingServices).where(eq(bookingServices.bookingId, id))
+      await insertServiceLines(tx, id, b.services)
     }
     const [after] = await tx
       .update(bookings)
@@ -370,9 +452,11 @@ export async function deleteBooking(id: string, actor: AuditActor): Promise<bool
       .select({ masterId: bookingMasters.masterId, position: bookingMasters.position })
       .from(bookingMasters)
       .where(eq(bookingMasters.bookingId, id))
+    const lines = await loadServiceLines(tx, [id])
     const snapshot: BookingSnapshot = {
       booking: { ...before, createdAt: before.createdAt.toISOString() },
       masters: links,
+      services: lines.get(id) ?? [],
     }
     await tx.delete(bookings).where(eq(bookings.id, id))
     await recordBookingAudit(tx, actor, id, 'delete', { snapshot })
@@ -446,6 +530,7 @@ export async function restoreBooking(id: string, actor: AuditActor): Promise<Res
         .values(links.map((m) => ({ bookingId: id, ...m })))
         .onConflictDoNothing()
     }
+    await insertServiceLines(tx, id, snap.services ?? [])
     await recordBookingAudit(tx, actor, id, 'restore')
     return { ok: true, booking: row }
   })
@@ -584,11 +669,27 @@ export async function listDeletedBookings(limit: number): Promise<DeletedBooking
   const items = rows.flatMap((r) => {
     const snap = r.snapshot
     if (!snap) return []
-    const booking: Booking = { ...snap.booking, createdAt: new Date(snap.booking.createdAt) }
-    return [{ booking, deletedAt: r.at, deletedBy: r.actorName || r.actorLogin }]
+    // Старые снимки сделаны до столбца `discount`.
+    const booking: Booking = {
+      ...snap.booking,
+      discount: snap.booking.discount ?? 0,
+      createdAt: new Date(snap.booking.createdAt),
+    }
+    return [
+      {
+        booking,
+        services: snap.services ?? [],
+        deletedAt: r.at,
+        deletedBy: r.actorName || r.actorLogin,
+      },
+    ]
   })
   const enriched = await enrichForRead(items.map((i) => i.booking))
-  return items.map((item, i) => ({ ...item, booking: enriched[i] }))
+  // Строки услуг удаленной записи ушли каскадом вместе с ней — берем их из снимка.
+  return items.map(({ services, ...item }, i) => ({
+    ...item,
+    booking: { ...enriched[i], services },
+  }))
 }
 
 export interface ListBookingsParams {

@@ -5,6 +5,7 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
+import type { PostApiBookingsBodyServicesItem } from './postApiBookingsBodyServicesItem';
 
 export type PostApiBookingsBody = {
   /**
@@ -49,6 +50,8 @@ export type PostApiBookingsBody = {
      * @maxLength 2000
      */
   service: string;
+  /** @maxItems 100 */
+  services?: PostApiBookingsBodyServicesItem[];
   /** @maxLength 2000 */
   note?: string;
   amount: '' | number;
@@ -57,6 +60,11 @@ export type PostApiBookingsBody = {
      * @pattern ^=[\d+\-*\/().\s]+$
      */
   amountFormula?: string;
+  /**
+     * @minimum 0
+     * @maximum 99999999
+     */
+  discount?: number;
   readiness?: 'Подтвердил' | 'Не ответил' | 'В работе' | 'Готова к выдаче' | 'Выдана' | 'Перенос' | 'Отмена' | 'Не приехал' | 'Оплачено' | 'Не оплачено' | '';
   /**
      * @items.minLength 1

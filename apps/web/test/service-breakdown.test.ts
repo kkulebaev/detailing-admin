@@ -7,13 +7,13 @@ import {
 } from '@/lib/service-breakdown'
 
 function row(
-  sectionId: number,
+  serviceId: number,
   section: string,
   name: string,
   price: number,
   quantity = 1,
 ): ServiceBreakdownRow {
-  return { sectionId, section, name, price, quantity }
+  return { serviceId, section, name, price, quantity }
 }
 
 describe('formatServiceCell', () => {
@@ -50,6 +50,15 @@ describe('formatServiceCell', () => {
         row(7, 'Шумоизоляция', 'Крыша', 10000),
       ]),
     ).toBe('Полировка: Крыша\nШумоизоляция: Крыша')
+  })
+
+  it('собирает в один раздел строку не из прайса', () => {
+    expect(
+      formatServiceCell([
+        row(1, 'Химчистка', 'Потолок', 2000),
+        { serviceId: null, section: 'Химчистка', name: 'Старая услуга', price: 500, quantity: 1 },
+      ]),
+    ).toBe('Химчистка: Потолок, Старая услуга')
   })
 
   it('выводит штучную услугу как «×N» без цены', () => {

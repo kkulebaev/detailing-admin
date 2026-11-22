@@ -98,3 +98,35 @@ test('удаленная запись возвращается из корзин
   await expect(history.filter({ hasText: 'удаление' })).toBeVisible()
   await expect(history.filter({ hasText: 'восстановление' })).toBeVisible()
 })
+
+test('правка записи пересчитывает сумму по услугам из прайса', async ({ page }) => {
+  await login(page, 'e2e-admin')
+  await fillBooking(page, { phone: '9160000004', name: 'Дмитрий', car: 'Mazda 6' })
+  await page.getByRole('button', { name: 'Сохранить запись' }).click()
+  await expect(page.getByText('Запись сохранена')).toBeVisible()
+
+  await page.goto('/bookings')
+  await page.getByRole('button', { name: 'Редактировать запись Дмитрий' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Редактировать запись' })
+  const amount = dialog.getByLabel('Сумма, ₽')
+  await expect(dialog.getByLabel('Цена услуги Полировка кузова')).toHaveValue('6 000')
+  await expect(amount).toHaveValue('6 000')
+
+  await dialog.getByRole('combobox', { name: /^Услуга:/ }).click()
+  await page.getByRole('option', { name: /Химчистка салона/ }).click()
+  await page.keyboard.press('Escape')
+
+  await expect(amount).toHaveValue('10 000')
+  await expect(dialog.getByText('Сумма изменилась: было 6 000 ₽')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Сохранить' }).click()
+  await expect(page.getByText('Запись обновлена')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Редактировать запись Дмитрий' }).click()
+  await expect(dialog.getByLabel('Цена услуги Химчистка салона')).toHaveValue('4 000')
+  await expect(amount).toHaveValue('10 000')
+  await expect(dialog.getByText(/Сумма изменилась/)).toHaveCount(0)
+
+  // Правки в приложении не доходят до листа.
+  const { sheetRows } = await fakesState()
+  expect(sheetRows.find((r) => r[2] === 'Дмитрий')?.[5]).toBe('Кузов: Полировка кузова')
+})

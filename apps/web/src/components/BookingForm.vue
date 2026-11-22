@@ -886,6 +886,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   // остается простым CSV из названий для восстановления черновика.
   if (serviceBreakdown.value.length > 0) {
     payload.service = formatServiceCell(serviceBreakdown.value)
+    payload.services = serviceBreakdown.value
     // «Сумма» несет арифметику, из которой сложился итог. `values.amount` — база
     // до скидки; формула сама вычитает скидку.
     const base = typeof values.amount === 'number' ? values.amount : 0
@@ -895,6 +896,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   // скидка сохраняется строкой в примечании (отдельной колонки нет).
   if (hasDiscount.value) {
     payload.amount = finalAmount.value
+    payload.discount = discountAmount.value
     payload.note = [values.note?.trim(), discountNoteLine()].filter(Boolean).join('\n')
   }
   let result: BookingApiResult

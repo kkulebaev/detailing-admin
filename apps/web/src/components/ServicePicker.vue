@@ -6,7 +6,7 @@ import { usePricelistQuery } from '@/lib/queries'
 import { maskThousands } from '@/lib/number-mask'
 import type { ServiceBreakdownRow } from '@/lib/service-breakdown'
 import { servicePriceForClass } from '@detailing-admin/shared'
-import type { CarClass } from '@detailing-admin/shared'
+import type { BookingServiceLine, CarClass } from '@detailing-admin/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -24,8 +24,12 @@ const props = withDefaults(
     modelValue?: string
     carClass: CarClass
     invalid?: boolean
+    // Выбор сохраненной записи: услуги с их ценами и количеством, а не цены класса.
+    // Пока задан, `modelValue` выбор не восстанавливает. Применяется заново при
+    // каждой новой ссылке на массив (диалог правки открыли для другой записи).
+    initialLines?: BookingServiceLine[] | null
   }>(),
-  { modelValue: '', invalid: false },
+  { modelValue: '', invalid: false, initialLines: null },
 )
 
 const emit = defineEmits<{
@@ -156,10 +160,70 @@ function syncPricesToSelection(resetAll = false) {
   quantities.value = nextQty
 }
 
-const total = computed(() => selectedIds.value.reduce((acc, id) => acc + lineTotal(id), 0))
+// ── Строки сохраненной записи, которых нет в прайсе ─────────────────────────
+// Услугу удалили или переименовали после записи: пикер не может выбрать ее заново,
+// но и молча потерять строку при сохранении нельзя. Держим ее со снимком названия,
+// своей ценой и количеством; цена класса к ней неприменима.
+interface DetachedLine {
+  key: number
+  section: string
+  name: string
+  rawPrice: string
+  quantity: number
+  countable: boolean
+}
+const detachedLines = ref<DetachedLine[]>([])
+
+function detachedTotal(line: DetachedLine): number {
+  return (parseInt(priceDigits(line.rawPrice), 10) || 0) * line.quantity
+}
+
+function updateDetached(key: number, patch: Partial<DetachedLine>) {
+  detachedLines.value = detachedLines.value.map((l) => (l.key === key ? { ...l, ...patch } : l))
+  emitTotal()
+}
+
+function onDetachedPriceInput(key: number, e: Event) {
+  const target = e.target
+  if (!(target instanceof HTMLInputElement)) return
+  const caretPos = target.selectionStart ?? target.value.length
+  const { value, caret } = maskThousands(target.value, caretPos, 8)
+  if (target.value !== value) {
+    target.value = value
+    target.setSelectionRange(caret, caret)
+  }
+  updateDetached(key, { rawPrice: value })
+}
+
+function setDetachedQty(line: DetachedLine, qty: number) {
+  updateDetached(line.key, { quantity: Math.min(MAX_QTY, Math.max(1, qty)) })
+}
+
+function removeDetached(key: number) {
+  detachedLines.value = detachedLines.value.filter((l) => l.key !== key)
+  emitTotal()
+}
+
+function rowQty(row: SelectedRow): number {
+  return row.kind === 'pricelist' ? qtyFor(row.id) : row.line.quantity
+}
+function rowPrice(row: SelectedRow): string {
+  return row.kind === 'pricelist' ? (rawPrices.value[row.id] ?? '') : row.line.rawPrice
+}
+function rowTotal(row: SelectedRow): number {
+  return row.kind === 'pricelist' ? lineTotal(row.id) : detachedTotal(row.line)
+}
+
+const hasSelection = computed(() => selectedIds.value.length + detachedLines.value.length > 0)
+
+const total = computed(
+  () =>
+    selectedIds.value.reduce((acc, id) => acc + lineTotal(id), 0) +
+    detachedLines.value.reduce((acc, l) => acc + detachedTotal(l), 0),
+)
 
 function emitTotal() {
-  emit('update:total', selectedIds.value.length === 0 ? null : total.value)
+  emit('update:total', hasSelection.value ? total.value : null)
 }
 
 function onPriceInput(id: number, e: Event) {
@@ -205,7 +269,7 @@ function emitModelValue() {
 // или clearForm). Несовпавшие названия отбрасываются — затем отдаем обратно
 // канонический CSV, чтобы значение формы отражало то, что реально можно выбрать.
 function syncSelectionFromString() {
-  if (sections.value.length === 0) return
+  if (sections.value.length === 0 || props.initialLines) return
   const csv = (props.modelValue ?? '').trim()
   // Родитель возвращает наш же CSV из одних названий через `modelValue`. Этот CSV
   // не различает две услуги с одинаковым названием (например, «Крыша» есть и в
@@ -256,55 +320,72 @@ function removeId(id: number) {
   emitTotal()
 }
 
-interface SelectedRow {
-  id: number
-  name: string
-  countable: boolean
-}
+type SelectedRow =
+  | { kind: 'pricelist'; id: number; name: string; countable: boolean }
+  | { kind: 'detached'; line: DetachedLine; name: string; countable: boolean }
 interface SelectedGroup {
-  sectionId: number
   section: string
   rows: SelectedRow[]
 }
 // Выбранные услуги, сгруппированные под заголовками разделов: некоторые названия
 // (например, «Крыша», «Капот») есть в нескольких разделах, и только категория
-// различает их в списке выбранного.
+// различает их в списке выбранного. Строка не из прайса встает в свой раздел, если он
+// еще есть, иначе — отдельной группой в конце: от этого порядка зависят и ячейка
+// листа, и формула суммы, которые должны перечислять услуги одинаково.
 const selectedGroups = computed<SelectedGroup[]>(() => {
   const idSet = new Set(selectedIds.value)
   const groups: SelectedGroup[] = []
+  const bySection = new Map<string, SelectedGroup>()
   for (const sec of sections.value) {
-    const rows = sec.services
+    const rows: SelectedRow[] = sec.services
       .filter((svc) => idSet.has(svc.id))
-      .map((svc) => ({ id: svc.id, name: svc.name, countable: svc.countable }))
-    if (rows.length) groups.push({ sectionId: sec.id, section: sec.name, rows })
+      .map((svc) => ({ kind: 'pricelist', id: svc.id, name: svc.name, countable: svc.countable }))
+    const group = { section: sec.name, rows }
+    bySection.set(sec.name, group)
+    groups.push(group)
   }
-  return groups
+  for (const line of detachedLines.value) {
+    let group = bySection.get(line.section)
+    if (!group) {
+      group = { section: line.section, rows: [] }
+      bySection.set(line.section, group)
+      groups.push(group)
+    }
+    group.rows.push({ kind: 'detached', line, name: line.name, countable: line.countable })
+  }
+  return groups.filter((g) => g.rows.length > 0)
 })
 
 // Плоская упорядоченная разбивка для ячейки таблицы — с текущей (отредактированной)
 // ценой каждой выбранной услуги. Эмитится заново при каждом изменении.
-const selectedBreakdown = computed<ServiceBreakdownRow[]>(() => {
-  const idSet = new Set(selectedIds.value)
-  const rows: ServiceBreakdownRow[] = []
-  for (const sec of sections.value) {
-    for (const svc of sec.services) {
-      if (!idSet.has(svc.id)) continue
-      const digits = (rawPrices.value[svc.id] ?? '').replace(/\D/g, '')
-      rows.push({
-        sectionId: sec.id,
-        section: sec.name,
-        name: svc.name,
+const selectedBreakdown = computed<ServiceBreakdownRow[]>(() =>
+  selectedGroups.value.flatMap((group) =>
+    group.rows.map((row): ServiceBreakdownRow => {
+      if (row.kind === 'detached') {
+        const digits = priceDigits(row.line.rawPrice)
+        return {
+          serviceId: null,
+          section: group.section,
+          name: row.name,
+          price: digits === '' ? 0 : parseInt(digits, 10),
+          quantity: row.line.quantity,
+        }
+      }
+      const digits = priceDigits(rawPrices.value[row.id] ?? '')
+      return {
+        serviceId: row.id,
+        section: group.section,
+        name: row.name,
         price: digits === '' ? 0 : parseInt(digits, 10),
-        quantity: qtyFor(svc.id),
-      })
-    }
-  }
-  return rows
-})
+        quantity: qtyFor(row.id),
+      }
+    }),
+  ),
+)
 watch(selectedBreakdown, (rows) => emit('update:breakdown', rows))
 
 const triggerLabel = computed(() => {
-  const n = selectedIds.value.length
+  const n = selectedIds.value.length + detachedLines.value.length
   if (n === 0) return 'Выбрать услугу'
   return `Выбрано ${n} ${pluralize(n, ['услуга', 'услуги', 'услуг'])}`
 })
@@ -338,6 +419,43 @@ watch(
   { immediate: true },
 )
 watch(() => props.modelValue, syncSelectionFromString)
+
+// Выбор сохраненной записи. Ничего не эмитит в «Сумму»: у записи уже есть своя сумма,
+// и открытие диалога не должно ее менять, — пересчет начинается с действий пользователя.
+let appliedLines: BookingServiceLine[] | null = null
+function applyInitialLines() {
+  const lines = props.initialLines
+  if (!lines || lines === appliedLines || sections.value.length === 0) return
+  appliedLines = lines
+  const ids: number[] = []
+  const prices: Record<number, string> = {}
+  const qty: Record<number, number> = {}
+  const detached: DetachedLine[] = []
+  for (const [i, line] of lines.entries()) {
+    const known = line.serviceId != null && serviceById.value.has(line.serviceId)
+    // Одну услугу прайса пикер выбирает один раз; повтор остается отдельной строкой.
+    if (known && line.serviceId != null && !ids.includes(line.serviceId)) {
+      ids.push(line.serviceId)
+      prices[line.serviceId] = formatDigits(String(line.price))
+      qty[line.serviceId] = line.quantity
+    } else {
+      detached.push({
+        key: i,
+        section: line.section,
+        name: line.name,
+        rawPrice: formatDigits(String(line.price)),
+        quantity: line.quantity,
+        countable: line.quantity > 1,
+      })
+    }
+  }
+  selectedIds.value = ids
+  rawPrices.value = prices
+  quantities.value = qty
+  detachedLines.value = detached
+  emitModelValue()
+}
+watch([sections, () => props.initialLines], applyInitialLines, { immediate: true })
 </script>
 
 <template>
@@ -421,17 +539,21 @@ watch(() => props.modelValue, syncSelectionFromString)
          `onInput`/`onChange` на корневом div поймают всплывающие из полей цены
          события (input при вводе, change на blur) и перезапишут значение
          `service` формы введенной ценой. -->
-    <div v-if="selectedIds.length" class="mt-3 space-y-3" @input.stop @change.stop>
+    <div v-if="hasSelection" class="mt-3 space-y-3" @input.stop @change.stop>
       <fieldset
         v-for="group in selectedGroups"
-        :key="group.sectionId"
+        :key="group.section"
         class="min-w-0 rounded-lg border border-border px-0 pb-1"
       >
         <legend class="ml-2 px-1.5 text-xs font-medium text-muted-foreground">
           {{ group.section }}
         </legend>
         <div>
-          <div v-for="s in group.rows" :key="s.id" class="px-3 py-2">
+          <div
+            v-for="s in group.rows"
+            :key="s.kind === 'pricelist' ? `p${s.id}` : `d${s.line.key}`"
+            class="px-3 py-2"
+          >
             <!-- Все в один ряд: название (сжимается и переносится) + счетчик +
                  цена + удаление. Контролы облегчены, чтобы уместиться на 375px. -->
             <div class="flex items-center gap-1.5">
@@ -439,11 +561,12 @@ watch(() => props.modelValue, syncSelectionFromString)
                    (напр. «Ремни безопасности 1 шт.») в узкой колонке рядом со
                    счетчиком не влезают — обрезаем до 2 строк с многоточием,
                    полное название доступно в title. -->
-              <span
-                class="flex-1 min-w-0 text-xs leading-tight line-clamp-2 break-words"
-                :title="s.name"
-                >{{ s.name }}</span
-              >
+              <span class="flex-1 min-w-0 text-xs leading-tight" :title="s.name">
+                <span class="line-clamp-2 break-words">{{ s.name }}</span>
+                <span v-if="s.kind === 'detached'" class="text-muted-foreground">
+                  нет в прайсе
+                </span>
+              </span>
               <!-- Штучная услуга: счетчик количества. Цена в поле справа — за единицу. -->
               <div
                 v-if="s.countable"
@@ -453,18 +576,22 @@ watch(() => props.modelValue, syncSelectionFromString)
                   type="button"
                   class="inline-flex size-7 items-center justify-center rounded-l-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
                   :aria-label="`Уменьшить количество ${s.name}`"
-                  :disabled="qtyFor(s.id) <= 1"
-                  @click="decQty(s.id)"
+                  :disabled="rowQty(s) <= 1"
+                  @click="
+                    s.kind === 'pricelist' ? decQty(s.id) : setDetachedQty(s.line, rowQty(s) - 1)
+                  "
                 >
                   <Minus class="size-3.5" />
                 </button>
-                <span class="w-5 text-center text-sm tabular-nums">{{ qtyFor(s.id) }}</span>
+                <span class="w-5 text-center text-sm tabular-nums">{{ rowQty(s) }}</span>
                 <button
                   type="button"
                   class="inline-flex size-7 items-center justify-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
                   :aria-label="`Увеличить количество ${s.name}`"
-                  :disabled="qtyFor(s.id) >= MAX_QTY"
-                  @click="incQty(s.id)"
+                  :disabled="rowQty(s) >= MAX_QTY"
+                  @click="
+                    s.kind === 'pricelist' ? incQty(s.id) : setDetachedQty(s.line, rowQty(s) + 1)
+                  "
                 >
                   <Plus class="size-3.5" />
                 </button>
@@ -476,8 +603,12 @@ watch(() => props.modelValue, syncSelectionFromString)
                   autocomplete="off"
                   class="h-8 w-20 pr-4 text-right text-sm tabular-nums"
                   :aria-label="`Цена услуги ${s.name}`"
-                  :model-value="rawPrices[s.id] ?? ''"
-                  @input="onPriceInput(s.id, $event)"
+                  :model-value="rowPrice(s)"
+                  @input="
+                    s.kind === 'pricelist'
+                      ? onPriceInput(s.id, $event)
+                      : onDetachedPriceInput(s.line.key, $event)
+                  "
                 />
                 <span
                   class="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
@@ -488,17 +619,17 @@ watch(() => props.modelValue, syncSelectionFromString)
                 type="button"
                 class="shrink-0 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 :aria-label="`Удалить услугу ${s.name}`"
-                @click="removeId(s.id)"
+                @click="s.kind === 'pricelist' ? removeId(s.id) : removeDetached(s.line.key)"
               >
                 <X class="size-3.5" />
               </button>
             </div>
             <p
-              v-if="s.countable && qtyFor(s.id) > 1"
+              v-if="s.countable && rowQty(s) > 1"
               class="mt-1 pr-8 text-right text-xs text-muted-foreground tabular-nums"
             >
-              {{ qtyFor(s.id) }} × {{ rawPrices[s.id] || '0' }} ₽ =
-              {{ formatDigits(String(lineTotal(s.id))) }} ₽
+              {{ rowQty(s) }} × {{ rowPrice(s) || '0' }} ₽ =
+              {{ formatDigits(String(rowTotal(s))) }} ₽
             </p>
           </div>
         </div>

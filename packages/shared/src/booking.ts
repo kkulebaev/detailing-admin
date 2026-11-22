@@ -25,6 +25,23 @@ export const DEFAULT_CAR_CLASS: CarClass = 2
 // (ниже) и продублирован лимитом мультиселекта в UI.
 export const MAX_MASTERS = 5
 
+export const MAX_BOOKING_SERVICES = 100
+// Пределы совпадают с полями пикера: цена — до 8 цифр, количество — до 99.
+export const MAX_SERVICE_PRICE = 99_999_999
+export const MAX_SERVICE_QUANTITY = 99
+
+// Строка услуги записи — снимок «как выбрали»: раздел, название и цена за единицу
+// на момент записи. `serviceId` — производная связь с прайсом; null, если услуги
+// в прайсе уже нет, тогда строка держится на снимке.
+export const bookingServiceLineSchema = z.object({
+  serviceId: z.number().int().positive().nullable(),
+  section: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(200),
+  price: z.number().int().nonnegative().max(MAX_SERVICE_PRICE),
+  quantity: z.number().int().min(1).max(MAX_SERVICE_QUANTITY),
+})
+export type BookingServiceLine = z.infer<typeof bookingServiceLineSchema>
+
 export const bookingSchema = z
   .object({
     dateFrom: ddmmyyyy,
@@ -39,6 +56,10 @@ export const bookingSchema = z
     // Нестрогое (как остальные поля) — строгой валидации формата номера нет.
     plate: z.string().max(32).optional(),
     service: z.string().min(1, 'Укажите услугу').max(2000),
+    // Услуги из прайса построчно. Не попадают в лист: туда идет текст `service`.
+    // Не передано — у записи свободный текст без строк (старые записи), и правка
+    // не трогает сохраненные строки; пустой массив их стирает.
+    services: z.array(bookingServiceLineSchema).max(MAX_BOOKING_SERVICES).optional(),
     note: z.string().max(2000).default(''),
     amount: z
       .union([z.literal(''), z.number().int().nonnegative()])
@@ -53,6 +74,10 @@ export const bookingSchema = z
       .max(2000)
       .regex(/^=[\d+\-*/().\s]+$/, 'Некорректная формула суммы')
       .optional(),
+    // Скидка в рублях, уже вычтенная из `amount`. Хранится отдельно, чтобы при правке
+    // услуг сумму можно было пересчитать, не потеряв скидку. Не передано при правке —
+    // остается прежней.
+    discount: z.number().int().nonnegative().max(MAX_SERVICE_PRICE).optional(),
     readiness: z.enum(READINESS).or(z.literal('')).default(''),
     // Мастер/ответственный — произвольные строки, берутся в рантайме из таблицы
     // `masters`, а не из закрытого enum. Refine возвращает защиту от инъекций,

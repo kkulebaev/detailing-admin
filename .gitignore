@@ -29,3 +29,5 @@ service-account*.json
 
 # Сид-дампы из Google Sheets — содержат PII (телефоны, имена)
 .seed/
+# Дампы БД (db:backup) — тоже PII
+.backups/

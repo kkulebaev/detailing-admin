@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import { Calendar as CalendarIcon, TriangleAlert, X } from '@lucide/vue'
+import { Calendar as CalendarIcon, ListChecks, TriangleAlert, X } from '@lucide/vue'
 import type { DateValue } from 'reka-ui'
 import { CalendarDate } from '@internationalized/date'
 import {
@@ -10,11 +10,18 @@ import {
   MAX_MASTERS,
   READINESS,
   type BookingRow,
+  type BookingServiceLine,
+  type CarClass,
 } from '@detailing-admin/shared'
 import { updateBooking, type PatchApiBookingsIdBody } from '@/lib/bookings-api'
 import { calToDdmmyyyy } from '@/lib/date'
 import { useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
+import {
+  formatAmountFormula,
+  formatServiceCell,
+  type ServiceBreakdownRow,
+} from '@/lib/service-breakdown'
 import { formatPastedPhone, usePhoneInput } from '@/composables/use-phone-input'
 import { useDaysOffWarning } from '@/composables/use-days-off-warning'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -39,6 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import MasterMultiSelect from './MasterMultiSelect.vue'
+import ServicePicker from './ServicePicker.vue'
 
 const props = defineProps<{
   open: boolean
@@ -79,6 +87,24 @@ const readiness = ref<string>(READINESS_NONE)
 const master = ref<string[]>([])
 const responsible = ref<string | undefined>(undefined)
 const carClass = ref<string>(String(DEFAULT_CAR_CLASS))
+
+// ── Услуги ────────────────────────────────────────────────────────────────────
+// У записи с разбивкой по прайсу услуги правятся пикером, как в форме записи; у
+// старой записи со свободным текстом — текстом, пока не нажали «Выбрать из прайса».
+const serviceMode = ref<'lines' | 'text'>('text')
+// Новая ссылка на каждое открытие: пикер применяет строки заново только тогда.
+const initialLines = ref<BookingServiceLine[] | null>(null)
+const breakdown = ref<ServiceBreakdownRow[]>([])
+// Текст услуги до перехода на прайс: показываем, чтобы было с чем сверить выбор.
+const textBeforeLines = ref('')
+const hadLines = ref(false)
+const discount = ref(0)
+const originalAmount = ref<number | null>(null)
+// Пикер показывает актуальные названия из прайса и сам расставляет строки, так что
+// пересобранная разбивка может отличаться от сохраненной без всякой правки. Пока
+// пользователь не тронул услуги, отправляем сохраненный текст, а строки не шлем вовсе,
+// и сервер их не трогает; заодно сохранение не зависит от загрузки прайса.
+const servicesDirty = ref(false)
 
 const submitting = ref(false)
 const error = ref<string | null>(null)
@@ -147,6 +173,53 @@ function amountDigits(formatted: string): string {
   return formatted.replace(/\D/g, '')
 }
 
+const currentAmount = computed(() => {
+  const digits = amountDigits(amountRaw.value)
+  return digits === '' ? null : parseInt(digits, 10)
+})
+
+// Сумма по выбранным услугам за вычетом сохраненной скидки; null, если считать не из чего.
+const servicesAmount = computed<number | null>(() => {
+  if (serviceMode.value !== 'lines' || breakdown.value.length === 0) return null
+  const subtotal = breakdown.value.reduce((acc, r) => acc + r.price * r.quantity, 0)
+  return Math.max(0, subtotal - discount.value)
+})
+
+const amountChanged = computed(
+  () => originalAmount.value !== null && currentAmount.value !== originalAmount.value,
+)
+const amountOffServices = computed(
+  () => servicesAmount.value !== null && currentAmount.value !== servicesAmount.value,
+)
+
+function setAmount(value: number) {
+  amountRaw.value = formatAmount(String(value))
+}
+
+// Пикер эмитит итог только на действия пользователя (выбор, цена, количество, класс),
+// поэтому открытие записи сумму не трогает, а любая правка услуг ее пересчитывает.
+function onServicesTotal(total: number | null) {
+  servicesDirty.value = true
+  if (total === null) return
+  setAmount(Math.max(0, total - discount.value))
+}
+
+function switchToPricelist() {
+  textBeforeLines.value = service.value
+  initialLines.value = []
+  breakdown.value = []
+  serviceMode.value = 'lines'
+}
+
+function switchToText() {
+  servicesDirty.value = false
+  service.value = textBeforeLines.value
+  if (originalAmount.value !== null) setAmount(originalAmount.value)
+  initialLines.value = null
+  breakdown.value = []
+  serviceMode.value = 'text'
+}
+
 watch(
   () => props.open,
   (v) => {
@@ -169,6 +242,15 @@ watch(
     master.value = b?.master ?? []
     responsible.value = b?.responsible ? b.responsible : undefined
     carClass.value = b ? String(b.carClass) : String(DEFAULT_CAR_CLASS)
+    const lines = b?.services ?? []
+    hadLines.value = lines.length > 0
+    serviceMode.value = hadLines.value ? 'lines' : 'text'
+    initialLines.value = hadLines.value ? lines.map((l) => ({ ...l })) : null
+    breakdown.value = []
+    servicesDirty.value = false
+    textBeforeLines.value = ''
+    discount.value = b?.discount ?? 0
+    originalAmount.value = b?.amount ?? null
   },
 )
 
@@ -231,6 +313,7 @@ async function submit() {
   error.value = null
 
   const digits = amountDigits(amountRaw.value)
+  const lines = serviceMode.value === 'lines' && servicesDirty.value ? breakdown.value : undefined
   const rawInput = {
     dateFrom: dateFromCal.value ? calToDdmmyyyy(dateFromCal.value) : '',
     dateTo: dateToCal.value ? calToDdmmyyyy(dateToCal.value) : undefined,
@@ -239,7 +322,8 @@ async function submit() {
     name: name.value.trim(),
     phone: effectivePhone(),
     car: car.value.trim(),
-    service: service.value.trim(),
+    service: lines ? formatServiceCell(lines) : service.value.trim(),
+    services: lines,
     note: note.value,
     amount: digits === '' ? '' : parseInt(digits, 10),
     readiness: readiness.value === READINESS_NONE ? '' : readiness.value,
@@ -260,8 +344,12 @@ async function submit() {
     return
   }
 
-  // transform повторно выполняется на бэкенде; отправляем входную форму данных, без
-  // автоматически выведенной формулы (ручная правка ее сбрасывает) и флага notify.
+  // transform повторно выполняется на бэкенде; отправляем входную форму данных без флага
+  // notify. Формулу шлем, только когда есть строки услуг: без них ее не из чего собрать,
+  // и сервер сам решает, оставить ли прежнюю.
+  const amountFormula = parsed.data.services
+    ? formatAmountFormula(parsed.data.services, parsed.data.amount + discount.value, discount.value)
+    : undefined
   const payload: PatchApiBookingsIdBody = {
     dateFrom: parsed.data.dateFrom,
     dateTo: parsed.data.dateTo,
@@ -271,8 +359,10 @@ async function submit() {
     phone: parsed.data.phone,
     car: parsed.data.car,
     service: parsed.data.service,
+    services: parsed.data.services,
     note: parsed.data.note,
     amount: parsed.data.amount,
+    amountFormula,
     readiness: parsed.data.readiness,
     master: parsed.data.master,
     responsible: parsed.data.responsible,
@@ -482,8 +572,8 @@ async function submit() {
           </p>
         </div>
 
-        <!-- Класс кузова -->
-        <div class="grid gap-2">
+        <!-- Класс кузова: у пикера свой переключатель класса, как в форме записи -->
+        <div v-if="serviceMode === 'text'" class="grid gap-2">
           <Label>Класс кузова</Label>
           <Select v-model="carClass">
             <SelectTrigger :disabled="submitting">
@@ -502,8 +592,34 @@ async function submit() {
 
         <!-- Услуга -->
         <div class="grid gap-2">
-          <Label for="booking-service">Услуга</Label>
+          <div class="flex items-center justify-between gap-2">
+            <Label :for="serviceMode === 'text' ? 'booking-service' : undefined">Услуга</Label>
+            <Button
+              v-if="serviceMode === 'text'"
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-xs"
+              :disabled="submitting"
+              @click="switchToPricelist"
+            >
+              <ListChecks class="size-3.5" />
+              Выбрать из прайса
+            </Button>
+            <Button
+              v-else-if="!hadLines"
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-7 px-2 text-xs"
+              :disabled="submitting"
+              @click="switchToText"
+            >
+              Вернуть текст
+            </Button>
+          </div>
           <Textarea
+            v-if="serviceMode === 'text'"
             id="booking-service"
             v-model="service"
             rows="3"
@@ -511,8 +627,24 @@ async function submit() {
             :disabled="submitting"
             maxlength="2000"
           />
+          <template v-else>
+            <ServicePicker
+              :car-class="Number(carClass) as CarClass"
+              :initial-lines="initialLines"
+              :invalid="!!fieldErrors.service || !!fieldErrors.services"
+              @update:car-class="(c: CarClass) => (carClass = String(c))"
+              @update:total="onServicesTotal"
+              @update:breakdown="(rows: ServiceBreakdownRow[]) => (breakdown = rows)"
+            />
+            <p v-if="textBeforeLines" class="text-xs text-muted-foreground whitespace-pre-line">
+              Было: {{ textBeforeLines }}
+            </p>
+          </template>
           <p v-if="fieldErrors.service" class="text-sm text-destructive">
             {{ fieldErrors.service }}
+          </p>
+          <p v-if="fieldErrors.services" class="text-sm text-destructive">
+            {{ fieldErrors.services }}
           </p>
         </div>
 
@@ -546,6 +678,38 @@ async function submit() {
             v-model="amountRaw"
             @input="onAmountInput"
           />
+          <p
+            v-if="amountChanged"
+            class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-600 dark:text-amber-500"
+          >
+            <TriangleAlert class="size-3.5 shrink-0" />
+            <span>Сумма изменилась: было {{ formatAmount(String(originalAmount)) }} ₽</span>
+            <button
+              type="button"
+              class="underline underline-offset-2 hover:no-underline"
+              :disabled="submitting"
+              @click="setAmount(originalAmount ?? 0)"
+            >
+              вернуть
+            </button>
+          </p>
+          <p
+            v-if="amountOffServices"
+            class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+          >
+            <span>По услугам: {{ formatAmount(String(servicesAmount)) }} ₽</span>
+            <button
+              type="button"
+              class="underline underline-offset-2 hover:no-underline"
+              :disabled="submitting"
+              @click="setAmount(servicesAmount ?? 0)"
+            >
+              пересчитать
+            </button>
+          </p>
+          <p v-if="serviceMode === 'lines' && discount > 0" class="text-xs text-muted-foreground">
+            Скидка {{ formatAmount(String(discount)) }} ₽ вычитается из суммы по услугам
+          </p>
           <p v-if="fieldErrors.amount" class="text-sm text-destructive">
             {{ fieldErrors.amount }}
           </p>

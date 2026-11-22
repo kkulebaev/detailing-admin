@@ -94,6 +94,7 @@ const BOOKING_ROW: BookingWithCreator = {
   note: '',
   amount: 5000,
   amountFormula: null,
+  discount: 0,
   dateFrom: '2026-06-10',
   dateTo: null,
   timeFrom: '10:00',
@@ -108,6 +109,7 @@ const BOOKING_ROW: BookingWithCreator = {
   sheetRange: "'Запись 2026'!A42",
   createdAt: new Date('2026-06-09T08:00:00.000Z'),
   createdBy: null,
+  services: [],
 }
 
 const STATS = {

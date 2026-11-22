@@ -3,15 +3,12 @@
 // из названий (по нему восстанавливается черновик), поэтому эта более богатая форма —
 // отдельный канал.
 
-export interface ServiceBreakdownRow {
-  sectionId: number
-  section: string
-  name: string
-  // Цена за единицу услуги (для штучных умножается на `quantity`).
-  price: number
-  // Количество единиц. Для обычных услуг всегда 1; штучные могут быть > 1.
-  quantity: number
-}
+import type { BookingServiceLine } from '@detailing-admin/shared'
+
+// Совпадает со строкой услуги записи: разбивка уходит в `services` как есть.
+// `price` — цена за единицу (у штучных умножается на `quantity`); `serviceId` равен
+// null у строки, которой уже нет в прайсе (она пришла из сохраненной записи).
+export type ServiceBreakdownRow = BookingServiceLine
 
 // Текст ячейки «Услуга»: по строке на каждый раздел прайслиста, услуги сгруппированы
 // в этой строке. Цены в ячейку листа намеренно не попадают. Повторяет
@@ -20,12 +17,14 @@ export interface ServiceBreakdownRow {
 //   Тонировка: Задняя полусфера
 // Штучные услуги с количеством > 1 показываются как «Название ×N».
 export function formatServiceCell(rows: ServiceBreakdownRow[]): string {
-  const bySection = new Map<number, { section: string; items: string[] }>()
+  // Ключ — название раздела: у строки не из прайса id раздела нет, а названия
+  // разделов уникальны.
+  const bySection = new Map<string, { section: string; items: string[] }>()
   for (const row of rows) {
-    let group = bySection.get(row.sectionId)
+    let group = bySection.get(row.section)
     if (!group) {
       group = { section: row.section, items: [] }
-      bySection.set(row.sectionId, group)
+      bySection.set(row.section, group)
     }
     const qty = row.quantity > 0 ? row.quantity : 1
     group.items.push(qty > 1 ? `${row.name} ×${qty}` : row.name)

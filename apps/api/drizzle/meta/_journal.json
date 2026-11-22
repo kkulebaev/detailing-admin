@@ -169,6 +169,13 @@
       "when": 1795163397523,
       "tag": "0023_tidy_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795331715805,
+      "tag": "0024_unknown_blizzard",
+      "breakpoints": true
     }
   ]
 }

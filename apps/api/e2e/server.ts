@@ -88,6 +88,14 @@ await createService({
   priceClass3Min: 7000,
   priceClass4Min: 8000,
 })
+await createService({
+  sectionId: section.id,
+  name: 'Химчистка салона',
+  priceClass1Min: 3000,
+  priceClass2Min: 4000,
+  priceClass3Min: 5000,
+  priceClass4Min: 6000,
+})
 
 const app = createApp()
 // Дает спекам проверить, что дошло до фейков. Есть только в этой точке входа.

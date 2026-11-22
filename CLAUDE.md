@@ -55,12 +55,14 @@ pnpm --filter @detailing-admin/api db:generate         # regenerate migration af
 pnpm --filter @detailing-admin/api db:migrate          # apply migrations against DATABASE_URL
 pnpm --filter @detailing-admin/api db:studio           # drizzle studio
 pnpm --filter @detailing-admin/api db:sync-prod        # mirror the prod DB into local (wipes local!)
+pnpm --filter @detailing-admin/api db:backup           # pg_dump prod (or BACKUP_DATABASE_URL) → apps/api/.backups/ (PII, gitignored)
 pnpm --filter @detailing-admin/api seed:dump           # dump clients from Sheets → .seed/clients.json
 pnpm --filter @detailing-admin/api seed:load           # upsert clients from .seed/clients.json
 pnpm --filter @detailing-admin/api seed:pricelist      # load pricelist from .seed/pricelist.json
 pnpm --filter @detailing-admin/api seed:bookings-dev   # fake bookings for local dev
 pnpm --filter @detailing-admin/api backfill:master-ids # heal booking_masters / responsibleId links
 pnpm --filter @detailing-admin/api backfill:car-ids    # heal bookings.carId links
+pnpm --filter @detailing-admin/api backfill:booking-services  # dry-run; --apply splits old service text into booking_services
 pnpm --filter @detailing-admin/api user:create --login <login> --role admin|booker|employee
 pnpm --filter @detailing-admin/api user:set-role --login <login> --role admin|booker|employee
 pnpm --filter @detailing-admin/api user:reset-password --login <login>
@@ -136,6 +138,7 @@ This is deliberate: Railway treats a crash-loop as zero healthy revisions, hidin
 - **Durable idempotency.** `bookings.idempotencyKey` is `UNIQUE` and the insert is `onConflictDoNothing` — a post-TTL client retry (which re-appends to Sheets, pre-existing behavior) will not create a second mirror row.
 - **Structured, not serialized.** Unlike the Sheets row, columns hold normalized values (phone in E.164, dates as `date`, amount as int) so the table can become the source of truth at cutover with minimal change. `bookingToDbRow()` maps the wire `Booking` → row (dates via `ddmmyyyyToIso`).
 - **Snapshots plus derived id-links.** `master text[]`, `responsible` and `car` are the as-written snapshots; `booking_masters`, `responsibleId` and `carId` are derived links resolved by name/plate. The links are nullable, use `set null`/`cascade`, and are healed by the `backfill:*` scripts — a failed link step never fails the request.
+- **Services are lines.** `booking_services` holds one row per picked service in `position` order: `section`, `name` and unit `price` are snapshots (the price may have been edited in the form), `quantity` ≥ 1, `serviceId` is a derived link (`set null` when the service leaves the pricelist; an unknown id becomes `null` on write instead of failing the FK). `bookings.service` stays the text sent to the sheet, and `bookings.discount` is the ruble discount already subtracted from `amount`. The wire `services`/`discount` are optional: on `PATCH`, omitting `services` keeps the stored lines and `[]` clears them; omitting `discount` keeps it. Lines carry prices, so reads include them only for roles that see amounts. Lines and `discount` are not audited fields: a line edit shows in history through `service` and `amountFormula`, which the edit dialog rebuilds only after the user touches the picker (until then it sends neither `services` nor a new text, so a renamed pricelist entry doesn't rewrite the booking). A delete snapshot keeps the lines and restore re-inserts them. Older bookings have no lines: `BookingEditDialog` edits them as text until «Выбрать из прайса»; `backfill:booking-services` fills lines only where the service cell and `amountFormula` parse unambiguously and add up to `amount` (run `db:backup` first; it skips bookings whose `service` was edited in the app, since such an edit could keep a stale formula, and prints rollback SQL that leaves alone bookings changed after the run).
 - **Edits are DB-only.** `PATCH /{id}`, `DELETE /{id}`, `PATCH /{id}/readiness` and `POST /{id}/restore` change only the mirror; Sheets is not updated. After an in-app edit the mirror and the sheet disagree, which is a known gap until the cutover.
 - **Read side.** `GET /api/bookings` has filters (date range, master, readiness), phone-normalized search, and limit/offset paging; `GET /api/bookings/export` streams the same selection as CSV. The web page is `apps/web/src/components/BookingsPage.vue` at `/bookings`.
 

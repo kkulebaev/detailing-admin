@@ -13,6 +13,7 @@ const BASE: Booking = {
   note: '',
   amount: 5000,
   amountFormula: null,
+  discount: 0,
   dateFrom: '2026-06-04',
   dateTo: null,
   timeFrom: '10:00',

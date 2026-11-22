@@ -997,6 +997,48 @@
                     "minLength": 1,
                     "maxLength": 2000
                   },
+                  "services": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "serviceId": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "section": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "price": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 99999999
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 99
+                        }
+                      },
+                      "required": [
+                        "serviceId",
+                        "section",
+                        "name",
+                        "price",
+                        "quantity"
+                      ]
+                    },
+                    "maxItems": 100
+                  },
                   "note": {
                     "type": "string",
                     "maxLength": 2000,
@@ -1020,6 +1062,11 @@
                     "type": "string",
                     "maxLength": 2000,
                     "pattern": "^=[\\d+\\-*/().\\s]+$"
+                  },
+                  "discount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 99999999
                   },
                   "readiness": {
                     "anyOf": [
@@ -1487,6 +1534,50 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "services": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "serviceId": {
+                                  "type": "integer",
+                                  "nullable": true,
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true
+                                },
+                                "section": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "price": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 99999999
+                                },
+                                "quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 99
+                                }
+                              },
+                              "required": [
+                                "serviceId",
+                                "section",
+                                "name",
+                                "price",
+                                "quantity"
+                              ]
+                            }
+                          },
+                          "discount": {
+                            "type": "integer"
+                          },
                           "dateFrom": {
                             "type": "string"
                           },
@@ -1782,6 +1873,48 @@
                     "minLength": 1,
                     "maxLength": 2000
                   },
+                  "services": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "serviceId": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "section": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "price": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 99999999
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 99
+                        }
+                      },
+                      "required": [
+                        "serviceId",
+                        "section",
+                        "name",
+                        "price",
+                        "quantity"
+                      ]
+                    },
+                    "maxItems": 100
+                  },
                   "note": {
                     "type": "string",
                     "maxLength": 2000,
@@ -1805,6 +1938,11 @@
                     "type": "string",
                     "maxLength": 2000,
                     "pattern": "^=[\\d+\\-*/().\\s]+$"
+                  },
+                  "discount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 99999999
                   },
                   "readiness": {
                     "anyOf": [
@@ -1941,6 +2079,50 @@
                         "amountFormula": {
                           "type": "string",
                           "nullable": true
+                        },
+                        "services": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "serviceId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "section": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "price": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 99999999
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              }
+                            },
+                            "required": [
+                              "serviceId",
+                              "section",
+                              "name",
+                              "price",
+                              "quantity"
+                            ]
+                          }
+                        },
+                        "discount": {
+                          "type": "integer"
                         },
                         "dateFrom": {
                           "type": "string"
@@ -2487,6 +2669,50 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "services": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "serviceId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "section": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "price": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 99999999
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              }
+                            },
+                            "required": [
+                              "serviceId",
+                              "section",
+                              "name",
+                              "price",
+                              "quantity"
+                            ]
+                          }
+                        },
+                        "discount": {
+                          "type": "integer"
+                        },
                         "dateFrom": {
                           "type": "string"
                         },
@@ -2796,6 +3022,50 @@
                               "amountFormula": {
                                 "type": "string",
                                 "nullable": true
+                              },
+                              "services": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "serviceId": {
+                                      "type": "integer",
+                                      "nullable": true,
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "section": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 120
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 200
+                                    },
+                                    "price": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 99999999
+                                    },
+                                    "quantity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 99
+                                    }
+                                  },
+                                  "required": [
+                                    "serviceId",
+                                    "section",
+                                    "name",
+                                    "price",
+                                    "quantity"
+                                  ]
+                                }
+                              },
+                              "discount": {
+                                "type": "integer"
                               },
                               "dateFrom": {
                                 "type": "string"
@@ -3634,6 +3904,50 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "services": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "serviceId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "section": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "price": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 99999999
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99
+                              }
+                            },
+                            "required": [
+                              "serviceId",
+                              "section",
+                              "name",
+                              "price",
+                              "quantity"
+                            ]
+                          }
+                        },
+                        "discount": {
+                          "type": "integer"
+                        },
                         "dateFrom": {
                           "type": "string"
                         },
@@ -4327,6 +4641,50 @@
                           "amountFormula": {
                             "type": "string",
                             "nullable": true
+                          },
+                          "services": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "serviceId": {
+                                  "type": "integer",
+                                  "nullable": true,
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true
+                                },
+                                "section": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "price": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 99999999
+                                },
+                                "quantity": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 99
+                                }
+                              },
+                              "required": [
+                                "serviceId",
+                                "section",
+                                "name",
+                                "price",
+                                "quantity"
+                              ]
+                            }
+                          },
+                          "discount": {
+                            "type": "integer"
                           },
                           "dateFrom": {
                             "type": "string"

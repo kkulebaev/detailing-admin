@@ -464,6 +464,65 @@ describe('id-ссылка на мастера в insertBooking', () => {
   })
 })
 
+describe('строки услуг записи', () => {
+  const LINES = [
+    { serviceId: 5, section: 'Химчистка', name: 'Потолок', price: 2000, quantity: 1 },
+    { serviceId: 6, section: 'Химчистка', name: 'Удаленная', price: 1500, quantity: 2 },
+  ]
+
+  it('insertBooking пишет строки по порядку и обнуляет связь с услугой, которой нет в прайсе', async () => {
+    const { db, capture } = makeWriteDb({
+      // resolveMasterIds, затем проверка, какие услуги еще есть в прайсе.
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [{ id: 5 }]],
+      insertResults: [[{ id: 'bk1' }], [], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await insertBooking(makeBooking({ services: LINES, discount: 300 }), META)
+
+    expect((capture.inserts[0] as Record<string, unknown>).discount).toBe(300)
+    expect(capture.inserts[1]).toEqual([
+      { bookingId: 'bk1', position: 0, ...LINES[0] },
+      { bookingId: 'bk1', position: 1, ...LINES[1], serviceId: null },
+    ])
+  })
+
+  it('updateBooking заменяет строки в транзакции правки', async () => {
+    const locked = { id: 'bk1', master: ['Мастер А'], amount: 5000, discount: 300 }
+    const { db, capture } = makeWriteDb({
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [locked], [{ id: 5 }, { id: 6 }]],
+      updateResults: [[locked]],
+      insertResults: [[], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking('bk1', makeBooking({ services: LINES }), null, null, ACTOR)
+
+    // Первый delete — строки услуг (в транзакции), второй — связи с мастерами.
+    expect(capture.deletes).toBe(2)
+    expect(capture.inserts[0]).toEqual([
+      { bookingId: 'bk1', position: 0, ...LINES[0] },
+      { bookingId: 'bk1', position: 1, ...LINES[1] },
+    ])
+    // Скидку правка не прислала — остается прежней.
+    expect(capture.sets[0]).toMatchObject({ discount: 300 })
+  })
+
+  it('updateBooking без services не трогает сохраненные строки', async () => {
+    const locked = { id: 'bk1', master: ['Мастер А'], amount: 5000, discount: 0 }
+    const { db, capture } = makeWriteDb({
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [locked]],
+      updateResults: [[locked]],
+      insertResults: [[]],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking('bk1', makeBooking(), null, null, ACTOR)
+
+    expect(capture.deletes).toBe(1)
+  })
+})
+
 describe('id-ссылка на мастера в updateBooking', () => {
   it('атомарно обновляет responsible_id и перезаписывает junction (delete + повторный insert)', async () => {
     const updatedRow = { id: 'bk1', master: ['Мастер А'] }
@@ -481,7 +540,7 @@ describe('id-ссылка на мастера в updateBooking', () => {
     vi.mocked(getDb).mockReturnValue(db)
 
     const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9', ACTOR)
-    expect(row).toEqual({ ...updatedRow, createdBy: null })
+    expect(row).toEqual({ ...updatedRow, createdBy: null, services: [] })
     // Поля, клиент, машина и id ответственного выставляются в одном атомарном update.
     expect(capture.sets[0]).toMatchObject({
       clientId: 'client-1',
@@ -511,7 +570,7 @@ describe('id-ссылка на мастера в updateBooking', () => {
 
     const row = await updateBooking('bk1', makeBooking(), 'client-1', 'car-9', ACTOR)
     // Инвариант PATCH: обновление полей сохраняется; сбой проглатывается и логируется.
-    expect(row).toEqual({ ...updatedRow, createdBy: null })
+    expect(row).toEqual({ ...updatedRow, createdBy: null, services: [] })
     expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'booking.junction_update_failed' }),
       expect.any(String),

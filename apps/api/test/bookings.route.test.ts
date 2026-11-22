@@ -583,6 +583,7 @@ describe('GET /api/bookings', () => {
     note: '',
     amount: 5000,
     amountFormula: null,
+    discount: 0,
     dateFrom: '2026-06-04',
     dateTo: null,
     timeFrom: '10:00',
@@ -597,6 +598,7 @@ describe('GET /api/bookings', () => {
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
     createdBy: 'Админ',
+    services: [],
   }
 
   beforeEach(async () => {
@@ -722,6 +724,7 @@ describe('GET /api/bookings/export', () => {
     note: '',
     amount: 5000,
     amountFormula: null,
+    discount: 0,
     dateFrom: '2026-06-04',
     dateTo: null,
     timeFrom: '10:00',
@@ -736,6 +739,7 @@ describe('GET /api/bookings/export', () => {
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
     createdBy: 'Админ',
+    services: [],
   }
 
   beforeEach(async () => {
@@ -837,6 +841,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     note: '',
     amount: 7000,
     amountFormula: null,
+    discount: 0,
     dateFrom: '2026-06-04',
     dateTo: null,
     timeFrom: '10:00',
@@ -851,6 +856,7 @@ describe('PATCH & DELETE /api/bookings/{id}', () => {
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
     createdBy: 'Админ',
+    services: [],
   }
 
   beforeEach(async () => {
@@ -1066,6 +1072,7 @@ describe('журнал и корзина записей', () => {
     note: '',
     amount: 7000,
     amountFormula: null,
+    discount: 0,
     dateFrom: '2026-06-04',
     dateTo: null,
     timeFrom: '10:00',
@@ -1080,6 +1087,7 @@ describe('журнал и корзина записей', () => {
     sheetRange: 'Запись 2026!A5',
     createdAt: new Date('2026-06-01T12:00:00.000Z'),
     createdBy: 'Админ',
+    services: [],
   }
 
   beforeEach(async () => {

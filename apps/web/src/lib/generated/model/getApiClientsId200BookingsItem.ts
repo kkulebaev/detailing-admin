@@ -5,6 +5,7 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
+import type { GetApiClientsId200BookingsItemServicesItem } from './getApiClientsId200BookingsItemServicesItem';
 
 export type GetApiClientsId200BookingsItem = {
   id: string;
@@ -18,6 +19,8 @@ export type GetApiClientsId200BookingsItem = {
   amount?: number;
   /** @nullable */
   amountFormula?: string | null;
+  services?: GetApiClientsId200BookingsItemServicesItem[];
+  discount?: number;
   dateFrom: string;
   /** @nullable */
   dateTo: string | null;

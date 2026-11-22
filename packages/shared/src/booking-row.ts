@@ -6,6 +6,7 @@ import {
   notFoundErrorSchema,
   validationErrorSchema,
 } from './api.js'
+import { bookingServiceLineSchema } from './booking.js'
 
 // Форма сохраненной записи на проводе, как ее отдает `GET /api/bookings`. Повторяет
 // таблицу `bookings` без внутреннего `idempotencyKey`. Даты — ISO-строки
@@ -22,6 +23,10 @@ export const bookingRowSchema = z.object({
   // У админов присутствует.
   amount: z.number().int().optional(),
   amountFormula: z.string().nullable().optional(),
+  // Строки несут цены, поэтому видны тем же ролям, что и `amount`. Пустой массив —
+  // запись без разбивки по прайсу (старая или со свободным текстом).
+  services: z.array(bookingServiceLineSchema).optional(),
+  discount: z.number().int().optional(),
   dateFrom: z.string(),
   dateTo: z.string().nullable(),
   timeFrom: z.string(),
