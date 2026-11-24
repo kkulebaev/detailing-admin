@@ -349,7 +349,7 @@ async function confirmDelete() {
 <template>
   <!-- Мобильный: обычный поток страницы (строк влезает мало — пусть прокручивается вся страница).
        md+: flex-колонка фиксированной высоты, чтобы прокручивались только строки внутри. -->
-  <div class="min-h-svh bg-background text-foreground p-2 sm:p-8 md:flex md:h-svh md:flex-col">
+  <div class="text-foreground p-2 sm:p-8 md:flex md:h-svh md:flex-col">
     <div class="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <header class="mb-6 shrink-0">
         <h1 class="text-2xl font-semibold">Клиенты</h1>

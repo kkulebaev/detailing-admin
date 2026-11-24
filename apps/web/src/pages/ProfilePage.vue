@@ -24,7 +24,7 @@ const secondaryLogin = computed(() =>
 </script>
 
 <template>
-  <div class="min-h-svh bg-background text-foreground p-4 sm:p-8">
+  <div class="text-foreground p-4 sm:p-8">
     <div class="mx-auto grid max-w-md gap-6">
       <Card>
         <CardContent class="flex items-center gap-4">

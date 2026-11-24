@@ -221,7 +221,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="min-h-svh bg-background text-foreground p-2 sm:p-8">
+  <div class="text-foreground p-2 sm:p-8">
     <div>
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

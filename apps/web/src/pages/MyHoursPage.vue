@@ -152,7 +152,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="min-h-svh bg-background text-foreground p-2 sm:p-8">
+  <div class="text-foreground p-2 sm:p-8">
     <div class="mx-auto max-w-2xl">
       <header class="mb-6">
         <h1 class="text-2xl font-semibold">Мои часы</h1>

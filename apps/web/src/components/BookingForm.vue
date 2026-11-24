@@ -1267,7 +1267,7 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-muted/30">
+  <div class="flex-1 bg-muted/30">
     <!-- Незакрываемый баннер недоступности -->
     <div
       v-if="unavailableBanner && unavailableBanner.kind === 'headers_mismatch'"
