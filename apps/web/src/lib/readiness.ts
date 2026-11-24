@@ -61,6 +61,23 @@ export function readinessRowClass(readiness: BookingRow['readiness']): string {
 // как в меню выбора статуса.
 export const READINESS_FILTER_OPTIONS: readonly (Readiness | '')[] = [...READINESS, '']
 
+// Что открывается без параметра в адресе: записи, по которым еще есть что делать.
+// Завершенные и перенесенные прячутся, «Нет статуса» остается — такую запись еще
+// никто не разобрал.
+export const DEFAULT_READINESS_FILTER: readonly (Readiness | '')[] = [
+  'Подтвердил',
+  'Не ответил',
+  'В работе',
+  'Не приехал',
+  'Оплачено',
+  'Не оплачено',
+  '',
+]
+
+// «Все статусы» отличается от умолчания, поэтому пустому выбору нужно свое слово в
+// адресе, иначе ссылка без параметра открыла бы набор по умолчанию.
+export const READINESS_FILTER_ALL_PARAM = 'all'
+
 export function readinessFilterLabel(value: Readiness | ''): string {
   return value || 'Нет статуса'
 }

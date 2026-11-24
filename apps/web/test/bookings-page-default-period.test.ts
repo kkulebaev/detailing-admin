@@ -74,37 +74,54 @@ describe('BookingsPage — период по умолчанию', () => {
     masters.list = []
   })
 
-  it('запрашивает записи с сегодняшнего дня без конечной даты', async () => {
+  it('запрашивает текущий месяц и незакрытые статусы', async () => {
     await mountPage()
-    expect(captured.params.value.dateFrom).toBe('05.11.2026')
-    expect(captured.params.value.dateTo).toBeUndefined()
-    await expect.element(button('С 05.11.2026')).toBeVisible()
+    expect(captured.params.value).toMatchObject({
+      dateFrom: '01.11.2026',
+      dateTo: '30.11.2026',
+      readiness: 'Подтвердил,Не ответил,В работе,Не приехал,Оплачено,Не оплачено,none',
+    })
+    await expect.element(button('Ноябрь 2026')).toBeVisible()
+    // Умолчание не считается выбранным фильтром: у кнопки нет счетчика.
+    await button('Фильтры').click()
+    await expect.element(button('Готовность')).toHaveTextContent('Подтвердил +6')
   })
 
   it('оставляет пустое состояние периода по умолчанию и предлагает сброс', async () => {
     await mountPage()
-    await expect.element(page.getByText('Нет записей с сегодняшнего дня')).toBeVisible()
+    await expect.element(page.getByText('Нет записей в этом месяце')).toBeVisible()
     await expect.element(page.getByText('Ничего не найдено')).not.toBeInTheDocument()
     await expect.element(button('Сбросить')).toBeVisible()
   })
 
-  it('при сбросе переключает период по умолчанию на «Все записи»', async () => {
+  it('«Показать все записи» снимает и период, и статусы', async () => {
     await mountPage()
+
+    await button('Показать все записи').click()
+
+    await expect.element(button('Все записи')).toBeVisible()
+    expect(captured.params.value.dateFrom).toBeUndefined()
+    expect(captured.params.value.readiness).toBeUndefined()
+  })
+
+  it('при сбросе переключает период по умолчанию на «Все записи» и все статусы', async () => {
+    const wrapper = await mountPage()
+    const router = wrapper.vm.$router
 
     await button('Сбросить').click()
 
     await expect.element(button('Все записи')).toBeVisible()
     expect(captured.params.value.dateFrom).toBeUndefined()
     expect(captured.params.value.dateTo).toBeUndefined()
-    await expect.element(button('С 05.11.2026')).not.toBeInTheDocument()
+    expect(captured.params.value.readiness).toBeUndefined()
+    await expect
+      .poll(() => router.currentRoute.value.query)
+      .toEqual({ period: 'all', readiness: 'all' })
   })
 
-  it('при сбросе переключает выбранный месяц на «Все записи»', async () => {
-    await mountPage()
-
-    await choosePeriod('С 05.11.2026', 'Весь месяц')
+  it('при сбросе переключает выбранный день на «Все записи»', async () => {
+    await mountPage('/?period=2026-11-12')
     await expect.element(page.getByText('Ничего не найдено')).toBeVisible()
-    expect(captured.params.value.dateFrom).toBe('01.11.2026')
 
     await button('Сбросить').click()
 
@@ -113,10 +130,10 @@ describe('BookingsPage — период по умолчанию', () => {
     expect(captured.params.value.dateTo).toBeUndefined()
   })
 
-  it('прячет сброс, когда в «Все записи» сбрасывать уже нечего', async () => {
-    await mountPage()
+  it('прячет сброс, когда сбрасывать уже нечего', async () => {
+    await mountPage('/?readiness=all')
 
-    await choosePeriod('С 05.11.2026', 'Все записи')
+    await choosePeriod('Ноябрь 2026', 'Все записи')
 
     await expect.element(page.getByText('Записей пока нет')).toBeVisible()
     expect(captured.params.value.dateFrom).toBeUndefined()
@@ -126,14 +143,26 @@ describe('BookingsPage — период по умолчанию', () => {
       .not.toBeInTheDocument()
   })
 
-  it('возвращается к умолчанию по «С сегодня»', async () => {
-    await mountPage()
+  it('«С сегодня» запрашивает записи без конечной даты и пишется в адрес', async () => {
+    const wrapper = await mountPage()
+    const router = wrapper.vm.$router
 
-    await choosePeriod('С 05.11.2026', 'Все записи')
-    await choosePeriod('Все записи', 'С сегодня')
+    await choosePeriod('Ноябрь 2026', 'С сегодня')
 
     await expect.element(button('С 05.11.2026')).toBeVisible()
     expect(captured.params.value.dateFrom).toBe('05.11.2026')
+    expect(captured.params.value.dateTo).toBeUndefined()
+    await expect.poll(() => router.currentRoute.value.query).toEqual({ period: 'today' })
+  })
+
+  it('возвращается к умолчанию по «Весь месяц»', async () => {
+    const wrapper = await mountPage('/?period=all')
+    const router = wrapper.vm.$router
+
+    await choosePeriod('Все записи', 'Весь месяц')
+
+    await expect.element(button('Ноябрь 2026')).toBeVisible()
+    await expect.poll(() => router.currentRoute.value.query).toEqual({})
   })
 
   describe('фильтры в адресе', () => {
@@ -153,10 +182,10 @@ describe('BookingsPage — период по умолчанию', () => {
     })
 
     it('выбирает несколько статусов готовности и пишет их в адрес', async () => {
-      const wrapper = await mountPage('/?page=2')
+      const wrapper = await mountPage('/?page=2&readiness=all')
       const router = wrapper.vm.$router
 
-      await button('Фильтры').click()
+      await page.getByRole('button', { name: /^Фильтры/ }).click()
       await button('Готовность').click()
       await page.getByRole('checkbox', { name: 'Нет статуса' }).click()
       await page.getByRole('checkbox', { name: 'Выдана' }).click()
@@ -170,8 +199,9 @@ describe('BookingsPage — период по умолчанию', () => {
       await expect.element(button('Готовность')).toHaveTextContent('В работе +2')
 
       await button('Все статусы').click()
-      await expect.poll(() => router.currentRoute.value.query).toEqual({})
+      await expect.poll(() => router.currentRoute.value.query).toEqual({ readiness: 'all' })
       expect(captured.params.value.readiness).toBeUndefined()
+      await expect.element(button('Готовность')).toHaveTextContent('Все')
     })
 
     it('выбирает несколько мастеров и пишет их в адрес', async () => {
@@ -212,7 +242,7 @@ describe('BookingsPage — период по умолчанию', () => {
       const wrapper = await mountPage('/?page=3')
       const router = wrapper.vm.$router
 
-      await choosePeriod('С 05.11.2026', 'Все записи')
+      await choosePeriod('Ноябрь 2026', 'Все записи')
 
       await expect.poll(() => router.currentRoute.value.query).toEqual({ period: 'all' })
       expect(captured.params.value.offset).toBe(0)
@@ -223,7 +253,7 @@ describe('BookingsPage — период по умолчанию', () => {
       const router = wrapper.vm.$router
 
       await router.push('/')
-      await choosePeriod('С 05.11.2026', 'Весь месяц')
+      await choosePeriod('Ноябрь 2026', 'Весь месяц')
 
       expect(captured.params.value).toMatchObject({ dateFrom: '01.11.2026', dateTo: '30.11.2026' })
     })

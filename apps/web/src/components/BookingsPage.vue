@@ -33,6 +33,8 @@ import {
 import { downloadFile, exportFilename } from '@/lib/download'
 import {
   READINESS_FILTER_OPTIONS,
+  DEFAULT_READINESS_FILTER,
+  READINESS_FILTER_ALL_PARAM,
   readinessFilterFromParam,
   readinessFilterLabel,
   readinessFilterToParam,
@@ -280,17 +282,18 @@ async function confirmDelete() {
 }
 
 // ── Состояние фильтров ────────────────────────────────────────────────────────
-// Период — одно из четырех: с сегодняшнего дня (по умолчанию), все записи, месяц
-// целиком или конкретный день. Выбранный день важнее `monthKey`.
-const monthKey = ref<string>(FROM_TODAY)
+// Период — одно из четырех: месяц целиком (текущий по умолчанию), с сегодняшнего
+// дня, все записи или конкретный день. Выбранный день важнее `monthKey`.
+const monthKey = ref<string>(monthKeyOf(today(getLocalTimeZone())))
 // shallowRef сохраняет #private-поле CalendarDate (UnwrapRef из Vue его срезает).
 const dayCal = shallowRef<DateValue | undefined>(undefined)
 const periodOpen = ref(false)
 // Месяц, открытый в календаре. Он же решает, какой месяц заберет «Весь месяц».
 const todayCal = today(getLocalTimeZone())
 const periodPlaceholder = shallowRef<DateValue>(todayCal)
+const currentMonthKey = monthKeyOf(todayCal)
 const masterFilter = ref<string[]>([])
-const readinessFilter = ref<(Readiness | '')[]>([])
+const readinessFilter = ref<(Readiness | '')[]>([...DEFAULT_READINESS_FILTER])
 const searchInput = ref('')
 // Ручной debounce (вместо refDebounced), чтобы `resetFilters` мог сбросить его
 // синхронно — иначе запрос еще 300 мс держит устаревший поисковый запрос после
@@ -306,24 +309,24 @@ onUnmounted(() => clearTimeout(searchTimer))
 const { limit: LIMIT, offset, page, resetToFirstPage, keepWithin } = useOffsetPagination()
 
 // ── Фильтры в адресе ─────────────────────────────────────────────────────────
-// Период в адресе одной строкой: пусто — с сегодня, `all`, `YYYY-MM` или день
-// `YYYY-MM-DD`. Календарь открывается на выбранном месяце, а не на сегодняшнем.
+// Период в адресе одной строкой: пусто — текущий месяц, `today` — с сегодня,
+// `all`, `YYYY-MM` или день `YYYY-MM-DD`. Календарь открывается на выбранном месяце, а не на сегодняшнем.
 const period = computed({
   get: () => {
     if (dayCal.value) return dayCal.value.toString()
     if (monthKey.value === ALL) return 'all'
-    return monthKey.value === FROM_TODAY ? '' : monthKey.value
+    return monthKey.value === FROM_TODAY ? 'today' : monthKey.value
   },
   set: (v: string) => {
     if (v.length === 10) {
       const d = parseDate(v)
       dayCal.value = d
-      monthKey.value = FROM_TODAY
+      monthKey.value = currentMonthKey
       periodPlaceholder.value = d
       return
     }
     dayCal.value = undefined
-    monthKey.value = v === 'all' ? ALL : v || FROM_TODAY
+    monthKey.value = v === 'all' ? ALL : v === 'today' ? FROM_TODAY : v
     if (v.length === 7) {
       const [y, m] = v.split('-').map(Number)
       periodPlaceholder.value = new CalendarDate(y!, m!, 1)
@@ -334,9 +337,10 @@ const period = computed({
   },
 })
 const periodParam: QueryParamOptions<string> = {
-  parse: (raw) => (raw === 'all' || isIsoMonth(raw) || isIsoDay(raw) ? raw : undefined),
+  parse: (raw) =>
+    raw === 'all' || raw === 'today' || isIsoMonth(raw) || isIsoDay(raw) ? raw : undefined,
   serialize: (v) => v,
-  defaultValue: () => '',
+  defaultValue: () => currentMonthKey,
 }
 const search = computed({
   get: () => searchDebounced.value,
@@ -366,11 +370,12 @@ useQueryParam('master', masterFilter, {
 })
 useQueryParam('readiness', readinessFilter, {
   parse: (raw) => {
+    if (raw === READINESS_FILTER_ALL_PARAM) return []
     const list = readinessFilterFromParam(raw)
     return list.length ? list : undefined
   },
-  serialize: readinessFilterToParam,
-  defaultValue: () => [],
+  serialize: (v) => readinessFilterToParam(v) || READINESS_FILTER_ALL_PARAM,
+  defaultValue: () => [...DEFAULT_READINESS_FILTER],
 })
 useQueryParam('q', search, textParam())
 useQueryParam('page', page, pageParam())
@@ -400,7 +405,13 @@ function monthKeyOf(d: DateValue): string {
   return `${d.year}-${String(d.month).padStart(2, '0')}`
 }
 
-const isDefaultPeriod = computed(() => !dayCal.value && monthKey.value === FROM_TODAY)
+const isDefaultPeriod = computed(() => !dayCal.value && monthKey.value === currentMonthKey)
+
+const isDefaultReadiness = computed(
+  () =>
+    readinessFilterToParam(readinessFilter.value) ===
+    readinessFilterToParam(DEFAULT_READINESS_FILTER),
+)
 
 const periodLabel = computed(() => {
   if (dayCal.value) return calToDdmmyyyy(dayCal.value)
@@ -516,7 +527,8 @@ const filtersSheetOpen = ref(false)
 const activeFilterCount = computed(() => {
   let n = 0
   if (masterFilter.value.length) n += 1
-  if (readinessFilter.value.length) n += 1
+  // Набор по умолчанию пользователь не выбирал, а «Все статусы» ничего не прячет.
+  if (readinessFilter.value.length && !isDefaultReadiness.value) n += 1
   if (searchInput.value.trim()) n += 1
   return n
 })
@@ -530,16 +542,18 @@ const [DefineSearch, ReuseSearch] = createReusableTemplate()
 const [DefineSort, ReuseSort] = createReusableTemplate<{ btnClass: string; short?: boolean }>()
 
 const hasCustomPeriod = computed(
-  () => !!dayCal.value || (monthKey.value !== ALL && monthKey.value !== FROM_TODAY),
+  () => !!dayCal.value || (monthKey.value !== ALL && monthKey.value !== currentMonthKey),
 )
 
 // Решает только текст пустого состояния: период по умолчанию пользователь не
 // выбирал, поэтому «Ничего не найдено» при нем было бы неправдой.
 const hasActiveFilters = computed(() => hasCustomPeriod.value || activeFilterCount.value > 0)
 
-// Шире, чем hasActiveFilters: период по умолчанию тоже скрывает записи, и сброс
-// их открывает. Гаснет только там, где сброс уже ничего не изменит.
-const canReset = computed(() => hasActiveFilters.value || isDefaultPeriod.value)
+// Шире, чем hasActiveFilters: период и статусы по умолчанию тоже скрывают записи,
+// и сброс их открывает. Гаснет только там, где сброс уже ничего не изменит.
+const canReset = computed(
+  () => hasActiveFilters.value || isDefaultPeriod.value || readinessFilter.value.length > 0,
+)
 
 // Текст пустого состояния описывает показанный результат, а не фильтры, которые
 // уже поменялись, пока ответ на них еще в пути: иначе сброс из «Ничего не
@@ -566,7 +580,7 @@ function resetFilters() {
 // снимает выбор, и период возвращается к режиму по умолчанию.
 function onDaySelect(d: DateValue | undefined) {
   dayCal.value = d ?? undefined
-  monthKey.value = FROM_TODAY
+  monthKey.value = currentMonthKey
   if (d) periodPlaceholder.value = d
   periodOpen.value = false
 }
@@ -1002,7 +1016,7 @@ function formatCreatedAt(iso: string): string {
                     emptyFor.filtered
                       ? 'Ничего не найдено'
                       : emptyFor.defaultPeriod
-                        ? 'Нет записей с сегодняшнего дня'
+                        ? 'Нет записей в этом месяце'
                         : 'Записей пока нет'
                   }}
                 </EmptyTitle>
@@ -1011,7 +1025,7 @@ function formatCreatedAt(iso: string): string {
                     emptyFor.filtered
                       ? 'Попробуйте изменить условия или сбросить фильтры'
                       : emptyFor.defaultPeriod
-                        ? 'Прошлые записи можно посмотреть за другой период'
+                        ? 'Остальные записи — за другой период или с другими статусами'
                         : 'Новые записи появятся здесь'
                   }}
                 </EmptyDescription>
@@ -1030,7 +1044,7 @@ function formatCreatedAt(iso: string): string {
                   v-else-if="emptyFor.defaultPeriod"
                   variant="outline"
                   size="sm"
-                  @click="selectAllBookings"
+                  @click="resetFilters"
                 >
                   Показать все записи
                 </Button>
