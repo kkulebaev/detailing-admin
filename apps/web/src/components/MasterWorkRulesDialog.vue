@@ -264,12 +264,8 @@ async function submit() {
           </div>
 
           <div v-if="d.kind === 'fixed'" class="grid w-full grid-cols-4 gap-2">
-            <label
-              v-for="(label, ci) in CLASS_LABELS"
-              :key="label"
-              class="grid gap-1 text-center text-xs text-muted-foreground"
-            >
-              {{ label }} класс
+            <label v-for="(label, ci) in CLASS_LABELS" :key="label" class="grid gap-1 text-center">
+              <span class="text-xs text-muted-foreground">{{ label }} класс</span>
               <Input
                 type="text"
                 inputmode="numeric"
