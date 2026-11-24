@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, shallowRef, watch, watchEffect } from 'vue'
 import {
   ArrowDown,
   ArrowUp,
@@ -499,13 +499,10 @@ async function onExport() {
 // ── Сброс фильтров ────────────────────────────────────────────────────────────
 // Управляет пустым состоянием во всю высоту: растягиваем таблицу, чтобы заглушка
 // центрировалась по вертикали в области прокрутки, а не жалась под шапку.
-const isEmpty = computed(
-  () =>
-    asyncStatus.value !== 'loading' &&
-    !showSkeleton.value &&
-    !loading.value &&
-    items.value.length === 0,
-)
+// Пока следующий запрос в полете, на экране остается прошлый результат
+// (placeholderData), в том числе пустой: иначе при смене фильтра с «Ничего не
+// найдено» на миг появлялась бы шапка таблицы без строк.
+const isEmpty = computed(() => !showSkeleton.value && !loading.value && items.value.length === 0)
 
 // Панель фильтров занимает половину мобильного экрана, поэтому на узком экране
 // она уезжает в шторку, а снаружи остается поиск и кнопка со счетчиком. Решает
@@ -543,6 +540,15 @@ const hasActiveFilters = computed(() => hasCustomPeriod.value || activeFilterCou
 // Шире, чем hasActiveFilters: период по умолчанию тоже скрывает записи, и сброс
 // их открывает. Гаснет только там, где сброс уже ничего не изменит.
 const canReset = computed(() => hasActiveFilters.value || isDefaultPeriod.value)
+
+// Текст пустого состояния описывает показанный результат, а не фильтры, которые
+// уже поменялись, пока ответ на них еще в пути: иначе сброс из «Ничего не
+// найдено» на миг показывал бы «Записей пока нет».
+const emptyFor = shallowRef({ filtered: false, defaultPeriod: false })
+watchEffect(() => {
+  if (asyncStatus.value === 'loading') return
+  emptyFor.value = { filtered: hasActiveFilters.value, defaultPeriod: isDefaultPeriod.value }
+})
 
 function resetFilters() {
   monthKey.value = ALL
@@ -989,22 +995,22 @@ function formatCreatedAt(iso: string): string {
             <Empty class="gap-4 p-0">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <component :is="hasActiveFilters ? SearchX : Inbox" />
+                  <component :is="emptyFor.filtered ? SearchX : Inbox" />
                 </EmptyMedia>
                 <EmptyTitle>
                   {{
-                    hasActiveFilters
+                    emptyFor.filtered
                       ? 'Ничего не найдено'
-                      : isDefaultPeriod
+                      : emptyFor.defaultPeriod
                         ? 'Нет записей с сегодняшнего дня'
                         : 'Записей пока нет'
                   }}
                 </EmptyTitle>
                 <EmptyDescription>
                   {{
-                    hasActiveFilters
+                    emptyFor.filtered
                       ? 'Попробуйте изменить условия или сбросить фильтры'
-                      : isDefaultPeriod
+                      : emptyFor.defaultPeriod
                         ? 'Прошлые записи можно посмотреть за другой период'
                         : 'Новые записи появятся здесь'
                   }}
@@ -1012,7 +1018,7 @@ function formatCreatedAt(iso: string): string {
               </EmptyHeader>
               <EmptyContent>
                 <Button
-                  v-if="hasActiveFilters"
+                  v-if="emptyFor.filtered"
                   variant="outline"
                   size="sm"
                   class="gap-1"
@@ -1021,7 +1027,7 @@ function formatCreatedAt(iso: string): string {
                   <X class="size-4" /> Сбросить фильтры
                 </Button>
                 <Button
-                  v-else-if="isDefaultPeriod"
+                  v-else-if="emptyFor.defaultPeriod"
                   variant="outline"
                   size="sm"
                   @click="selectAllBookings"
