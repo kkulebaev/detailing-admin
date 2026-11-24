@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { Check, Layers, Plus, X } from '@lucide/vue'
+import { Check, Copy, Layers, Plus, X } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import type { Master } from '@/lib/masters-api'
 import type { PricelistSection } from '@/lib/pricelist-api'
@@ -32,6 +32,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -41,6 +48,8 @@ const props = defineProps<{
   master: Master | null
   rules: WorkRule[]
   sections: PricelistSection[]
+  // Другие мастера с непустыми правилами — откуда можно скопировать набор.
+  copySources: { id: number; name: string; rules: WorkRule[] }[]
 }>()
 
 const emit = defineEmits<{
@@ -53,6 +62,7 @@ const errors = ref<Record<string, string>>({})
 const formError = ref<string | null>(null)
 const submitting = ref(false)
 const pickerOpen = ref(false)
+const copiedFrom = ref<string | null>(null)
 
 watch(
   () => props.open,
@@ -61,8 +71,18 @@ watch(
     drafts.value = props.rules.map(ruleToDraft)
     errors.value = {}
     formError.value = null
+    copiedFrom.value = null
   },
 )
+
+// Копия заменяет черновик целиком и сохраняется только по «Сохранить», поэтому
+// «Отмена» возвращает правила мастера как были.
+function copyFrom(source: { name: string; rules: WorkRule[] }) {
+  drafts.value = source.rules.map(ruleToDraft)
+  errors.value = {}
+  formError.value = null
+  copiedFrom.value = source.name
+}
 
 const sorted = computed(() => sortByPricelist(drafts.value, props.sections))
 const usedKeys = computed(() => new Set(drafts.value.map((d) => d.key)))
@@ -269,49 +289,72 @@ async function submit() {
           </p>
         </div>
 
-        <Popover v-model:open="pickerOpen">
-          <PopoverTrigger as-child>
-            <Button
-              type="button"
-              variant="outline"
-              class="justify-start"
-              :disabled="submitting || sections.length === 0"
-            >
-              <Plus class="size-4" /> Раздел или услуга
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent class="w-(--reka-popover-trigger-width) p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Найти раздел или услугу…" />
-              <CommandList>
-                <CommandEmpty>Ничего не найдено</CommandEmpty>
-                <CommandGroup v-for="sec in sections" :key="sec.id" :heading="sec.name">
-                  <CommandItem
-                    :value="`section:${sec.id}`"
-                    :keywords="[sec.name]"
-                    :disabled="usedKeys.has(`section:${sec.id}`)"
-                    @select="add({ sectionId: sec.id, serviceId: null })"
-                  >
-                    <Layers class="text-muted-foreground" />
-                    <span class="font-medium">Весь раздел</span>
-                    <Check v-if="usedKeys.has(`section:${sec.id}`)" class="ml-auto" />
-                  </CommandItem>
-                  <CommandItem
-                    v-for="svc in sec.services"
-                    :key="svc.id"
-                    :value="`service:${svc.id}`"
-                    :keywords="[svc.name, sec.name]"
-                    :disabled="usedKeys.has(`service:${svc.id}`)"
-                    @select="add({ sectionId: null, serviceId: svc.id })"
-                  >
-                    <span class="pl-6">{{ svc.name }}</span>
-                    <Check v-if="usedKeys.has(`service:${svc.id}`)" class="ml-auto" />
-                  </CommandItem>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <div class="flex flex-wrap gap-2">
+          <Popover v-model:open="pickerOpen">
+            <PopoverTrigger as-child>
+              <Button
+                type="button"
+                variant="outline"
+                class="flex-1 justify-start"
+                :disabled="submitting || sections.length === 0"
+              >
+                <Plus class="size-4" /> Раздел или услуга
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent class="w-(--reka-popover-trigger-width) p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Найти раздел или услугу…" />
+                <CommandList>
+                  <CommandEmpty>Ничего не найдено</CommandEmpty>
+                  <CommandGroup v-for="sec in sections" :key="sec.id" :heading="sec.name">
+                    <CommandItem
+                      :value="`section:${sec.id}`"
+                      :keywords="[sec.name]"
+                      :disabled="usedKeys.has(`section:${sec.id}`)"
+                      @select="add({ sectionId: sec.id, serviceId: null })"
+                    >
+                      <Layers class="text-muted-foreground" />
+                      <span class="font-medium">Весь раздел</span>
+                      <Check v-if="usedKeys.has(`section:${sec.id}`)" class="ml-auto" />
+                    </CommandItem>
+                    <CommandItem
+                      v-for="svc in sec.services"
+                      :key="svc.id"
+                      :value="`service:${svc.id}`"
+                      :keywords="[svc.name, sec.name]"
+                      :disabled="usedKeys.has(`service:${svc.id}`)"
+                      @select="add({ sectionId: null, serviceId: svc.id })"
+                    >
+                      <span class="pl-6">{{ svc.name }}</span>
+                      <Check v-if="usedKeys.has(`service:${svc.id}`)" class="ml-auto" />
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          <DropdownMenu v-if="copySources.length > 0">
+            <DropdownMenuTrigger as-child>
+              <Button type="button" variant="outline" :disabled="submitting">
+                <Copy class="size-4" /> Скопировать у мастера
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel class="text-xs font-normal text-muted-foreground">
+                Заменит текущий список
+              </DropdownMenuLabel>
+              <DropdownMenuItem v-for="s in copySources" :key="s.id" @select="copyFrom(s)">
+                <span class="flex-1">{{ s.name }}</span>
+                <span class="text-xs tabular-nums text-muted-foreground">{{ s.rules.length }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <p v-if="copiedFrom" class="text-xs text-muted-foreground" role="status">
+          Скопировано у мастера {{ copiedFrom }}. Проверьте и нажмите «Сохранить».
+        </p>
 
         <p v-if="sections.length === 0" class="text-xs text-muted-foreground">
           Прайс пуст или еще загружается, добавить работы пока нельзя.

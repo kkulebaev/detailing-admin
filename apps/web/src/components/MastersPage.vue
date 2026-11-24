@@ -83,6 +83,12 @@ const rulesByMaster = computed(() => {
   return map
 })
 
+const copySources = computed(() =>
+  rows.value
+    .filter((m) => m.id !== rulesTarget.value?.id && rulesOf(m).length > 0)
+    .map((m) => ({ id: m.id, name: m.name, rules: rulesOf(m) })),
+)
+
 function rulesOf(master: Master): WorkRule[] {
   return rulesByMaster.value.get(master.id) ?? []
 }
@@ -312,6 +318,7 @@ async function confirmDelete() {
       :master="rulesTarget"
       :rules="rulesTarget ? rulesOf(rulesTarget) : []"
       :sections="sections"
+      :copy-sources="copySources"
       @saved="invalidateWorkRules"
     />
 

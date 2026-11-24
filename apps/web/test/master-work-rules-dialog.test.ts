@@ -47,10 +47,13 @@ const master: Master = {
 }
 
 // Черновик заполняется при переходе к открытию — так диалогом управляет страница.
-async function openWith(rules: WorkRule[]) {
+async function openWith(
+  rules: WorkRule[],
+  copySources: { id: number; name: string; rules: WorkRule[] }[] = [],
+) {
   const w = mount(MasterWorkRulesDialog, {
     attachTo: document.body,
-    props: { open: false, master, rules, sections },
+    props: { open: false, master, rules, sections, copySources },
   })
   await w.setProps({ open: true })
   return w
@@ -129,5 +132,37 @@ describe('MasterWorkRulesDialog', () => {
     // Отправка идет в порядке прайса: Химчистка [0], Чернение шин [1].
     const row = page.getByRole('group', { name: 'Чернение шин' })
     await expect.element(row.getByText('Раздела или услуги уже нет в прайсе')).toBeInTheDocument()
+  })
+
+  it('копирует правила другого мастера вместо текущих, сохраняя только по кнопке', async () => {
+    const ivanRules: WorkRule[] = [
+      { sectionId: 2, serviceId: null, kind: 'percent', percent: 35 },
+      { sectionId: null, serviceId: 10, kind: 'fixed', fixedByClass: [1, 2, 3, 4] },
+    ]
+    await openWith(
+      [{ sectionId: 1, serviceId: null, kind: 'percent', percent: 40 }],
+      [{ id: 8, name: 'Иван', rules: ivanRules }],
+    )
+
+    await page.getByRole('button', { name: 'Скопировать у мастера' }).click()
+    await page.getByRole('menuitem', { name: /Иван/ }).click()
+
+    await expect.element(page.getByLabelText('Процент для Прочее')).toHaveValue('35')
+    await expect.element(page.getByLabelText('Процент для Химчистка')).not.toBeInTheDocument()
+    expect(saveMock).not.toHaveBeenCalled()
+
+    await page.getByRole('button', { name: 'Сохранить' }).click()
+    await vi.waitFor(() => expect(saveMock).toHaveBeenCalledTimes(1))
+    expect(saveMock).toHaveBeenCalledWith(5, [
+      { sectionId: null, serviceId: 10, kind: 'fixed', fixedByClass: [1, 2, 3, 4] },
+      { sectionId: 2, serviceId: null, kind: 'percent', percent: 35 },
+    ])
+  })
+
+  it('без других мастеров с правилами кнопки копирования нет', async () => {
+    await openWith([])
+    await expect
+      .element(page.getByRole('button', { name: 'Скопировать у мастера' }))
+      .not.toBeInTheDocument()
   })
 })
