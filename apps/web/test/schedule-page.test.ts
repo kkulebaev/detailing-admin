@@ -475,6 +475,37 @@ describe('SchedulePage', () => {
       expect(approveScheduleRequest).toHaveBeenCalledWith(3)
     })
 
+    it('предпросмотр показывает заявку поверх графика мастера, из него можно одобрить', async () => {
+      vi.mocked(approveScheduleRequest).mockResolvedValue({ ok: true })
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
+
+      await page.getByRole('button', { name: 'Предпросмотр заявки: Иван' }).click()
+
+      await expect
+        .element(page.getByRole('img', { name: `1 ${monthName}: рабочий` }))
+        .toBeInTheDocument()
+      await expect
+        .element(page.getByRole('img', { name: `20 ${monthName}: станет рабочий` }))
+        .toBeInTheDocument()
+      await expect
+        .element(
+          page.getByRole('img', { name: `21 ${monthName}: выходной, по заявке без изменений` }),
+        )
+        .toBeInTheDocument()
+      await expect
+        .element(page.getByText(/Рабочих дней в месяце/))
+        .toHaveTextContent('Рабочих дней в месяце: 1 2')
+      await expect.element(page.getByLabelText('станет')).toBeInTheDocument()
+
+      await page.getByRole('button', { name: 'Одобрить', exact: true }).click()
+
+      expect(approveScheduleRequest).toHaveBeenCalledWith(3)
+      await expect.element(page.getByRole('dialog')).not.toBeInTheDocument()
+    })
+
     it('админ отклоняет заявку с комментарием', async () => {
       vi.mocked(rejectScheduleRequest).mockResolvedValue({ ok: true })
       mount(SchedulePage, {

@@ -10,6 +10,7 @@ import {
   type ScheduleRequestActionResult,
 } from '@/lib/schedule-requests-api'
 import { formatDayList, formatSentAt } from '@/lib/schedule-format'
+import { CalendarDays } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import ScheduleRequestPreviewDialog from '@/components/ScheduleRequestPreviewDialog.vue'
 
 const { data } = usePendingScheduleRequestsQuery(ref(true))
 const queryCache = useQueryCache()
@@ -36,6 +38,8 @@ const rejectOpen = computed({
   },
 })
 const comment = ref('')
+
+const previewing = ref<ScheduleRequest | null>(null)
 
 function workingDays(r: ScheduleRequest) {
   return r.days.filter((d) => d.working).map((d) => d.date)
@@ -62,6 +66,7 @@ async function decide(r: ScheduleRequest, approve: boolean) {
     if (result.ok) {
       toast.success(approve ? 'Заявка одобрена, график обновлен' : 'Заявка отклонена')
       rejecting.value = null
+      previewing.value = null
     } else {
       toast.error(errorMessage(result))
     }
@@ -78,6 +83,8 @@ async function decide(r: ScheduleRequest, approve: boolean) {
 }
 
 function openReject(r: ScheduleRequest) {
+  // У отказа свой диалог с комментарием; предпросмотр под ним только мешал бы.
+  previewing.value = null
   comment.value = ''
   rejecting.value = r
 }
@@ -118,6 +125,17 @@ function openReject(r: ScheduleRequest) {
             <span class="text-muted-foreground">Выходные:</span> {{ formatDayList(offDays(r)) }}
           </p>
         </div>
+        <Button
+          variant="link"
+          size="sm"
+          class="h-10 w-fit px-0 text-muted-foreground hover:text-foreground sm:h-auto"
+          :disabled="busyId !== null"
+          :aria-label="`Предпросмотр заявки: ${r.masterName}`"
+          @click="previewing = r"
+        >
+          <CalendarDays class="size-4" />
+          Показать в календаре
+        </Button>
       </div>
       <div class="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
         <Button
@@ -141,6 +159,14 @@ function openReject(r: ScheduleRequest) {
         </Button>
       </div>
     </div>
+
+    <ScheduleRequestPreviewDialog
+      :request="previewing"
+      :busy="busyId !== null"
+      @close="previewing = null"
+      @approve="decide($event, true)"
+      @reject="openReject"
+    />
 
     <Dialog v-model:open="rejectOpen">
       <DialogContent class="sm:max-w-md">
