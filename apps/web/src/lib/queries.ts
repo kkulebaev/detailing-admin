@@ -20,6 +20,7 @@ import {
 } from './bookings-api'
 import type { GetApiBookingsJournalParams } from './generated/model'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
+import { fetchWorkRules } from './work-rules-api'
 import { fetchSchedule } from './schedule-api'
 import { fetchMyScheduleRequests, fetchPendingScheduleRequests } from './schedule-requests-api'
 import type { ScheduleQuery } from '@detailing-admin/shared'
@@ -34,6 +35,7 @@ export const SALARIES_KEY = ['salaries'] as const
 export const SALARY_ENTRIES_KEY = ['salary-entries'] as const
 export const ANALYTICS_KEY = ['analytics'] as const
 export const ACCOUNTS_KEY = ['accounts'] as const
+export const WORK_RULES_KEY = ['work-rules'] as const
 export const MY_SALARY_KEY = ['my-salary'] as const
 export const SCHEDULE_KEY = ['schedule'] as const
 export const SCHEDULE_REQUESTS_KEY = ['schedule-requests'] as const
@@ -106,6 +108,19 @@ export function useMastersQuery() {
 export function useInvalidateMasters() {
   const cache = useQueryCache()
   return () => cache.invalidateQueries({ key: MASTERS_KEY })
+}
+
+// Только для админа: страница «Мастера» видна лишь ему.
+export function useWorkRulesQuery() {
+  return useQuery({
+    key: WORK_RULES_KEY,
+    query: fetchWorkRules,
+  })
+}
+
+export function useInvalidateWorkRules() {
+  const cache = useQueryCache()
+  return () => cache.invalidateQueries({ key: WORK_RULES_KEY })
 }
 
 // `enabled` не дает запросу, доступному только админу, уйти, пока не откроется диалог

@@ -1,14 +1,24 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChevronDown, ChevronUp, Pencil, Plus, ShieldCheck, Trash2 } from '@lucide/vue'
+import { ChevronDown, ChevronUp, Pencil, Plus, ShieldCheck, Trash2, Wrench } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import {
   deleteMaster as apiDeleteMaster,
   reorderMasters as apiReorderMasters,
   type Master,
 } from '@/lib/masters-api'
-import { useInvalidateMasters, useMastersQuery } from '@/lib/queries'
+import {
+  useInvalidateMasters,
+  useInvalidateWorkRules,
+  useMastersQuery,
+  usePricelistQuery,
+  useWorkRulesQuery,
+} from '@/lib/queries'
+import type { PricelistSection } from '@/lib/pricelist-api'
+import type { WorkRule } from '@/lib/work-rules-api'
+import { describeTarget, formatPay, sortByPricelist } from '@/lib/work-rules'
 import MasterFormDialog from './MasterFormDialog.vue'
+import MasterWorkRulesDialog from './MasterWorkRulesDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -53,6 +63,49 @@ const error = computed<string | null>(() => {
 
 const dialogOpen = ref(false)
 const editing = ref<Master | null>(null)
+
+const { data: rulesData } = useWorkRulesQuery()
+const invalidateWorkRules = useInvalidateWorkRules()
+const { data: pricelistData } = usePricelistQuery()
+const sections = computed<PricelistSection[]>(() =>
+  pricelistData.value?.ok ? pricelistData.value.sections : [],
+)
+
+const rulesByMaster = computed(() => {
+  const map = new Map<number, WorkRule[]>()
+  const r = rulesData.value
+  if (!r?.ok) return map
+  for (const { masterId, ...rule } of r.rules) {
+    const list = map.get(masterId) ?? []
+    list.push(rule)
+    map.set(masterId, list)
+  }
+  return map
+})
+
+function rulesOf(master: Master): WorkRule[] {
+  return rulesByMaster.value.get(master.id) ?? []
+}
+
+// Мастер может вести десяток правил: на узком экране полный список вытеснил бы строку с кнопками,
+// поэтому показываем начало прайса, а остальное — в диалоге.
+const SUMMARY_LIMIT = 3
+
+function rulesSummary(master: Master): string {
+  const parts = sortByPricelist(rulesOf(master), sections.value).map(
+    (r) => `${describeTarget(r, sections.value).title} ${formatPay(r)}`,
+  )
+  const shown = parts.slice(0, SUMMARY_LIMIT).join(' · ')
+  return parts.length > SUMMARY_LIMIT ? `${shown} · и еще ${parts.length - SUMMARY_LIMIT}` : shown
+}
+
+const rulesDialogOpen = ref(false)
+const rulesTarget = ref<Master | null>(null)
+
+function openRules(master: Master) {
+  rulesTarget.value = master
+  rulesDialogOpen.value = true
+}
 
 const deleteDialogOpen = ref(false)
 const deleteTarget = ref<Master | null>(null)
@@ -184,6 +237,13 @@ async function confirmDelete() {
             <span v-if="master.telegramId" class="truncate text-xs text-muted-foreground">
               TG: {{ master.telegramId }}
             </span>
+            <span
+              v-if="rulesOf(master).length > 0"
+              class="text-xs break-words text-muted-foreground"
+              data-testid="work-rules-summary"
+            >
+              {{ rulesSummary(master) }}
+            </span>
           </div>
 
           <Badge
@@ -218,6 +278,15 @@ async function confirmDelete() {
             <Button
               variant="ghost"
               size="icon-sm"
+              :aria-label="`Виды работ ${master.name}`"
+              title="Виды работ и оплата"
+              @click="openRules(master)"
+            >
+              <Wrench class="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               :aria-label="`Редактировать ${master.name}`"
               @click="openEdit(master)"
             >
@@ -237,6 +306,14 @@ async function confirmDelete() {
     </div>
 
     <MasterFormDialog v-model:open="dialogOpen" :editing="editing" @saved="invalidateMasters" />
+
+    <MasterWorkRulesDialog
+      v-model:open="rulesDialogOpen"
+      :master="rulesTarget"
+      :rules="rulesTarget ? rulesOf(rulesTarget) : []"
+      :sections="sections"
+      @saved="invalidateWorkRules"
+    />
 
     <AlertDialog :open="deleteDialogOpen" @update:open="onDeleteDialogOpenChange">
       <AlertDialogContent>
