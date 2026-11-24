@@ -539,7 +539,13 @@ const showSkeleton = computed(
         <span class="tabular-nums">{{ dirtyCount }}</span>
       </span>
       <div class="flex gap-2">
-        <Button variant="outline" size="sm" class="h-10 sm:h-8" :disabled="saving" @click="discard">
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-10 flex-1 sm:h-8 sm:flex-none"
+          :disabled="saving"
+          @click="discard"
+        >
           Отменить
         </Button>
         <Button size="sm" class="h-10 flex-1 sm:h-8 sm:flex-none" :disabled="saving" @click="save">
