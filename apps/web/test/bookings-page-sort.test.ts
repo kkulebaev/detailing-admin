@@ -101,4 +101,22 @@ describe('BookingsPage — сортировка по дате', () => {
     await sortButton().click()
     expect(captured.params.value.sort).toBe('desc')
   })
+
+  it('в компактном режиме переключает направление кнопкой над таблицей', async () => {
+    localStorage.setItem('bookings:compact', 'true')
+    await mountPage()
+    const compactSort = page.getByRole('button', { name: /^Дата: / })
+
+    await expect.element(compactSort).toHaveTextContent('Дата: сначала новые')
+    await compactSort.click()
+
+    await expect.element(compactSort).toHaveTextContent('Дата: сначала старые')
+    expect(captured.params.value.sort).toBe('asc')
+  })
+
+  it('в полном режиме не дублирует кнопку из шапки над таблицей', async () => {
+    await mountPage()
+    await expect.element(sortButton()).toBeInTheDocument()
+    await expect.element(page.getByText(/^Дата: сначала/)).not.toBeInTheDocument()
+  })
 })

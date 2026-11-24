@@ -113,6 +113,8 @@ const journalOpen = ref(false)
 // ширина экрана его не переопределяет, потому что на планшете осмысленны обе
 // раскладки, а угаданный за пользователя вид сбивает привычку.
 const compact = useLocalStorage('bookings:compact', false)
+// В компактном виде нет шапки таблицы с кнопкой «Дата», поэтому то же направление
+// переключается кнопкой рядом с флажком режима.
 const sort = useLocalStorage<GetApiBookingsSort>('bookings:sort', 'desc')
 
 function toggleSort() {
@@ -496,6 +498,7 @@ const activeFilterCount = computed(() => {
 const [DefinePeriod, ReusePeriod] = createReusableTemplate()
 const [DefineFilters, ReuseFilters] = createReusableTemplate()
 const [DefineSearch, ReuseSearch] = createReusableTemplate()
+const [DefineSort, ReuseSort] = createReusableTemplate<{ btnClass: string; short?: boolean }>()
 
 const hasCustomPeriod = computed(
   () => !!dayCal.value || (monthKey.value !== ALL && monthKey.value !== FROM_TODAY),
@@ -731,6 +734,34 @@ function formatCreatedAt(iso: string): string {
         </div>
       </DefineSearch>
 
+      <!-- Подпись повторяет шапку полной таблицы («Дата»), чтобы стрелку не приняли
+           за прокрутку вниз. На телефоне полная подпись выталкивала «Сбросить» на
+           отдельную строку, поэтому там кнопка выглядит ровно как заголовок: «Дата ↓». -->
+      <DefineSort v-slot="{ btnClass, short }">
+        <Button
+          variant="ghost"
+          size="sm"
+          :class="btnClass"
+          :aria-label="
+            sort === 'desc'
+              ? 'Дата: сначала новые. Показать сначала старые'
+              : 'Дата: сначала старые. Показать сначала новые'
+          "
+          @click="toggleSort"
+        >
+          <template v-if="short">
+            Дата
+            <ArrowDown v-if="sort === 'desc'" class="size-3.5" />
+            <ArrowUp v-else class="size-3.5" />
+          </template>
+          <template v-else>
+            <ArrowDown v-if="sort === 'desc'" class="size-3.5" />
+            <ArrowUp v-else class="size-3.5" />
+            {{ sort === 'desc' ? 'Дата: сначала новые' : 'Дата: сначала старые' }}
+          </template>
+        </Button>
+      </DefineSort>
+
       <div v-if="!isWideScreen" class="mb-3 shrink-0 flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <!-- Период чаще всего и есть то, ради чего открывают фильтры, поэтому
@@ -749,7 +780,12 @@ function formatCreatedAt(iso: string): string {
             </span>
           </Button>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <ReuseSort
+            v-if="compact"
+            short
+            btn-class="h-7 gap-1 px-2 text-xs text-muted-foreground"
+          />
           <div class="flex items-center gap-2">
             <Checkbox
               id="bookings-compact"
@@ -784,6 +820,8 @@ function formatCreatedAt(iso: string): string {
           <span class="text-xs text-muted-foreground">Поиск</span>
           <ReuseSearch />
         </div>
+
+        <ReuseSort v-if="compact" btn-class="gap-1 text-muted-foreground" />
 
         <div class="flex h-8 items-center gap-2">
           <Checkbox
