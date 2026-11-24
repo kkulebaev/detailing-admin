@@ -132,17 +132,39 @@ describe('BookingsPage — период по умолчанию', () => {
   describe('фильтры в адресе', () => {
     it('открывает месяц, мастера, готовность и страницу из адреса', async () => {
       await mountPage(
-        `/?period=2026-10&master=${encodeURIComponent('Иван')}&readiness=${encodeURIComponent('В работе')}&page=2`,
+        `/?period=2026-10&master=${encodeURIComponent('Иван')}&readiness=${encodeURIComponent('none,В работе,Выдана,Чужой')}&page=2`,
       )
 
       expect(captured.params.value).toMatchObject({
         dateFrom: '01.10.2026',
         dateTo: '31.10.2026',
         master: 'Иван',
-        readiness: 'В работе',
+        readiness: 'В работе,Выдана,none',
         offset: 50,
       })
       await expect.element(button('Октябрь 2026')).toBeVisible()
+    })
+
+    it('выбирает несколько статусов готовности и пишет их в адрес', async () => {
+      const wrapper = await mountPage('/?page=2')
+      const router = wrapper.vm.$router
+
+      await button('Фильтры').click()
+      await button('Готовность').click()
+      await page.getByRole('checkbox', { name: 'Нет статуса' }).click()
+      await page.getByRole('checkbox', { name: 'Выдана' }).click()
+      await page.getByRole('checkbox', { name: 'В работе' }).click()
+
+      // Порядок справочника, а не кликов: один набор — один адрес.
+      await expect
+        .poll(() => router.currentRoute.value.query)
+        .toEqual({ readiness: 'В работе,Выдана,none' })
+      expect(captured.params.value).toMatchObject({ readiness: 'В работе,Выдана,none', offset: 0 })
+      await expect.element(button('Готовность')).toHaveTextContent('В работе +2')
+
+      await button('Все статусы').click()
+      await expect.poll(() => router.currentRoute.value.query).toEqual({})
+      expect(captured.params.value.readiness).toBeUndefined()
     })
 
     it('открывает день из адреса', async () => {

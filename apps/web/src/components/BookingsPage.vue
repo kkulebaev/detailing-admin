@@ -31,13 +31,16 @@ import {
   type GetApiBookingsSort,
 } from '@/lib/bookings-api'
 import { downloadFile, exportFilename } from '@/lib/download'
-import { readinessRowClass } from '@/lib/readiness'
+import {
+  readinessFilterFromParam,
+  readinessFilterToParam,
+  readinessRowClass,
+} from '@/lib/readiness'
 import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
 import {
-  enumParam,
   isIsoDay,
   isIsoMonth,
   pageParam,
@@ -50,6 +53,7 @@ import BookingDetailsDialog from './BookingDetailsDialog.vue'
 import DeletedBookingsDialog from './DeletedBookingsDialog.vue'
 import BookingJournalDialog from './BookingJournalDialog.vue'
 import ReadinessPicker from './ReadinessPicker.vue'
+import ReadinessFilter from './ReadinessFilter.vue'
 import BookingEditDialog from './BookingEditDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -284,7 +288,7 @@ const periodOpen = ref(false)
 const todayCal = today(getLocalTimeZone())
 const periodPlaceholder = shallowRef<DateValue>(todayCal)
 const masterFilter = ref<string>(ALL)
-const readinessFilter = ref<Readiness | typeof ALL>(ALL)
+const readinessFilter = ref<(Readiness | '')[]>([])
 const searchInput = ref('')
 // Ручной debounce (вместо refDebounced), чтобы `resetFilters` мог сбросить его
 // синхронно — иначе запрос еще 300 мс держит устаревший поисковый запрос после
@@ -346,7 +350,14 @@ useQueryParam('master', masterFilter, {
   serialize: (v) => (v === ALL ? '' : v),
   defaultValue: () => ALL,
 })
-useQueryParam('readiness', readinessFilter, enumParam([ALL, ...READINESS], ALL))
+useQueryParam('readiness', readinessFilter, {
+  parse: (raw) => {
+    const list = readinessFilterFromParam(raw)
+    return list.length ? list : undefined
+  },
+  serialize: readinessFilterToParam,
+  defaultValue: () => [],
+})
 useQueryParam('q', search, textParam())
 useQueryParam('page', page, pageParam())
 
@@ -398,7 +409,7 @@ const params = computed<GetApiBookingsParams>(() => ({
   dateFrom: periodRange.value?.from,
   dateTo: periodRange.value?.to,
   master: masterFilter.value === ALL ? undefined : masterFilter.value,
-  readiness: readinessFilter.value === ALL ? undefined : readinessFilter.value,
+  readiness: readinessFilterToParam(readinessFilter.value) || undefined,
   q: searchDebounced.value.trim() || undefined,
   sort: sort.value,
 }))
@@ -487,7 +498,7 @@ const filtersSheetOpen = ref(false)
 const activeFilterCount = computed(() => {
   let n = 0
   if (masterFilter.value !== ALL) n += 1
-  if (readinessFilter.value !== ALL) n += 1
+  if (readinessFilter.value.length) n += 1
   if (searchInput.value.trim()) n += 1
   return n
 })
@@ -516,7 +527,7 @@ function resetFilters() {
   monthKey.value = ALL
   dayCal.value = undefined
   masterFilter.value = ALL
-  readinessFilter.value = ALL
+  readinessFilter.value = []
   searchInput.value = ''
   // Сбрасываем debounce, чтобы запрос убрал поисковую строку в этом же тике, а не
   // через 300 мс, — так пустое состояние не мелькает при сбросе.
@@ -699,17 +710,7 @@ function formatCreatedAt(iso: string): string {
 
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">Готовность</span>
-          <Select v-model="readinessFilter">
-            <SelectTrigger size="sm" class="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="ALL">Все</SelectItem>
-              <SelectItem v-for="r in READINESS" :key="r" :value="r">
-                {{ r }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <ReadinessFilter v-model="readinessFilter" />
         </div>
       </DefineFilters>
 
@@ -864,7 +865,9 @@ function formatCreatedAt(iso: string): string {
                таблицей оставляла половину узкого экрана пустой. Целимся в
                триггеры селектов, а не во все кнопки — иначе крестик очистки
                поиска растянулся бы на всю строку. -->
-          <div class="grid gap-3 [&_[data-slot=select-trigger]]:w-full">
+          <div
+            class="grid gap-3 [&_[data-filter-trigger]]:w-full [&_[data-slot=select-trigger]]:w-full"
+          >
             <div class="flex flex-col gap-1">
               <span class="text-xs text-muted-foreground">Поиск</span>
               <ReuseSearch />

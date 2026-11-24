@@ -10,7 +10,7 @@ describe('bookingsExportUrl', () => {
       dateFrom: '01.08.2026',
       dateTo: '31.08.2026',
       master: 'Иван',
-      readiness: 'Выдана',
+      readiness: 'В работе,Выдана',
       q: '+7999',
     })
     const qs = new URLSearchParams(url.split('?')[1])
@@ -18,7 +18,7 @@ describe('bookingsExportUrl', () => {
     expect(qs.get('dateFrom')).toBe('01.08.2026')
     expect(qs.get('dateTo')).toBe('31.08.2026')
     expect(qs.get('master')).toBe('Иван')
-    expect(qs.get('readiness')).toBe('Выдана')
+    expect(qs.get('readiness')).toBe('В работе,Выдана')
     expect(qs.get('q')).toBe('+7999')
     expect(qs.has('limit')).toBe(false)
     expect(qs.has('offset')).toBe(false)

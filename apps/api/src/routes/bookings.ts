@@ -6,6 +6,7 @@ import { bookingToRow } from '@detailing-admin/shared/sheet-row'
 import {
   StatusCodes,
   READINESS,
+  READINESS_FILTER_NONE,
   bookingMutationOkSchema,
   bookingReadinessInputSchema,
   bookingsListOkSchema,
@@ -132,7 +133,21 @@ const listQuerySchema = z.object({
     .regex(/^\d{2}\.\d{2}\.\d{4}$/)
     .optional(),
   master: z.string().max(120).optional(),
-  readiness: z.enum(READINESS).optional(),
+  // Несколько статусов — одной строкой через запятую (`В работе,Выдана`): так orval-клиент
+  // и CSV-экспорт сериализуют фильтр одинаково, а ссылка с одним статусом остается валидной.
+  // Пустая строка — фильтра нет; READINESS_FILTER_NONE — записи без статуса.
+  readiness: z
+    .string()
+    .max(300)
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.enum([...READINESS, READINESS_FILTER_NONE])))
+    .transform((list) => list.map((v) => (v === READINESS_FILTER_NONE ? ('' as const) : v)))
+    .optional(),
   q: z.string().max(200).optional(),
   sort: z.enum(['asc', 'desc']).default('desc'),
 })

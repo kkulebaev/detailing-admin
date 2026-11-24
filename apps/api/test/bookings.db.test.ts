@@ -170,6 +170,26 @@ describe('фильтр по мастеру в listBookings', () => {
     expect(captured[0]).toBeUndefined()
   })
 
+  it('фильтрует по любому из выбранных статусов готовности', async () => {
+    const captured: unknown[] = []
+    vi.mocked(getDb).mockReturnValue(fakeDb([[], [{ count: 0 }]], captured) as never)
+
+    await listBookings({ limit: 10, offset: 0, readiness: ['В работе', 'Выдана', ''] })
+
+    const [where] = renderAll(captured)
+    expect(where!.sql).toContain('"readiness" in (')
+    expect(where!.params).toEqual(['В работе', 'Выдана', ''])
+  })
+
+  it('не фильтрует по готовности при пустом списке статусов', async () => {
+    const captured: unknown[] = []
+    vi.mocked(getDb).mockReturnValue(fakeDb([[], [{ count: 0 }]], captured) as never)
+
+    await listBookings({ limit: 10, offset: 0, readiness: [] })
+
+    expect(captured[0]).toBeUndefined()
+  })
+
   it.each([
     [undefined, 'desc'],
     ['desc', 'desc'],

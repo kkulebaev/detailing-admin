@@ -700,7 +700,8 @@ export interface ListBookingsParams {
   /** ISO `YYYY-MM-DD`; оставляет строки, у которых `dateFrom` <= этого значения. */
   dateTo?: string
   master?: string
-  readiness?: Readiness
+  /** Любой из статусов, `''` — без статуса; пустой список — без фильтра. */
+  readiness?: readonly (Readiness | '')[]
   /** Свободный поиск по имени/машине/телефону. Похожий на телефон запрос нормализуется
    * в E.164 перед сравнением с сохраненным (E.164) телефоном. */
   q?: string
@@ -740,7 +741,7 @@ export async function listBookings(
         : snapshotMatch,
     )
   }
-  if (p.readiness) conds.push(eq(bookings.readiness, p.readiness))
+  if (p.readiness?.length) conds.push(inArray(bookings.readiness, [...p.readiness]))
 
   const q = p.q?.trim()
   if (q) {

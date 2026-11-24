@@ -186,7 +186,6 @@ export * from './getApiBookingsJournal503Reason';
 export * from './getApiBookingsJournalAction';
 export * from './getApiBookingsJournalParams';
 export * from './getApiBookingsParams';
-export * from './getApiBookingsReadiness';
 export * from './getApiBookingsSort';
 export * from './getApiClients200';
 export * from './getApiClients200ClientsItem';

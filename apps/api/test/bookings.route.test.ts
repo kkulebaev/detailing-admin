@@ -661,6 +661,21 @@ describe('GET /api/bookings', () => {
     expect(vi.mocked(listBookings)).toHaveBeenCalledWith(expect.objectContaining({ sort: 'asc' }))
   })
 
+  it('разбирает несколько статусов готовности через запятую', async () => {
+    const qs = new URLSearchParams({ readiness: 'В работе,Готова к выдаче,none' })
+    await getList(`?${qs.toString()}`)
+    expect(vi.mocked(listBookings)).toHaveBeenCalledWith(
+      expect.objectContaining({ readiness: ['В работе', 'Готова к выдаче', ''] }),
+    )
+  })
+
+  it('отклоняет неизвестный статус готовности в списке → 400', async () => {
+    const qs = new URLSearchParams({ readiness: 'В работе,НеСуществует' })
+    const res = await getList(`?${qs.toString()}`)
+    expect(res.status).toBe(400)
+    expect(vi.mocked(listBookings)).not.toHaveBeenCalled()
+  })
+
   it('отклоняет неизвестную сортировку → 400', async () => {
     const res = await getList('?sort=sideways')
     expect(res.status).toBe(400)
@@ -789,7 +804,7 @@ describe('GET /api/bookings/export', () => {
       dateFrom: '04.06.2026',
       dateTo: '05.06.2026',
       master: 'Иван Содель',
-      readiness: 'В работе',
+      readiness: 'В работе,Выдана',
       q: 'Toyota',
       sort: 'asc',
     })
@@ -800,7 +815,7 @@ describe('GET /api/bookings/export', () => {
       dateFrom: '2026-06-04',
       dateTo: '2026-06-05',
       master: 'Иван Содель',
-      readiness: 'В работе',
+      readiness: ['В работе', 'Выдана'],
       q: 'Toyota',
       sort: 'asc',
     })

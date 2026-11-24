@@ -1,4 +1,9 @@
-import type { BookingRow, Readiness } from '@detailing-admin/shared'
+import {
+  READINESS,
+  READINESS_FILTER_NONE,
+  type BookingRow,
+  type Readiness,
+} from '@detailing-admin/shared'
 
 // Единый источник цветов статусов готовности, две цели отрисовки: бейдж-«таблетка»
 // (история в карточке клиента) и заливка всей строки (таблица записей). Обе завязаны на
@@ -50,4 +55,26 @@ const READINESS_ROW_CLASS: Record<Readiness, string> = {
 export function readinessRowClass(readiness: BookingRow['readiness']): string {
   if (!readiness) return 'hover:bg-transparent'
   return READINESS_ROW_CLASS[readiness] ?? 'hover:bg-transparent'
+}
+
+// Варианты фильтра по готовности: все статусы и `''` («нет статуса») последним,
+// как в меню выбора статуса.
+export const READINESS_FILTER_OPTIONS: readonly (Readiness | '')[] = [...READINESS, '']
+
+export function readinessFilterLabel(value: Readiness | ''): string {
+  return value || 'Нет статуса'
+}
+
+// Одна строка и для адреса, и для API. Порядок вариантов, а не кликов: один и тот
+// же набор всегда дает одну ссылку.
+export function readinessFilterToParam(list: readonly (Readiness | '')[]): string {
+  return READINESS_FILTER_OPTIONS.filter((o) => list.includes(o))
+    .map((o) => o || READINESS_FILTER_NONE)
+    .join(',')
+}
+
+// Незнакомые значения (старая или испорченная ссылка) молча отбрасываются.
+export function readinessFilterFromParam(raw: string): (Readiness | '')[] {
+  const picked = new Set(raw.split(','))
+  return READINESS_FILTER_OPTIONS.filter((o) => picked.has(o || READINESS_FILTER_NONE))
 }
