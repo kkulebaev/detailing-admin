@@ -47,6 +47,10 @@ describe('masterInputSchema', () => {
     expect(masterInputSchema.safeParse({ name, ...base }).success).toBe(false)
   })
 
+  it('отклоняет имя с запятой: ей разделяются мастера в фильтре записей', () => {
+    expect(masterInputSchema.safeParse({ name: 'Иван, старший', ...base }).success).toBe(false)
+  })
+
   it('учитывает переданное значение canBeResponsible', () => {
     const r = masterInputSchema.safeParse({
       name: 'Андрей и ко.',

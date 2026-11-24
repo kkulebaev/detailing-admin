@@ -125,38 +125,48 @@ describe('фильтр по мастеру в listBookings', () => {
   const renderAll = (captured: unknown[]) =>
     captured.filter((c) => c !== undefined).map((c) => new PgDialect().sqlToQuery(c as never))
 
-  it('откатывается на проверку `= ANY(master)`, если имя не резолвится в id', async () => {
+  it('откатывается на пересечение со снимком `master`, если имена не резолвятся в id', async () => {
     const captured: unknown[] = []
-    // resolveMasterIds → [] (неизвестное имя); items → []; count → 0.
+    // resolveMasterIds → [] (неизвестные имена); items → []; count → 0.
     vi.mocked(getDb).mockReturnValue(fakeDb([[], [], [{ count: 0 }]], captured) as never)
 
-    await listBookings({ limit: 10, offset: 0, master: 'Петр' })
+    await listBookings({ limit: 10, offset: 0, master: ['Петр', 'Анна'] })
 
     const rendered = renderAll(captured)
-    const anyClause = rendered.find((r) => r.sql.includes('= ANY'))
-    expect(anyClause).toBeTruthy()
-    expect(anyClause!.sql).toContain('"master"')
-    expect(anyClause!.params).toContain('Петр')
+    const overlap = rendered.find((r) => r.sql.includes('&&'))
+    expect(overlap).toBeTruthy()
+    expect(overlap!.sql).toContain('"master"')
+    // drizzle передает массив литералом Postgres.
+    expect(overlap!.params).toContain('{"Петр","Анна"}')
     // id не найден → нет ветки EXISTS по junction.
     expect(rendered.some((r) => /exists/i.test(r.sql))).toBe(false)
   })
 
-  it('ищет в junction по найденному id (находит записи после переименования) плюс запасной вариант по снимку', async () => {
+  it('ищет в junction по найденным id (находит записи после переименования) плюс запасной вариант по снимку', async () => {
     const captured: unknown[] = []
-    // resolveMasterIds → id 9; items → []; count → 0.
+    // resolveMasterIds → id 9 и 4; items → []; count → 0.
     vi.mocked(getDb).mockReturnValue(
-      fakeDb([[{ id: 9, name: 'Петр' }], [], [{ count: 0 }]], captured) as never,
+      fakeDb(
+        [
+          [
+            { id: 9, name: 'Петр' },
+            { id: 4, name: 'Анна' },
+          ],
+          [],
+          [{ count: 0 }],
+        ],
+        captured,
+      ) as never,
     )
 
-    await listBookings({ limit: 10, offset: 0, master: 'Петр' })
+    await listBookings({ limit: 10, offset: 0, master: ['Петр', 'Анна'] })
 
     const rendered = renderAll(captured)
-    const idClause = rendered.find((r) => /exists/i.test(r.sql) && r.sql.includes('= ANY'))
+    const idClause = rendered.find((r) => /exists/i.test(r.sql) && r.sql.includes('&&'))
     expect(idClause).toBeTruthy()
-    // EXISTS по junction с найденным id ИЛИ имя из снимка.
+    // EXISTS по junction с любым из найденных id ИЛИ любое имя из снимка.
     expect(idClause!.sql).toContain('booking_masters')
-    expect(idClause!.params).toContain(9)
-    expect(idClause!.params).toContain('Петр')
+    expect(idClause!.params).toEqual([9, 4, '{"Петр","Анна"}'])
   })
 
   it('не строит where, если фильтры не заданы', async () => {

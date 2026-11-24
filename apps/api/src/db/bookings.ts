@@ -1,4 +1,17 @@
-import { and, asc, desc, eq, gte, ilike, inArray, lte, notExists, or, sql } from 'drizzle-orm'
+import {
+  and,
+  arrayOverlaps,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  notExists,
+  or,
+  sql,
+} from 'drizzle-orm'
 import type { BookingServiceLine, Booking as WireBooking } from '@detailing-admin/shared/booking'
 import type { BookingRow } from '@detailing-admin/shared/booking-row'
 import { joinCar } from '@detailing-admin/shared/car'
@@ -699,7 +712,8 @@ export interface ListBookingsParams {
   dateFrom?: string
   /** ISO `YYYY-MM-DD`; оставляет строки, у которых `dateFrom` <= этого значения. */
   dateTo?: string
-  master?: string
+  /** Любой из мастеров; пустой список — без фильтра. */
+  master?: readonly string[]
   /** Любой из статусов, `''` — без статуса; пустой список — без фильтра. */
   readiness?: readonly (Readiness | '')[]
   /** Свободный поиск по имени/машине/телефону. Похожий на телефон запрос нормализуется
@@ -719,23 +733,24 @@ export async function listBookings(
   const conds = []
   if (p.dateFrom) conds.push(gte(bookings.dateFrom, p.dateFrom))
   if (p.dateTo) conds.push(lte(bookings.dateFrom, p.dateTo))
-  // Фильтруем по *текущему* имени мастера: переводим его в id и сверяем со связующей
+  // Фильтруем по *текущим* именам мастеров: переводим их в id и сверяем со связующей
   // таблицей, чтобы записи находились и после переименования мастера. Для старых строк
-  // без id-связи откатываемся к проверке вхождения в снимок (`= ANY(master)`) (и это
-  // единственная ветка, когда имени не соответствует ни один id).
+  // без id-связи откатываемся к пересечению со снимком (`master && names`) (и это
+  // единственная ветка, когда ни одному имени не соответствует id).
   // TODO: проверять master/responsible по актуальному списку при записи
   // (отклонять неизвестные имена), чтобы каждая запись всегда разрешалась в id, — тогда
   // этот запасной `= ANY(master)` и запасной вариант по слотам снимка в
   // withLiveMasterNames станут мертвыми, и их можно будет убрать ради чистого фильтра по id.
   // Предусловие: сначала дать маркеру отмены (сейчас это "Отмена", засунутая в
   // `responsible`) свое поле/статус, иначе проверка только по мастерам его отклонит.
-  if (p.master) {
-    const masterId = (await resolveMasterIds([p.master])).get(p.master.trim())
-    const snapshotMatch = sql`${p.master} = ANY(${bookings.master})`
+  const masterNames = [...new Set((p.master ?? []).map((n) => n.trim()).filter(Boolean))]
+  if (masterNames.length) {
+    const masterIds = [...(await resolveMasterIds(masterNames)).values()]
+    const snapshotMatch = arrayOverlaps(bookings.master, masterNames)
     conds.push(
-      masterId !== undefined
+      masterIds.length
         ? or(
-            sql`EXISTS (SELECT 1 FROM ${bookingMasters} WHERE ${bookingMasters.bookingId} = ${bookings.id} AND ${bookingMasters.masterId} = ${masterId})`,
+            sql`EXISTS (SELECT 1 FROM ${bookingMasters} WHERE ${bookingMasters.bookingId} = ${bookings.id} AND ${inArray(bookingMasters.masterId, masterIds)})`,
             snapshotMatch,
           )
         : snapshotMatch,

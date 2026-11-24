@@ -8,6 +8,7 @@ import type { GetApiBookingsParams } from '@/lib/bookings-api'
 // Через hoisted, а не экспортом из мока: мок в browser mode теряет экспорты,
 // которых нет у настоящего модуля.
 const captured = vi.hoisted(() => ({}) as { params: ComputedRef<GetApiBookingsParams> })
+const masters = vi.hoisted(() => ({ list: [] as string[] }))
 
 vi.mock('@/lib/queries', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
@@ -20,7 +21,12 @@ vi.mock('@/lib/queries', async () => {
         asyncStatus: ref('idle'),
       }
     },
-    useMastersQuery: () => ({ data: ref(undefined) }),
+    useMastersQuery: () => ({
+      data: ref({
+        ok: true,
+        masters: masters.list.map((name, i) => ({ id: i + 1, name })),
+      }),
+    }),
     useInvalidateBookings: () => vi.fn(),
   }
 })
@@ -65,6 +71,7 @@ describe('BookingsPage — период по умолчанию', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    masters.list = []
   })
 
   it('запрашивает записи с сегодняшнего дня без конечной даты', async () => {
@@ -132,13 +139,13 @@ describe('BookingsPage — период по умолчанию', () => {
   describe('фильтры в адресе', () => {
     it('открывает месяц, мастера, готовность и страницу из адреса', async () => {
       await mountPage(
-        `/?period=2026-10&master=${encodeURIComponent('Иван')}&readiness=${encodeURIComponent('none,В работе,Выдана,Чужой')}&page=2`,
+        `/?period=2026-10&master=${encodeURIComponent('Иван,Петр')}&readiness=${encodeURIComponent('none,В работе,Выдана,Чужой')}&page=2`,
       )
 
       expect(captured.params.value).toMatchObject({
         dateFrom: '01.10.2026',
         dateTo: '31.10.2026',
-        master: 'Иван',
+        master: 'Иван,Петр',
         readiness: 'В работе,Выдана,none',
         offset: 50,
       })
@@ -165,6 +172,33 @@ describe('BookingsPage — период по умолчанию', () => {
       await button('Все статусы').click()
       await expect.poll(() => router.currentRoute.value.query).toEqual({})
       expect(captured.params.value.readiness).toBeUndefined()
+    })
+
+    it('выбирает несколько мастеров и пишет их в адрес', async () => {
+      masters.list = ['Анна', 'Борис', 'Вера']
+      const wrapper = await mountPage(`/?master=${encodeURIComponent('Архивный')}`)
+      const router = wrapper.vm.$router
+
+      // На кнопке еще и счетчик активных фильтров.
+      await page.getByRole('button', { name: /^Фильтры/ }).click()
+      await expect.element(button('Мастер')).toHaveTextContent('Архивный')
+      await button('Мастер').click()
+      await page.getByRole('checkbox', { name: 'Вера' }).click()
+      await page.getByRole('checkbox', { name: 'Анна' }).click()
+
+      // Мастер не из списка остается в фильтре и идет после живых.
+      await expect
+        .poll(() => router.currentRoute.value.query)
+        .toEqual({ master: 'Анна,Вера,Архивный' })
+      expect(captured.params.value.master).toBe('Анна,Вера,Архивный')
+
+      await page.getByRole('checkbox', { name: 'Архивный' }).click()
+      await expect.poll(() => router.currentRoute.value.query).toEqual({ master: 'Анна,Вера' })
+      await expect.element(button('Мастер')).toHaveTextContent('Анна +1')
+
+      await button('Все мастера').click()
+      await expect.poll(() => router.currentRoute.value.query).toEqual({})
+      expect(captured.params.value.master).toBeUndefined()
     })
 
     it('открывает день из адреса', async () => {

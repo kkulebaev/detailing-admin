@@ -1435,7 +1435,7 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 120
+              "maxLength": 2000
             },
             "required": false,
             "name": "master",

@@ -132,7 +132,18 @@ const listQuerySchema = z.object({
     .string()
     .regex(/^\d{2}\.\d{2}\.\d{4}$/)
     .optional(),
-  master: z.string().max(120).optional(),
+  // Несколько мастеров — через запятую, как статусы ниже; запятой в имени мастера не бывает.
+  master: z
+    .string()
+    .max(2000)
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.string().max(120)).max(50))
+    .optional(),
   // Несколько статусов — одной строкой через запятую (`В работе,Выдана`): так orval-клиент
   // и CSV-экспорт сериализуют фильтр одинаково, а ссылка с одним статусом остается валидной.
   // Пустая строка — фильтра нет; READINESS_FILTER_NONE — записи без статуса.

@@ -9,7 +9,7 @@ describe('bookingsExportUrl', () => {
       offset: 200,
       dateFrom: '01.08.2026',
       dateTo: '31.08.2026',
-      master: 'Иван',
+      master: 'Иван,Петр',
       readiness: 'В работе,Выдана',
       q: '+7999',
     })
@@ -17,7 +17,7 @@ describe('bookingsExportUrl', () => {
     expect(url.startsWith('/api/bookings/export?')).toBe(true)
     expect(qs.get('dateFrom')).toBe('01.08.2026')
     expect(qs.get('dateTo')).toBe('31.08.2026')
-    expect(qs.get('master')).toBe('Иван')
+    expect(qs.get('master')).toBe('Иван,Петр')
     expect(qs.get('readiness')).toBe('В работе,Выдана')
     expect(qs.get('q')).toBe('+7999')
     expect(qs.has('limit')).toBe(false)

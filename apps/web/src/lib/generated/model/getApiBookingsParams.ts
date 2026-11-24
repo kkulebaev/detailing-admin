@@ -22,7 +22,7 @@ export type GetApiBookingsParams = {
   dateFrom?: string;
   /** @pattern ^\d{2}\.\d{2}\.\d{4}$ */
   dateTo?: string;
-  /** @maxLength 120 */
+  /** @maxLength 2000 */
   master?: string;
   /** @maxLength 300 */
   readiness?: string;

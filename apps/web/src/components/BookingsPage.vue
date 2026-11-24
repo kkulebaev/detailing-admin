@@ -32,7 +32,9 @@ import {
 } from '@/lib/bookings-api'
 import { downloadFile, exportFilename } from '@/lib/download'
 import {
+  READINESS_FILTER_OPTIONS,
   readinessFilterFromParam,
+  readinessFilterLabel,
   readinessFilterToParam,
   readinessRowClass,
 } from '@/lib/readiness'
@@ -53,7 +55,7 @@ import BookingDetailsDialog from './BookingDetailsDialog.vue'
 import DeletedBookingsDialog from './DeletedBookingsDialog.vue'
 import BookingJournalDialog from './BookingJournalDialog.vue'
 import ReadinessPicker from './ReadinessPicker.vue'
-import ReadinessFilter from './ReadinessFilter.vue'
+import FilterMultiSelect from './FilterMultiSelect.vue'
 import BookingEditDialog from './BookingEditDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -287,7 +289,7 @@ const periodOpen = ref(false)
 // Месяц, открытый в календаре. Он же решает, какой месяц заберет «Весь месяц».
 const todayCal = today(getLocalTimeZone())
 const periodPlaceholder = shallowRef<DateValue>(todayCal)
-const masterFilter = ref<string>(ALL)
+const masterFilter = ref<string[]>([])
 const readinessFilter = ref<(Readiness | '')[]>([])
 const searchInput = ref('')
 // Ручной debounce (вместо refDebounced), чтобы `resetFilters` мог сбросить его
@@ -345,10 +347,22 @@ const search = computed({
   },
 })
 useQueryParam('period', period, periodParam)
+// Имена не сверяются со списком мастеров: он грузится позже адреса, а архивный
+// мастер из старой ссылки должен остаться в фильтре.
 useQueryParam('master', masterFilter, {
-  parse: (raw) => raw || undefined,
-  serialize: (v) => (v === ALL ? '' : v),
-  defaultValue: () => ALL,
+  parse: (raw) => {
+    const names = [
+      ...new Set(
+        raw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ]
+    return names.length ? names : undefined
+  },
+  serialize: (v) => v.join(','),
+  defaultValue: () => [],
 })
 useQueryParam('readiness', readinessFilter, {
   parse: (raw) => {
@@ -362,9 +376,16 @@ useQueryParam('q', search, textParam())
 useQueryParam('page', page, pageParam())
 
 const { data: mastersData } = useMastersQuery()
-const masterOptions = computed(() =>
-  resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
-)
+// Выбранные имена, которых нет в списке (архивный мастер из ссылки, список еще
+// грузится), дописываются в конец: иначе их нельзя было бы снять, а следующий клик
+// выкинул бы их из фильтра молча.
+const masterOptions = computed(() => {
+  const live = resolveMasterOptions(
+    mastersData.value?.ok ? mastersData.value.masters : undefined,
+    () => true,
+  )
+  return [...live, ...masterFilter.value.filter((m) => !live.includes(m))]
+})
 
 // ── Фильтр периода ──────────────────────────────────────────────────────────
 // Один календарь на все режимы: клик по дню фильтрует по дню, «Весь месяц» берет
@@ -408,7 +429,7 @@ const params = computed<GetApiBookingsParams>(() => ({
   offset: offset.value,
   dateFrom: periodRange.value?.from,
   dateTo: periodRange.value?.to,
-  master: masterFilter.value === ALL ? undefined : masterFilter.value,
+  master: masterFilter.value.join(',') || undefined,
   readiness: readinessFilterToParam(readinessFilter.value) || undefined,
   q: searchDebounced.value.trim() || undefined,
   sort: sort.value,
@@ -497,7 +518,7 @@ const filtersSheetOpen = ref(false)
 // собственной кнопке и в счетчике был бы шумом.
 const activeFilterCount = computed(() => {
   let n = 0
-  if (masterFilter.value !== ALL) n += 1
+  if (masterFilter.value.length) n += 1
   if (readinessFilter.value.length) n += 1
   if (searchInput.value.trim()) n += 1
   return n
@@ -526,7 +547,7 @@ const canReset = computed(() => hasActiveFilters.value || isDefaultPeriod.value)
 function resetFilters() {
   monthKey.value = ALL
   dayCal.value = undefined
-  masterFilter.value = ALL
+  masterFilter.value = []
   readinessFilter.value = []
   searchInput.value = ''
   // Сбрасываем debounce, чтобы запрос убрал поисковую строку в этом же тике, а не
@@ -695,22 +716,24 @@ function formatCreatedAt(iso: string): string {
       <DefineFilters>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">Мастер</span>
-          <Select v-model="masterFilter">
-            <SelectTrigger size="sm" class="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="ALL">Все</SelectItem>
-              <SelectItem v-for="m in masterOptions" :key="m" :value="m">
-                {{ m }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <FilterMultiSelect
+            v-model="masterFilter"
+            label="Мастер"
+            :options="masterOptions"
+            clear-label="Все мастера"
+          />
         </div>
 
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">Готовность</span>
-          <ReadinessFilter v-model="readinessFilter" />
+          <FilterMultiSelect
+            v-model="readinessFilter"
+            label="Готовность"
+            :options="READINESS_FILTER_OPTIONS"
+            :option-label="readinessFilterLabel"
+            :is-secondary="(r) => r === ''"
+            clear-label="Все статусы"
+          />
         </div>
       </DefineFilters>
 
