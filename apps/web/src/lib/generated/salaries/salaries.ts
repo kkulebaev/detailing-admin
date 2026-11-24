@@ -26,6 +26,9 @@ import type {
   GetApiSalariesEntries503,
   GetApiSalariesEntriesParams,
   GetApiSalariesParams,
+  GetApiSalariesWorkRules200,
+  GetApiSalariesWorkRules500,
+  GetApiSalariesWorkRules503,
   PatchApiSalariesHoursId200,
   PatchApiSalariesHoursId400,
   PatchApiSalariesHoursId404,
@@ -54,7 +57,13 @@ import type {
   PostApiSalariesPayouts404,
   PostApiSalariesPayouts500,
   PostApiSalariesPayouts503,
-  PostApiSalariesPayoutsBody
+  PostApiSalariesPayoutsBody,
+  PutApiSalariesWorkRulesMasterId200,
+  PutApiSalariesWorkRulesMasterId400,
+  PutApiSalariesWorkRulesMasterId404,
+  PutApiSalariesWorkRulesMasterId500,
+  PutApiSalariesWorkRulesMasterId503,
+  PutApiSalariesWorkRulesMasterIdBody
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
@@ -612,6 +621,119 @@ export const deleteApiSalariesPayoutsId = async (id: string, options?: Parameter
     method: 'DELETE'
 
 
+  }
+);}
+
+
+export type getApiSalariesWorkRulesResponse200 = {
+  data: GetApiSalariesWorkRules200
+  status: 200
+}
+
+export type getApiSalariesWorkRulesResponse500 = {
+  data: GetApiSalariesWorkRules500
+  status: 500
+}
+
+export type getApiSalariesWorkRulesResponse503 = {
+  data: GetApiSalariesWorkRules503
+  status: 503
+}
+
+export type getApiSalariesWorkRulesResponseSuccess = (getApiSalariesWorkRulesResponse200) & {
+  headers: Headers;
+};
+export type getApiSalariesWorkRulesResponseError = (getApiSalariesWorkRulesResponse500 | getApiSalariesWorkRulesResponse503) & {
+  headers: Headers;
+};
+
+export type getApiSalariesWorkRulesResponse = (getApiSalariesWorkRulesResponseSuccess | getApiSalariesWorkRulesResponseError)
+
+export const getGetApiSalariesWorkRulesUrl = () => {
+
+
+
+
+  return `/api/salaries/work-rules`
+}
+
+export const getApiSalariesWorkRules = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<getApiSalariesWorkRulesResponse> => {
+
+  return orvalFetch<getApiSalariesWorkRulesResponse>(getGetApiSalariesWorkRulesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type putApiSalariesWorkRulesMasterIdResponse200 = {
+  data: PutApiSalariesWorkRulesMasterId200
+  status: 200
+}
+
+export type putApiSalariesWorkRulesMasterIdResponse400 = {
+  data: PutApiSalariesWorkRulesMasterId400
+  status: 400
+}
+
+export type putApiSalariesWorkRulesMasterIdResponse404 = {
+  data: PutApiSalariesWorkRulesMasterId404
+  status: 404
+}
+
+export type putApiSalariesWorkRulesMasterIdResponse500 = {
+  data: PutApiSalariesWorkRulesMasterId500
+  status: 500
+}
+
+export type putApiSalariesWorkRulesMasterIdResponse503 = {
+  data: PutApiSalariesWorkRulesMasterId503
+  status: 503
+}
+
+export type putApiSalariesWorkRulesMasterIdResponseSuccess = (putApiSalariesWorkRulesMasterIdResponse200) & {
+  headers: Headers;
+};
+export type putApiSalariesWorkRulesMasterIdResponseError = (putApiSalariesWorkRulesMasterIdResponse400 | putApiSalariesWorkRulesMasterIdResponse404 | putApiSalariesWorkRulesMasterIdResponse500 | putApiSalariesWorkRulesMasterIdResponse503) & {
+  headers: Headers;
+};
+
+export type putApiSalariesWorkRulesMasterIdResponse = (putApiSalariesWorkRulesMasterIdResponseSuccess | putApiSalariesWorkRulesMasterIdResponseError)
+
+export const getPutApiSalariesWorkRulesMasterIdUrl = (masterId: string,) => {
+
+
+
+
+  return `/api/salaries/work-rules/${masterId}`
+}
+
+export const putApiSalariesWorkRulesMasterId = async (masterId: string,
+    putApiSalariesWorkRulesMasterIdBody?: PutApiSalariesWorkRulesMasterIdBody, options?: Parameters<typeof orvalFetch>[1]): Promise<putApiSalariesWorkRulesMasterIdResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<putApiSalariesWorkRulesMasterIdResponse>(getPutApiSalariesWorkRulesMasterIdUrl(masterId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(putApiSalariesWorkRulesMasterIdBody)
   }
 );}
 

@@ -9,6 +9,7 @@ import clientsRouter from './routes/clients.js'
 import pricelistRouter from './routes/pricelist.js'
 import mastersRouter from './routes/masters.js'
 import salariesRouter from './routes/salaries.js'
+import workRulesRouter from './routes/work-rules.js'
 import analyticsRouter from './routes/analytics.js'
 import meRouter from './routes/me.js'
 import usersRouter from './routes/users.js'
@@ -40,7 +41,7 @@ export function createApp() {
       // SPA может прочитать отклоненный ответ. При first-party топологии (план, §3-bis)
       // это перестраховка, а не несущая конструкция.
       credentials: true,
-      allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowMethods: ['POST', 'GET', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key'],
       exposeHeaders: ['X-Request-Id'],
     }),
@@ -103,6 +104,9 @@ export function createApp() {
   app.route('/api/pricelist', pricelistRouter)
   app.route('/api/masters', mastersRouter)
   app.route('/api/salaries', salariesRouter)
+  // Под /api/salaries, а не /api/masters: там любой GET открыт сотрудникам, а правила
+  // несут проценты и суммы мастеров.
+  app.route('/api/salaries/work-rules', workRulesRouter)
   app.route('/api/analytics', analyticsRouter)
   app.route('/api/users', usersRouter)
   app.route('/api/me', meRouter)

@@ -23,6 +23,7 @@ import type {
 } from '@detailing-admin/shared/schedule-requests'
 import type { AuditChange, BookingAuditAction } from '@detailing-admin/shared/booking-audit'
 import type { BookingServiceLine } from '@detailing-admin/shared/booking'
+import type { WorkRuleKind } from '@detailing-admin/shared/work-rules'
 
 // Аккаунты для входа. Создаются вне приложения через CLI `user:create` (без
 // самостоятельной регистрации). `passwordHash` хранит строку scrypt
@@ -275,6 +276,54 @@ export const masterRates = pgTable('master_rates', {
 
 export type MasterRate = typeof masterRates.$inferSelect
 export type NewMasterRate = typeof masterRates.$inferInsert
+
+// Виды работ мастера: строка есть — мастера можно назначить на эту работу, и она же
+// хранит его оплату за нее. Цель — раздел целиком или услуга-исключение (ровно одно).
+// Вне `masters` по той же причине, что и ставка: `GET /api/masters` открыт всем ролям.
+// `cascade` со всех сторон: это текущая настройка, а не история денег — суммы,
+// уже начисленные по ней, будут жить в собственных снимках.
+export const masterWorkRules = pgTable(
+  'master_work_rules',
+  {
+    id: serial('id').primaryKey(),
+    masterId: integer('master_id')
+      .notNull()
+      .references(() => masters.id, { onDelete: 'cascade' }),
+    sectionId: integer('section_id').references(() => sections.id, { onDelete: 'cascade' }),
+    serviceId: integer('service_id').references(() => services.id, { onDelete: 'cascade' }),
+    kind: varchar('kind', { length: 16 }).notNull().$type<WorkRuleKind>(),
+    percent: smallint('percent'),
+    // Фикс в рублях за единицу услуги, по классу кузова I–IV.
+    fixedClass1: integer('fixed_class_1'),
+    fixedClass2: integer('fixed_class_2'),
+    fixedClass3: integer('fixed_class_3'),
+    fixedClass4: integer('fixed_class_4'),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // NULL в target-колонке не равен другому NULL, поэтому каждый индекс ограничивает
+    // только свой вид цели.
+    uniqueIndex('master_work_rules_section_uq').on(t.masterId, t.sectionId),
+    uniqueIndex('master_work_rules_service_uq').on(t.masterId, t.serviceId),
+    check(
+      'master_work_rules_one_target',
+      sql`(${t.sectionId} is null) <> (${t.serviceId} is null)`,
+    ),
+    check(
+      'master_work_rules_percent',
+      sql`${t.kind} <> 'percent' or (${t.percent} between 0 and 100 and ${t.fixedClass1} is null and ${t.fixedClass2} is null and ${t.fixedClass3} is null and ${t.fixedClass4} is null)`,
+    ),
+    // Явные is not null: сравнение с NULL дает NULL, а CHECK пропускает NULL.
+    check(
+      'master_work_rules_fixed',
+      sql`${t.kind} <> 'fixed' or (${t.percent} is null and ${t.fixedClass1} is not null and ${t.fixedClass2} is not null and ${t.fixedClass3} is not null and ${t.fixedClass4} is not null and ${t.fixedClass1} >= 0 and ${t.fixedClass2} >= 0 and ${t.fixedClass3} >= 0 and ${t.fixedClass4} >= 0)`,
+    ),
+    check('master_work_rules_kind', sql`${t.kind} in ('percent', 'fixed')`),
+  ],
+)
+
+export type MasterWorkRuleRow = typeof masterWorkRules.$inferSelect
+export type NewMasterWorkRuleRow = typeof masterWorkRules.$inferInsert
 
 // Записи об отработанных часах. `rateSnapshot` замораживает ставку мастера при вставке,
 // чтобы последующая смена ставки не переписала оплату прошлых месяцев. `onDelete: 'restrict'`

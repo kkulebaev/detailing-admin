@@ -11166,6 +11166,561 @@
         }
       }
     },
+    "/api/salaries/work-rules": {
+      "get": {
+        "tags": [
+          "salaries"
+        ],
+        "responses": {
+          "200": {
+            "description": "Work rules of every active master",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "sectionId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "serviceId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "percent"
+                                ]
+                              },
+                              "percent": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              "masterId": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "sectionId",
+                              "serviceId",
+                              "kind",
+                              "percent",
+                              "masterId"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "sectionId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "serviceId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "fixed"
+                                ]
+                              },
+                              "fixedByClass": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 99999999
+                                }
+                              },
+                              "masterId": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "sectionId",
+                              "serviceId",
+                              "kind",
+                              "fixedByClass",
+                              "masterId"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "rules"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/salaries/work-rules/{masterId}": {
+      "put": {
+        "tags": [
+          "salaries"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9]\\d*$"
+            },
+            "required": true,
+            "name": "masterId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "sectionId": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "serviceId": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "percent"
+                              ]
+                            },
+                            "percent": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "required": [
+                            "sectionId",
+                            "serviceId",
+                            "kind",
+                            "percent"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "sectionId": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "serviceId": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "fixed"
+                              ]
+                            },
+                            "fixedByClass": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 99999999
+                              }
+                            }
+                          },
+                          "required": [
+                            "sectionId",
+                            "serviceId",
+                            "kind",
+                            "fixedByClass"
+                          ]
+                        }
+                      ]
+                    },
+                    "maxItems": 300
+                  }
+                },
+                "required": [
+                  "rules"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Work rules replaced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "sectionId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "serviceId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "percent"
+                                ]
+                              },
+                              "percent": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              "masterId": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "sectionId",
+                              "serviceId",
+                              "kind",
+                              "percent",
+                              "masterId"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "sectionId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "serviceId": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "fixed"
+                                ]
+                              },
+                              "fixedByClass": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 99999999
+                                }
+                              },
+                              "masterId": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "sectionId",
+                              "serviceId",
+                              "kind",
+                              "fixedByClass",
+                              "masterId"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "rules"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or an unknown section/service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "validation"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            }
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "issues"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Master not found or archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "not_found"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "internal"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "not_configured"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/analytics/overview": {
       "get": {
         "tags": [

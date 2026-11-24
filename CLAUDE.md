@@ -91,7 +91,7 @@ pnpm workspace, three packages:
   - `/api/clients` — list, `GET /{id}` (detail with history), CRUD, `GET /export`.
   - `/api/pricelist` — `GET` plus CRUD for `sections` and `services`.
   - `/api/masters` — list, CRUD, `PATCH /reorder`. A master may be linked to a login account (`userId`).
-  - `/api/salaries` — summary, `PATCH /rates`, `GET /entries`, CRUD for `hours` and `payouts`.
+  - `/api/salaries` — summary, `PATCH /rates`, `GET /entries`, CRUD for `hours` and `payouts`; `GET /work-rules` and `PUT /work-rules/{masterId}` (see «Masters' work rules»).
   - `/api/analytics/overview` — revenue totals, series, retention, top clients.
   - `/api/users` — login accounts, for the master form's account picker.
   - `/api/me` — the signed-in account's own hours: `GET /salary`, CRUD for `hours` (see «Self-service hours»), plus own schedule requests under `/schedule-requests`.
@@ -162,6 +162,10 @@ If the form sets `notify: true`, `notifyMaster()` sends a message to every assig
 ### Salaries
 
 `master_rates` holds the current hourly rate (kept out of `masters`, whose `GET` is open to employees). Each `work_hours` row freezes `rateSnapshot` at insert so a rate change never rewrites past pay; time is stored as integer `minutes`. `payouts` are one-off amounts (negative = deduction, zero rejected by a DB check). Both history tables use `onDelete: 'restrict'`.
+
+### Masters' work rules
+
+`master_work_rules` says what a master may be assigned to and what they earn for it: one row per master and target, where the target is either a whole pricelist section or a single service (exactly one, a CHECK), and the pay is either `percent` (integer 0–100) or `fixed` rubles per unit with one amount per car class I–IV (`fixedClass1..4`, all required, 0 allowed). A service rule overrides its section's rule; a service with neither is off-limits for that master. The routes live under `/api/salaries`, not `/api/masters`, because every `GET /api/masters*` is open to employees and the rules carry pay. `PUT /work-rules/{masterId}` replaces the master's whole list in one transaction (an archived master is a 404, a section or service that left the pricelist is a 400 pointing at `['rules', i, …]`). Edited on `/masters` via «Виды работ» (`MasterWorkRulesDialog`). The FKs cascade: rules are current settings, not money history. This is stage 1 of per-service pay: bookings don't use the rules yet.
 
 ### Deleting a master is archiving
 
