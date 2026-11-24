@@ -286,6 +286,32 @@ describe('SchedulePage', () => {
     expect(saveSchedule).toHaveBeenCalledTimes(1)
   })
 
+  it('«Весь месяц» отмечает все дни мастера, повторное нажатие снимает их', async () => {
+    const [y, m] = month.split('-').map(Number)
+    const daysInMonth = new Date(y!, m!, 0).getDate()
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    await page.getByRole('button', { name: 'Иван: отметить весь месяц' }).click()
+
+    await expect
+      .element(page.getByRole('button', { name: dayLabel(daysInMonth) }))
+      .toHaveAttribute('aria-pressed', 'true')
+    // Первое число уже рабочее на сервере, поэтому в черновик оно не попадает.
+    await expect
+      .element(page.getByText(`Несохраненных изменений: ${daysInMonth - 1}`))
+      .toBeInTheDocument()
+
+    await page.getByRole('button', { name: 'Иван: снять весь месяц' }).click()
+
+    await expect
+      .element(page.getByRole('button', { name: dayLabel(1) }))
+      .toHaveAttribute('aria-pressed', 'false')
+    await expect.element(page.getByText('Несохраненных изменений: 1')).toBeInTheDocument()
+  })
+
   it('сотрудник видит график, но не может его менять', async () => {
     state.isAdmin.value = false
     mount(SchedulePage, {
@@ -295,6 +321,7 @@ describe('SchedulePage', () => {
 
     await expect.element(page.getByText('Иван', { exact: true })).toBeInTheDocument()
     expect(page.getByRole('button', { name: /^Иван, / }).elements()).toHaveLength(0)
+    expect(page.getByRole('button', { name: /весь месяц/ }).elements()).toHaveLength(0)
   })
 
   it('пока на экране прошлый месяц, отметки не видны и не ставятся', async () => {

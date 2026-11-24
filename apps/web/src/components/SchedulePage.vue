@@ -23,6 +23,7 @@ import MyScheduleRequestCard from '@/components/MyScheduleRequestCard.vue'
 import ScheduleRequestsPanel from '@/components/ScheduleRequestsPanel.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { CalendarCheck, CalendarX } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -131,7 +132,7 @@ function isChanged(masterId: number, iso: string): boolean {
   return drafts.has(key) || requested.value.has(key)
 }
 
-function canToggle(masterId: number, iso: string): boolean {
+function canToggle(masterId: number): boolean {
   if (canEdit.value) return true
   return canRequest.value && masterId === ownMasterId.value
 }
@@ -154,11 +155,26 @@ function workingCount(masterId: number): number {
 }
 
 function toggle(masterId: number, iso: string) {
-  if (!canToggle(masterId, iso) || !dataReady.value || saving.value) return
+  if (!canToggle(masterId) || !dataReady.value || saving.value) return
+  setWorking(masterId, iso, !isWorking(masterId, iso))
+}
+
+function setWorking(masterId: number, iso: string, working: boolean) {
   const key = `${masterId}|${iso}`
-  const working = !isWorking(masterId, iso)
   if (working === serverWorking.value.has(key)) drafts.delete(key)
   else drafts.set(key, working)
+}
+
+function isMonthFull(masterId: number): boolean {
+  return days.value.every((d) => isWorking(masterId, d.iso))
+}
+
+// Повторное нажатие на заполненный месяц снимает все дни: так одна кнопка
+// и заполняет месяц, и сбрасывает его, чтобы начать отметки заново.
+function toggleMonth(masterId: number) {
+  if (!canToggle(masterId) || !dataReady.value || saving.value) return
+  const working = !isMonthFull(masterId)
+  for (const d of days.value) setWorking(masterId, d.iso, working)
 }
 
 function draftDays() {
@@ -408,7 +424,7 @@ const showSkeleton = computed(
             </td>
             <td v-for="d in days" :key="d.iso" class="p-0.5" :class="{ 'bg-muted/60': d.weekend }">
               <button
-                v-if="canToggle(m.id, d.iso)"
+                v-if="canToggle(m.id)"
                 type="button"
                 class="block size-9 rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 :class="[
@@ -427,7 +443,26 @@ const showSkeleton = computed(
                 :aria-label="`${m.name}, ${dayLabel(d.iso)}: ${isWorking(m.id, d.iso) ? 'рабочий' : 'выходной'}`"
               />
             </td>
-            <td class="px-3 text-right tabular-nums">{{ workingCount(m.id) }}</td>
+            <td class="px-3 text-right">
+              <span class="flex items-center justify-end gap-2">
+                <!-- Место под две цифры занято заранее, иначе колонка расширялась бы,
+                     когда у кого-то набирается 10 и больше дней. -->
+                <span class="min-w-5 text-right tabular-nums">{{ workingCount(m.id) }}</span>
+                <Button
+                  v-if="canToggle(m.id)"
+                  variant="ghost"
+                  size="icon"
+                  class="size-7 text-muted-foreground"
+                  :disabled="saving || !dataReady"
+                  :title="isMonthFull(m.id) ? 'Снять все дни' : 'Отметить весь месяц'"
+                  :aria-label="`${m.name}: ${isMonthFull(m.id) ? 'снять весь месяц' : 'отметить весь месяц'}`"
+                  @click="toggleMonth(m.id)"
+                >
+                  <CalendarX v-if="isMonthFull(m.id)" class="size-4" />
+                  <CalendarCheck v-else class="size-4" />
+                </Button>
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -449,7 +484,7 @@ const showSkeleton = computed(
         <div v-for="n in leadingBlanks" :key="`blank-${n}`" />
         <template v-for="d in days" :key="d.iso">
           <button
-            v-if="canToggle(selectedMaster.id, d.iso)"
+            v-if="canToggle(selectedMaster.id)"
             type="button"
             class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors"
             :class="[
@@ -476,9 +511,23 @@ const showSkeleton = computed(
           </div>
         </template>
       </div>
-      <p class="mt-3 text-sm text-muted-foreground">
-        Рабочих дней: <span class="tabular-nums">{{ workingCount(selectedMaster.id) }}</span>
-      </p>
+      <div class="mt-3 flex items-center justify-between gap-2">
+        <p class="text-sm text-muted-foreground">
+          Рабочих дней: <span class="tabular-nums">{{ workingCount(selectedMaster.id) }}</span>
+        </p>
+        <Button
+          v-if="canToggle(selectedMaster.id)"
+          variant="outline"
+          size="sm"
+          class="h-10 shrink-0"
+          :disabled="saving || !dataReady"
+          @click="toggleMonth(selectedMaster.id)"
+        >
+          <CalendarX v-if="isMonthFull(selectedMaster.id)" class="size-4" />
+          <CalendarCheck v-else class="size-4" />
+          {{ isMonthFull(selectedMaster.id) ? 'Снять все' : 'Весь месяц' }}
+        </Button>
+      </div>
     </div>
 
     <div
