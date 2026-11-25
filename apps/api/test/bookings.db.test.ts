@@ -731,7 +731,7 @@ describe('уведомления мастерам из транзакций за
         {
           userId: 'u-admin2',
           type: 'booking.assigned',
-          title: 'Новая запись',
+          title: 'У вас новая запись',
           body: '04.06, 10:00 · Иван · Toyota Camry · Полировка',
           pushBody: '04.06, 10:00 · Toyota Camry · Полировка',
           link: '/bookings?booking=bk1',
@@ -992,7 +992,7 @@ describe('уведомления мастерам из транзакций за
 
     expect(await deleteBooking('bk1', ACTOR)).toBe(true)
     expect(notificationInserts(capture)).toMatchObject([
-      [{ userId: 'uB', type: 'booking.unassigned', title: 'Запись удалена', link: '/bookings' }],
+      [{ userId: 'uB', type: 'booking.unassigned', title: 'Запись удалили', link: '/bookings' }],
     ])
   })
 
@@ -1024,7 +1024,7 @@ describe('уведомления мастерам из транзакций за
     const result = await restoreBooking('bk1', ACTOR)
     expect(result.ok).toBe(true)
     expect(notificationInserts(capture)).toMatchObject([
-      [{ userId: 'uB', type: 'booking.assigned', title: 'Запись восстановлена' }],
+      [{ userId: 'uB', type: 'booking.assigned', title: 'Удаленную запись вернули' }],
     ])
   })
 

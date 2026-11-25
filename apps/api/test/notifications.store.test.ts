@@ -151,7 +151,7 @@ describe('notifyMoney', () => {
         {
           userId: 'u-emp',
           type: 'payout.changed',
-          title: 'Выплата добавлена',
+          title: 'Новая выплата',
           body: expect.stringMatching(/^3\s000 ₽ · 20\.11\.2026$/),
           link: '/employee',
         },
@@ -225,7 +225,7 @@ describe('заявки на график', () => {
     vi.mocked(getDb).mockReturnValue(db as never)
     await decideScheduleRequest(3, admin, { approve: false, comment: 'Не выйдет' })
     expect(captured.values).toMatchObject([
-      [{ userId: 'u-new', type: 'schedule_request.decided', body: 'Комментарий: Не выйдет' }],
+      [{ userId: 'u-new', type: 'schedule_request.decided', body: 'Причина: Не выйдет' }],
     ])
   })
 

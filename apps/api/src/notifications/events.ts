@@ -44,16 +44,6 @@ export type BookingEvent =
       afterMasterIds: number[]
     }
 
-// Готовность, сумма и прочее мастеру не важны: о них уведомлять — только шуметь.
-const BOOKING_NOTIFIED_FIELDS = [
-  'dateFrom',
-  'dateTo',
-  'timeFrom',
-  'timeTo',
-  'car',
-  'service',
-] as const satisfies readonly (keyof BookingSummary)[]
-
 const SERVICE_MAX_LENGTH = 80
 
 function shorten(s: string, max: number): string {
@@ -92,6 +82,43 @@ function bookingTexts(b: BookingSummary): { body: string; pushBody: string } {
   }
 }
 
+type BookingChange = 'date' | 'time' | 'car' | 'service'
+
+// Перенос дня важнее времени: при смене даты время мастер увидит в тексте и так.
+function bookingChanges(before: BookingSummary, after: BookingSummary): BookingChange[] {
+  const changes: BookingChange[] = []
+  if (before.dateFrom !== after.dateFrom || before.dateTo !== after.dateTo) changes.push('date')
+  else if (before.timeFrom !== after.timeFrom || before.timeTo !== after.timeTo)
+    changes.push('time')
+  if (before.car !== after.car) changes.push('car')
+  if (before.service !== after.service) changes.push('service')
+  return changes
+}
+
+const CHANGE_NOUNS: Record<BookingChange, string> = {
+  date: 'дата',
+  time: 'время',
+  car: 'авто',
+  service: 'услуга',
+}
+
+const SINGLE_CHANGE_TITLES: Record<BookingChange, string> = {
+  date: 'Запись перенесена',
+  time: 'Изменилось время записи',
+  car: 'Изменилось авто в записи',
+  service: 'Изменилась услуга в записи',
+}
+
+// Больше двух перемен в заголовок не влезают: тогда только общий смысл, детали в тексте.
+export function bookingChangedTitle(changes: readonly BookingChange[]): string {
+  const [first, second] = changes
+  if (!first) return 'Изменилась запись'
+  if (changes.length === 1) return SINGLE_CHANGE_TITLES[first]
+  if (changes.length === 2 && second)
+    return `Изменились ${CHANGE_NOUNS[first]} и ${CHANGE_NOUNS[second]}`
+  return 'Изменились детали записи'
+}
+
 function bookingLink(id: string): string {
   return `/bookings?booking=${id}`
 }
@@ -124,7 +151,7 @@ export function bookingNotifications(
       push(
         event.masterIds,
         'booking.assigned',
-        'Новая запись',
+        'У вас новая запись',
         event.booking,
         bookingLink(event.booking.id),
       )
@@ -133,13 +160,13 @@ export function bookingNotifications(
       push(
         event.masterIds,
         'booking.assigned',
-        'Запись восстановлена',
+        'Удаленную запись вернули',
         event.booking,
         bookingLink(event.booking.id),
       )
       break
     case 'delete':
-      push(event.masterIds, 'booking.unassigned', 'Запись удалена', event.booking, '/bookings')
+      push(event.masterIds, 'booking.unassigned', 'Запись удалили', event.booking, '/bookings')
       break
     case 'update': {
       const before = new Set(event.beforeMasterIds)
@@ -148,11 +175,13 @@ export function bookingNotifications(
       const removed = event.beforeMasterIds.filter((id) => !after.has(id))
       const stayed = event.afterMasterIds.filter((id) => before.has(id))
       const link = bookingLink(event.after.id)
-      push(added, 'booking.assigned', 'Вас назначили на запись', event.after, link)
+      push(added, 'booking.assigned', 'Вас добавили в запись', event.after, link)
       // Снятому мастеру показываем запись такой, какой он ее знал.
-      push(removed, 'booking.unassigned', 'Вас сняли с записи', event.before, '/bookings')
-      const changed = BOOKING_NOTIFIED_FIELDS.some((f) => event.before[f] !== event.after[f])
-      if (changed) push(stayed, 'booking.changed', 'Запись изменена', event.after, link)
+      push(removed, 'booking.unassigned', 'Вас убрали из записи', event.before, '/bookings')
+      // Готовность, сумма и прочее мастеру не важны: о них уведомлять — только шуметь.
+      const changes = bookingChanges(event.before, event.after)
+      if (changes.length > 0)
+        push(stayed, 'booking.changed', bookingChangedTitle(changes), event.after, link)
       break
     }
   }
@@ -161,26 +190,39 @@ export function bookingNotifications(
 
 // ── Заявки на график ────────────────────────────────────────────────────────
 
-function pluralDays(n: number): string {
+function plural(n: number, one: string, few: string, many: string): string {
   const mod10 = n % 10
   const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return `${n} день`
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} дня`
-  return `${n} дней`
+  if (mod10 === 1 && mod100 !== 11) return `${n} ${one}`
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} ${few}`
+  return `${n} ${many}`
+}
+
+// Заявка хранит только перемены, так что working: true — день станет рабочим,
+// false — выходным. «2 рабочих дня и 1 выходной» понятнее голого «3 дня».
+function scheduleDaysText(days: readonly { working: boolean }[]): string {
+  const working = days.filter((d) => d.working).length
+  const off = days.length - working
+  return [
+    working > 0 ? plural(working, 'рабочий день', 'рабочих дня', 'рабочих дней') : '',
+    off > 0 ? plural(off, 'выходной', 'выходных', 'выходных') : '',
+  ]
+    .filter(Boolean)
+    .join(' и ')
 }
 
 export function scheduleRequestCreatedNotifications(
-  request: { masterName: string; dayCount: number },
+  request: { masterName: string; days: readonly { working: boolean }[] },
   adminIds: readonly string[],
   actorId: string | null,
 ): NotificationDraft[] {
-  const body = `${request.masterName} просит изменить график: ${pluralDays(request.dayCount)}`
+  const body = `${request.masterName} просит ${scheduleDaysText(request.days)}`
   return [...new Set(adminIds)]
     .filter((userId) => userId !== actorId)
     .map((userId) => ({
       userId,
       type: 'schedule_request.created' as const,
-      title: 'Новая заявка на график',
+      title: 'Заявка на изменение графика',
       body,
       link: '/schedule',
       pushBody: null,
@@ -188,7 +230,7 @@ export function scheduleRequestCreatedNotifications(
 }
 
 export function scheduleRequestDecidedNotifications(
-  decision: { approve: boolean; comment: string | null; dayCount: number },
+  decision: { approve: boolean; comment: string | null; days: readonly { working: boolean }[] },
   // Аккаунт мастера на момент решения; null, если мастер ни к кому не привязан.
   recipientId: string | null,
   actorId: string | null,
@@ -199,12 +241,12 @@ export function scheduleRequestDecidedNotifications(
     {
       userId: recipientId,
       type: 'schedule_request.decided',
-      title: decision.approve ? 'Заявка на график одобрена' : 'Заявка на график отклонена',
+      title: decision.approve ? 'Заявку на график одобрили' : 'Заявку на график отклонили',
       body: decision.approve
-        ? `График обновлен: ${pluralDays(decision.dayCount)}`
+        ? `Уже в графике: ${scheduleDaysText(decision.days)}`
         : comment
-          ? `Комментарий: ${comment}`
-          : 'Без комментария',
+          ? `Причина: ${comment}`
+          : 'График остался прежним',
       link: '/schedule',
       pushBody: null,
     },
@@ -215,32 +257,38 @@ export function scheduleRequestDecidedNotifications(
 
 export type MoneyAction = 'create' | 'update' | 'delete'
 
+interface PayoutFacts {
+  payoutDate: string
+  amount: number
+  note: string
+}
+
+interface HoursFacts {
+  workDate: string
+  minutes: number
+}
+
+// У правки есть прежнее значение: мастеру важно не только «сколько теперь», но и «сколько было».
 export type MoneyEvent =
-  | {
-      type: 'payout.changed'
-      action: MoneyAction
-      payout: { payoutDate: string; amount: number; note: string }
-    }
-  | {
-      type: 'work_hours.changed'
-      action: MoneyAction
-      hours: { workDate: string; minutes: number }
-    }
+  | { type: 'payout.changed'; action: 'create' | 'delete'; payout: PayoutFacts }
+  | { type: 'payout.changed'; action: 'update'; payout: PayoutFacts; before: PayoutFacts }
+  | { type: 'work_hours.changed'; action: 'create' | 'delete'; hours: HoursFacts }
+  | { type: 'work_hours.changed'; action: 'update'; hours: HoursFacts; before: HoursFacts }
 
 const PAYOUT_TITLES: Record<MoneyAction, string> = {
-  create: 'Выплата добавлена',
-  update: 'Выплата изменена',
-  delete: 'Выплата удалена',
+  create: 'Новая выплата',
+  update: 'Выплату изменили',
+  delete: 'Выплату отменили',
 }
 const DEDUCTION_TITLES: Record<MoneyAction, string> = {
-  create: 'Удержание добавлено',
-  update: 'Удержание изменено',
-  delete: 'Удержание удалено',
+  create: 'Новое удержание',
+  update: 'Удержание изменили',
+  delete: 'Удержание отменили',
 }
 const HOURS_TITLES: Record<MoneyAction, string> = {
-  create: 'Часы добавлены',
-  update: 'Часы изменены',
-  delete: 'Часы удалены',
+  create: 'Вам записали часы',
+  update: 'Ваши часы изменили',
+  delete: 'Ваши часы удалили',
 }
 
 function rubles(amount: number): string {
@@ -250,6 +298,28 @@ function rubles(amount: number): string {
 
 function hoursText(minutes: number): string {
   return `${(minutes / 60).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ч`
+}
+
+function withWas(now: string, was: string | null): string {
+  return was !== null && was !== now ? `${now} (было ${was})` : now
+}
+
+// Сумма со знаком идет первой: по «−» в начале лента красит удержание, не разбирая
+// заголовок.
+function payoutBody(p: PayoutFacts, before: PayoutFacts | null): string {
+  return [
+    withWas(rubles(p.amount), before && rubles(before.amount)),
+    withWas(fullDate(p.payoutDate), before && fullDate(before.payoutDate)),
+    p.note.trim(),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function hoursBody(h: HoursFacts, before: HoursFacts | null): string {
+  const hours = withWas(hoursText(h.minutes), before && hoursText(before.minutes))
+  const date = withWas(fullDate(h.workDate), before && fullDate(before.workDate))
+  return `${hours} за ${date}`
 }
 
 // Маршрут /employee админу закрыт, поэтому свою выплату он смотрит в «Зарплатах».
@@ -263,29 +333,26 @@ export function moneyNotifications(
   actorId: string | null,
 ): NotificationDraft[] {
   if (!recipient || recipient.userId === actorId) return []
-  const link = moneyLink(recipient.role)
+  const base = { userId: recipient.userId, link: moneyLink(recipient.role), pushBody: null }
   if (event.type === 'payout.changed') {
-    const { amount, payoutDate, note } = event.payout
-    const titles = amount < 0 ? DEDUCTION_TITLES : PAYOUT_TITLES
+    const titles = event.payout.amount < 0 ? DEDUCTION_TITLES : PAYOUT_TITLES
+    const before = event.action === 'update' ? event.before : null
     return [
       {
-        userId: recipient.userId,
+        ...base,
         type: event.type,
         title: titles[event.action],
-        body: [rubles(amount), fullDate(payoutDate), note.trim()].filter(Boolean).join(' · '),
-        link,
-        pushBody: null,
+        body: payoutBody(event.payout, before),
       },
     ]
   }
+  const before = event.action === 'update' ? event.before : null
   return [
     {
-      userId: recipient.userId,
+      ...base,
       type: event.type,
       title: HOURS_TITLES[event.action],
-      body: `${fullDate(event.hours.workDate)}: ${hoursText(event.hours.minutes)}`,
-      link,
-      pushBody: null,
+      body: hoursBody(event.hours, before),
     },
   ]
 }

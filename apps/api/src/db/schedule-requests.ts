@@ -91,7 +91,7 @@ export async function createScheduleRequest(
     const [row] = await tx.insert(scheduleRequests).values({ masterId, days: sorted }).returning()
     notes = await insertNotifications(tx, async (sp) =>
       scheduleRequestCreatedNotifications(
-        { masterName: master.name, dayCount: sorted.length },
+        { masterName: master.name, days: sorted },
         await adminUserIds(sp),
         actorId,
       ),
@@ -171,7 +171,7 @@ export async function decideScheduleRequest(
         {
           approve: decision.approve,
           comment: decision.approve ? null : decision.comment,
-          dayCount: row.days.length,
+          days: row.days,
         },
         master?.userId ?? null,
         actor.id,

@@ -52,7 +52,7 @@ test('сотрудник подключает Telegram в профиле, и д�
   expect(payout.status()).toBe(201)
 
   await expect
-    .poll(async () => (await repliesTo(CHAT)).find((t) => t.startsWith('<b>Выплата добавлена</b>')))
+    .poll(async () => (await repliesTo(CHAT)).find((t) => t.startsWith('<b>Новая выплата</b>')))
     .toContain('href="http://localhost:5174/employee"')
 
   await page.context().clearCookies()

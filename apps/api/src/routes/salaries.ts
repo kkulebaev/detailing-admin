@@ -498,6 +498,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
             type: 'work_hours.changed',
             action: 'update',
             hours: updated,
+            before,
           })
         }
         return updated
@@ -623,6 +624,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
             type: 'payout.changed',
             action: 'update',
             payout: updated,
+            before,
           })
         }
         return updated

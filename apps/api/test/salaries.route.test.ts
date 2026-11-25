@@ -321,6 +321,7 @@ describe('/api/salaries', () => {
       type: 'work_hours.changed',
       action: 'update',
       hours: workHoursRow({ minutes: 300, note: 'fix' }),
+      before: workHoursRow(),
     })
   })
 
@@ -438,6 +439,7 @@ describe('/api/salaries', () => {
       type: 'payout.changed',
       action: 'update',
       payout: payoutRow({ amount: 3000, note: 'премия' }),
+      before: payoutRow(),
     })
   })
 
