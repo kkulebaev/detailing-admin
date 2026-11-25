@@ -1,4 +1,4 @@
-import { and, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
 import { masters, users, type Master } from './schema.js'
 
@@ -24,14 +24,10 @@ export interface MasterInput {
   userId: string | null
 }
 
-// Без устаревшей колонки telegram_id: она не уходит клиентам мимо контракта, а SELECT
-// этого релиза не сломаются, когда следующий деплой удалит ее, пока этот контейнер еще жив.
-const { telegramId: _legacyTelegramId, ...masterColumns } = getTableColumns(masters)
-
 export async function listMasters(): Promise<Master[]> {
   const db = getDb()
   return db
-    .select(masterColumns)
+    .select()
     .from(masters)
     .where(eq(masters.archived, false))
     .orderBy(masters.position, masters.id)
@@ -67,11 +63,7 @@ export async function resolveMasterIds(names: string[]): Promise<Map<string, num
 
 export async function findMasterByUserId(userId: string): Promise<Master | undefined> {
   const db = getDb()
-  const [row] = await db
-    .select(masterColumns)
-    .from(masters)
-    .where(eq(masters.userId, userId))
-    .limit(1)
+  const [row] = await db.select().from(masters).where(eq(masters.userId, userId)).limit(1)
   return row
 }
 
@@ -110,7 +102,7 @@ export async function createMaster(input: MasterInput): Promise<Master> {
       userId: input.userId,
       position,
     })
-    .returning(masterColumns)
+    .returning()
   return row
 }
 
@@ -131,7 +123,7 @@ export async function updateMaster(id: number, patch: MasterPatch): Promise<Mast
     .update(masters)
     .set(patch)
     .where(and(eq(masters.id, id), eq(masters.archived, false)))
-    .returning(masterColumns)
+    .returning()
   if (!row) throw new MasterError('not_found')
   return row
 }
@@ -170,7 +162,7 @@ export async function reorderMasters(ids: number[]): Promise<Master[]> {
       await tx.update(masters).set({ position: i }).where(eq(masters.id, ids[i]))
     }
     return tx
-      .select(masterColumns)
+      .select()
       .from(masters)
       .where(eq(masters.archived, false))
       .orderBy(masters.position, masters.id)

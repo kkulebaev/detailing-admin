@@ -196,10 +196,6 @@ export const masters = pgTable('masters', {
   // на строку. API скрывает архивных мастеров, и пути назад нет; восстановление —
   // ручной UPDATE в базе.
   archived: boolean('archived').notNull().default(false),
-  // Не используется: chat id теперь у аккаунта (users.telegramChatId). Колонку удалим
-  // отдельным деплоем позже: во время деплоя на Railway старый контейнер еще работает и
-  // перечисляет ее в своих SELECT, так что DROP в этом же релизе уронил бы его запросы.
-  telegramId: varchar('telegram_id', { length: 64 }),
   // Аккаунт, который вносит часы за этого мастера в «Мои часы». UNIQUE: один аккаунт
   // соответствует одному мастеру. `set null` сохраняет мастера и историю выплат, если
   // аккаунт когда-нибудь удалят.
@@ -208,7 +204,7 @@ export const masters = pgTable('masters', {
     .references(() => users.id, { onDelete: 'set null' }),
 })
 
-export type Master = Omit<typeof masters.$inferSelect, 'telegramId'>
+export type Master = typeof masters.$inferSelect
 export type NewMaster = typeof masters.$inferInsert
 
 // Связующая таблица для id-связи многие-ко-многим запись↔мастер. `master text[]` в

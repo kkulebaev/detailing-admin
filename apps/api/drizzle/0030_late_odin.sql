@@ -1,0 +1,1 @@
+ALTER TABLE "masters" DROP COLUMN "telegram_id";
