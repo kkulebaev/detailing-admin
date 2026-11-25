@@ -1,6 +1,7 @@
 import { and, eq, gte, isNotNull, lt, or, sql } from 'drizzle-orm'
 import { monthRange, salaryFromMinutesRateSum, type SalaryRow } from '@detailing-admin/shared'
-import { getDb } from './client.js'
+import type { Tx } from './audit.js'
+import { getDb, type Db } from './client.js'
 import {
   masterRates,
   masters,
@@ -183,8 +184,11 @@ export interface CreateWorkHoursInput {
   note: string
 }
 
-export async function createWorkHours(input: CreateWorkHoursInput): Promise<WorkHoursRow> {
-  const db = getDb()
+// `db` — транзакция, когда админский маршрут пишет уведомление вместе с изменением.
+export async function createWorkHours(
+  input: CreateWorkHoursInput,
+  db: Db | Tx = getDb(),
+): Promise<WorkHoursRow> {
   // Фиксируем ТЕКУЩУЮ ставку мастера. Нет строки ставки → отказ (маршрут → 400):
   // запись без ставки нельзя оценить, а инвариант — «нет ставки = нет строки».
   const [rate] = await db
@@ -207,8 +211,10 @@ export async function createWorkHours(input: CreateWorkHoursInput): Promise<Work
   return row
 }
 
-export async function getWorkHoursById(id: number): Promise<WorkHoursRow | undefined> {
-  const db = getDb()
+export async function getWorkHoursById(
+  id: number,
+  db: Db | Tx = getDb(),
+): Promise<WorkHoursRow | undefined> {
   const [row] = await db.select().from(workHours).where(eq(workHours.id, id)).limit(1)
   return row
 }
@@ -219,9 +225,11 @@ export interface WorkHoursPatch {
   note?: string
 }
 
-export async function updateWorkHours(id: number, patch: WorkHoursPatch): Promise<WorkHoursRow> {
-  const db = getDb()
-
+export async function updateWorkHours(
+  id: number,
+  patch: WorkHoursPatch,
+  db: Db | Tx = getDb(),
+): Promise<WorkHoursRow> {
   // Правка никогда не переснимает ставку — меняются только день, минуты и примечание.
   // Пустой patch — no-op: .set({}) в drizzle бросает ошибку, поэтому возвращаем текущую строку.
   const set: WorkHoursPatch = {}
@@ -240,13 +248,11 @@ export async function updateWorkHours(id: number, patch: WorkHoursPatch): Promis
   return row
 }
 
-export async function deleteWorkHours(id: number): Promise<void> {
-  const db = getDb()
-  const result = await db
-    .delete(workHours)
-    .where(eq(workHours.id, id))
-    .returning({ id: workHours.id })
-  if (result.length === 0) throw new SalaryError('not_found')
+// Возвращает удаленную строку: по ней видно, чьи это были часы.
+export async function deleteWorkHours(id: number, db: Db | Tx = getDb()): Promise<WorkHoursRow> {
+  const [row] = await db.delete(workHours).where(eq(workHours.id, id)).returning()
+  if (!row) throw new SalaryError('not_found')
+  return row
 }
 
 export interface CreatePayoutInput {
@@ -256,8 +262,10 @@ export interface CreatePayoutInput {
   note: string
 }
 
-export async function createPayout(input: CreatePayoutInput): Promise<PayoutRow> {
-  const db = getDb()
+export async function createPayout(
+  input: CreatePayoutInput,
+  db: Db | Tx = getDb(),
+): Promise<PayoutRow> {
   // Сначала проверяем мастера: иначе FK отклонил бы неизвестный masterId невнятным
   // 500. master_rates намеренно НЕ читается — выплата самодостаточна, поэтому
   // ее может получить и мастер без ставки.
@@ -286,9 +294,19 @@ export interface PayoutPatch {
   note?: string
 }
 
-export async function updatePayout(id: number, patch: PayoutPatch): Promise<PayoutRow> {
-  const db = getDb()
+export async function getPayoutById(
+  id: number,
+  db: Db | Tx = getDb(),
+): Promise<PayoutRow | undefined> {
+  const [row] = await db.select().from(payouts).where(eq(payouts.id, id)).limit(1)
+  return row
+}
 
+export async function updatePayout(
+  id: number,
+  patch: PayoutPatch,
+  db: Db | Tx = getDb(),
+): Promise<PayoutRow> {
   // При правке мастер никогда не меняется. Пустой patch — no-op: .set({}) в drizzle
   // бросает ошибку, поэтому возвращаем текущую строку.
   const set: PayoutPatch = {}
@@ -307,8 +325,9 @@ export async function updatePayout(id: number, patch: PayoutPatch): Promise<Payo
   return row
 }
 
-export async function deletePayout(id: number): Promise<void> {
-  const db = getDb()
-  const result = await db.delete(payouts).where(eq(payouts.id, id)).returning({ id: payouts.id })
-  if (result.length === 0) throw new SalaryError('not_found')
+// Возвращает удаленную строку: по ней видно, чья это была выплата.
+export async function deletePayout(id: number, db: Db | Tx = getDb()): Promise<PayoutRow> {
+  const [row] = await db.delete(payouts).where(eq(payouts.id, id)).returning()
+  if (!row) throw new SalaryError('not_found')
+  return row
 }

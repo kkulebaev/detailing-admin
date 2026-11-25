@@ -2,6 +2,7 @@
 import { computed, watch, type Component } from 'vue'
 import {
   BarChart3,
+  Bell,
   CalendarDays,
   CalendarPlus,
   ClipboardList,
@@ -31,7 +32,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { usePendingScheduleRequestsQuery } from '@/lib/queries'
+import { usePendingScheduleRequestsQuery, useUnreadNotificationsQuery } from '@/lib/queries'
 import { useAuthStore } from '@/stores/auth'
 
 interface NavItem {
@@ -68,6 +69,12 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'salaries' }, label: 'Зарплаты', icon: Wallet, roles: ['admin'] },
   { to: { name: 'analytics' }, label: 'Аналитика', icon: BarChart3, roles: ['admin'] },
   { to: { name: 'employee' }, label: 'Мои часы', icon: Clock, roles: ['booker', 'employee'] },
+  {
+    to: { name: 'notifications' },
+    label: 'Уведомления',
+    icon: Bell,
+    roles: ['admin', 'booker', 'employee'],
+  },
 ]
 
 // Общий вид активного состояния для всех пунктов сайдбара (навигация + профиль в футере):
@@ -83,20 +90,29 @@ const navItems = computed(() => {
   return NAV_ITEMS.filter((item) => item.roles.includes(role))
 })
 
-// Админ узнает о новых заявках на график только по этому счетчику — уведомлений нет.
 const isAdmin = computed(() => auth.isAdmin)
 const { data: pendingRequests, refresh: refreshPending } = usePendingScheduleRequestsQuery(isAdmin)
-// Заявка от сотрудника не вызывает у админа никакого события, а вкладку держат открытой
-// часами — без опроса счетчик ждал бы смены фокуса окна.
+const { data: unread, refresh: refreshUnread } = useUnreadNotificationsQuery()
+// Новые заявки и уведомления не приходят в открытую вкладку сами, а держат ее часами:
+// возврат на вкладку colada ловит сама (visibilitychange), а без опроса счетчики
+// ждали бы смены фокуса окна.
 useIntervalFn(() => {
   if (isAdmin.value) void refreshPending()
+  void refreshUnread()
 }, 60_000)
 const pendingCount = computed(() =>
   pendingRequests.value?.ok ? pendingRequests.value.requests.length : 0,
 )
+const unreadCount = computed(() => (unread.value?.ok ? unread.value.unreadCount : 0))
 
 function badgeFor(item: NavItem): number {
-  return item.to.name === 'schedule' ? pendingCount.value : 0
+  if (item.to.name === 'schedule') return pendingCount.value
+  if (item.to.name === 'notifications') return unreadCount.value
+  return 0
+}
+
+function badgeLabel(item: NavItem): string {
+  return item.to.name === 'notifications' ? 'непрочитанных' : 'заявок на согласование'
 }
 
 const route = useRoute()
@@ -153,7 +169,7 @@ async function onLogout() {
                     <span aria-hidden="true">{{
                       badgeFor(item) > 99 ? '99+' : badgeFor(item)
                     }}</span>
-                    <span class="sr-only">, заявок на согласование: {{ badgeFor(item) }}</span>
+                    <span class="sr-only">, {{ badgeLabel(item) }}: {{ badgeFor(item) }}</span>
                   </span>
                 </RouterLink>
               </SidebarMenuButton>

@@ -67,8 +67,16 @@ vi.mock('../src/db/users.js', async (importOriginal) => ({
   listAccounts: vi.fn(),
 }))
 
+// Самоправки часов уведомлений не создают: только правки админа (критерий 6).
+vi.mock('../src/notifications/store.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/notifications/store.js')>()),
+  insertNotifications: vi.fn(),
+  notifyMoney: vi.fn(),
+}))
+
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
+import { insertNotifications, notifyMoney } from '../src/notifications/store.js'
 import { findMasterByUserId } from '../src/db/masters.js'
 import { listAccounts } from '../src/db/users.js'
 import {
@@ -195,6 +203,20 @@ describe('/api/me', () => {
     })
   })
 
+  it('часы, внесенные самим сотрудником, уведомлений не создают', async () => {
+    vi.mocked(createWorkHours).mockResolvedValue(hoursRow({ id: 20, workDate: '2026-10-26' }))
+    vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow())
+    vi.mocked(updateWorkHours).mockResolvedValue(hoursRow())
+    vi.mocked(deleteWorkHours).mockResolvedValue(hoursRow())
+    expect((await req('/api/me/hours', 'POST', { workDate: '2026-10-26', hours: 8 })).status).toBe(
+      201,
+    )
+    expect((await req('/api/me/hours/11', 'PATCH', { hours: 7 })).status).toBe(200)
+    expect((await req('/api/me/hours/11', 'DELETE')).status).toBe(200)
+    expect(vi.mocked(notifyMoney)).not.toHaveBeenCalled()
+    expect(vi.mocked(insertNotifications)).not.toHaveBeenCalled()
+  })
+
   it('POST /hours игнорирует masterId, подброшенный в тело', async () => {
     vi.mocked(createWorkHours).mockResolvedValue(hoursRow())
     await req('/api/me/hours', 'POST', { masterId: 99, workDate: '2026-10-24', hours: 8 })
@@ -262,7 +284,7 @@ describe('/api/me', () => {
 
   it('DELETE /hours/{id} удаляет свою запись внутри окна', async () => {
     vi.mocked(getWorkHoursById).mockResolvedValue(hoursRow())
-    vi.mocked(deleteWorkHours).mockResolvedValue(undefined)
+    vi.mocked(deleteWorkHours).mockResolvedValue(hoursRow())
     const res = await req('/api/me/hours/11', 'DELETE')
     expect(res.status).toBe(200)
     expect(vi.mocked(deleteWorkHours)).toHaveBeenCalledWith(11)

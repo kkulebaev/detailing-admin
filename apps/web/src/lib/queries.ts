@@ -12,6 +12,7 @@ import { fetchPricelist } from './pricelist-api'
 import { fetchAccounts, fetchMasters } from './masters-api'
 import { fetchMySalary } from './me-api'
 import {
+  fetchBooking,
   fetchBookingHistory,
   fetchBookingJournal,
   fetchBookings,
@@ -23,6 +24,7 @@ import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 import { fetchWorkRules } from './work-rules-api'
 import { fetchSchedule } from './schedule-api'
 import { fetchMyScheduleRequests, fetchPendingScheduleRequests } from './schedule-requests-api'
+import { fetchUnreadNotificationsCount } from './notifications-api'
 import type { ScheduleQuery } from '@detailing-admin/shared'
 
 // Ключи запросов лежат рядом с composables, чтобы вызывающему коду не нужно было знать
@@ -40,6 +42,7 @@ export const MY_SALARY_KEY = ['my-salary'] as const
 export const SCHEDULE_KEY = ['schedule'] as const
 export const SCHEDULE_REQUESTS_KEY = ['schedule-requests'] as const
 export const MY_SCHEDULE_REQUESTS_KEY = ['my-schedule-requests'] as const
+export const NOTIFICATIONS_KEY = ['notifications'] as const
 
 // Реактивный ключ, чтобы смена поискового запроса, сортировки или пагинации
 // автоматически вызывала перезапрос. `params` — ref, который страница пересчитывает из
@@ -161,6 +164,15 @@ export function useBookingsQuery(params: Ref<GetApiBookingsParams>) {
   })
 }
 
+// Под BOOKINGS_KEY, чтобы правка открытой по ссылке записи освежала и ее.
+export function useBookingQuery(id: Ref<string | null>) {
+  return useQuery({
+    key: () => [...BOOKINGS_KEY, 'one', id.value ?? ''],
+    query: () => fetchBooking(id.value ?? ''),
+    enabled: () => id.value != null,
+  })
+}
+
 // Оба ключа лежат под BOOKINGS_KEY: любая правка, удаление или восстановление
 // через useInvalidateBookings() освежает и историю, и корзину.
 export function useBookingHistoryQuery(id: Ref<string | null>) {
@@ -278,4 +290,17 @@ export function useMyScheduleRequestsQuery(enabled: Ref<boolean>) {
     query: fetchMyScheduleRequests,
     enabled: () => enabled.value,
   })
+}
+
+// Счетчик в сайдбаре; лента сама по себе грузится страницей по курсору.
+export function useUnreadNotificationsQuery() {
+  return useQuery({
+    key: [...NOTIFICATIONS_KEY, 'unread'],
+    query: fetchUnreadNotificationsCount,
+  })
+}
+
+export function useInvalidateNotifications() {
+  const cache = useQueryCache()
+  return () => cache.invalidateQueries({ key: NOTIFICATIONS_KEY })
 }

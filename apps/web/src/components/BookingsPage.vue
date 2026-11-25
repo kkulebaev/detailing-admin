@@ -40,7 +40,12 @@ import {
   readinessFilterToParam,
   readinessRowClass,
 } from '@/lib/readiness'
-import { useBookingsQuery, useInvalidateBookings, useMastersQuery } from '@/lib/queries'
+import {
+  useBookingQuery,
+  useBookingsQuery,
+  useInvalidateBookings,
+  useMastersQuery,
+} from '@/lib/queries'
 import { resolveMasterOptions } from '@/lib/master-options'
 import { useAuthStore } from '@/stores/auth'
 import { useOffsetPagination } from '@/composables/use-offset-pagination'
@@ -197,7 +202,8 @@ const detailsId = ref<string | null>(null)
 const detailsBooking = computed<BookingRow | null>(() => {
   const id = detailsId.value
   if (!id) return null
-  const row = items.value.find((r) => r.id === id)
+  const linked = linkedBooking.value
+  const row = items.value.find((r) => r.id === id) ?? (linked?.id === id ? linked : undefined)
   if (!row) return null
   const pending = readinessOverride.value[id]
   return pending === undefined ? row : { ...row, readiness: pending }
@@ -206,6 +212,40 @@ const detailsBooking = computed<BookingRow | null>(() => {
 // Кнопка «История» открывает ту же карточку, но ради журнала: без этого его пришлось бы
 // раскрывать вторым кликом.
 const detailsHistoryExpanded = ref(false)
+
+// Ссылка из уведомления (`?booking=<id>`) открывает карточку поверх списка, даже если
+// фильтры эту запись прячут: она дочитывается отдельным запросом.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const linkedBookingId = ref('')
+useQueryParam('booking', linkedBookingId, {
+  parse: (raw) => (UUID_RE.test(raw) ? raw : undefined),
+  serialize: (v) => v,
+  defaultValue: () => '',
+})
+const { data: linkedData } = useBookingQuery(computed(() => linkedBookingId.value || null))
+const linkedBooking = computed(() =>
+  linkedBookingId.value && linkedData.value?.ok ? linkedData.value.booking : null,
+)
+watch(
+  linkedData,
+  (result) => {
+    if (!result || !linkedBookingId.value) return
+    if (result.ok) {
+      if (result.booking.id !== linkedBookingId.value) return
+      detailsId.value = result.booking.id
+      detailsHistoryExpanded.value = false
+      detailsOpen.value = true
+      return
+    }
+    toast.error(result.error === 'not_found' ? 'Запись удалена' : 'Не удалось открыть запись')
+    linkedBookingId.value = ''
+  },
+  { immediate: true },
+)
+// Закрытая карточка уходит и из адреса, иначе «Назад» и перезагрузка открывали бы ее снова.
+watch(detailsOpen, (open) => {
+  if (!open) linkedBookingId.value = ''
+})
 
 function openDetails(row: BookingRow, opts: { history?: boolean } = {}) {
   detailsId.value = row.id

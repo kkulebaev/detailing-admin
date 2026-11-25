@@ -28,6 +28,7 @@ vi.mock('@/lib/queries', async () => {
       }),
     }),
     useInvalidateBookings: () => vi.fn(),
+    useBookingQuery: () => ({ data: ref(undefined) }),
   }
 })
 

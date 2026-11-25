@@ -5,6 +5,7 @@ export * from './clients/clients';
 export * from './health/health';
 export * from './masters/masters';
 export * from './me/me';
+export * from './notifications/notifications';
 export * from './pricelist/pricelist';
 export * from './salaries/salaries';
 export * from './schedule/schedule';

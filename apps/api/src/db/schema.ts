@@ -24,6 +24,7 @@ import type {
 import type { AuditChange, BookingAuditAction } from '@detailing-admin/shared/booking-audit'
 import type { BookingServiceLine } from '@detailing-admin/shared/booking'
 import type { WorkRuleKind } from '@detailing-admin/shared/work-rules'
+import type { NotificationType } from '@detailing-admin/shared/notifications'
 
 // Аккаунты для входа. Создаются вне приложения через CLI `user:create` (без
 // самостоятельной регистрации). `passwordHash` хранит строку scrypt
@@ -461,3 +462,38 @@ export interface BookingSnapshot {
 
 export type AuditLogRow = typeof auditLog.$inferSelect
 export type NewAuditLogRow = typeof auditLog.$inferInsert
+
+// Лента уведомлений аккаунта и заодно outbox для внешних каналов (`deliveredAt`).
+// Заголовок и текст — готовые снимки, как `decidedByName`: переименование мастера или
+// правка записи старую ленту не переписывают. `pushBody` — текст для пуша и Telegram,
+// когда он отличается от ленты (у записей в нем нет имени клиента); null → `body`.
+// Лента идет по id, а не по createdAt: внутри одной транзакции now() одинаковый.
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: serial('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: varchar('type', { length: 40 }).notNull().$type<NotificationType>(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    link: text('link'),
+    pushBody: text('push_body'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    readAt: timestamp('read_at'),
+    deliveredAt: timestamp('delivered_at'),
+  },
+  (t) => [
+    index('notifications_user_id_idx').on(t.userId, t.id.desc()),
+    index('notifications_unread_idx')
+      .on(t.userId)
+      .where(sql`${t.readAt} is null`),
+    index('notifications_undelivered_idx')
+      .on(t.createdAt)
+      .where(sql`${t.deliveredAt} is null`),
+  ],
+)
+
+export type NotificationRow = typeof notifications.$inferSelect
+export type NewNotificationRow = typeof notifications.$inferInsert

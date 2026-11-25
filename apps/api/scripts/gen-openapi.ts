@@ -41,6 +41,7 @@ const { default: meRouter } = await import('../src/routes/me.js')
 const { default: scheduleRouter } = await import('../src/routes/schedule.js')
 const { default: scheduleRequestsRouter } = await import('../src/routes/schedule-requests.js')
 const { default: myScheduleRequestsRouter } = await import('../src/routes/my-schedule-requests.js')
+const { default: notificationsRouter } = await import('../src/routes/notifications.js')
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -64,6 +65,7 @@ export function buildOpenApiDocument() {
     .route('/api/me/schedule-requests', myScheduleRequestsRouter)
     .route('/api/schedule', scheduleRouter)
     .route('/api/schedule-requests', scheduleRequestsRouter)
+    .route('/api/notifications', notificationsRouter)
 
   return app.getOpenAPIDocument({
     openapi: '3.0.0',

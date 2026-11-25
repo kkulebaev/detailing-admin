@@ -58,10 +58,22 @@ vi.mock('../src/db/salaries.js', () => {
     createPayout: vi.fn(),
     updatePayout: vi.fn(),
     deletePayout: vi.fn(),
+    getWorkHoursById: vi.fn(),
+    getPayoutById: vi.fn(),
   }
 })
 
+// Транзакция маршрута — метка: функции db/salaries замоканы, проверяем только, что
+// изменение и уведомление получают одну и ту же транзакцию.
+const TX = vi.hoisted(() => ({ tx: 'salaries-tx' }))
+vi.mock('../src/db/client.js', () => ({
+  getDb: () => ({ transaction: (fn: (tx: unknown) => unknown) => fn(TX) }),
+}))
+
+vi.mock('../src/notifications/store.js', () => ({ notifyMoney: vi.fn() }))
+
 import { createApp } from '../src/server.js'
+import { notifyMoney } from '../src/notifications/store.js'
 import { isDbReady } from '../src/boot.js'
 import {
   SalaryError,
@@ -74,6 +86,8 @@ import {
   createPayout,
   updatePayout,
   deletePayout,
+  getPayoutById,
+  getWorkHoursById,
 } from '../src/db/salaries.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
 
@@ -255,11 +269,14 @@ describe('/api/salaries', () => {
     expect(body.ok).toBe(true)
     expect(body.hours.id).toBe(5)
     // hours 8 → 480 минут на входе.
-    expect(vi.mocked(createWorkHours)).toHaveBeenCalledWith({
-      masterId: 1,
-      workDate: '2026-07-10',
-      minutes: 480,
-      note: 'смена',
+    expect(vi.mocked(createWorkHours)).toHaveBeenCalledWith(
+      { masterId: 1, workDate: '2026-07-10', minutes: 480, note: 'смена' },
+      TX,
+    )
+    expect(vi.mocked(notifyMoney)).toHaveBeenCalledWith(TX, 'u-admin', 1, {
+      type: 'work_hours.changed',
+      action: 'create',
+      hours: workHoursRow(),
     })
   })
 
@@ -280,14 +297,31 @@ describe('/api/salaries', () => {
     expect(vi.mocked(createWorkHours)).not.toHaveBeenCalled()
   })
 
+  it('PATCH /hours/{id} без изменений мастера не уведомляет', async () => {
+    vi.mocked(notifyMoney).mockClear()
+    vi.mocked(getWorkHoursById).mockResolvedValue(workHoursRow())
+    vi.mocked(updateWorkHours).mockResolvedValue(workHoursRow())
+    // Пустой patch и повтор тех же значений.
+    expect((await req('/hours/5', 'PATCH', {})).status).toBe(200)
+    expect((await req('/hours/5', 'PATCH', { hours: 8, note: '' })).status).toBe(200)
+    expect(vi.mocked(getWorkHoursById)).toHaveBeenCalledWith(5, TX)
+    expect(vi.mocked(notifyMoney)).not.toHaveBeenCalled()
+  })
+
   it('PATCH /hours/{id} редактирует запись → 200', async () => {
+    vi.mocked(getWorkHoursById).mockResolvedValue(workHoursRow())
     vi.mocked(updateWorkHours).mockResolvedValue(workHoursRow({ minutes: 300, note: 'fix' }))
     const res = await req('/hours/5', 'PATCH', { hours: 5, note: 'fix' })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
     // hours 5 → 300 минут; masterId/ставка при редактировании не передаются.
-    expect(vi.mocked(updateWorkHours)).toHaveBeenCalledWith(5, { minutes: 300, note: 'fix' })
+    expect(vi.mocked(updateWorkHours)).toHaveBeenCalledWith(5, { minutes: 300, note: 'fix' }, TX)
+    expect(vi.mocked(notifyMoney)).toHaveBeenCalledWith(TX, 'u-admin', 1, {
+      type: 'work_hours.changed',
+      action: 'update',
+      hours: workHoursRow({ minutes: 300, note: 'fix' }),
+    })
   })
 
   it('PATCH /hours/{id} для несуществующей записи → 404', async () => {
@@ -299,12 +333,18 @@ describe('/api/salaries', () => {
   })
 
   it('DELETE /hours/{id} удаляет запись → 200', async () => {
-    vi.mocked(deleteWorkHours).mockResolvedValue(undefined)
+    vi.mocked(deleteWorkHours).mockResolvedValue(workHoursRow({ masterId: 3 }))
     const res = await req('/hours/5', 'DELETE')
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
-    expect(vi.mocked(deleteWorkHours)).toHaveBeenCalledWith(5)
+    expect(vi.mocked(deleteWorkHours)).toHaveBeenCalledWith(5, TX)
+    // Мастер берется из удаленной строки: в запросе его нет.
+    expect(vi.mocked(notifyMoney)).toHaveBeenCalledWith(TX, 'u-admin', 3, {
+      type: 'work_hours.changed',
+      action: 'delete',
+      hours: workHoursRow({ masterId: 3 }),
+    })
   })
 
   it('POST /payouts без cookie сессии → 401', async () => {
@@ -351,11 +391,14 @@ describe('/api/salaries', () => {
     expect(body.payout.amount).toBe(-2000)
     expect(body.payout.createdAt).toBe('2026-07-05T09:00:00.000Z')
     // Знак переживает round-trip — удержание не должно превратиться в премию.
-    expect(vi.mocked(createPayout)).toHaveBeenCalledWith({
-      masterId: 1,
-      payoutDate: '2026-07-05',
-      amount: -2000,
-      note: 'удержание',
+    expect(vi.mocked(createPayout)).toHaveBeenCalledWith(
+      { masterId: 1, payoutDate: '2026-07-05', amount: -2000, note: 'удержание' },
+      TX,
+    )
+    expect(vi.mocked(notifyMoney)).toHaveBeenCalledWith(TX, 'u-admin', 1, {
+      type: 'payout.changed',
+      action: 'create',
+      payout: payoutRow(),
     })
   })
 
@@ -371,7 +414,18 @@ describe('/api/salaries', () => {
     expect(body.error).toBe('not_found')
   })
 
+  it('PATCH /payouts/{id} без изменений мастера не уведомляет', async () => {
+    vi.mocked(notifyMoney).mockClear()
+    vi.mocked(getPayoutById).mockResolvedValue(payoutRow())
+    vi.mocked(updatePayout).mockResolvedValue(payoutRow())
+    expect((await req('/payouts/9', 'PATCH', {})).status).toBe(200)
+    expect((await req('/payouts/9', 'PATCH', { amount: -2000 })).status).toBe(200)
+    expect(vi.mocked(getPayoutById)).toHaveBeenCalledWith(9, TX)
+    expect(vi.mocked(notifyMoney)).not.toHaveBeenCalled()
+  })
+
   it('PATCH /payouts/{id} редактирует выплату → 200', async () => {
+    vi.mocked(getPayoutById).mockResolvedValue(payoutRow())
     vi.mocked(updatePayout).mockResolvedValue(payoutRow({ amount: 3000, note: 'премия' }))
     const res = await req('/payouts/9', 'PATCH', { amount: 3000, note: 'премия' })
     expect(res.status).toBe(200)
@@ -379,7 +433,12 @@ describe('/api/salaries', () => {
     expect(body.ok).toBe(true)
     expect(body.payout.amount).toBe(3000)
     // masterId при редактировании не передается.
-    expect(vi.mocked(updatePayout)).toHaveBeenCalledWith(9, { amount: 3000, note: 'премия' })
+    expect(vi.mocked(updatePayout)).toHaveBeenCalledWith(9, { amount: 3000, note: 'премия' }, TX)
+    expect(vi.mocked(notifyMoney)).toHaveBeenCalledWith(TX, 'u-admin', 1, {
+      type: 'payout.changed',
+      action: 'update',
+      payout: payoutRow({ amount: 3000, note: 'премия' }),
+    })
   })
 
   it('PATCH /payouts/{id} для несуществующей выплаты → 404', async () => {
@@ -391,12 +450,17 @@ describe('/api/salaries', () => {
   })
 
   it('DELETE /payouts/{id} удаляет выплату → 200', async () => {
-    vi.mocked(deletePayout).mockResolvedValue(undefined)
+    vi.mocked(deletePayout).mockResolvedValue(payoutRow())
     const res = await req('/payouts/9', 'DELETE')
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
-    expect(vi.mocked(deletePayout)).toHaveBeenCalledWith(9)
+    expect(vi.mocked(deletePayout)).toHaveBeenCalledWith(9, TX)
+    expect(vi.mocked(notifyMoney)).toHaveBeenCalledWith(TX, 'u-admin', 1, {
+      type: 'payout.changed',
+      action: 'delete',
+      payout: payoutRow(),
+    })
   })
 
   it('DELETE /payouts/{id} для несуществующей выплаты → 404', async () => {

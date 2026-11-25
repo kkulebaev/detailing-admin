@@ -197,7 +197,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       const master = await findMasterByUserId(c.get('user').sub)
       if (!master) return rejected(c, 'not_linked')
 
-      const request = await createScheduleRequest(master.id, days)
+      const request = await createScheduleRequest(master.id, days, c.get('user').sub)
       baseLogger.info(
         {
           event: 'me.schedule_request.create',

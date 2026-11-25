@@ -44,6 +44,7 @@ vi.mock('@/lib/queries', async () => {
     },
     useMastersQuery: () => ({ data: ref(undefined) }),
     useInvalidateBookings: () => vi.fn(),
+    useBookingQuery: () => ({ data: ref(undefined) }),
   }
 })
 

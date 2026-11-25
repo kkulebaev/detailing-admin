@@ -40,6 +40,7 @@ import { upsertClient } from '../db/clients.js'
 import { selectCarId, upsertClientCarReturningId } from '../db/client-cars.js'
 import {
   deleteBooking,
+  getBooking,
   insertBooking,
   listBookingHistory,
   listBookingJournal,
@@ -213,6 +214,35 @@ const patchBookingRoute = createRoute({
     },
     404: {
       description: 'Booking not found',
+      content: { 'application/json': { schema: notFoundErrorSchema } },
+    },
+    500: {
+      description: 'Internal server error',
+      content: { 'application/json': { schema: internalErrorSchema } },
+    },
+    503: {
+      description: 'Database unavailable',
+      content: { 'application/json': { schema: dbUnavailableErrorSchema } },
+    },
+  },
+})
+
+const getBookingRoute = createRoute({
+  method: 'get',
+  path: '/{id}',
+  tags: ['bookings'],
+  request: { params: idParamSchema },
+  responses: {
+    200: {
+      description: 'One booking',
+      content: { 'application/json': { schema: bookingMutationOkSchema } },
+    },
+    400: {
+      description: 'Validation error',
+      content: { 'application/json': { schema: validationErrorSchema } },
+    },
+    404: {
+      description: 'Booking not found (or deleted)',
       content: { 'application/json': { schema: notFoundErrorSchema } },
     },
     500: {
@@ -1200,5 +1230,32 @@ router.get('/export', async (c) => {
     )
   }
 })
+
+// После всех статических GET (/export, /journal, /deleted): иначе валидатор {id}
+// отклонил бы их раньше. Открыт любой роли, как и список; суммы — по роли.
+router.openapi(
+  getBookingRoute,
+  async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return dbUnavailable(c)
+    const { id } = c.req.valid('param')
+    try {
+      const row = await getBooking(id)
+      if (!row) {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      const role = c.get('user')?.role
+      const includeAmount = role !== undefined && canSeeAmounts(role)
+      return c.json(
+        { ok: true as const, booking: toBookingRow(row, { includeAmount }) },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      return internalError(c, requestId, 'bookings.get.error', err)
+    }
+  },
+  defaultValidationHook,
+)
 
 export default router

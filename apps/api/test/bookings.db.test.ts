@@ -14,7 +14,14 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { bookingSchema } from '@detailing-admin/shared/booking'
-import { bookingToDbRow, insertBooking, listBookings, updateBooking } from '../src/db/bookings.js'
+import {
+  bookingToDbRow,
+  deleteBooking,
+  insertBooking,
+  listBookings,
+  restoreBooking,
+  updateBooking,
+} from '../src/db/bookings.js'
 import { getDb } from '../src/db/client.js'
 import { baseLogger } from '../src/log.js'
 
@@ -615,10 +622,14 @@ describe('id-ссылка на мастера в updateBooking', () => {
       responsibleId: null,
     }
     const { db } = makeWriteDb({
-      // [0] resolveMasterIds, [1] блокировка строки, [2] связи junction для обогащения.
+      // [0] resolveMasterIds, [1] блокировка строки, [2]–[4] мастера «было» по связям,
+      // по снимку и их аккаунты для уведомлений, [5] связи junction для обогащения.
       selectResults: [
         [{ id: 1, name: 'Мастер А' }],
         [updatedRow],
+        [],
+        [],
+        [],
         [{ bookingId: 'bk1', position: 0, name: 'Живое А' }],
       ],
       updateResults: [[updatedRow]],
@@ -674,6 +685,356 @@ describe('id-ссылка на мастера в updateBooking', () => {
     expect(row).toBeNull()
     expect(capture.deletes).toBe(0)
     expect(capture.inserts).toHaveLength(0)
+  })
+})
+
+describe('уведомления мастерам из транзакций записи', () => {
+  // Вставки уведомлений узнаются по полю `type`: аудит и связи его не несут.
+  const notificationInserts = (capture: WriteCapture) =>
+    capture.inserts.filter(
+      (v): v is Array<Record<string, unknown>> => Array.isArray(v) && v.some((r) => 'type' in r),
+    )
+  const account = (masterId: number, userId: string, role = 'employee') => ({
+    masterId,
+    userId,
+    role,
+  })
+
+  const BEFORE = {
+    id: 'bk1',
+    name: 'Иван',
+    car: 'Toyota Camry',
+    service: 'Полировка',
+    dateFrom: '2026-06-04',
+    dateTo: null,
+    timeFrom: '10:00',
+    timeTo: null,
+    amount: 5000,
+    amountFormula: null,
+    discount: 0,
+    readiness: '',
+    master: ['Мастер Б', 'Мастер В'],
+  }
+
+  it('новая запись: назначенному мастеру одно booking.assigned (критерий 1, 6k)', async () => {
+    const { db, capture } = makeWriteDb({
+      // resolveMasterIds; аккаунты мастеров — его аккаунт админский, назначил другой админ.
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [account(1, 'u-admin2', 'admin')]],
+      // bookings, аудит, уведомления, junction.
+      insertResults: [[{ id: 'bk1' }], [], [], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    expect(await insertBooking(makeBooking(), { ...META, actor: ACTOR })).toBe(true)
+    expect(notificationInserts(capture)).toEqual([
+      [
+        {
+          userId: 'u-admin2',
+          type: 'booking.assigned',
+          title: 'Новая запись',
+          body: '04.06, 10:00 · Иван · Toyota Camry · Полировка',
+          pushBody: '04.06, 10:00 · Toyota Camry · Полировка',
+          link: '/bookings?booking=bk1',
+        },
+      ],
+    ])
+  })
+
+  it('booker записал сам себя — уведомлений нет (6a)', async () => {
+    const { db, capture } = makeWriteDb({
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [account(1, 'u-booker', 'booker')]],
+      insertResults: [[{ id: 'bk1' }], [], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    const actor = { id: 'u-booker', login: 'booker', name: '' }
+    await insertBooking(makeBooking(), { ...META, actor })
+    expect(notificationInserts(capture)).toEqual([])
+  })
+
+  it('повтор с тем же ключом идемпотентности уведомлений не создает (6e)', async () => {
+    const { db, capture } = makeWriteDb({
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [account(1, 'uA')]],
+      // onConflictDoNothing ничего не вставил.
+      insertResults: [[]],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    expect(await insertBooking(makeBooking(), { ...META, actor: ACTOR })).toBe(false)
+    expect(notificationInserts(capture)).toEqual([])
+  })
+
+  it('без актора (seed-скрипты) уведомлений нет', async () => {
+    const { db, capture } = makeWriteDb({
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [account(1, 'uA')]],
+      insertResults: [[{ id: 'bk1' }], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await insertBooking(makeBooking(), META)
+    expect(notificationInserts(capture)).toEqual([])
+  })
+
+  it('сбой уведомлений не отменяет запись и пишет notification.insert_failed (6g)', async () => {
+    const { db } = makeWriteDb({
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [account(1, 'uA')]],
+      insertResults: [[{ id: 'bk1' }], [], new Error('notifications down'), []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    expect(await insertBooking(makeBooking(), { ...META, actor: ACTOR })).toBe(true)
+    expect(vi.mocked(baseLogger.warn)).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'notification.insert_failed' }),
+      expect.any(String),
+    )
+  })
+
+  it('правка: добавлен A, снят Б, перенесена дата, В остался (6b)', async () => {
+    const after = { ...BEFORE, master: ['Мастер А', 'Мастер В'], dateFrom: '2026-06-05' }
+    const { db, capture } = makeWriteDb({
+      selectResults: [
+        // resolveMasterIds новых имен.
+        [
+          { id: 1, name: 'Мастер А' },
+          { id: 3, name: 'Мастер В' },
+        ],
+        [BEFORE],
+        // Связи «было» по id, затем имена снимка.
+        [{ masterId: 2 }, { masterId: 3 }],
+        [{ id: 2 }, { id: 3 }],
+        [account(1, 'uA'), account(2, 'uB'), account(3, 'uC')],
+      ],
+      updateResults: [[after]],
+      // аудит, уведомления, junction.
+      insertResults: [[], [], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking(
+      'bk1',
+      makeBooking({ master: ['Мастер А', 'Мастер В'], dateFrom: '05.06.2026' }),
+      null,
+      null,
+      ACTOR,
+    )
+    const [rows] = notificationInserts(capture)
+    expect(rows!.map((r) => [r.userId, r.type])).toEqual([
+      ['uA', 'booking.assigned'],
+      ['uB', 'booking.unassigned'],
+      ['uC', 'booking.changed'],
+    ])
+  })
+
+  it('правка только суммы или готовности уведомлений не создает (критерий 2)', async () => {
+    const after = { ...BEFORE, amount: 7000, readiness: 'Выдана' }
+    const { db, capture } = makeWriteDb({
+      selectResults: [
+        [
+          { id: 2, name: 'Мастер Б' },
+          { id: 3, name: 'Мастер В' },
+        ],
+        [BEFORE],
+        [{ masterId: 2 }, { masterId: 3 }],
+        [{ id: 2 }, { id: 3 }],
+        [account(2, 'uB'), account(3, 'uC')],
+      ],
+      updateResults: [[after]],
+      insertResults: [[], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking(
+      'bk1',
+      makeBooking({ master: ['Мастер Б', 'Мастер В'], amount: 7000 }),
+      null,
+      null,
+      ACTOR,
+    )
+    expect(notificationInserts(capture)).toEqual([])
+  })
+
+  it('после переименования мастера правка не дает ни assigned, ни unassigned (6c)', async () => {
+    // В снимке старое имя, связь по id та же, новое имя резолвится в тот же id.
+    const before = { ...BEFORE, master: ['Старое имя'] }
+    const after = { ...before, master: ['Новое имя'], dateFrom: '2026-06-05' }
+    const { db, capture } = makeWriteDb({
+      selectResults: [
+        [{ id: 2, name: 'Новое имя' }],
+        [before],
+        [{ masterId: 2 }],
+        // Старое имя уже ни во что не резолвится.
+        [],
+        [account(2, 'uB')],
+      ],
+      updateResults: [[after]],
+      insertResults: [[], [], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking(
+      'bk1',
+      makeBooking({ master: ['Новое имя'], dateFrom: '05.06.2026' }),
+      null,
+      null,
+      ACTOR,
+    )
+    const [rows] = notificationInserts(capture)
+    expect(rows!.map((r) => r.type)).toEqual(['booking.changed'])
+  })
+
+  it('старая запись без связей: «было» берется по снимку имен', async () => {
+    const after = { ...BEFORE, master: ['Мастер В'] }
+    const { db, capture } = makeWriteDb({
+      selectResults: [
+        [{ id: 3, name: 'Мастер В' }],
+        [BEFORE],
+        // Связей нет → поиск по снимку ['Мастер Б', 'Мастер В'].
+        [],
+        [{ id: 2 }, { id: 3 }],
+        [account(2, 'uB'), account(3, 'uC')],
+      ],
+      updateResults: [[after]],
+      insertResults: [[], [], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking('bk1', makeBooking({ master: ['Мастер В'] }), null, null, ACTOR)
+    const [rows] = notificationInserts(capture)
+    expect(rows!.map((r) => [r.userId, r.type])).toEqual([['uB', 'booking.unassigned']])
+  })
+
+  it('частичные связи: «было» дополняется именами снимка, ложного assigned нет', async () => {
+    // Связь есть только у Б; В в снимке, но его имя когда-то не нашлось.
+    const after = { ...BEFORE, dateFrom: '2026-06-05' }
+    const { db, capture } = makeWriteDb({
+      selectResults: [
+        [
+          { id: 2, name: 'Мастер Б' },
+          { id: 3, name: 'Мастер В' },
+        ],
+        [BEFORE],
+        [{ masterId: 2 }],
+        [{ id: 2 }, { id: 3 }],
+        [account(2, 'uB'), account(3, 'uC')],
+      ],
+      updateResults: [[after]],
+      insertResults: [[], [], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking(
+      'bk1',
+      makeBooking({ master: ['Мастер Б', 'Мастер В'], dateFrom: '05.06.2026' }),
+      null,
+      null,
+      ACTOR,
+    )
+    const [rows] = notificationInserts(capture)
+    expect(rows!.map((r) => [r.userId, r.type])).toEqual([
+      ['uB', 'booking.changed'],
+      ['uC', 'booking.changed'],
+    ])
+  })
+
+  it('связи переписываются внутри транзакции правки, после чтения «было»', async () => {
+    const after = { ...BEFORE, master: ['Мастер А'] }
+    const { db } = makeWriteDb({
+      selectResults: [[{ id: 1, name: 'Мастер А' }], [BEFORE], [{ masterId: 2 }], [], []],
+      updateResults: [[after]],
+      insertResults: [[], [], []],
+    })
+    // Следим, на какой глубине транзакций идут запросы к связям: под блокировкой строки
+    // следующая правка должна увидеть уже новые связи, а не устаревшие.
+    const events: string[] = []
+    let depth = 0
+    const fake = db as unknown as Record<string, (...a: unknown[]) => unknown>
+    const { transaction, select, delete: del } = fake
+    fake.transaction = async (fn: unknown) => {
+      depth++
+      try {
+        return await transaction!(fn)
+      } finally {
+        depth--
+      }
+    }
+    fake.select = (...a: unknown[]) => {
+      events.push(`select@${depth}`)
+      return select!(...a)
+    }
+    fake.delete = (...a: unknown[]) => {
+      events.push(`delete@${depth}`)
+      return del!(...a)
+    }
+    vi.mocked(getDb).mockReturnValue(db)
+
+    await updateBooking('bk1', makeBooking({ master: ['Мастер А'] }), null, null, ACTOR)
+    const linksDelete = events.indexOf('delete@2')
+    expect(linksDelete).toBeGreaterThan(-1)
+    // Чтение связей «было» (точка сохранения уведомлений) идет до их перезаписи.
+    expect(events.slice(0, linksDelete)).toContain('select@2')
+    expect(events.filter((e) => e.startsWith('delete')).every((e) => e !== 'delete@0')).toBe(true)
+  })
+
+  it('удаление: снятому мастеру booking.unassigned (критерий 3)', async () => {
+    const { db, capture } = makeWriteDb({
+      // Блокировка, связи, строки услуг, аккаунты.
+      selectResults: [
+        [{ ...BEFORE, createdAt: new Date('2026-06-01T00:00:00Z') }],
+        [{ masterId: 2, position: 0 }],
+        [],
+        [{ id: 2 }],
+        [account(2, 'uB')],
+      ],
+      deleteResults: [[]],
+      insertResults: [[], []],
+    })
+    vi.mocked(getDb).mockReturnValue(db)
+
+    expect(await deleteBooking('bk1', ACTOR)).toBe(true)
+    expect(notificationInserts(capture)).toMatchObject([
+      [{ userId: 'uB', type: 'booking.unassigned', title: 'Запись удалена', link: '/bookings' }],
+    ])
+  })
+
+  function restoreDb(accounts: unknown[]) {
+    const snapshot = {
+      booking: {
+        ...BEFORE,
+        idempotencyKey: 'k1',
+        clientId: null,
+        carId: null,
+        responsibleId: null,
+        createdAt: '2026-06-01T00:00:00.000Z',
+      },
+      masters: [{ masterId: 2, position: 0 }],
+      services: [],
+    }
+    return makeWriteDb({
+      // Снимок, живые мастера, имена снимка, аккаунты.
+      selectResults: [[{ snapshot }], [{ id: 2 }], [{ id: 2 }], accounts],
+      // bookings, связи, аудит, уведомления.
+      insertResults: [[{ ...snapshot.booking, createdAt: new Date() }], [], [], []],
+    })
+  }
+
+  it('восстановление: мастеру booking.assigned (критерий 3)', async () => {
+    const { db, capture } = restoreDb([account(2, 'uB')])
+    vi.mocked(getDb).mockReturnValue(db)
+
+    const result = await restoreBooking('bk1', ACTOR)
+    expect(result.ok).toBe(true)
+    expect(notificationInserts(capture)).toMatchObject([
+      [{ userId: 'uB', type: 'booking.assigned', title: 'Запись восстановлена' }],
+    ])
+  })
+
+  it('восстановление, когда мастер архивирован или отвязан: без уведомления, restore успешен (6d)', async () => {
+    const { db, capture } = restoreDb([])
+    vi.mocked(getDb).mockReturnValue(db)
+
+    const result = await restoreBooking('bk1', ACTOR)
+    expect(result.ok).toBe(true)
+    expect(notificationInserts(capture)).toEqual([])
   })
 })
 

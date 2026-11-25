@@ -98,6 +98,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Мои часы', requiresAuth: true, roles: ['booker', 'employee'] },
   },
   {
+    path: '/notifications',
+    name: 'notifications',
+    component: () => import('@/pages/NotificationsPage.vue'),
+    meta: { title: 'Уведомления', requiresAuth: true, roles: ['admin', 'booker', 'employee'] },
+  },
+  {
     path: '/profile',
     name: 'profile',
     component: () => import('@/pages/ProfilePage.vue'),

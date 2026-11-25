@@ -14,6 +14,7 @@ import {
   deleteApiBookingsId,
   getApiBookings,
   getApiBookingsDeleted,
+  getApiBookingsId,
   getApiBookingsIdHistory,
   getApiBookingsJournal,
   postApiBookingsIdRestore,
@@ -37,6 +38,11 @@ export type {
 
 export function fetchBookings(params: GetApiBookingsParams): Promise<BookingsListResponse> {
   return unwrap<BookingsListResponse>(() => getApiBookings(params))
+}
+
+// Одна запись мимо фильтров списка — цель ссылок из уведомлений.
+export function fetchBooking(id: string): Promise<BookingMutationResponse> {
+  return unwrap<BookingMutationResponse>(() => getApiBookingsId(id))
 }
 
 export function updateBooking(

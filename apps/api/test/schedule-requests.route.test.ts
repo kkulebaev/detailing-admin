@@ -144,7 +144,7 @@ describe('/api/me/schedule-requests', () => {
       cookie: await bookerCookie(),
     })
     expect(res.status).toBe(201)
-    expect(vi.mocked(createScheduleRequest)).toHaveBeenCalledWith(7, body.days)
+    expect(vi.mocked(createScheduleRequest)).toHaveBeenCalledWith(7, body.days, 'u-booker')
   })
 
   it('POST принимает прошедшие дни', async () => {
@@ -155,7 +155,7 @@ describe('/api/me/schedule-requests', () => {
       cookie: await employeeCookie(),
     })
     expect(res.status).toBe(201)
-    expect(vi.mocked(createScheduleRequest)).toHaveBeenCalledWith(7, days)
+    expect(vi.mocked(createScheduleRequest)).toHaveBeenCalledWith(7, days, 'u-emp')
   })
 
   it('POST дальше горизонта → 400 too_far', async () => {

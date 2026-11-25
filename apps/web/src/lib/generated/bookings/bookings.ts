@@ -18,6 +18,11 @@ import type {
   GetApiBookingsDeleted200,
   GetApiBookingsDeleted500,
   GetApiBookingsDeleted503,
+  GetApiBookingsId200,
+  GetApiBookingsId400,
+  GetApiBookingsId404,
+  GetApiBookingsId500,
+  GetApiBookingsId503,
   GetApiBookingsIdHistory200,
   GetApiBookingsIdHistory400,
   GetApiBookingsIdHistory500,
@@ -297,6 +302,60 @@ export const deleteApiBookingsId = async (id: string, options?: Parameters<typeo
   {
     ...options,
     method: 'DELETE'
+
+
+  }
+);}
+
+
+export type getApiBookingsIdResponse200 = {
+  data: GetApiBookingsId200
+  status: 200
+}
+
+export type getApiBookingsIdResponse400 = {
+  data: GetApiBookingsId400
+  status: 400
+}
+
+export type getApiBookingsIdResponse404 = {
+  data: GetApiBookingsId404
+  status: 404
+}
+
+export type getApiBookingsIdResponse500 = {
+  data: GetApiBookingsId500
+  status: 500
+}
+
+export type getApiBookingsIdResponse503 = {
+  data: GetApiBookingsId503
+  status: 503
+}
+
+export type getApiBookingsIdResponseSuccess = (getApiBookingsIdResponse200) & {
+  headers: Headers;
+};
+export type getApiBookingsIdResponseError = (getApiBookingsIdResponse400 | getApiBookingsIdResponse404 | getApiBookingsIdResponse500 | getApiBookingsIdResponse503) & {
+  headers: Headers;
+};
+
+export type getApiBookingsIdResponse = (getApiBookingsIdResponseSuccess | getApiBookingsIdResponseError)
+
+export const getGetApiBookingsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/bookings/${id}`
+}
+
+export const getApiBookingsId = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<getApiBookingsIdResponse> => {
+
+  return orvalFetch<getApiBookingsIdResponse>(getGetApiBookingsIdUrl(id),
+  {
+    ...options,
+    method: 'GET'
 
 
   }

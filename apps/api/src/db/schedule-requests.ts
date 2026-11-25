@@ -5,6 +5,11 @@ import type { AuditActor } from './audit.js'
 import { getDb } from './client.js'
 import { applyScheduleDays, ScheduleError } from './schedule.js'
 import { masters, scheduleRequests, type ScheduleRequestRow } from './schema.js'
+import { adminUserIds, insertNotifications } from '../notifications/store.js'
+import {
+  scheduleRequestCreatedNotifications,
+  scheduleRequestDecidedNotifications,
+} from '../notifications/events.js'
 
 export type ScheduleRequestErrorCode = 'not_found' | 'pending_exists' | 'already_decided'
 
@@ -58,6 +63,7 @@ export async function listPendingScheduleRequests(): Promise<ScheduleRequest[]> 
 export async function createScheduleRequest(
   masterId: number,
   days: readonly ScheduleRequestDay[],
+  actorId: string,
 ): Promise<ScheduleRequest> {
   return getDb().transaction(async (tx) => {
     const [master] = await tx
@@ -76,6 +82,13 @@ export async function createScheduleRequest(
 
     const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date))
     const [row] = await tx.insert(scheduleRequests).values({ masterId, days: sorted }).returning()
+    await insertNotifications(tx, async (sp) =>
+      scheduleRequestCreatedNotifications(
+        { masterName: master.name, dayCount: sorted.length },
+        await adminUserIds(sp),
+        actorId,
+      ),
+    )
     return toWire(row!, master.name)
   })
 }
@@ -137,5 +150,22 @@ export async function decideScheduleRequest(
         decidedByName: actor.name || actor.login,
       })
       .where(eq(scheduleRequests.id, id))
+
+    // Аккаунт берется на момент решения, а не подачи: мастера могли перепривязать.
+    await insertNotifications(tx, async (sp) => {
+      const [master] = await sp
+        .select({ userId: masters.userId })
+        .from(masters)
+        .where(eq(masters.id, row.masterId))
+      return scheduleRequestDecidedNotifications(
+        {
+          approve: decision.approve,
+          comment: decision.approve ? null : decision.comment,
+          dayCount: row.days.length,
+        },
+        master?.userId ?? null,
+        actor.id,
+      )
+    })
   })
 }

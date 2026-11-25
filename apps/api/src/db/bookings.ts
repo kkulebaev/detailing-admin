@@ -36,6 +36,12 @@ import {
   type NewBooking,
 } from './schema.js'
 import { baseLogger } from '../log.js'
+import { insertNotifications, masterAccounts } from '../notifications/store.js'
+import {
+  bookingNotifications,
+  type BookingEvent,
+  type BookingSummary,
+} from '../notifications/events.js'
 import {
   BOOKING_ENTITY,
   diffBookings,
@@ -125,6 +131,102 @@ function matchedMasterRows(
     }
   }
   return rows
+}
+
+type SummaryFields = Pick<
+  Booking,
+  'id' | 'name' | 'car' | 'service' | 'dateFrom' | 'dateTo' | 'timeFrom' | 'timeTo'
+>
+
+function toSummary(b: SummaryFields): BookingSummary {
+  return {
+    id: b.id,
+    name: b.name,
+    car: b.car,
+    service: b.service,
+    dateFrom: b.dateFrom,
+    dateTo: b.dateTo,
+    timeFrom: b.timeFrom,
+    timeTo: b.timeTo,
+  }
+}
+
+/** id мастеров по снимку имен — для старых записей, у которых нет id-связей. */
+async function masterIdsByName(db: Pick<Tx, 'select'>, names: string[]): Promise<number[]> {
+  const wanted = [...new Set(names.map((n) => n.trim()).filter(Boolean))]
+  if (wanted.length === 0) return []
+  const rows = await db
+    .select({ id: masters.id })
+    .from(masters)
+    .where(inArray(masters.name, wanted))
+  return rows.map((r) => r.id)
+}
+
+/** Мастера записи: id-связи плюс имена снимка, которые резолвятся сейчас. Связи
+ * главнее имен (после переименования мастера имя из снимка уже не найдется), а имена
+ * закрывают частичные связи: иначе мастер, чье имя когда-то не нашлось, попал бы только
+ * в «стало» и получил ложное «назначили». */
+async function mastersOf(
+  db: Pick<Tx, 'select'>,
+  linkIds: number[],
+  snapshot: string[],
+): Promise<number[]> {
+  return [...new Set([...linkIds, ...(await masterIdsByName(db, snapshot))])]
+}
+
+async function linkedMasterIds(
+  db: Pick<Tx, 'select'>,
+  bookingId: string,
+  snapshot: string[],
+): Promise<number[]> {
+  const links = await db
+    .select({ masterId: bookingMasters.masterId })
+    .from(bookingMasters)
+    .where(eq(bookingMasters.bookingId, bookingId))
+    .orderBy(asc(bookingMasters.position))
+  return mastersOf(
+    db,
+    links.map((l) => l.masterId),
+    snapshot,
+  )
+}
+
+/** Переписывает id-связи записи с мастерами в транзакции самой записи, но в точке
+ * сохранения: под блокировкой строки следующая правка видит уже новые связи, а сбой
+ * линковки (связь производная, ее восстановит backfill) не проваливает запрос. */
+async function writeMasterLinks(
+  tx: Tx,
+  bookingId: string,
+  rows: { bookingId: string; masterId: number; position: number }[],
+  opts: { replace: boolean },
+): Promise<void> {
+  try {
+    await tx.transaction(async (sp) => {
+      if (opts.replace)
+        await sp.delete(bookingMasters).where(eq(bookingMasters.bookingId, bookingId))
+      if (rows.length > 0) await sp.insert(bookingMasters).values(rows).onConflictDoNothing()
+    })
+  } catch (err) {
+    baseLogger.warn(
+      {
+        event: 'booking.junction_update_failed',
+        booking_id: bookingId,
+        message: err instanceof Error ? err.message : String(err),
+      },
+      'Booking master id-link update failed — fields saved, links stale',
+    )
+  }
+}
+
+async function notifyBookingMasters(
+  tx: Tx,
+  actor: AuditActor,
+  event: (sp: Tx) => Promise<{ event: BookingEvent; masterIds: number[] }>,
+) {
+  await insertNotifications(tx, async (sp) => {
+    const { event: e, masterIds } = await event(sp)
+    return bookingNotifications(e, await masterAccounts(sp, masterIds), actor.id)
+  })
 }
 
 /** Накладывает актуальные имена мастеров на страницу строк зеркала. Столбцы-снимки
@@ -318,18 +420,18 @@ export async function listBookingsByClientId(
 /** Best-effort вставка в зеркало. Идемпотентна по `idempotencyKey`: дубль ключа —
  * no-op (возвращает false), а не ошибка: повтор клиента после TTL не должен
  * создать вторую строку. Переводит имена мастеров/ответственного в id: `responsible_id`
- * пишется атомарно со строкой; связующая таблица — отдельный шаг, который выполняется
- * только при реальной вставке (не при no-op из-за конфликта), так что повтор не добавляет
- * связей. Сбой связующей таблицы уходит в best-effort catch маршрута (запись все равно
- * попадает в Sheets и возвращает 201; связь восстановит backfill). */
+ * пишется атомарно со строкой; связующая таблица — отдельная точка сохранения, которая
+ * выполняется только при реальной вставке (не при no-op из-за конфликта), так что повтор
+ * не добавляет связей. Ее сбой только логируется: связь восстановит backfill. */
 export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Promise<boolean> {
   const db = getDb()
   const ids = await resolveMasterIds([...b.master, b.responsible])
   const responsibleId = ids.get(b.responsible.trim()) ?? null
+  const values = bookingToDbRow(b, meta, responsibleId)
   const bookingId = await db.transaction(async (tx) => {
     const inserted = await tx
       .insert(bookings)
-      .values(bookingToDbRow(b, meta, responsibleId))
+      .values(values)
       .onConflictDoNothing({ target: bookings.idempotencyKey })
       .returning({ id: bookings.id })
     if (inserted.length === 0) return null
@@ -347,16 +449,34 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
         'Booking service lines insert failed — booking mirrored without lines',
       )
     }
-    if (meta.actor) await recordBookingAudit(tx, meta.actor, inserted[0].id, 'create')
+    // Без актора (seed-скрипты) нет и уведомлений: фейковые записи не должны падать
+    // в ленту настоящим мастерам. Уведомления пишутся только при реальной вставке, так
+    // что повтор с тем же ключом идемпотентности их не дублирует.
+    if (meta.actor) {
+      const actor = meta.actor
+      const id = inserted[0].id
+      await recordBookingAudit(tx, actor, id, 'create')
+      const masterIds = matchedMasterRows(id, b.master, ids).map((r) => r.masterId)
+      await notifyBookingMasters(tx, actor, async () => ({
+        event: {
+          kind: 'create',
+          booking: toSummary({
+            ...values,
+            id,
+            dateTo: values.dateTo ?? null,
+            timeTo: values.timeTo ?? null,
+          }),
+          masterIds,
+        },
+        masterIds,
+      }))
+    }
+    await writeMasterLinks(tx, inserted[0].id, matchedMasterRows(inserted[0].id, b.master, ids), {
+      replace: false,
+    })
     return inserted[0].id
   })
-  if (bookingId === null) return false
-
-  const masterRows = matchedMasterRows(bookingId, b.master, ids)
-  if (masterRows.length > 0) {
-    await db.insert(bookingMasters).values(masterRows).onConflictDoNothing()
-  }
-  return true
+  return bookingId !== null
 }
 
 /** Блокирует строку до конца транзакции, чтобы снимок «было» в журнале совпадал с тем,
@@ -370,9 +490,9 @@ async function lockBooking(tx: Tx, id: string): Promise<Booking | undefined> {
  * идемпотентности и связь с Sheets не трогает. Возвращает обновленную строку или null,
  * если записи с таким id нет. `car_id` (определяется в маршруте только чтением) и
  * `responsible_id` обновляются атомарно вместе
- * с полями; связующая таблица переписывается (delete + повторный insert) отдельным
- * best-effort шагом, сбой которого проглатывается — PATCH все равно возвращает 200
- * (Sheets — источник истины; id-связь производная и восстанавливается backfill'ом). */
+ * с полями; связующая таблица переписывается (delete + повторный insert) в той же
+ * транзакции, но в точке сохранения, сбой которой проглатывается — PATCH все равно
+ * возвращает 200 (id-связь производная и восстанавливается backfill'ом). */
 export async function updateBooking(
   id: string,
   b: WireBooking,
@@ -405,26 +525,26 @@ export async function updateBooking(
       .returning()
     const changes = diffBookings(before, after)
     if (changes.length > 0) await recordBookingAudit(tx, actor, id, 'update', { changes })
+    // Уведомления читают связи «было», поэтому идут до их перезаписи.
+    const afterMasterIds = matchedMasterRows(id, b.master, ids).map((r) => r.masterId)
+    await notifyBookingMasters(tx, actor, async (sp) => {
+      const beforeMasterIds = await linkedMasterIds(sp, id, before.master)
+      return {
+        event: {
+          kind: 'update',
+          before: toSummary(before),
+          after: toSummary(after),
+          beforeMasterIds,
+          afterMasterIds,
+        },
+        masterIds: [...beforeMasterIds, ...afterMasterIds],
+      }
+    })
+    await writeMasterLinks(tx, id, matchedMasterRows(id, b.master, ids), { replace: true })
     return after
   })
   if (!row) return null
 
-  try {
-    await db.delete(bookingMasters).where(eq(bookingMasters.bookingId, id))
-    const masterRows = matchedMasterRows(id, b.master, ids)
-    if (masterRows.length > 0) {
-      await db.insert(bookingMasters).values(masterRows).onConflictDoNothing()
-    }
-  } catch (err) {
-    baseLogger.warn(
-      {
-        event: 'booking.junction_update_failed',
-        booking_id: id,
-        message: err instanceof Error ? err.message : String(err),
-      },
-      'Booking master id-link update failed — fields saved, links stale',
-    )
-  }
   const [enriched] = await enrichForRead([row])
   return enriched
 }
@@ -473,6 +593,14 @@ export async function deleteBooking(id: string, actor: AuditActor): Promise<bool
     }
     await tx.delete(bookings).where(eq(bookings.id, id))
     await recordBookingAudit(tx, actor, id, 'delete', { snapshot })
+    await notifyBookingMasters(tx, actor, async (sp) => {
+      const masterIds = await mastersOf(
+        sp,
+        links.map((l) => l.masterId),
+        before.master,
+      )
+      return { event: { kind: 'delete', booking: toSummary(before), masterIds }, masterIds }
+    })
     return true
   })
 }
@@ -537,19 +665,37 @@ export async function restoreBooking(id: string, actor: AuditActor): Promise<Res
     if (!row) return { ok: false, reason: 'already_restored' }
 
     const links = snap.masters.filter((m) => liveMasters.has(m.masterId))
-    if (links.length > 0) {
-      await tx
-        .insert(bookingMasters)
-        .values(links.map((m) => ({ bookingId: id, ...m })))
-        .onConflictDoNothing()
-    }
+    await writeMasterLinks(
+      tx,
+      id,
+      links.map((m) => ({ bookingId: id, ...m })),
+      { replace: false },
+    )
     await insertServiceLines(tx, id, snap.services ?? [])
     await recordBookingAudit(tx, actor, id, 'restore')
+    // Мастер, которого за это время архивировали или отвязали от аккаунта, выпадет
+    // в masterAccounts.
+    await notifyBookingMasters(tx, actor, async (sp) => {
+      const masterIds = await mastersOf(
+        sp,
+        links.map((m) => m.masterId),
+        b.master,
+      )
+      return { event: { kind: 'restore', booking: toSummary(row), masterIds }, masterIds }
+    })
     return { ok: true, booking: row }
   })
   if (!restored.ok) return restored
   const [enriched] = await enrichForRead([restored.booking])
   return { ok: true, booking: enriched }
+}
+
+/** Одна запись по id — для ссылки из уведомления, мимо фильтров списка. */
+export async function getBooking(id: string): Promise<BookingWithCreator | null> {
+  const [row] = await getDb().select().from(bookings).where(eq(bookings.id, id))
+  if (!row) return null
+  const [enriched] = await enrichForRead([row])
+  return enriched ?? null
 }
 
 /** История изменений записи по порядку. Работает и для удаленной записи. */
