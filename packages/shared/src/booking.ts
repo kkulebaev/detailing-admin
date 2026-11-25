@@ -106,10 +106,6 @@ export const bookingSchema = z
       .max(120)
       .refine((v) => !/^[=+\-@]/.test(v), 'Недопустимое имя'),
     carClass: carClassSchema,
-    // Если true, бэкенд шлет уведомление в Telegram назначенному мастеру после
-    // того, как запись попала в Sheets. Best-effort — никогда не блокирует
-    // запись и не сериализуется в строку листа (см. bookingToRow).
-    notify: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
     if (v.dateTo) {

@@ -53,7 +53,6 @@ import {
 } from '../db/bookings.js'
 import type { AuditActor } from '../db/audit.js'
 import type { AuthTokenClaims } from '../auth/jwt.js'
-import { notifyMaster } from '../notify.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 import { EXPORT_CAP, SHOP_TIMEZONE } from '../export.js'
@@ -71,21 +70,11 @@ const idempotencyHeaderSchema = z.object({
     .max(128, 'Required; max 128 chars'),
 })
 
-// Повторяет `notificationResultSchema` из @detailing-admin/shared. Переопределена здесь
-// на экземпляре `z` из OpenAPI (в shared — обычный zod), чтобы генерируемая спецификация
-// оставалась точной; держи обе синхронными.
-const notificationResultSchema = z.object({
-  attempted: z.boolean(),
-  delivered: z.boolean(),
-  reason: z.string().optional(),
-})
-
 const bookingSuccessSchema = z.object({
   ok: z.literal(true),
   idempotent: z.boolean(),
   updatedRange: z.string(),
   updatedRow: z.number(),
-  notification: notificationResultSchema.optional(),
 })
 
 const postBookingRoute = createRoute({
@@ -590,9 +579,6 @@ router.openapi(postBookingRoute, async (c) => {
           idempotent: true,
           updatedRange: cached.updatedRange,
           updatedRow: cached.updatedRow,
-          // Повторяем исходный результат уведомления; попадание в кэш не должно
-          // повторно слать в Telegram.
-          ...(cached.notification ? { notification: cached.notification } : {}),
         },
         StatusCodes.CREATED,
       )
@@ -699,17 +685,11 @@ router.openapi(postBookingRoute, async (c) => {
     }
   }
 
-  // Best-effort уведомление мастеру в Telegram. Выполняется после того, как запись
-  // попала в Sheets, и никогда ее не блокирует — сбой лишь понижает ответ до
-  // предупреждения, которое показывает форма. Без запроса полностью пропускается.
-  const notification = booking.notify ? await notifyMaster(booking) : undefined
-
   const successResult = {
     ok: true as const,
     idempotent: false,
     updatedRange: appendResult.updatedRange,
     updatedRow: appendResult.updatedRow,
-    ...(notification ? { notification } : {}),
   }
   idempotency.set(idempotencyKey, successResult)
 
@@ -724,8 +704,6 @@ router.openapi(postBookingRoute, async (c) => {
       sheets_status_code: appendResult.statusCode,
       client_outcome: clientOutcome,
       booking_persisted: bookingPersisted,
-      notification_attempted: notification?.attempted ?? false,
-      notification_delivered: notification?.delivered ?? null,
       status: 201,
     },
     'Booking created',

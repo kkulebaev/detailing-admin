@@ -594,7 +594,6 @@ export * from './postApiAuthLogin503Reason';
 export * from './postApiAuthLoginBody';
 export * from './postApiAuthLogout200';
 export * from './postApiBookings201';
-export * from './postApiBookings201Notification';
 export * from './postApiBookings400';
 export * from './postApiBookings400Error';
 export * from './postApiBookings400IssuesItem';

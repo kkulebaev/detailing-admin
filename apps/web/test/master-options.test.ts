@@ -9,7 +9,6 @@ function master(overrides: Partial<Master>): Master {
     position: 0,
     canBeResponsible: true,
     paidSalary: true,
-    telegramId: null,
     userId: null,
     ...overrides,
   }

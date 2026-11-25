@@ -344,8 +344,7 @@ async function submit() {
     return
   }
 
-  // transform повторно выполняется на бэкенде; отправляем входную форму данных без флага
-  // notify. Формулу шлем, только когда есть строки услуг: без них ее не из чего собрать,
+  // transform повторно выполняется на бэкенде; отправляем входную форму данных. Формулу шлем, только когда есть строки услуг: без них ее не из чего собрать,
   // и сервер сам решает, оставить ли прежнюю.
   const amountFormula = parsed.data.services
     ? formatAmountFormula(parsed.data.services, parsed.data.amount + discount.value, discount.value)

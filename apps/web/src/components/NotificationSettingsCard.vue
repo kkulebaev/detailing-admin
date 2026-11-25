@@ -211,7 +211,9 @@ async function onToggle(next: boolean) {
               >Сейчас подключить нельзя.</template
             >
             <template v-else-if="telegram.connected">Подключено</template>
-            <template v-else>График, часы и выплаты будут приходить в чат с ботом.</template>
+            <template v-else
+              >Записи, график, часы и выплаты будут приходить в чат с ботом.</template
+            >
           </span>
         </div>
         <template v-if="telegram.kind === 'ready'">

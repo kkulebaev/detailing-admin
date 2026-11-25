@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
 import { getDb } from './client.js'
 import { masters, users, type Master } from './schema.js'
 
@@ -21,14 +21,17 @@ export interface MasterInput {
   name: string
   canBeResponsible: boolean
   paidSalary: boolean
-  telegramId: string | null
   userId: string | null
 }
+
+// Без устаревшей колонки telegram_id: она не уходит клиентам мимо контракта, а SELECT
+// этого релиза не сломаются, когда следующий деплой удалит ее, пока этот контейнер еще жив.
+const { telegramId: _legacyTelegramId, ...masterColumns } = getTableColumns(masters)
 
 export async function listMasters(): Promise<Master[]> {
   const db = getDb()
   return db
-    .select()
+    .select(masterColumns)
     .from(masters)
     .where(eq(masters.archived, false))
     .orderBy(masters.position, masters.id)
@@ -47,18 +50,9 @@ async function assertNameFree(name: string, masterId?: number) {
   throw new MasterError(duplicate.archived ? 'archived_name' : 'duplicate_name')
 }
 
-// Имена уникальны (см. ограничение unique на `name`), поэтому находится не больше
-// одной строки. Используется, чтобы найти chat id мастера в Telegram по свободному
-// имени, сохраненному в записи.
-export async function findMasterByName(name: string): Promise<Master | undefined> {
-  const db = getDb()
-  const [row] = await db.select().from(masters).where(eq(masters.name, name)).limit(1)
-  return row
-}
-
 // Пакетный best-effort резолвер name→id для id-связи запись↔мастер. Обрезает и
 // дедуплицирует запрошенные имена, затем сопоставляет их с UNIQUE `masters.name`
-// (та же семантика точного совпадения, что в findMasterByName). Ненайденного имени
+// (точное совпадение). Ненайденного имени
 // просто нет в map — так задумано, это не ошибка. Пустой ввод сразу возвращает результат.
 export async function resolveMasterIds(names: string[]): Promise<Map<string, number>> {
   const wanted = [...new Set(names.map((n) => n.trim()).filter(Boolean))]
@@ -73,7 +67,11 @@ export async function resolveMasterIds(names: string[]): Promise<Map<string, num
 
 export async function findMasterByUserId(userId: string): Promise<Master | undefined> {
   const db = getDb()
-  const [row] = await db.select().from(masters).where(eq(masters.userId, userId)).limit(1)
+  const [row] = await db
+    .select(masterColumns)
+    .from(masters)
+    .where(eq(masters.userId, userId))
+    .limit(1)
   return row
 }
 
@@ -109,11 +107,10 @@ export async function createMaster(input: MasterInput): Promise<Master> {
       name: input.name,
       canBeResponsible: input.canBeResponsible,
       paidSalary: input.paidSalary,
-      telegramId: input.telegramId,
       userId: input.userId,
       position,
     })
-    .returning()
+    .returning(masterColumns)
   return row
 }
 
@@ -121,7 +118,6 @@ export interface MasterPatch {
   name?: string
   canBeResponsible?: boolean
   paidSalary?: boolean
-  telegramId?: string | null
   userId?: string | null
 }
 
@@ -135,7 +131,7 @@ export async function updateMaster(id: number, patch: MasterPatch): Promise<Mast
     .update(masters)
     .set(patch)
     .where(and(eq(masters.id, id), eq(masters.archived, false)))
-    .returning()
+    .returning(masterColumns)
   if (!row) throw new MasterError('not_found')
   return row
 }
@@ -174,7 +170,7 @@ export async function reorderMasters(ids: number[]): Promise<Master[]> {
       await tx.update(masters).set({ position: i }).where(eq(masters.id, ids[i]))
     }
     return tx
-      .select()
+      .select(masterColumns)
       .from(masters)
       .where(eq(masters.archived, false))
       .orderBy(masters.position, masters.id)

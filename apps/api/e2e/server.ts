@@ -94,7 +94,6 @@ await createMaster({
   name: 'Мастер Петр',
   canBeResponsible: true,
   paidSalary: true,
-  telegramId: '100',
   userId: employee.id,
 })
 

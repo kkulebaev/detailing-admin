@@ -1134,10 +1134,6 @@
                         ]
                       }
                     ]
-                  },
-                  "notify": {
-                    "type": "boolean",
-                    "default": false
                   }
                 },
                 "required": [
@@ -1178,24 +1174,6 @@
                     },
                     "updatedRow": {
                       "type": "number"
-                    },
-                    "notification": {
-                      "type": "object",
-                      "properties": {
-                        "attempted": {
-                          "type": "boolean"
-                        },
-                        "delivered": {
-                          "type": "boolean"
-                        },
-                        "reason": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "attempted",
-                        "delivered"
-                      ]
                     }
                   },
                   "required": [
@@ -1999,10 +1977,6 @@
                         ]
                       }
                     ]
-                  },
-                  "notify": {
-                    "type": "boolean",
-                    "default": false
                   }
                 },
                 "required": [
@@ -8407,10 +8381,6 @@
                           "paidSalary": {
                             "type": "boolean"
                           },
-                          "telegramId": {
-                            "type": "string",
-                            "nullable": true
-                          },
                           "userId": {
                             "type": "string",
                             "nullable": true,
@@ -8423,7 +8393,6 @@
                           "position",
                           "canBeResponsible",
                           "paidSalary",
-                          "telegramId",
                           "userId"
                         ]
                       }
@@ -8526,11 +8495,6 @@
                   "paidSalary": {
                     "type": "boolean"
                   },
-                  "telegramId": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 64
-                  },
                   "userId": {
                     "type": "string",
                     "nullable": true,
@@ -8541,7 +8505,6 @@
                   "name",
                   "canBeResponsible",
                   "paidSalary",
-                  "telegramId",
                   "userId"
                 ]
               }
@@ -8580,10 +8543,6 @@
                         "paidSalary": {
                           "type": "boolean"
                         },
-                        "telegramId": {
-                          "type": "string",
-                          "nullable": true
-                        },
                         "userId": {
                           "type": "string",
                           "nullable": true,
@@ -8596,7 +8555,6 @@
                         "position",
                         "canBeResponsible",
                         "paidSalary",
-                        "telegramId",
                         "userId"
                       ]
                     }
@@ -8875,10 +8833,6 @@
                           "paidSalary": {
                             "type": "boolean"
                           },
-                          "telegramId": {
-                            "type": "string",
-                            "nullable": true
-                          },
                           "userId": {
                             "type": "string",
                             "nullable": true,
@@ -8891,7 +8845,6 @@
                           "position",
                           "canBeResponsible",
                           "paidSalary",
-                          "telegramId",
                           "userId"
                         ]
                       }
@@ -9042,11 +8995,6 @@
                   "paidSalary": {
                     "type": "boolean"
                   },
-                  "telegramId": {
-                    "type": "string",
-                    "nullable": true,
-                    "maxLength": 64
-                  },
                   "userId": {
                     "type": "string",
                     "nullable": true,
@@ -9057,7 +9005,6 @@
                   "name",
                   "canBeResponsible",
                   "paidSalary",
-                  "telegramId",
                   "userId"
                 ]
               }
@@ -9096,10 +9043,6 @@
                         "paidSalary": {
                           "type": "boolean"
                         },
-                        "telegramId": {
-                          "type": "string",
-                          "nullable": true
-                        },
                         "userId": {
                           "type": "string",
                           "nullable": true,
@@ -9112,7 +9055,6 @@
                         "position",
                         "canBeResponsible",
                         "paidSalary",
-                        "telegramId",
                         "userId"
                       ]
                     }

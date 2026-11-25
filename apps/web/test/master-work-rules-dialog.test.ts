@@ -42,7 +42,6 @@ const master: Master = {
   position: 0,
   canBeResponsible: true,
   paidSalary: true,
-  telegramId: null,
   userId: null,
 }
 

@@ -41,7 +41,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
-import { Switch } from '@/components/ui/switch'
 import { Calendar } from '@/components/ui/calendar'
 import ServicePicker from './ServicePicker.vue'
 import MasterMultiSelect from './MasterMultiSelect.vue'
@@ -118,39 +117,8 @@ const mastersWarning = computed(() => {
     : 'Список мастеров недоступен. Обновите страницу.'
 })
 
-// Тоггл «Отправить уведомление» имеет смысл, когда хотя бы у одного выбранного
-// мастера записан Telegram ID. Имена в таблице masters уникальны, поэтому сверять
-// выбранные имена с живым списком безопасно; если список не загрузился, проверять
-// telegramId не по чему, и уведомления остаются недоступны.
-const selectedMasters = computed(() => {
-  const list = mastersData.value?.ok ? mastersData.value.masters : undefined
-  const names = values.master ?? []
-  if (!list || names.length === 0) return []
-  return list.filter((m) => names.includes(m.name))
-})
-// Только мастера с Telegram ID реально получают сообщение (бэкенд шлет им и
-// дедупит по telegramId). Под тоглом показываем, кто НЕ получит — выбранные
-// мастера без Telegram ID (в т.ч. отсутствующие в живом списке).
-const notifyRecipients = computed(() =>
-  selectedMasters.value
-    .filter((m) => typeof m.telegramId === 'string' && m.telegramId.trim().length > 0)
-    .map((m) => m.name),
-)
-const canNotifyMaster = computed(() => notifyRecipients.value.length > 0)
-const notifyMissing = computed(() =>
-  (values.master ?? []).filter((name) => !notifyRecipients.value.includes(name)),
-)
-const notifyHint = computed(() =>
-  (values.master?.length ?? 0) > 0 ? 'У мастеров не указан Telegram ID' : 'Выберите мастера',
-)
-
 // ── Ключ идемпотентности: один на все повторы, перегенерируется после успеха ───
 const idempotencyKey = ref(uuid())
-
-// Синхронизирован с `canNotifyMaster` ниже: при true по умолчанию включен, при false
-// принудительно выключен. Обработчик отправки передает его значение на бэкенд как
-// `notify`, и тот best-effort шлет мастеру сообщение в Telegram.
-const sendNotification = ref(true)
 
 // ── Состояние календаря ───────────────────────────────────────────────────────
 const localTz = getLocalTimeZone()
@@ -504,17 +472,6 @@ const daysOff = useDaysOffWarning(
   computed(() => safeIso(values.dateFrom)),
   computed(() => safeIso(values.dateTo)),
   computed(() => values.master ?? []),
-)
-
-// Синхронизируем тоггл уведомления с доступностью: выключен, когда у выбранного
-// мастера нет Telegram ID, включен, как только выбран мастер, которого можно уведомить.
-// Объявлен после useForm, чтобы немедленный запуск мог прочитать `values` (без ошибки TDZ).
-watch(
-  canNotifyMaster,
-  (ok) => {
-    sendNotification.value = ok
-  },
-  { immediate: true },
 )
 
 // Поле телефона привязано к сырой строке и живет вне FormField (см. F7), поэтому
@@ -879,9 +836,7 @@ function onDateToSelect(date: DateValue | undefined) {
 const handleValidatedSubmit = handleSubmit(async (values) => {
   unavailableBanner.value = null
   const plate = licensePlate.value.trim()
-  // Тоггл принудительно выключен, когда у мастера нет Telegram ID, поэтому его
-  // значению можно верить; бэкенд перепроверяет и вслепую ему не доверяет.
-  const payload = { ...values, plate: plate || undefined, notify: sendNotification.value }
+  const payload = { ...values, plate: plate || undefined }
   // В ячейку «Услуга» идет разбивка по категориям (только названия); поле формы
   // остается простым CSV из названий для восстановления черновика.
   if (serviceBreakdown.value.length > 0) {
@@ -913,11 +868,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   }
 
   if (result.ok) {
-    if (result.notification?.attempted && !result.notification.delivered) {
-      toast.warning('Запись сохранена, но уведомление мастеру не отправлено')
-    } else {
-      toast.success('Запись сохранена')
-    }
+    toast.success('Запись сохранена')
     idempotencyKey.value = uuid()
     resetFormState()
     clearDraft()
@@ -993,7 +944,6 @@ function resetFormState() {
   dateFromCal.value = fresh
   dateToCal.value = fresh
   isRangeMode.value = false
-  sendNotification.value = false
   submitAttempted.value = false
 }
 
@@ -1900,26 +1850,6 @@ watch(
                   <FormMessage />
                 </FormItem>
               </FormField>
-
-              <!-- Уведомление доступно только если у выбранного мастера указан
-                 Telegram ID; иначе тоггл выключен и заблокирован. -->
-              <div class="flex items-start gap-3 pt-2 border-t border-border">
-                <Switch v-model="sendNotification" :disabled="!canNotifyMaster" />
-                <div class="grid gap-1">
-                  <Label class="cursor-pointer" :class="{ 'opacity-50': !canNotifyMaster }">
-                    Отправить уведомление
-                  </Label>
-                  <p v-if="!canNotifyMaster" class="text-xs text-muted-foreground">
-                    {{ notifyHint }}
-                  </p>
-                  <p
-                    v-else-if="sendNotification && notifyMissing.length"
-                    class="text-xs text-muted-foreground"
-                  >
-                    Не получат: {{ notifyMissing.join(', ') }}
-                  </p>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>

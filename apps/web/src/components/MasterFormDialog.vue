@@ -36,7 +36,6 @@ const emit = defineEmits<{
 const name = ref('')
 const canBeResponsible = ref(true)
 const paidSalary = ref(true)
-const telegramId = ref('')
 // Select из reka-ui не принимает пустое значение, поэтому «не привязан» — значение-заглушка.
 const NO_ACCOUNT = 'none'
 const userId = ref(NO_ACCOUNT)
@@ -66,7 +65,6 @@ watch(
     name.value = m?.name ?? ''
     canBeResponsible.value = m?.canBeResponsible ?? true
     paidSalary.value = m?.paidSalary ?? true
-    telegramId.value = m?.telegramId ?? ''
     userId.value = m?.userId ?? NO_ACCOUNT
     error.value = null
     fieldErrors.value = {}
@@ -93,12 +91,10 @@ async function submit() {
     return
   }
 
-  const trimmedTelegram = telegramId.value.trim()
   const payload = {
     name: trimmedName,
     canBeResponsible: canBeResponsible.value,
     paidSalary: paidSalary.value,
-    telegramId: trimmedTelegram === '' ? null : trimmedTelegram,
     userId: userId.value === NO_ACCOUNT ? null : userId.value,
   }
 
@@ -165,38 +161,6 @@ async function submit() {
           />
           <p v-if="fieldErrors.name" class="text-sm text-destructive">
             {{ fieldErrors.name }}
-          </p>
-        </div>
-
-        <div class="grid gap-2">
-          <Label for="master-telegram">
-            Telegram ID
-            <span class="text-muted-foreground font-normal">(для уведомлений, необязательно)</span>
-          </Label>
-          <Input
-            id="master-telegram"
-            v-model="telegramId"
-            placeholder="Например: 123456789"
-            :disabled="submitting"
-            autocomplete="off"
-            maxlength="64"
-          />
-          <p class="text-xs text-muted-foreground">
-            Свой Telegram ID можно узнать у
-            <a
-              href="https://t.me/userinfobot"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="font-medium text-primary underline underline-offset-2"
-              >@userinfobot</a
-            >. Также, для уведомлений мастер должен нажать «/start» у
-            <a
-              href="https://t.me/dazzle_detailing_bot"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="font-medium text-primary underline underline-offset-2"
-              >@dazzle_detailing_bot</a
-            >.
           </p>
         </div>
 

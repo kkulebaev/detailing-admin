@@ -100,7 +100,6 @@ const MASTER = {
   canBeResponsible: true,
   paidSalary: true,
   archived: false,
-  telegramId: null,
   userId: 'u-emp',
 }
 

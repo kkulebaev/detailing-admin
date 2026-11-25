@@ -240,9 +240,6 @@ async function confirmDelete() {
         >
           <div class="flex min-w-0 flex-1 flex-col">
             <span class="truncate font-medium">{{ master.name }}</span>
-            <span v-if="master.telegramId" class="truncate text-xs text-muted-foreground">
-              TG: {{ master.telegramId }}
-            </span>
             <span
               v-if="rulesOf(master).length > 0"
               class="text-xs break-words text-muted-foreground"

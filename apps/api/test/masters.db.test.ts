@@ -87,7 +87,6 @@ describe('createMaster (T2)', () => {
         name: 'Иван Содель',
         canBeResponsible: true,
         paidSalary: true,
-        telegramId: null,
         userId: null,
       }),
     ).rejects.toBeInstanceOf(MasterError)
@@ -107,7 +106,6 @@ describe('createMaster (T2)', () => {
             position: 5,
             canBeResponsible: true,
             paidSalary: true,
-            telegramId: null,
           },
         ],
       ],
@@ -118,7 +116,6 @@ describe('createMaster (T2)', () => {
       name: 'Новый Мастер',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: null,
       userId: null,
     })
 
@@ -127,47 +124,13 @@ describe('createMaster (T2)', () => {
       name: 'Новый Мастер',
       position: 5,
       canBeResponsible: true,
-      telegramId: null,
     })
-  })
-
-  it('сохраняет переданный telegramId при вставке', async () => {
-    const { db, capture } = makeFakeDb({
-      selectResults: [
-        [], // существующей строки нет
-        [{ max: 0 }], // nextPosition
-      ],
-      insertResults: [
-        [
-          {
-            id: 10,
-            name: 'Петр',
-            position: 1,
-            canBeResponsible: true,
-            paidSalary: true,
-            telegramId: '777',
-          },
-        ],
-      ],
-    })
-    _setDbForTest(db)
-
-    const row = await createMaster({
-      name: 'Петр',
-      canBeResponsible: true,
-      paidSalary: true,
-      telegramId: '777',
-      userId: null,
-    })
-
-    expect(row.telegramId).toBe('777')
-    expect(capture.values[0]).toMatchObject({ telegramId: '777' })
   })
 })
 
 describe('привязка аккаунта', () => {
   const userId = '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f'
-  const input = { name: 'Петр', canBeResponsible: true, paidSalary: true, telegramId: null, userId }
+  const input = { name: 'Петр', canBeResponsible: true, paidSalary: true, userId }
 
   it('бросает unknown_user, если аккаунта нет', async () => {
     // проверка имени → свободно; проверка пользователя → не найден.
@@ -233,7 +196,6 @@ describe('имя, занятое архивным мастером', () => {
     name: 'Петр',
     canBeResponsible: true,
     paidSalary: true,
-    telegramId: null,
     userId: null,
   }
 
@@ -322,8 +284,8 @@ describe('инвариант reorderMasters (T3)', () => {
 
   it('для полного набора назначает плотные позиции 0..n-1 в присланном порядке', async () => {
     const final = [
-      { id: 2, name: 'b', position: 0, canBeResponsible: true, paidSalary: true, telegramId: null },
-      { id: 1, name: 'a', position: 1, canBeResponsible: true, paidSalary: true, telegramId: null },
+      { id: 2, name: 'b', position: 0, canBeResponsible: true, paidSalary: true },
+      { id: 1, name: 'a', position: 1, canBeResponsible: true, paidSalary: true },
     ]
     const { db, capture } = makeFakeDb({
       selectResults: [

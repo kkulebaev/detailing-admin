@@ -12,9 +12,9 @@ describe('NOTIFICATION_CHANNELS', () => {
     }
   })
 
-  it('события по записям не уходят в Telegram, остальные уходят', () => {
+  it('в Telegram уходят все типы, включая события по записям', () => {
     for (const type of NOTIFICATION_TYPES) {
-      expect(NOTIFICATION_CHANNELS[type].includes('telegram')).toBe(!type.startsWith('booking.'))
+      expect(NOTIFICATION_CHANNELS[type]).toContain('telegram')
     }
   })
 })

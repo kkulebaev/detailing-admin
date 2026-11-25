@@ -2,9 +2,9 @@ import { assert, describe, it, expect } from 'vitest'
 import { masterInputSchema, reorderInputSchema } from '../src/masters.js'
 
 describe('masterInputSchema', () => {
-  const base = { canBeResponsible: true, paidSalary: true, telegramId: null, userId: null }
+  const base = { canBeResponsible: true, paidSalary: true, userId: null }
 
-  it('принимает известное имя с флагом и telegramId = null', () => {
+  it('принимает известное имя с флагом', () => {
     const r = masterInputSchema.safeParse({ name: 'Иван Содель', ...base })
     expect(r.success).toBe(true)
   })
@@ -18,7 +18,6 @@ describe('masterInputSchema', () => {
     const r = masterInputSchema.safeParse({
       name: 'Петр Новый',
       paidSalary: true,
-      telegramId: null,
     })
     expect(r.success).toBe(false)
   })
@@ -27,7 +26,6 @@ describe('masterInputSchema', () => {
     const r = masterInputSchema.safeParse({
       name: 'Петр Новый',
       canBeResponsible: true,
-      telegramId: null,
     })
     expect(r.success).toBe(false)
   })
@@ -56,35 +54,16 @@ describe('masterInputSchema', () => {
       name: 'Андрей и ко.',
       canBeResponsible: false,
       paidSalary: true,
-      telegramId: null,
       userId: null,
     })
     assert(r.success)
     expect(r.data.canBeResponsible).toBe(false)
   })
 
-  it('принимает строковый telegramId', () => {
-    const r = masterInputSchema.safeParse({
-      name: 'Иван Содель',
-      canBeResponsible: true,
-      paidSalary: true,
-      telegramId: '123456789',
-      userId: null,
-    })
+  it('отбрасывает telegramId, который шлют старые закэшированные клиенты', () => {
+    const r = masterInputSchema.safeParse({ name: 'Иван Содель', ...base, telegramId: '123' })
     assert(r.success)
-    expect(r.data.telegramId).toBe('123456789')
-  })
-
-  it('принимает telegramId = null', () => {
-    const r = masterInputSchema.safeParse({
-      name: 'Иван Содель',
-      canBeResponsible: true,
-      paidSalary: true,
-      telegramId: null,
-      userId: null,
-    })
-    assert(r.success)
-    expect(r.data.telegramId).toBeNull()
+    expect(r.data).not.toHaveProperty('telegramId')
   })
 
   it('принимает id привязанного аккаунта и отклоняет не-uuid', () => {

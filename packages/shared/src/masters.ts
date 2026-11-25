@@ -14,8 +14,6 @@ export const masterSchema = z.object({
   canBeResponsible: z.boolean(),
   // Получает ли мастер зарплату — страница «Зарплаты» показывает только таких.
   paidSalary: z.boolean(),
-  // Nullable — зарезервировано под будущие уведомления в Telegram; в лист не попадает.
-  telegramId: z.string().nullable(),
   // Аккаунт, который вносит часы за этого мастера в «Мои часы». Null — такого нет.
   userId: z.string().uuid().nullable(),
 })
@@ -36,13 +34,11 @@ const masterName = z
 // Семантика полной замены намеренна: у `canBeResponsible` нет `.default()`. Эта
 // схема обслуживает и POST, и PATCH /api/masters/{id} — пропущенный флаг в PATCH
 // должен проваливать валидацию, а не молча воскрешаться в `true`. Форма всегда
-// шлет флаг, так что UX создания не меняется. `telegramId` принимает null
-// (или строку) — refine от инъекций не нужен, в лист он не попадает.
+// шлет флаг, так что UX создания не меняется.
 export const masterInputSchema = z.object({
   name: masterName,
   canBeResponsible: z.boolean(),
   paidSalary: z.boolean(),
-  telegramId: z.string().max(64).nullable(),
   userId: z.string().uuid().nullable(),
 })
 

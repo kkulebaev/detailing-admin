@@ -63,22 +63,11 @@ export const dbUnavailableErrorSchema = z.object({
   message: z.string(),
 })
 
-// Результат best-effort-уведомления в Telegram назначенному мастеру.
-// Есть только когда клиент его запросил (`booking.notify`). `attempted`
-// без `delivered` значит, что запись в Sheets прошла, но до мастера не
-// достучались — веб-форма показывает это как предупреждение, а не ошибку.
-export const notificationResultSchema = z.object({
-  attempted: z.boolean(),
-  delivered: z.boolean(),
-  reason: z.string().optional(),
-})
-
 const bookingSuccessSchema = z.object({
   ok: z.literal(true),
   idempotent: z.boolean(),
   updatedRange: z.string(),
   updatedRow: z.number(),
-  notification: notificationResultSchema.optional(),
 })
 
 export const bookingApiResultSchema = z.union([
@@ -90,7 +79,6 @@ export const bookingApiResultSchema = z.union([
 ])
 
 export type ValidationIssue = z.infer<typeof validationIssueSchema>
-export type NotificationResult = z.infer<typeof notificationResultSchema>
 export type BookingApiResult = z.infer<typeof bookingApiResultSchema>
 
 // Устаревший обобщенный алиас — оставлен, чтобы старые места импорта компилировались.

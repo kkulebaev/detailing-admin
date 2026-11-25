@@ -80,7 +80,6 @@ const master = (over: Partial<Record<string, unknown>> = {}) => ({
   canBeResponsible: true,
   paidSalary: true,
   archived: false,
-  telegramId: null,
   userId: null,
   ...over,
 })
@@ -136,7 +135,7 @@ describe('/api/masters', () => {
       app,
       '/',
       'POST',
-      { name: 'Новый Мастер', canBeResponsible: true, telegramId: null },
+      { name: 'Новый Мастер', canBeResponsible: true },
       await employeeCookie(),
     )
     expect(res.status).toBe(403)
@@ -164,7 +163,6 @@ describe('/api/masters', () => {
       name: 'Новый Мастер',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: null,
       userId: null,
     })
     expect(res.status).toBe(201)
@@ -173,10 +171,8 @@ describe('/api/masters', () => {
     expect(body.master.name).toBe('Новый Мастер')
   })
 
-  it('POST / сохраняет telegramId → 201', async () => {
-    vi.mocked(createMaster).mockResolvedValue(
-      master({ id: 3, name: 'Новый Мастер', telegramId: '123456789' }),
-    )
+  it('POST / отбрасывает telegramId от старых клиентов → 201', async () => {
+    vi.mocked(createMaster).mockResolvedValue(master({ id: 3, name: 'Новый Мастер' }))
     const res = await req(app, '/', 'POST', {
       name: 'Новый Мастер',
       canBeResponsible: true,
@@ -185,13 +181,10 @@ describe('/api/masters', () => {
       userId: null,
     })
     expect(res.status).toBe(201)
-    const body = await res.json()
-    expect(body.master.telegramId).toBe('123456789')
     expect(vi.mocked(createMaster)).toHaveBeenCalledWith({
       name: 'Новый Мастер',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: '123456789',
       userId: null,
     })
   })
@@ -202,7 +195,6 @@ describe('/api/masters', () => {
       name: 'Иван Содель',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: null,
       userId: null,
     })
     expect(res.status).toBe(409)
@@ -218,7 +210,6 @@ describe('/api/masters', () => {
       name: 'Новый Мастер',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: null,
       userId,
     })
     expect(res.status).toBe(201)
@@ -232,7 +223,6 @@ describe('/api/masters', () => {
       name: 'Новый Мастер',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: null,
       userId: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f',
     })
     expect(res.status).toBe(409)
@@ -245,7 +235,6 @@ describe('/api/masters', () => {
       name: 'Иван Содель',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: null,
       userId: '0b3c6f0e-6f8b-4a8e-9d2f-1c2b3a4d5e6f',
     })
     expect(res.status).toBe(400)
@@ -264,24 +253,22 @@ describe('/api/masters', () => {
 
   it('PATCH /{id} обновляет мастера → 200', async () => {
     vi.mocked(updateMaster).mockResolvedValue(
-      master({ name: 'Иван Содель', canBeResponsible: false, telegramId: '42' }),
+      master({ name: 'Иван Содель', canBeResponsible: false }),
     )
     const res = await req(app, '/1', 'PATCH', {
       name: 'Иван Содель',
       canBeResponsible: false,
       paidSalary: true,
-      telegramId: '42',
       userId: null,
     })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(body.master.canBeResponsible).toBe(false)
-    expect(body.master.telegramId).toBe('42')
   })
 
   it('PATCH /{id} без canBeResponsible → 400, молча не возвращает его в true', async () => {
-    const res = await req(app, '/1', 'PATCH', { name: 'Иван Содель', telegramId: null })
+    const res = await req(app, '/1', 'PATCH', { name: 'Иван Содель' })
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toBe('validation')
@@ -294,7 +281,6 @@ describe('/api/masters', () => {
       name: 'Петр Новый',
       canBeResponsible: true,
       paidSalary: true,
-      telegramId: null,
       userId: null,
     })
     expect(res.status).toBe(404)
@@ -342,7 +328,6 @@ describe('/api/masters', () => {
         name: 'Новый Мастер',
         canBeResponsible: true,
         paidSalary: true,
-        telegramId: null,
         userId: null,
       },
     ],
@@ -354,7 +339,6 @@ describe('/api/masters', () => {
         name: 'Новый Мастер',
         canBeResponsible: true,
         paidSalary: true,
-        telegramId: null,
         userId: null,
       },
     ],

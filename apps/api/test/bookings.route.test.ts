@@ -68,10 +68,6 @@ vi.mock('../src/db/bookings.js', async (importActual) => {
   }
 })
 
-vi.mock('../src/notify.js', () => ({
-  notifyMaster: vi.fn(),
-}))
-
 import { createApp } from '../src/server.js'
 import { _clearForTest, set as setIdempotency } from '../src/idempotency.js'
 import { appendBooking } from '../src/sheets.js'
@@ -95,7 +91,6 @@ import {
   listDeletedBookings,
   listBookingJournal,
 } from '../src/db/bookings.js'
-import { notifyMaster } from '../src/notify.js'
 import { baseLogger } from '../src/log.js'
 import { adminCookie, bookerCookie, employeeCookie } from './auth-helpers.js'
 
@@ -153,7 +148,6 @@ describe('POST /api/bookings', () => {
     vi.mocked(upsertClient).mockResolvedValue({ outcome: 'inserted', client: null })
     vi.mocked(upsertClientCarReturningId).mockResolvedValue('car-uuid-1')
     vi.mocked(insertBooking).mockResolvedValue(true)
-    vi.mocked(notifyMaster).mockResolvedValue({ attempted: true, delivered: true })
   })
 
   afterEach(() => {
@@ -362,53 +356,15 @@ describe('POST /api/bookings', () => {
     expect(vi.mocked(upsertClient)).not.toHaveBeenCalled()
   })
 
-  it('не уведомляет мастера, если notify не передан', async () => {
-    await post(app, VALID_PAYLOAD, { 'Idempotency-Key': 'k-no-notify' })
-    expect(vi.mocked(notifyMaster)).not.toHaveBeenCalled()
-  })
-
-  it('уведомляет мастера и возвращает результат доставки, когда notify равен true', async () => {
+  it('отбрасывает notify и telegramId, которые шлют старые закэшированные клиенты', async () => {
     const res = await post(
       app,
-      { ...VALID_PAYLOAD, notify: true },
-      { 'Idempotency-Key': 'k-notify-ok' },
+      { ...VALID_PAYLOAD, notify: true, telegramId: '100' },
+      { 'Idempotency-Key': 'k-legacy-notify' },
     )
     expect(res.status).toBe(201)
-    expect(vi.mocked(notifyMaster)).toHaveBeenCalledTimes(1)
-    const body = await res.json()
-    expect(body.notification).toEqual({ attempted: true, delivered: true })
-  })
-
-  it('запись все равно создается и сообщает о неудачном уведомлении (best-effort)', async () => {
-    vi.mocked(notifyMaster).mockResolvedValue({
-      attempted: true,
-      delivered: false,
-      reason: 'no_telegram_id',
-    })
-    const res = await post(
-      app,
-      { ...VALID_PAYLOAD, notify: true },
-      { 'Idempotency-Key': 'k-notify-fail' },
-    )
-    expect(res.status).toBe(201)
-    const body = await res.json()
-    expect(body.ok).toBe(true)
-    expect(body.notification).toEqual({
-      attempted: true,
-      delivered: false,
-      reason: 'no_telegram_id',
-    })
-  })
-
-  it('идемпотентный повтор возвращает закэшированное уведомление без повторной отправки', async () => {
-    const key = 'k-notify-replay'
-    await post(app, { ...VALID_PAYLOAD, notify: true }, { 'Idempotency-Key': key })
-    const res = await post(app, { ...VALID_PAYLOAD, notify: true }, { 'Idempotency-Key': key })
-    const body = await res.json()
-    expect(body.idempotent).toBe(true)
-    expect(body.notification).toEqual({ attempted: true, delivered: true })
-    // Повтор не должен отправлять заново — notifyMaster вызван только при первом запросе.
-    expect(vi.mocked(notifyMaster)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(insertBooking).mock.calls[0]![0]).not.toHaveProperty('notify')
+    expect(vi.mocked(insertBooking).mock.calls[0]![0]).not.toHaveProperty('telegramId')
   })
 
   it('запись все равно создается, если upsertClient падает (best-effort)', async () => {

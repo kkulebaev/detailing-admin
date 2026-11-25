@@ -21,13 +21,13 @@ export const NOTIFICATION_CHANNEL_NAMES = ['feed', 'push', 'telegram'] as const
 export type NotificationChannel = (typeof NOTIFICATION_CHANNEL_NAMES)[number]
 export type ExternalNotificationChannel = Exclude<NotificationChannel, 'feed'>
 
-// Политика каналов в одном месте. События по записям не идут в Telegram, пока там
-// работает старый флажок «Уведомить», иначе мастер получал бы дубль; когда его вольют
-// в эту систему, достаточно дописать сюда 'telegram'.
+// Политика каналов в одном месте: тип, которого здесь нет в канале, туда не уходит ни
+// сразу после коммита, ни через sweeper. В Telegram события по записям идут текстом
+// pushBody, без имени и телефона клиента.
 export const NOTIFICATION_CHANNELS: Record<NotificationType, readonly NotificationChannel[]> = {
-  'booking.assigned': ['feed', 'push'],
-  'booking.changed': ['feed', 'push'],
-  'booking.unassigned': ['feed', 'push'],
+  'booking.assigned': ['feed', 'push', 'telegram'],
+  'booking.changed': ['feed', 'push', 'telegram'],
+  'booking.unassigned': ['feed', 'push', 'telegram'],
   'schedule_request.created': ['feed', 'push', 'telegram'],
   'schedule_request.decided': ['feed', 'push', 'telegram'],
   'payout.changed': ['feed', 'push', 'telegram'],

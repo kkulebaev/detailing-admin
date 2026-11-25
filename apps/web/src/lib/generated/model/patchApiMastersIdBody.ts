@@ -14,11 +14,6 @@ export type PatchApiMastersIdBody = {
   name: string;
   canBeResponsible: boolean;
   paidSalary: boolean;
-  /**
-     * @maxLength 64
-     * @nullable
-     */
-  telegramId: string | null;
   /** @nullable */
   userId: string | null;
 };

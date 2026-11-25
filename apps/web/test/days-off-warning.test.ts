@@ -11,7 +11,6 @@ const masters: Master[] = [
     position: 0,
     canBeResponsible: true,
     paidSalary: true,
-    telegramId: null,
     userId: null,
   },
   {
@@ -20,7 +19,6 @@ const masters: Master[] = [
     position: 1,
     canBeResponsible: true,
     paidSalary: true,
-    telegramId: null,
     userId: null,
   },
 ]

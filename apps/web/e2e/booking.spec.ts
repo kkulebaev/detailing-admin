@@ -23,11 +23,10 @@ async function fillBooking(page: Page, client: { phone: string; name: string; ca
   await page.getByRole('option', { name: 'Мастер Петр' }).click()
 }
 
-test('сохраняет запись в таблицу и зеркало и уведомляет мастера', async ({ page }) => {
+test('сохраняет запись в таблицу и зеркало', async ({ page }) => {
   await login(page, 'e2e-admin')
   await fillBooking(page, { phone: '9160000001', name: 'Анна', car: 'Kia Rio' })
-  // Включается сам, если у выбранного мастера есть Telegram id.
-  await expect(page.getByRole('switch')).toBeChecked()
+  await expect(page.getByText('Отправить уведомление')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Сохранить запись' }).click()
   await expect(page.getByText('Запись сохранена')).toBeVisible()
@@ -39,7 +38,8 @@ test('сохраняет запись в таблицу и зеркало и у�
   expect(row?.[4]).toBe('Kia Rio')
   expect(row?.[5]).toContain('Полировка кузова')
   expect(row?.[9]).toBe('Мастер Петр')
-  expect(telegramMessages.some((m) => m.chat_id === '100' && m.text.includes('Анна'))).toBe(true)
+  // Имя клиента не уходит в Telegram никому: ни старым путем, ни через уведомления.
+  expect(telegramMessages.some((m) => m.text.includes('Анна'))).toBe(false)
 
   await page.goto('/bookings')
   await expect(page.getByText('Анна').first()).toBeVisible()

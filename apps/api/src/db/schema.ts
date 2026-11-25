@@ -44,8 +44,7 @@ export const users = pgTable('users', {
   lastName: varchar('last_name', { length: 120 }).notNull().default(''),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   passwordChangedAt: timestamp('password_changed_at').notNull().defaultNow(),
-  // Chat id для новых уведомлений, отдельно от masters.telegramId старого флажка
-  // «Уведомить». UNIQUE: один чат получает уведомления одного аккаунта.
+  // Chat id для уведомлений аккаунта. UNIQUE: один чат получает уведомления одного аккаунта.
   telegramChatId: varchar('telegram_chat_id', { length: 64 }).unique(),
 })
 
@@ -197,7 +196,9 @@ export const masters = pgTable('masters', {
   // на строку. API скрывает архивных мастеров, и пути назад нет; восстановление —
   // ручной UPDATE в базе.
   archived: boolean('archived').notNull().default(false),
-  // Зарезервировано под будущие уведомления в Telegram; null, пока мастер его не привяжет.
+  // Не используется: chat id теперь у аккаунта (users.telegramChatId). Колонку удалим
+  // отдельным деплоем позже: во время деплоя на Railway старый контейнер еще работает и
+  // перечисляет ее в своих SELECT, так что DROP в этом же релизе уронил бы его запросы.
   telegramId: varchar('telegram_id', { length: 64 }),
   // Аккаунт, который вносит часы за этого мастера в «Мои часы». UNIQUE: один аккаунт
   // соответствует одному мастеру. `set null` сохраняет мастера и историю выплат, если
@@ -207,7 +208,7 @@ export const masters = pgTable('masters', {
     .references(() => users.id, { onDelete: 'set null' }),
 })
 
-export type Master = typeof masters.$inferSelect
+export type Master = Omit<typeof masters.$inferSelect, 'telegramId'>
 export type NewMaster = typeof masters.$inferInsert
 
 // Связующая таблица для id-связи многие-ко-многим запись↔мастер. `master text[]` в

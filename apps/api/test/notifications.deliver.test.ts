@@ -382,31 +382,34 @@ describe('deliverNotifications — Web Push', () => {
     expect(db.calls.filter((c) => c.op === 'insert')).toHaveLength(0)
   })
 
-  it('без VAPID booking.* в базу не ходит вовсе (критерий 9)', async () => {
+  it('без VAPID подписки на пуши не ищет вовсе (критерий 9)', async () => {
     envMock.VAPID_PRIVATE_KEY = undefined
     const db = makeDb({})
     const sent = fakeSender()
     deliverNotifications([row()])
     await drainDeliveries(1000)
-    expect(db.calls).toHaveLength(0)
+    expect(db.calls.some((c) => c.table === 'push_subscriptions')).toBe(false)
     expect(sent).toHaveLength(0)
   })
 })
 
 describe('deliverNotifications — Telegram', () => {
-  it('booking.* в Telegram не уходят, даже если чат привязан (критерий 4)', async () => {
+  it('booking.* уходят в чат текстом pushBody, без имени клиента', async () => {
     const db = makeDb({ subs: [sub(1, 'https://push.example/a')], chatId: '555' })
     fakeSender()
-    const tg = fakeTelegram()
-    deliverNotifications([
+    const tg = fakeTelegram(200)
+    const rows = [
       row({ type: 'booking.assigned' }),
       row({ type: 'booking.changed' }),
       row({ type: 'booking.unassigned' }),
-    ])
+    ]
+    deliverNotifications(rows)
     await drainDeliveries(1000)
-    expect(tg).toHaveLength(0)
-    expect(claimsOf(db, 'telegram')).toHaveLength(0)
-    expect(db.calls.some((c) => c.table === 'users')).toBe(false)
+    expect(tg.map((m) => m.text)).toEqual(
+      rows.map(() => ['<b>Новая запись</b>', '26.11, 10:00 · Kia Rio · Полировка'].join('\n')),
+    )
+    expect(tg.map((m) => m.text).join('\n')).not.toContain('Иван Петров')
+    expect(claimsOf(db, 'telegram')).toHaveLength(3)
   })
 
   it('деньги уходят в чат: HTML экранирован, ссылки нет', async () => {
@@ -613,9 +616,9 @@ describe('sweepUndelivered', () => {
     expect(where.sql).toContain('"users"."telegram_chat_id" is not null')
     expect(where.params).toContain('push')
     expect(where.params).toContain('telegram')
-    // booking.* только в push-ветке, деньги — в обеих.
+    // Каждый тип идет в обе ветки: и в push, и в Telegram.
     const count = (t: string) => where.params.filter((p) => p === t).length
-    expect(count('booking.assigned')).toBe(1)
+    expect(count('booking.assigned')).toBe(2)
     expect(count('payout.changed')).toBe(2)
     expect(sent).toHaveLength(1)
   })
@@ -626,7 +629,7 @@ describe('sweepUndelivered', () => {
     await sweepUndelivered()
     const where = render(db.calls[0]!.where)
     expect(where.sql).not.toContain('push_subscriptions')
-    expect(where.params).not.toContain('booking.assigned')
+    expect(where.params).toContain('booking.assigned')
   })
 
   it('без базы не запускается', async () => {

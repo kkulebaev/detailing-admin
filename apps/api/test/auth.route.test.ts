@@ -41,10 +41,6 @@ vi.mock('../src/sheets.js', () => ({
   _setClientForTest: vi.fn(),
 }))
 
-vi.mock('../src/notify.js', () => ({
-  notifyMaster: vi.fn(),
-}))
-
 vi.mock('../src/db/clients.js', () => ({
   upsertClient: vi.fn(),
   listClients: vi.fn(),

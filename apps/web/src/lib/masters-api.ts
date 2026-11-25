@@ -32,7 +32,6 @@ export interface MasterInputPayload {
   name: string
   canBeResponsible: boolean
   paidSalary: boolean
-  telegramId: string | null
   userId: string | null
 }
 
