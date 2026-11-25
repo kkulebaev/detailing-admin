@@ -32,7 +32,7 @@ vi.mock('../src/lib/notifications-api', () => ({
 }))
 vi.mock('vue-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
-const toggle = () => page.getByRole('switch', { name: 'Пуши на этом устройстве' })
+const toggle = () => page.getByRole('switch', { name: 'На этом устройстве' })
 
 enableAutoUnmount(afterEach)
 
@@ -53,24 +53,26 @@ describe('NotificationSettingsCard', () => {
 
   const mountCard = () => mount(NotificationSettingsCard, { attachTo: document.body })
 
-  it('без VAPID сообщает, что пуши не настроены, и переключателя нет (критерий 9)', async () => {
+  it('без VAPID пишет «Пока недоступно» и переключателя нет (критерий 9)', async () => {
     vi.mocked(fetchPushPublicKey).mockResolvedValue(null)
     mountCard()
-    await expect.element(page.getByText('Пуши пока не настроены на сервере.')).toBeVisible()
+    await expect.element(page.getByText('Пока недоступно.')).toBeVisible()
     await expect.element(toggle()).not.toBeInTheDocument()
   })
 
   it('на iOS вне экрана «Домой» вместо переключателя подсказка', async () => {
     vi.mocked(pushSupport).mockReturnValue('ios-needs-install')
     mountCard()
-    await expect.element(page.getByText(/Добавьте приложение на экран „Домой“/)).toBeVisible()
+    await expect.element(page.getByText(/только в приложении с экрана «Домой»/)).toBeVisible()
     await expect.element(toggle()).not.toBeInTheDocument()
   })
 
   it('при запрете уведомлений объясняет, как разрешить', async () => {
     vi.mocked(notificationPermission).mockReturnValue('denied')
     mountCard()
-    await expect.element(page.getByText(/Уведомления для этого сайта запрещены/)).toBeVisible()
+    await expect
+      .element(page.getByText(/Уведомления запрещены в настройках браузера/))
+      .toBeVisible()
     await expect.element(toggle()).not.toBeInTheDocument()
   })
 
@@ -96,7 +98,9 @@ describe('NotificationSettingsCard', () => {
     })
     mountCard()
     await toggle().click()
-    await expect.element(page.getByText(/Уведомления для этого сайта запрещены/)).toBeVisible()
+    await expect
+      .element(page.getByText(/Уведомления запрещены в настройках браузера/))
+      .toBeVisible()
   })
 
   it('сбой подписки оставляет переключатель выключенным', async () => {
@@ -184,26 +188,26 @@ describe('NotificationSettingsCard — Telegram', () => {
     await expect.element(page.getByText('Подключено', { exact: true })).not.toBeInTheDocument()
   })
 
-  it('бот недоступен: «Telegram недоступен» и без кнопок', async () => {
+  it('бот недоступен: «Сейчас подключить нельзя» и без кнопок', async () => {
     vi.mocked(fetchTelegramStatus).mockResolvedValue({
       ok: true,
       connected: false,
       botAvailable: false,
     })
     mountCard()
-    await expect.element(page.getByText('Telegram недоступен')).toBeVisible()
+    await expect.element(page.getByText('Сейчас подключить нельзя.')).toBeVisible()
     await expect.element(connect()).not.toBeInTheDocument()
     await expect.element(disconnect()).not.toBeInTheDocument()
   })
 
-  it('без базы тоже «недоступен»', async () => {
+  it('без базы тоже «Сейчас подключить нельзя»', async () => {
     vi.mocked(fetchTelegramStatus).mockResolvedValue({
       ok: false,
       error: 'unavailable',
       message: 'db',
     })
     mountCard()
-    await expect.element(page.getByText('Telegram недоступен')).toBeVisible()
+    await expect.element(page.getByText('Сейчас подключить нельзя.')).toBeVisible()
   })
 
   it.each([

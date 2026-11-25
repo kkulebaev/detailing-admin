@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -147,11 +147,11 @@ async function onToggle(next: boolean) {
     const result = await subscribePush(current.publicKey)
     if (result === 'subscribed') {
       state.value = { ...current, enabled: true }
-      toast.success('Пуши включены на этом устройстве')
+      toast.success('Уведомления на этом устройстве включены')
     } else if (result === 'denied' && notificationPermission() === 'denied') {
       state.value = { kind: 'denied' }
     } else if (result === 'error') {
-      toast.error('Не удалось включить пуши')
+      toast.error('Не удалось включить уведомления')
     }
   } finally {
     busy.value = false
@@ -163,29 +163,38 @@ async function onToggle(next: boolean) {
   <Card>
     <CardHeader>
       <CardTitle>Уведомления</CardTitle>
-      <CardDescription
-        >Лента в приложении работает всегда; пуши приходят на телефон</CardDescription
-      >
     </CardHeader>
     <CardContent class="grid gap-4">
-      <p v-if="state.kind === 'loading'" class="text-sm text-muted-foreground">Загружаем…</p>
-      <p v-else-if="state.kind === 'not-configured'" class="text-sm text-muted-foreground">
-        Пуши пока не настроены на сервере.
-      </p>
-      <p v-else-if="state.kind === 'unsupported'" class="text-sm text-muted-foreground">
-        Этот браузер не поддерживает пуши.
-      </p>
-      <p v-else-if="state.kind === 'ios-needs-install'" class="text-sm text-muted-foreground">
-        Добавьте приложение на экран „Домой“: в Safari нажмите «Поделиться», затем «На экран
-        „Домой“», и откройте приложение с иконки. На iPhone пуши работают только так.
-      </p>
-      <p v-else-if="state.kind === 'denied'" class="text-sm text-muted-foreground">
-        Уведомления для этого сайта запрещены. Разрешите их в настройках браузера (значок слева от
-        адреса → «Уведомления») или телефона и обновите страницу.
-      </p>
-      <div v-else class="flex items-center justify-between gap-4">
-        <Label for="push-toggle" class="cursor-pointer">Пуши на этом устройстве</Label>
+      <div class="flex items-center justify-between gap-4">
+        <div class="grid gap-0.5">
+          <Label
+            v-if="state.kind === 'ready'"
+            for="push-toggle"
+            class="cursor-pointer text-sm font-medium"
+            >На этом устройстве</Label
+          >
+          <span v-else class="text-sm font-medium">На этом устройстве</span>
+          <span class="text-sm text-muted-foreground">
+            <template v-if="state.kind === 'loading'">Загружаем…</template>
+            <template v-else-if="state.kind === 'not-configured'">Пока недоступно.</template>
+            <template v-else-if="state.kind === 'unsupported'">
+              Этот браузер не показывает уведомления. Откройте приложение в Chrome или Safari.
+            </template>
+            <template v-else-if="state.kind === 'ios-needs-install'">
+              На iPhone уведомления работают только в приложении с экрана «Домой». В Safari нажмите
+              «Поделиться» → «На экран Домой» и откройте приложение с иконки.
+            </template>
+            <template v-else-if="state.kind === 'denied'">
+              Уведомления запрещены в настройках браузера. Разрешите их для этого сайта и обновите
+              страницу.
+            </template>
+            <template v-else>
+              Включите на каждом телефоне или компьютере, где хотите их получать.
+            </template>
+          </span>
+        </div>
         <Switch
+          v-if="state.kind === 'ready'"
           id="push-toggle"
           :model-value="state.enabled"
           :disabled="busy"
@@ -196,18 +205,14 @@ async function onToggle(next: boolean) {
       <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t pt-4">
         <div class="grid gap-0.5">
           <span class="text-sm font-medium">Telegram</span>
-          <span v-if="telegram.kind === 'loading'" class="text-sm text-muted-foreground"
-            >Загружаем…</span
-          >
-          <span v-else-if="telegram.kind === 'unavailable'" class="text-sm text-muted-foreground"
-            >Telegram недоступен</span
-          >
-          <span v-else-if="telegram.connected" class="text-sm text-muted-foreground"
-            >Подключено</span
-          >
-          <span v-else class="text-sm text-muted-foreground"
-            >Деньги и заявки на график придут в чат с ботом</span
-          >
+          <span class="text-sm text-muted-foreground">
+            <template v-if="telegram.kind === 'loading'">Загружаем…</template>
+            <template v-else-if="telegram.kind === 'unavailable'"
+              >Сейчас подключить нельзя.</template
+            >
+            <template v-else-if="telegram.connected">Подключено</template>
+            <template v-else>График, часы и выплаты будут приходить в чат с ботом.</template>
+          </span>
         </div>
         <template v-if="telegram.kind === 'ready'">
           <Button
