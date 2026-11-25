@@ -71,6 +71,14 @@ describe('AppSidebar — счетчик уведомлений', () => {
     },
   )
 
+  it('пункт стоит в футере, над профилем', async () => {
+    await mountSidebar('admin')
+    const footer = document.querySelector('[data-sidebar="footer"]')
+    const links = [...(footer?.querySelectorAll('a') ?? [])].map((a) => a.textContent?.trim())
+    expect(links[0]).toMatch(/^Уведомления/)
+    expect(links).toHaveLength(2)
+  })
+
   it('показывает число непрочитанных', async () => {
     q.unread.value = { ok: true, unreadCount: 3 }
     await mountSidebar('employee')

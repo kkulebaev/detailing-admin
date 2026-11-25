@@ -69,12 +69,6 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: { name: 'salaries' }, label: 'Зарплаты', icon: Wallet, roles: ['admin'] },
   { to: { name: 'analytics' }, label: 'Аналитика', icon: BarChart3, roles: ['admin'] },
   { to: { name: 'employee' }, label: 'Мои часы', icon: Clock, roles: ['booker', 'employee'] },
-  {
-    to: { name: 'notifications' },
-    label: 'Уведомления',
-    icon: Bell,
-    roles: ['admin', 'booker', 'employee'],
-  },
 ]
 
 // Общий вид активного состояния для всех пунктов сайдбара (навигация + профиль в футере):
@@ -106,13 +100,7 @@ const pendingCount = computed(() =>
 const unreadCount = computed(() => (unread.value?.ok ? unread.value.unreadCount : 0))
 
 function badgeFor(item: NavItem): number {
-  if (item.to.name === 'schedule') return pendingCount.value
-  if (item.to.name === 'notifications') return unreadCount.value
-  return 0
-}
-
-function badgeLabel(item: NavItem): string {
-  return item.to.name === 'notifications' ? 'непрочитанных' : 'заявок на согласование'
+  return item.to.name === 'schedule' ? pendingCount.value : 0
 }
 
 const route = useRoute()
@@ -169,7 +157,7 @@ async function onLogout() {
                     <span aria-hidden="true">{{
                       badgeFor(item) > 99 ? '99+' : badgeFor(item)
                     }}</span>
-                    <span class="sr-only">, {{ badgeLabel(item) }}: {{ badgeFor(item) }}</span>
+                    <span class="sr-only">, заявок на согласование: {{ badgeFor(item) }}</span>
                   </span>
                 </RouterLink>
               </SidebarMenuButton>
@@ -180,6 +168,25 @@ async function onLogout() {
     </SidebarContent>
     <SidebarFooter class="border-t border-border">
       <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            as-child
+            :is-active="route.name === 'notifications'"
+            :class="ACTIVE_CLASS"
+          >
+            <RouterLink :to="{ name: 'notifications' }">
+              <Bell />
+              <span>Уведомления</span>
+              <span
+                v-if="unreadCount > 0"
+                class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs leading-none font-semibold text-white tabular-nums"
+              >
+                <span aria-hidden="true">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+                <span class="sr-only">, непрочитанных: {{ unreadCount }}</span>
+              </span>
+            </RouterLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton as-child :is-active="route.name === 'profile'" :class="ACTIVE_CLASS">
             <RouterLink :to="{ name: 'profile' }">
