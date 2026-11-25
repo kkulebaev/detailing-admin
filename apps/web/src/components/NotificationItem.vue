@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { Mail, MailOpen } from '@lucide/vue'
 import type { Notification } from '@/lib/notifications-api'
 import { formatTime, notificationVisual } from '@/lib/notification-view'
@@ -41,6 +41,18 @@ let gesture: Gesture | null = null
 let suppressClick = false
 
 const actionWidth = () => actionEl.value?.offsetWidth || ACTION_FALLBACK_PX
+// Кнопка под строкой видна только во время свайпа и анимации закрытия: в скругленных углах
+// списка сглаживание подмешивает ее темный фон к краю белой строки, и угол обводит ореол.
+const ACTION_HIDE_DELAY_MS = 250
+const actionVisible = ref(false)
+let hideTimer: ReturnType<typeof setTimeout> | undefined
+watch([dragging, () => props.swiped], ([isDragging, isSwiped]) => {
+  clearTimeout(hideTimer)
+  if (isDragging || isSwiped) actionVisible.value = true
+  else hideTimer = setTimeout(() => (actionVisible.value = false), ACTION_HIDE_DELAY_MS)
+})
+onBeforeUnmount(() => clearTimeout(hideTimer))
+
 const translate = computed(() =>
   dragging.value ? dragOffset.value : props.swiped ? -actionWidth() : 0,
 )
@@ -146,7 +158,12 @@ function runAction() {
       tabindex="-1"
       aria-hidden="true"
       data-swipe-action
-      class="bg-primary text-primary-foreground absolute inset-y-0 right-0 flex w-24 flex-col items-center justify-center gap-1 text-xs font-medium"
+      :class="
+        cn(
+          'bg-primary text-primary-foreground absolute inset-y-0 right-0 flex w-24 flex-col items-center justify-center gap-1 text-xs font-medium',
+          !actionVisible && 'invisible',
+        )
+      "
       @click="runAction"
     >
       <MailOpen v-if="unread" class="size-5" />

@@ -165,6 +165,19 @@ describe('NotificationsPage', () => {
     expect(router.currentRoute.value.fullPath).toBe('/notifications')
   })
 
+  it('кнопка под закрытой строкой скрыта, иначе ее фон проступает в скругленных углах', async () => {
+    api.fetchNotifications.mockResolvedValue(ok([read(5)]))
+    await mountPage()
+    await expect.element(page.getByRole('button', { name: /^Уведомление 5/ })).toBeVisible()
+    expect(getComputedStyle(action(5)).visibility).toBe('hidden')
+
+    swipe(5, -120)
+    await expect.poll(() => getComputedStyle(action(5)).visibility).toBe('visible')
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    await expect.poll(() => swipedState(5)).toBeNull()
+    await expect.poll(() => getComputedStyle(action(5)).visibility).toBe('hidden')
+  })
+
   it('у непрочитанного действие «Прочитано» шлет /read', async () => {
     api.fetchNotifications.mockResolvedValue(ok([note(5)], false, 1))
     await mountPage()
