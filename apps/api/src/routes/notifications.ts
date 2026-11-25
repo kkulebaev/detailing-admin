@@ -14,6 +14,9 @@ import {
   pushEndpointInputSchema,
   pushSubscriptionInputSchema,
   pushSubscriptionStatusOkSchema,
+  telegramBotUnavailableErrorSchema,
+  telegramLinkOkSchema,
+  telegramStatusOkSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
@@ -31,6 +34,12 @@ import {
   upsertPushSubscription,
 } from '../notifications/push-subscriptions.js'
 import { pushPublicKey } from '../notifications/web-push.js'
+import {
+  createLinkToken,
+  isTelegramConnected,
+  unlinkTelegram,
+} from '../notifications/telegram-link.js'
+import { getBotUsername } from '../notifications/telegram-poller.js'
 import { defaultValidationHook } from '../openapi.js'
 
 // Лента уведомлений любой роли (guard в server.ts только проверяет сессию). Каждый
@@ -241,6 +250,55 @@ const pushCurrentRoute = createRoute({
   },
 })
 
+const telegramStatusRoute = createRoute({
+  method: 'get',
+  path: '/telegram',
+  tags: ['notifications'],
+  responses: {
+    200: {
+      description: 'Whether Telegram is linked to the current account',
+      content: { 'application/json': { schema: telegramStatusOkSchema } },
+    },
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const telegramLinkRoute = createRoute({
+  method: 'post',
+  path: '/telegram/link',
+  tags: ['notifications'],
+  responses: {
+    200: {
+      description: 'One-time deep link to the bot',
+      content: { 'application/json': { schema: telegramLinkOkSchema } },
+    },
+    500: respInternal,
+    503: {
+      description: 'Database or bot unavailable',
+      content: {
+        'application/json': {
+          schema: z.union([dbUnavailableErrorSchema, telegramBotUnavailableErrorSchema]),
+        },
+      },
+    },
+  },
+})
+
+const telegramUnlinkRoute = createRoute({
+  method: 'delete',
+  path: '/telegram',
+  tags: ['notifications'],
+  responses: {
+    200: {
+      description: 'Telegram unlinked (no-op when not linked)',
+      content: { 'application/json': { schema: actionOk } },
+    },
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
 const USER_AGENT_MAX = 512
 
 // Статические пути (/read-all, /push/*) регистрируются до /{id}/read, чтобы валидатор id
@@ -289,6 +347,52 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return c.json({ ok: true as const, subscribed }, StatusCodes.OK)
     } catch (err) {
       return internal(c, 'notifications.push.current.error', requestId, err)
+    }
+  })
+  .openapi(telegramStatusRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return unavailable(c)
+    try {
+      const connected = await isTelegramConnected(c.get('user').sub)
+      return c.json(
+        { ok: true as const, connected, botAvailable: getBotUsername() !== null },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      return internal(c, 'notifications.telegram.status.error', requestId, err)
+    }
+  })
+  .openapi(telegramLinkRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return unavailable(c)
+    const username = getBotUsername()
+    if (username === null) {
+      return c.json(
+        { ok: false as const, error: 'bot_unavailable' as const },
+        StatusCodes.SERVICE_UNAVAILABLE,
+      )
+    }
+    try {
+      const token = await createLinkToken(c.get('user').sub)
+      return c.json(
+        { ok: true as const, url: `https://t.me/${username}?start=${token}` },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      return internal(c, 'notifications.telegram.link.error', requestId, err)
+    }
+  })
+  .openapi(telegramUnlinkRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return unavailable(c)
+    try {
+      await unlinkTelegram(c.get('user').sub)
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'notifications.telegram.unlink.error', requestId, err)
     }
   })
   .openapi(listRoute, async (c) => {

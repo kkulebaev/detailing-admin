@@ -197,6 +197,20 @@
       "when": 1795601926520,
       "tag": "0027_chief_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1795607910106,
+      "tag": "0028_chunky_jasper_sitwell",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1795608822848,
+      "tag": "0029_good_spacker_dave",
+      "breakpoints": true
     }
   ]
 }

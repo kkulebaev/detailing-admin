@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -12,6 +13,7 @@ import {
   subscribePush,
   unsubscribePush,
 } from '@/lib/push'
+import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from '@/lib/notifications-api'
 
 type State =
   | { kind: 'loading' }
@@ -23,6 +25,89 @@ type State =
 
 const state = ref<State>({ kind: 'loading' })
 const busy = ref(false)
+
+type TelegramState =
+  | { kind: 'loading' }
+  | { kind: 'unavailable' }
+  | { kind: 'ready'; connected: boolean }
+
+const telegram = ref<TelegramState>({ kind: 'loading' })
+const telegramBusy = ref(false)
+
+async function loadTelegram() {
+  try {
+    const res = await fetchTelegramStatus()
+    // Подключенный чат работает и без приема апдейтов (сообщения шлет sendMessage), поэтому
+    // «недоступен» показываем, только когда подключить нельзя.
+    if (!res.ok || (!res.connected && !res.botAvailable)) telegram.value = { kind: 'unavailable' }
+    else telegram.value = { kind: 'ready', connected: res.connected }
+  } catch {
+    telegram.value = { kind: 'unavailable' }
+  }
+}
+
+// Привязка завершается в Telegram, а не здесь: вернувшись на вкладку, перечитываем статус.
+function onReturn() {
+  if (document.visibilityState === 'visible' && !telegramBusy.value) void loadTelegram()
+}
+
+onMounted(() => {
+  void loadTelegram()
+  document.addEventListener('visibilitychange', onReturn)
+  window.addEventListener('focus', onReturn)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onReturn)
+  window.removeEventListener('focus', onReturn)
+})
+
+async function connectTelegram() {
+  if (telegramBusy.value) return
+  telegramBusy.value = true
+  // Окно открывается синхронно, прямо в обработчике тапа: после await Safari на iPhone
+  // считает window.open всплывающим окном и блокирует его.
+  const win = window.open('', '_blank')
+  try {
+    const res = await createTelegramLink()
+    if (!res.ok) {
+      win?.close()
+      if (res.error === 'bot_unavailable') telegram.value = { kind: 'unavailable' }
+      else toast.error('Не удалось получить ссылку на Telegram')
+      return
+    }
+    if (win) {
+      win.opener = null
+      win.location.href = res.url
+    } else {
+      // Окно все-таки заблокировали: t.me в этой вкладке откроет приложение Telegram.
+      window.location.href = res.url
+    }
+  } catch {
+    win?.close()
+    toast.error('Не удалось получить ссылку на Telegram')
+  } finally {
+    telegramBusy.value = false
+  }
+}
+
+async function disconnectTelegram() {
+  if (telegramBusy.value) return
+  telegramBusy.value = true
+  try {
+    const res = await unlinkTelegram()
+    if (res.ok) {
+      telegram.value = { kind: 'ready', connected: false }
+      void loadTelegram()
+    } else {
+      toast.error('Не удалось отключить Telegram')
+    }
+  } catch {
+    toast.error('Не удалось отключить Telegram')
+  } finally {
+    telegramBusy.value = false
+  }
+}
 
 onMounted(async () => {
   try {
@@ -82,7 +167,7 @@ async function onToggle(next: boolean) {
         >Лента в приложении работает всегда; пуши приходят на телефон</CardDescription
       >
     </CardHeader>
-    <CardContent>
+    <CardContent class="grid gap-4">
       <p v-if="state.kind === 'loading'" class="text-sm text-muted-foreground">Загружаем…</p>
       <p v-else-if="state.kind === 'not-configured'" class="text-sm text-muted-foreground">
         Пуши пока не настроены на сервере.
@@ -106,6 +191,34 @@ async function onToggle(next: boolean) {
           :disabled="busy"
           @update:model-value="onToggle"
         />
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t pt-4">
+        <div class="grid gap-0.5">
+          <span class="text-sm font-medium">Telegram</span>
+          <span v-if="telegram.kind === 'loading'" class="text-sm text-muted-foreground"
+            >Загружаем…</span
+          >
+          <span v-else-if="telegram.kind === 'unavailable'" class="text-sm text-muted-foreground"
+            >Telegram недоступен</span
+          >
+          <span v-else-if="telegram.connected" class="text-sm text-muted-foreground"
+            >Подключено</span
+          >
+          <span v-else class="text-sm text-muted-foreground"
+            >Деньги и заявки на график придут в чат с ботом</span
+          >
+        </div>
+        <template v-if="telegram.kind === 'ready'">
+          <Button
+            v-if="telegram.connected"
+            variant="outline"
+            :disabled="telegramBusy"
+            @click="disconnectTelegram"
+            >Отключить</Button
+          >
+          <Button v-else :disabled="telegramBusy" @click="connectTelegram">Подключить</Button>
+        </template>
       </div>
     </CardContent>
   </Card>

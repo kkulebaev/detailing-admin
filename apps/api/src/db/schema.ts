@@ -24,7 +24,10 @@ import type {
 import type { AuditChange, BookingAuditAction } from '@detailing-admin/shared/booking-audit'
 import type { BookingServiceLine } from '@detailing-admin/shared/booking'
 import type { WorkRuleKind } from '@detailing-admin/shared/work-rules'
-import type { NotificationType } from '@detailing-admin/shared/notifications'
+import type {
+  ExternalNotificationChannel,
+  NotificationType,
+} from '@detailing-admin/shared/notifications'
 
 // Аккаунты для входа. Создаются вне приложения через CLI `user:create` (без
 // самостоятельной регистрации). `passwordHash` хранит строку scrypt
@@ -41,6 +44,9 @@ export const users = pgTable('users', {
   lastName: varchar('last_name', { length: 120 }).notNull().default(''),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   passwordChangedAt: timestamp('password_changed_at').notNull().defaultNow(),
+  // Chat id для новых уведомлений, отдельно от masters.telegramId старого флажка
+  // «Уведомить». UNIQUE: один чат получает уведомления одного аккаунта.
+  telegramChatId: varchar('telegram_chat_id', { length: 64 }).unique(),
 })
 
 export type User = typeof users.$inferSelect
@@ -463,7 +469,7 @@ export interface BookingSnapshot {
 export type AuditLogRow = typeof auditLog.$inferSelect
 export type NewAuditLogRow = typeof auditLog.$inferInsert
 
-// Лента уведомлений аккаунта и заодно outbox для внешних каналов (`deliveredAt`).
+// Лента уведомлений аккаунта и заодно outbox для внешних каналов (см. notificationDeliveries).
 // Заголовок и текст — готовые снимки, как `decidedByName`: переименование мастера или
 // правка записи старую ленту не переписывают. `pushBody` — текст для пуша и Telegram,
 // когда он отличается от ленты (у записей в нем нет имени клиента); null → `body`.
@@ -482,16 +488,14 @@ export const notifications = pgTable(
     pushBody: text('push_body'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     readAt: timestamp('read_at'),
-    deliveredAt: timestamp('delivered_at'),
   },
   (t) => [
     index('notifications_user_id_idx').on(t.userId, t.id.desc()),
     index('notifications_unread_idx')
       .on(t.userId)
       .where(sql`${t.readAt} is null`),
-    index('notifications_undelivered_idx')
-      .on(t.createdAt)
-      .where(sql`${t.deliveredAt} is null`),
+    // Sweeper ищет окно последних 15 минут, cleanup — старше 90 дней.
+    index('notifications_created_at_idx').on(t.createdAt),
   ],
 )
 
@@ -519,3 +523,32 @@ export const pushSubscriptions = pgTable(
 )
 
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect
+
+// Какой внешний канал уже занял уведомление. Отметка на канал, а не одна на строку:
+// если упал только Telegram, sweeper дошлет его, не повторяя пуш. Строка вставляется до
+// отправки (INSERT … ON CONFLICT DO NOTHING выбирает единственного отправителя) и
+// удаляется, только если канал не смог даже начать отправку.
+export const notificationDeliveries = pgTable(
+  'notification_deliveries',
+  {
+    notificationId: integer('notification_id')
+      .notNull()
+      .references(() => notifications.id, { onDelete: 'cascade' }),
+    channel: varchar('channel', { length: 16 }).notNull().$type<ExternalNotificationChannel>(),
+    claimedAt: timestamp('claimed_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.notificationId, t.channel] })],
+)
+
+// Одноразовый токен deep link t.me/<bot>?start=<token>. В базе только sha256: утекший
+// дамп не дает привязать чужой Telegram. Срок короткий, просроченные чистит cleanup.
+// Погашенный токен не удаляется, а получает usedAt: повторная доставка того же /start
+// должна узнать, к какому аккаунту он был выписан.
+export const telegramLinkTokens = pgTable('telegram_link_tokens', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+})

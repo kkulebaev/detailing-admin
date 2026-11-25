@@ -19,6 +19,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 export const NOTIFICATION_CHANNEL_NAMES = ['feed', 'push', 'telegram'] as const
 export type NotificationChannel = (typeof NOTIFICATION_CHANNEL_NAMES)[number]
+export type ExternalNotificationChannel = Exclude<NotificationChannel, 'feed'>
 
 // Политика каналов в одном месте. События по записям не идут в Telegram, пока там
 // работает старый флажок «Уведомить», иначе мастер получал бы дубль; когда его вольют
@@ -140,6 +141,42 @@ export const pushSubscriptionStatusResponseSchema = z.union([
 export const pushSubscriptionMutationResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
   validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+// ── Telegram ────────────────────────────────────────────────────────────────
+
+export const telegramStatusOkSchema = z.object({
+  ok: z.literal(true),
+  connected: z.boolean(),
+  // false — бот не принимает /start (polling выключен или getMe не прошел): ссылка не
+  // сработала бы, поэтому кнопку «Подключить» не показываем.
+  botAvailable: z.boolean(),
+})
+
+export const telegramStatusResponseSchema = z.union([
+  telegramStatusOkSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export const telegramLinkOkSchema = z.object({ ok: z.literal(true), url: z.string() })
+
+export const telegramBotUnavailableErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('bot_unavailable'),
+})
+
+export const telegramLinkResponseSchema = z.union([
+  telegramLinkOkSchema,
+  telegramBotUnavailableErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export const telegramUnlinkResponseSchema = z.union([
+  z.object({ ok: z.literal(true) }),
   dbUnavailableErrorSchema,
   internalErrorSchema,
 ])

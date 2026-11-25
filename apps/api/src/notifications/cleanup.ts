@@ -4,6 +4,7 @@ import { isDbReady } from '../boot.js'
 import { getDb } from '../db/client.js'
 import { notifications } from '../db/schema.js'
 import { baseLogger } from '../log.js'
+import { deleteExpiredLinkTokens } from './telegram-link.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -25,7 +26,11 @@ async function runCleanup(): Promise<void> {
   if (!isDbReady()) return
   try {
     const deleted = await deleteOldNotifications()
-    baseLogger.info({ event: 'notifications.cleanup', deleted }, 'Old notifications deleted')
+    const expiredTokens = await deleteExpiredLinkTokens()
+    baseLogger.info(
+      { event: 'notifications.cleanup', deleted, expired_tokens: expiredTokens },
+      'Old notifications deleted',
+    )
   } catch (err) {
     baseLogger.warn(
       {

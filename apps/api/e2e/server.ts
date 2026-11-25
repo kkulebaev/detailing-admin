@@ -24,6 +24,8 @@ Object.assign(process.env, {
   VAPID_PUBLIC_KEY: vapidKeys.publicKey,
   VAPID_PRIVATE_KEY: vapidKeys.privateKey,
   VAPID_SUBJECT: 'mailto:e2e@example.com',
+  // Апдейты бота имитирует POST /__e2e/telegram/update, настоящий getUpdates не нужен.
+  TELEGRAM_POLLING: 'false',
 })
 
 const admin = postgres(`${POSTGRES_URL}/postgres`, { max: 1, onnotice: () => {} })
@@ -35,6 +37,8 @@ await admin.end()
 const { _setClientForTest } = await import('../src/sheets.js')
 const { _setFetchForTest } = await import('../src/telegram.js')
 const { _setPushSenderForTest } = await import('../src/notifications/web-push.js')
+const { _setBotUsernameForTest, handleTelegramUpdate } =
+  await import('../src/notifications/telegram-poller.js')
 const { getBootState, init, isDbReady } = await import('../src/boot.js')
 const { createApp } = await import('../src/server.js')
 const { hashPassword } = await import('../src/auth/password.js')
@@ -61,10 +65,12 @@ const fakeSheets = {
 }
 _setClientForTest(fakeSheets as unknown as Parameters<typeof _setClientForTest>[0])
 
-_setFetchForTest(async (_url, init) => {
-  telegramMessages.push(JSON.parse(String(init?.body)))
-  return Response.json({ ok: true })
+_setFetchForTest(async (url, init) => {
+  if (String(url).endsWith('/sendMessage')) telegramMessages.push(JSON.parse(String(init?.body)))
+  return Response.json({ ok: true, result: true })
 })
+// Без poller'а username брать неоткуда, а с ним профиль показывает «Подключить».
+_setBotUsernameForTest('dazzle_e2e_bot')
 
 _setPushSenderForTest(async (subscription, payload) => {
   pushMessages.push({ endpoint: subscription.endpoint, payload: JSON.parse(String(payload)) })
@@ -113,5 +119,15 @@ await createService({
 const app = createApp()
 // Дает спекам проверить, что дошло до фейков. Есть только в этой точке входа.
 app.get('/__e2e/state', (c) => c.json({ sheetRows, telegramMessages, pushMessages }))
+// Сообщение пользователя боту, как его отдал бы getUpdates: проходит тот же обработчик.
+let updateId = 0
+app.post('/__e2e/telegram/update', async (c) => {
+  const { chatId, text } = await c.req.json<{ chatId: number; text: string }>()
+  await handleTelegramUpdate({
+    update_id: ++updateId,
+    message: { text, chat: { id: chatId, type: 'private' } },
+  })
+  return c.json({ ok: true })
+})
 
 serve({ fetch: app.fetch, port: PORT })

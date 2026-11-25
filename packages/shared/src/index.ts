@@ -306,10 +306,17 @@ export {
   pushSubscriptionStatusOkSchema,
   pushSubscriptionStatusResponseSchema,
   pushSubscriptionMutationResponseSchema,
+  telegramStatusOkSchema,
+  telegramStatusResponseSchema,
+  telegramLinkOkSchema,
+  telegramBotUnavailableErrorSchema,
+  telegramLinkResponseSchema,
+  telegramUnlinkResponseSchema,
 } from './notifications.js'
 export type {
   NotificationType,
   NotificationChannel,
+  ExternalNotificationChannel,
   Notification,
   NotificationsListOk,
   PushSubscriptionInput,

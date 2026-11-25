@@ -34,6 +34,13 @@ const envSchema = z
     // если отмечена галочка; определяет и exp у JWT, и maxAge у cookie.
     AUTH_REMEMBER_TTL_SECONDS: z.coerce.number().int().positive().default(2592000),
     WEB_ORIGIN: z.string().min(1).default('http://localhost:5173'),
+    // Прием апдейтов бота (привязка Telegram) long polling'ом из этого процесса. По
+    // умолчанию выключен: локальный .env с токеном чужого бота иначе забирал бы его
+    // апдейты. Включается явно в prod и у dev-бота.
+    TELEGRAM_POLLING: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
     LOG_LEVEL: z
       .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
       .default('info'),

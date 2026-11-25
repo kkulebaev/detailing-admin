@@ -9,6 +9,8 @@ process.env.DATABASE_URL ??= 'postgres://test:test@localhost:5432/test'
 process.env.TELEGRAM_BOT_TOKEN ??= 'test-bot-token'
 process.env.JWT_SECRET ??= 'test-jwt-secret-at-least-32-chars-long'
 process.env.LOG_LEVEL ??= 'silent'
+// Poller из настоящего env.ts забирал бы апдейты бота из .env разработчика.
+process.env.TELEGRAM_POLLING = 'false'
 
 // VAPID из окружения разработчика (или CI) включил бы push в тестах, которые читают
 // настоящий env.ts.

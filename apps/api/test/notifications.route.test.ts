@@ -58,6 +58,16 @@ vi.mock('../src/notifications/web-push.js', async (importOriginal) => ({
   pushPublicKey: () => push.publicKey,
 }))
 
+vi.mock('../src/notifications/telegram-link.js', () => ({
+  createLinkToken: vi.fn(),
+  isTelegramConnected: vi.fn(),
+  unlinkTelegram: vi.fn(),
+  telegramChatIdOf: vi.fn(),
+  unlinkBlockedChat: vi.fn(),
+  deleteExpiredLinkTokens: vi.fn(),
+  linkChatByToken: vi.fn(),
+}))
+
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
 import type { NotificationRow } from '../src/db/schema.js'
@@ -72,6 +82,12 @@ import {
   hasPushSubscription,
   upsertPushSubscription,
 } from '../src/notifications/push-subscriptions.js'
+import {
+  createLinkToken,
+  isTelegramConnected,
+  unlinkTelegram,
+} from '../src/notifications/telegram-link.js'
+import { _setBotUsernameForTest } from '../src/notifications/telegram-poller.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
 
 const row = (id: number, over: Partial<NotificationRow> = {}): NotificationRow => ({
@@ -84,7 +100,6 @@ const row = (id: number, over: Partial<NotificationRow> = {}): NotificationRow =
   pushBody: '26.11, 10:00 · Kia Rio',
   createdAt: new Date('2026-11-25T08:00:00.000Z'),
   readAt: null,
-  deliveredAt: null,
   ...over,
 })
 
@@ -299,5 +314,80 @@ describe('/api/notifications/push', () => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await call(method, path, await employeeCookie(), body)
     expect(res.status).toBe(503)
+  })
+})
+
+describe('/api/notifications/telegram', () => {
+  let app: ReturnType<typeof createApp>
+
+  beforeEach(() => {
+    app = createApp()
+    _setBotUsernameForTest('dazzle_bot')
+    vi.mocked(isDbReady).mockReturnValue(true)
+    for (const fn of [createLinkToken, isTelegramConnected, unlinkTelegram]) {
+      vi.mocked(fn).mockReset()
+    }
+  })
+
+  const call = (method: string, path: string, cookie: string) =>
+    app.request(`/api/notifications/telegram${path}`, { method, headers: { Cookie: cookie } })
+
+  it('без сессии → 401', async () => {
+    expect((await call('GET', '', '')).status).toBe(401)
+    expect((await call('POST', '/link', '')).status).toBe(401)
+    expect((await call('DELETE', '', '')).status).toBe(401)
+    expect(vi.mocked(createLinkToken)).not.toHaveBeenCalled()
+  })
+
+  it('статус своего аккаунта и доступность бота', async () => {
+    vi.mocked(isTelegramConnected).mockResolvedValue(true)
+    const res = await call('GET', '', await employeeCookie())
+    expect(await res.json()).toEqual({ ok: true, connected: true, botAvailable: true })
+    expect(vi.mocked(isTelegramConnected)).toHaveBeenCalledWith('u-emp')
+  })
+
+  it('бот недоступен — botAvailable: false', async () => {
+    _setBotUsernameForTest(null)
+    vi.mocked(isTelegramConnected).mockResolvedValue(false)
+    const res = await call('GET', '', await employeeCookie())
+    expect(await res.json()).toEqual({ ok: true, connected: false, botAvailable: false })
+  })
+
+  it('ссылка — deep link на бота с токеном, выданным своему аккаунту', async () => {
+    vi.mocked(createLinkToken).mockResolvedValue('tok_123-abc')
+    const res = await call('POST', '/link', await adminCookie())
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, url: 'https://t.me/dazzle_bot?start=tok_123-abc' })
+    expect(vi.mocked(createLinkToken)).toHaveBeenCalledWith('u-admin')
+  })
+
+  it('без бота ссылку не выдает и токен не создает', async () => {
+    _setBotUsernameForTest(null)
+    const res = await call('POST', '/link', await employeeCookie())
+    expect(res.status).toBe(503)
+    expect(await res.json()).toEqual({ ok: false, error: 'bot_unavailable' })
+    expect(vi.mocked(createLinkToken)).not.toHaveBeenCalled()
+  })
+
+  it('отвязка — только свой аккаунт', async () => {
+    const res = await call('DELETE', '', await employeeCookie())
+    expect(await res.json()).toEqual({ ok: true })
+    expect(vi.mocked(unlinkTelegram)).toHaveBeenCalledWith('u-emp')
+  })
+
+  it('сбой базы → 500', async () => {
+    vi.mocked(createLinkToken).mockRejectedValue(new Error('db down'))
+    expect((await call('POST', '/link', await employeeCookie())).status).toBe(500)
+  })
+
+  it.each([
+    ['GET', ''],
+    ['POST', '/link'],
+    ['DELETE', ''],
+  ])('%s %s без базы → 503', async (method, path) => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await call(method, path, await employeeCookie())
+    expect(res.status).toBe(503)
+    expect((await res.json()).error).toBe('unavailable')
   })
 })

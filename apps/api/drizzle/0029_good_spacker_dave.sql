@@ -1,0 +1,1 @@
+ALTER TABLE "telegram_link_tokens" ADD COLUMN "used_at" timestamp;

@@ -11,12 +11,18 @@ import type {
   DeleteApiNotificationsPushSubscriptions500,
   DeleteApiNotificationsPushSubscriptions503,
   DeleteApiNotificationsPushSubscriptionsBody,
+  DeleteApiNotificationsTelegram200,
+  DeleteApiNotificationsTelegram500,
+  DeleteApiNotificationsTelegram503,
   GetApiNotifications200,
   GetApiNotifications400,
   GetApiNotifications500,
   GetApiNotifications503,
   GetApiNotificationsParams,
   GetApiNotificationsPushConfig200,
+  GetApiNotificationsTelegram200,
+  GetApiNotificationsTelegram500,
+  GetApiNotificationsTelegram503,
   GetApiNotificationsUnreadCount200,
   GetApiNotificationsUnreadCount500,
   GetApiNotificationsUnreadCount503,
@@ -37,7 +43,10 @@ import type {
   PostApiNotificationsPushSubscriptionsCurrentBody,
   PostApiNotificationsReadAll200,
   PostApiNotificationsReadAll500,
-  PostApiNotificationsReadAll503
+  PostApiNotificationsReadAll503,
+  PostApiNotificationsTelegramLink200,
+  PostApiNotificationsTelegramLink500,
+  PostApiNotificationsTelegramLink503
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
@@ -259,6 +268,138 @@ return orvalFetch<postApiNotificationsPushSubscriptionsCurrentResponse>(getPostA
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(postApiNotificationsPushSubscriptionsCurrentBody)
+  }
+);}
+
+
+export type getApiNotificationsTelegramResponse200 = {
+  data: GetApiNotificationsTelegram200
+  status: 200
+}
+
+export type getApiNotificationsTelegramResponse500 = {
+  data: GetApiNotificationsTelegram500
+  status: 500
+}
+
+export type getApiNotificationsTelegramResponse503 = {
+  data: GetApiNotificationsTelegram503
+  status: 503
+}
+
+export type getApiNotificationsTelegramResponseSuccess = (getApiNotificationsTelegramResponse200) & {
+  headers: Headers;
+};
+export type getApiNotificationsTelegramResponseError = (getApiNotificationsTelegramResponse500 | getApiNotificationsTelegramResponse503) & {
+  headers: Headers;
+};
+
+export type getApiNotificationsTelegramResponse = (getApiNotificationsTelegramResponseSuccess | getApiNotificationsTelegramResponseError)
+
+export const getGetApiNotificationsTelegramUrl = () => {
+
+
+
+
+  return `/api/notifications/telegram`
+}
+
+export const getApiNotificationsTelegram = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<getApiNotificationsTelegramResponse> => {
+
+  return orvalFetch<getApiNotificationsTelegramResponse>(getGetApiNotificationsTelegramUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type deleteApiNotificationsTelegramResponse200 = {
+  data: DeleteApiNotificationsTelegram200
+  status: 200
+}
+
+export type deleteApiNotificationsTelegramResponse500 = {
+  data: DeleteApiNotificationsTelegram500
+  status: 500
+}
+
+export type deleteApiNotificationsTelegramResponse503 = {
+  data: DeleteApiNotificationsTelegram503
+  status: 503
+}
+
+export type deleteApiNotificationsTelegramResponseSuccess = (deleteApiNotificationsTelegramResponse200) & {
+  headers: Headers;
+};
+export type deleteApiNotificationsTelegramResponseError = (deleteApiNotificationsTelegramResponse500 | deleteApiNotificationsTelegramResponse503) & {
+  headers: Headers;
+};
+
+export type deleteApiNotificationsTelegramResponse = (deleteApiNotificationsTelegramResponseSuccess | deleteApiNotificationsTelegramResponseError)
+
+export const getDeleteApiNotificationsTelegramUrl = () => {
+
+
+
+
+  return `/api/notifications/telegram`
+}
+
+export const deleteApiNotificationsTelegram = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<deleteApiNotificationsTelegramResponse> => {
+
+  return orvalFetch<deleteApiNotificationsTelegramResponse>(getDeleteApiNotificationsTelegramUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+export type postApiNotificationsTelegramLinkResponse200 = {
+  data: PostApiNotificationsTelegramLink200
+  status: 200
+}
+
+export type postApiNotificationsTelegramLinkResponse500 = {
+  data: PostApiNotificationsTelegramLink500
+  status: 500
+}
+
+export type postApiNotificationsTelegramLinkResponse503 = {
+  data: PostApiNotificationsTelegramLink503
+  status: 503
+}
+
+export type postApiNotificationsTelegramLinkResponseSuccess = (postApiNotificationsTelegramLinkResponse200) & {
+  headers: Headers;
+};
+export type postApiNotificationsTelegramLinkResponseError = (postApiNotificationsTelegramLinkResponse500 | postApiNotificationsTelegramLinkResponse503) & {
+  headers: Headers;
+};
+
+export type postApiNotificationsTelegramLinkResponse = (postApiNotificationsTelegramLinkResponseSuccess | postApiNotificationsTelegramLinkResponseError)
+
+export const getPostApiNotificationsTelegramLinkUrl = () => {
+
+
+
+
+  return `/api/notifications/telegram/link`
+}
+
+export const postApiNotificationsTelegramLink = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<postApiNotificationsTelegramLinkResponse> => {
+
+  return orvalFetch<postApiNotificationsTelegramLinkResponse>(getPostApiNotificationsTelegramLinkUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
   }
 );}
 

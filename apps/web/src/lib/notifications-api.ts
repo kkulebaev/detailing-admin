@@ -6,6 +6,9 @@ import {
   pushConfigResponseSchema,
   pushSubscriptionMutationResponseSchema,
   pushSubscriptionStatusResponseSchema,
+  telegramLinkResponseSchema,
+  telegramStatusResponseSchema,
+  telegramUnlinkResponseSchema,
   type Notification,
   type PushSubscriptionInput,
 } from '@detailing-admin/shared'
@@ -19,6 +22,9 @@ import {
   postApiNotificationsIdRead,
   postApiNotificationsPushSubscriptions,
   postApiNotificationsReadAll,
+  getApiNotificationsTelegram,
+  postApiNotificationsTelegramLink,
+  deleteApiNotificationsTelegram,
 } from './generated/notifications/notifications'
 
 export type { Notification }
@@ -29,6 +35,9 @@ export type NotificationReadResult = z.infer<typeof notificationReadResponseSche
 export type PushConfigResult = z.infer<typeof pushConfigResponseSchema>
 export type PushSubscriptionStatusResult = z.infer<typeof pushSubscriptionStatusResponseSchema>
 export type PushSubscriptionMutationResult = z.infer<typeof pushSubscriptionMutationResponseSchema>
+export type TelegramStatusResult = z.infer<typeof telegramStatusResponseSchema>
+export type TelegramLinkResult = z.infer<typeof telegramLinkResponseSchema>
+export type TelegramUnlinkResult = z.infer<typeof telegramUnlinkResponseSchema>
 
 export function fetchNotifications(
   params: { before?: number } = {},
@@ -74,4 +83,16 @@ export function fetchPushSubscriptionStatus(
   return unwrap<PushSubscriptionStatusResult>(() =>
     postApiNotificationsPushSubscriptionsCurrent({ endpoint }),
   )
+}
+
+export function fetchTelegramStatus(): Promise<TelegramStatusResult> {
+  return unwrap<TelegramStatusResult>(() => getApiNotificationsTelegram())
+}
+
+export function createTelegramLink(): Promise<TelegramLinkResult> {
+  return unwrap<TelegramLinkResult>(() => postApiNotificationsTelegramLink())
+}
+
+export function unlinkTelegram(): Promise<TelegramUnlinkResult> {
+  return unwrap<TelegramUnlinkResult>(() => deleteApiNotificationsTelegram())
 }

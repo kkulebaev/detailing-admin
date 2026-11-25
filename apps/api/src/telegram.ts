@@ -3,6 +3,11 @@ import { baseLogger } from './log.js'
 
 export interface TelegramSendResult {
   ok: boolean
+  // HTTP-статус ответа Telegram; нет, если ответа не было (сеть, таймаут). Новая
+  // доставка по нему отличает отказ по чату (попытка состоялась) от недоступного API.
+  status?: number
+  // parameters.retry_after из ответа 429: сколько секунд Telegram просит не слать.
+  retryAfter?: number
   // Краткая причина сбоя без PII (`description` от Telegram, HTTP-статус или
   // 'timeout'). Никогда не содержит текст сообщения.
   reason?: string
@@ -26,6 +31,33 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+export interface TelegramApiResponse {
+  status: number
+  body: unknown
+}
+
+/** Произвольный метод Bot API через тот же шов, что и sendMessage. Бросает, если ответа
+ * не было (сеть, abort); не-2xx возвращает как есть: что считать ошибкой, решает вызывающий. */
+export async function callTelegramApi(
+  method: string,
+  payload: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<TelegramApiResponse> {
+  const res = await _fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal,
+  })
+  let body: unknown = null
+  try {
+    body = await res.json()
+  } catch {
+    // Не JSON (прокси, HTML-страница ошибки): хватит статуса.
+  }
+  return { status: res.status, body }
+}
+
 export async function sendTelegramMessage(
   chatId: string,
   text: string,
@@ -47,6 +79,7 @@ export async function sendTelegramMessage(
     })
     if (!res.ok) {
       let reason = `http_${res.status}`
+      let retryAfter: number | undefined
       try {
         const body: unknown = await res.json()
         if (
@@ -57,6 +90,17 @@ export async function sendTelegramMessage(
         ) {
           reason = body.description
         }
+        if (
+          body !== null &&
+          typeof body === 'object' &&
+          'parameters' in body &&
+          typeof body.parameters === 'object' &&
+          body.parameters !== null &&
+          'retry_after' in body.parameters &&
+          typeof body.parameters.retry_after === 'number'
+        ) {
+          retryAfter = body.parameters.retry_after
+        }
       } catch {
         // Тело ошибки не JSON — оставляем запасной вариант http_<status>.
       }
@@ -64,9 +108,11 @@ export async function sendTelegramMessage(
         { event: 'telegram.send_failed', status: res.status, reason },
         'Telegram sendMessage returned non-2xx',
       )
-      return { ok: false, reason }
+      return retryAfter === undefined
+        ? { ok: false, status: res.status, reason }
+        : { ok: false, status: res.status, reason, retryAfter }
     }
-    return { ok: true }
+    return { ok: true, status: res.status }
   } catch (err) {
     const reason =
       err instanceof Error ? (err.name === 'AbortError' ? 'timeout' : err.message) : String(err)

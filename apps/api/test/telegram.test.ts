@@ -43,7 +43,7 @@ describe('sendTelegramMessage', () => {
     _setFetchForTest(fetchMock as unknown as typeof fetch)
 
     const result = await sendTelegramMessage('999', 'x')
-    expect(result).toEqual({ ok: false, reason: 'chat not found' })
+    expect(result).toEqual({ ok: false, status: 400, reason: 'chat not found' })
   })
 
   it('откатывается к http_<status>, если тело ошибки не JSON', async () => {
@@ -57,7 +57,7 @@ describe('sendTelegramMessage', () => {
     _setFetchForTest(fetchMock as unknown as typeof fetch)
 
     const result = await sendTelegramMessage('999', 'x')
-    expect(result).toEqual({ ok: false, reason: 'http_502' })
+    expect(result).toEqual({ ok: false, status: 502, reason: 'http_502' })
   })
 
   it('возвращает ok:false с текстом ошибки, если запрос бросает исключение', async () => {
