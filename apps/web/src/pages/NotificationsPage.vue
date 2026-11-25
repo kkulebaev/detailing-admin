@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { Bell, CheckCheck } from '@lucide/vue'
+import { useEventListener } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  markNotificationUnread,
   type Notification,
 } from '@/lib/notifications-api'
 import { useInvalidateNotifications } from '@/lib/queries'
+import NotificationDialog from '@/components/NotificationDialog.vue'
 import NotificationItem from '@/components/NotificationItem.vue'
 import { groupByDay } from '@/lib/notification-view'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -17,7 +19,6 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const router = useRouter()
 const invalidateNotifications = useInvalidateNotifications()
 
 const items = ref<Notification[]>([])
@@ -68,17 +69,63 @@ async function loadMore() {
   }
 }
 
-// Прочитанным помечаем сразу и не ждем ответа: переход важнее, а сбой отметки
-// лишь оставит уведомление непрочитанным до следующего захода.
-async function open(n: Notification) {
-  if (!n.readAt) {
-    n.readAt = new Date().toISOString()
-    unreadCount.value = Math.max(0, unreadCount.value - 1)
-    void markNotificationRead(n.id)
-      .catch(() => undefined)
-      .finally(() => void invalidateNotifications())
+function setRead(n: Notification, readAt: string | null) {
+  if (Boolean(n.readAt) === Boolean(readAt)) return
+  n.readAt = readAt
+  unreadCount.value = Math.max(0, unreadCount.value + (readAt ? -1 : 1))
+}
+
+// Отметка видна сразу, ответа не ждем. Откатываем, только если отметку с тех пор не
+// поменяли еще раз: иначе сбой старого запроса затер бы более свежий выбор.
+async function mark(n: Notification, readAt: string | null) {
+  const before = n.readAt
+  setRead(n, readAt)
+  let ok = false
+  try {
+    ok = (await (readAt ? markNotificationRead(n.id) : markNotificationUnread(n.id))).ok
+  } catch {
+    ok = false
   }
-  if (n.link) await router.push(n.link)
+  if (!ok && n.readAt === readAt) {
+    setRead(n, before)
+    toast.error('Не удалось изменить отметку уведомления')
+  }
+  await invalidateNotifications()
+}
+
+const selected = ref<Notification | null>(null)
+const dialogOpen = ref(false)
+
+function open(n: Notification) {
+  selected.value = n
+  dialogOpen.value = true
+  if (!n.readAt) void mark(n, new Date().toISOString())
+}
+
+// Открыт не больше одного свайпа; касание где угодно вне его строки (в том числе свайп
+// другой строки) его закрывает.
+const swipedId = ref<number | null>(null)
+
+function setSwiped(id: number, value: boolean) {
+  if (value) swipedId.value = id
+  else if (swipedId.value === id) swipedId.value = null
+}
+
+useEventListener(
+  document,
+  'pointerdown',
+  (e: PointerEvent) => {
+    if (swipedId.value === null) return
+    const row = e.target instanceof Element ? e.target.closest('[data-notification-row]') : null
+    if (row?.getAttribute('data-notification-row') !== String(swipedId.value)) {
+      swipedId.value = null
+    }
+  },
+  { capture: true },
+)
+
+function toggle(n: Notification) {
+  void mark(n, n.readAt ? null : new Date().toISOString())
 }
 
 async function readAll() {
@@ -163,7 +210,13 @@ const days = computed(() => groupByDay(items.value))
           </h2>
           <ul class="bg-card divide-y overflow-hidden rounded-xl border">
             <li v-for="n in day.items" :key="n.id">
-              <NotificationItem :notification="n" @open="open(n)" />
+              <NotificationItem
+                :notification="n"
+                :swiped="swipedId === n.id"
+                @update:swiped="(v) => setSwiped(n.id, v)"
+                @open="open(n)"
+                @toggle="toggle(n)"
+              />
             </li>
           </ul>
         </section>
@@ -174,5 +227,6 @@ const days = computed(() => groupByDay(items.value))
         </div>
       </template>
     </div>
+    <NotificationDialog v-model:open="dialogOpen" :notification="selected" />
   </div>
 </template>

@@ -28,7 +28,6 @@ import {
   users,
   type NotificationRow,
 } from '../db/schema.js'
-import { env } from '../env.js'
 import { baseLogger } from '../log.js'
 import { escapeHtml, sendTelegramMessage } from '../telegram.js'
 import {
@@ -100,7 +99,9 @@ const pushChannel: ChannelSender = {
         const payload = {
           title: row.title,
           body: row.pushBody ?? row.body,
-          link: row.link ?? '/notifications',
+          // Тап по пушу ведет в ленту, а не на связанную страницу. Решается здесь, а не в
+          // sw.js, чтобы так же работали уже установленные воркеры.
+          link: '/notifications',
           tag: topic,
           unread,
         }
@@ -131,39 +132,9 @@ const pushChannel: ChannelSender = {
   },
 }
 
-// WEB_ORIGIN может быть списком для CORS; ссылка ведет на первый. Проверяется один раз:
-// кривой origin не должен ронять отправку, сообщение уйдет без ссылки.
-let webOrigin: URL | null | undefined
-function appOrigin(): URL | null {
-  if (webOrigin !== undefined) return webOrigin
-  try {
-    webOrigin = new URL(env.WEB_ORIGIN.split(',')[0]!.trim())
-  } catch {
-    webOrigin = null
-    baseLogger.warn(
-      { event: 'notification.web_origin_invalid' },
-      'WEB_ORIGIN is not a URL, Telegram messages go without a link',
-    )
-  }
-  return webOrigin
-}
-
-/** Только для тестов: env подменяется между тестами, а origin кешируется. */
-export function _resetWebOriginForTest(): void {
-  webOrigin = undefined
-}
-
+// Ссылки нет: из уведомлений никуда не переходят, их только отмечают в ленте.
 export function telegramText(row: NotificationRow): string {
-  const lines = [`<b>${escapeHtml(row.title)}</b>`, escapeHtml(row.pushBody ?? row.body)]
-  const origin = appOrigin()
-  if (origin) {
-    const href = escapeHtml(new URL(row.link ?? '/notifications', origin).toString()).replace(
-      /"/g,
-      '&quot;',
-    )
-    lines.push('', `<a href="${href}">Открыть в приложении</a>`)
-  }
-  return lines.join('\n')
+  return [`<b>${escapeHtml(row.title)}</b>`, escapeHtml(row.pushBody ?? row.body)].join('\n')
 }
 
 // Telegram просит не больше сообщения в секунду в один чат; пачка одному получателю

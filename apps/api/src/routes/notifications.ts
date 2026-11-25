@@ -27,6 +27,7 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  markNotificationUnread,
 } from '../notifications/store.js'
 import {
   deletePushSubscription,
@@ -182,6 +183,26 @@ const readRoute = createRoute({
   },
 })
 
+const unreadMarkRoute = createRoute({
+  method: 'post',
+  path: '/{id}/unread',
+  tags: ['notifications'],
+  request: { params: idParamSchema },
+  responses: {
+    200: {
+      description: 'Notification marked unread',
+      content: { 'application/json': { schema: actionOk } },
+    },
+    400: respValidation,
+    404: {
+      description: 'Notification not found',
+      content: { 'application/json': { schema: notFoundErrorSchema } },
+    },
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
 const pushConfigRoute = createRoute({
   method: 'get',
   path: '/push/config',
@@ -301,7 +322,7 @@ const telegramUnlinkRoute = createRoute({
 
 const USER_AGENT_MAX = 512
 
-// Статические пути (/read-all, /push/*) регистрируются до /{id}/read, чтобы валидатор id
+// Статические пути (/read-all, /push/*) регистрируются до /{id}/read и /{id}/unread, чтобы валидатор id
 // их не перехватил.
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
   // Ключ отдается и без базы: он из env, а без него страница профиля прячет переключатель.
@@ -455,6 +476,21 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       return internal(c, 'notifications.read.error', requestId, err)
+    }
+  })
+  .openapi(unreadMarkRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return unavailable(c)
+    const { id } = c.req.valid('param')
+    try {
+      const found = await markNotificationUnread(c.get('user').sub, id)
+      if (!found) {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'notifications.unread_mark.error', requestId, err)
     }
   })
 

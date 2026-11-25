@@ -114,6 +114,16 @@ export async function markNotificationRead(userId: string, id: number): Promise<
   return rows.length > 0
 }
 
+/** Зеркально markNotificationRead: false — уведомления нет или оно чужое. */
+export async function markNotificationUnread(userId: string, id: number): Promise<boolean> {
+  const rows = await getDb()
+    .update(notifications)
+    .set({ readAt: null })
+    .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+    .returning({ id: notifications.id })
+  return rows.length > 0
+}
+
 export async function markAllNotificationsRead(userId: string): Promise<void> {
   await getDb()
     .update(notifications)

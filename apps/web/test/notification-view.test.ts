@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { CarFront, Clock, MinusCircle, Wallet } from '@lucide/vue'
+import { CalendarDays, CarFront, Clock, Wallet } from '@lucide/vue'
 import type { Notification } from '@/lib/notifications-api'
-import { formatTime, groupByDay, notificationVisual } from '@/lib/notification-view'
+import {
+  NOTIFICATION_CATEGORIES,
+  formatDateTime,
+  formatTime,
+  groupByDay,
+  notificationVisual,
+} from '@/lib/notification-view'
 
 const note = (id: number, createdAt: string, over: Partial<Notification> = {}): Notification => ({
   id,
@@ -38,45 +44,55 @@ describe('groupByDay', () => {
 })
 
 describe('notificationVisual', () => {
-  it('выбирает иконку и группу по типу', () => {
-    expect(notificationVisual({ type: 'booking.assigned', body: 'x' })).toMatchObject({
-      group: 'booking',
-      icon: CarFront,
-    })
-    expect(notificationVisual({ type: 'schedule_request.decided', body: 'x' }).group).toBe(
-      'schedule',
-    )
-    expect(notificationVisual({ type: 'work_hours.changed', body: 'x' })).toMatchObject({
-      group: 'money',
-      icon: Clock,
-    })
+  it.each([
+    ['booking.assigned', 'Записи', CarFront],
+    ['booking.changed', 'Записи', CarFront],
+    ['booking.unassigned', 'Записи', CarFront],
+    ['schedule_request.created', 'График', CalendarDays],
+    ['schedule_request.decided', 'График', CalendarDays],
+    ['payout.changed', 'Выплаты', Wallet],
+    ['work_hours.changed', 'Часы', Clock],
+  ] as const)('%s → «%s»', (type, label, icon) => {
+    expect(notificationVisual({ type, body: '5 000 ₽' })).toMatchObject({ label, icon })
   })
 
-  it('удержание отличается от выплаты по знаку суммы', () => {
+  it('у каждой категории свой значок и цвет', () => {
+    const visuals = Object.values(NOTIFICATION_CATEGORIES)
+    expect(new Set(visuals.map((c) => c.icon)).size).toBe(visuals.length)
+    expect(new Set(visuals.map((c) => c.tone)).size).toBe(visuals.length)
+  })
+})
+
+describe('удержание', () => {
+  it('тот же значок и категория, что у выплаты, но другой цвет', () => {
     const payout = notificationVisual({ type: 'payout.changed', body: '5 000 ₽ · 20.11.2026' })
     const deduction = notificationVisual({ type: 'payout.changed', body: '−500 ₽ · 20.11.2026' })
-    expect(payout.icon).toBe(Wallet)
-    expect(deduction.icon).toBe(MinusCircle)
+    expect(deduction).toMatchObject({ category: 'payout', label: 'Выплаты', icon: Wallet })
     expect(deduction.tone).not.toBe(payout.tone)
   })
 
-  it('знак суммы распознается и в старых снимках, и при правке выплаты', () => {
-    const legacy = notificationVisual({ type: 'payout.changed', body: '−500 ₽ · 20.11.2026' })
-    const edited = notificationVisual({
-      type: 'payout.changed',
-      body: '500 ₽ (было −500 ₽) · 20.11.2026',
-    })
-    expect(legacy.icon).toBe(MinusCircle)
-    expect(edited.icon).toBe(Wallet)
+  it('знак берется у новой суммы, а не у «было»', () => {
+    const payout = notificationVisual({ type: 'payout.changed', body: '5 000 ₽' })
+    const edited = notificationVisual({ type: 'payout.changed', body: '500 ₽ (было −500 ₽)' })
+    expect(edited.tone).toBe(payout.tone)
   })
 
   it('минус в теле других типов удержанием не считается', () => {
-    expect(notificationVisual({ type: 'work_hours.changed', body: '−' }).icon).toBe(Clock)
+    const hours = notificationVisual({ type: 'work_hours.changed', body: 'x' })
+    expect(notificationVisual({ type: 'work_hours.changed', body: '−' }).tone).toBe(hours.tone)
   })
 })
 
 describe('formatTime', () => {
   it('показывает часы и минуты', () => {
     expect(formatTime(new Date(2026, 10, 25, 15, 54).toISOString())).toBe('15:54')
+  })
+})
+
+describe('formatDateTime', () => {
+  it('пишет дату полностью с годом и временем', () => {
+    expect(formatDateTime(new Date(2026, 10, 25, 15, 54).toISOString())).toBe(
+      '25 ноября 2026, 15:54',
+    )
   })
 })

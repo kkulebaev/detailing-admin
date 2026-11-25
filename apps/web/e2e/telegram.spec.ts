@@ -53,7 +53,11 @@ test('сотрудник подключает Telegram в профиле, и д�
 
   await expect
     .poll(async () => (await repliesTo(CHAT)).find((t) => t.startsWith('<b>Новая выплата</b>')))
-    .toContain('href="http://localhost:5174/employee"')
+    .toBeDefined()
+  const message = (await repliesTo(CHAT)).find((t) => t.startsWith('<b>Новая выплата</b>'))!
+  // Из уведомлений никуда не переходят: ни ссылки, ни адреса приложения в тексте.
+  expect(message).not.toMatch(/<a\b|href=|https?:\/\//)
+  expect(message.split('\n')).toHaveLength(2)
 
   await page.context().clearCookies()
   await login(page, 'e2e-employee')

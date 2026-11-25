@@ -17,6 +17,7 @@ import {
   insertNotifications,
   listNotifications,
   markNotificationRead,
+  markNotificationUnread,
   notifyMoney,
 } from '../src/notifications/store.js'
 
@@ -190,6 +191,14 @@ describe('лента', () => {
     expect(await markNotificationRead('u1', 7)).toBe(false)
     const where = render(captured.wheres[0])
     expect(where.params).toEqual([7, 'u1'])
+  })
+
+  it('отметка непрочитанным снимает readAt только у своего', async () => {
+    const { db, captured } = makeDb({ update: [[{ id: 7 }]] })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    expect(await markNotificationUnread('u1', 7)).toBe(true)
+    expect(captured.sets).toEqual([{ readAt: null }])
+    expect(render(captured.wheres[0]).params).toEqual([7, 'u1'])
   })
 })
 

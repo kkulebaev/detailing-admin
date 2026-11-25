@@ -38,6 +38,7 @@ vi.mock('../src/notifications/store.js', () => ({
   listNotifications: vi.fn(),
   countUnreadNotifications: vi.fn(),
   markNotificationRead: vi.fn(),
+  markNotificationUnread: vi.fn(),
   markAllNotificationsRead: vi.fn(),
   insertNotifications: vi.fn(),
   masterAccounts: vi.fn(),
@@ -76,6 +77,7 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  markNotificationUnread,
 } from '../src/notifications/store.js'
 import {
   deletePushSubscription,
@@ -113,6 +115,7 @@ describe('/api/notifications', () => {
       listNotifications,
       countUnreadNotifications,
       markNotificationRead,
+      markNotificationUnread,
       markAllNotificationsRead,
     ]) {
       vi.mocked(fn).mockReset()
@@ -186,6 +189,27 @@ describe('/api/notifications', () => {
     expect(await res.json()).toEqual({ ok: true })
   })
 
+  it('чужое или несуществующее уведомление нельзя отметить непрочитанным → 404', async () => {
+    vi.mocked(markNotificationUnread).mockResolvedValue(false)
+    const res = await call('POST', '/5/unread', await employeeCookie())
+    expect(res.status).toBe(404)
+    expect((await res.json()).error).toBe('not_found')
+    expect(vi.mocked(markNotificationUnread)).toHaveBeenCalledWith('u-emp', 5)
+  })
+
+  it('свое уведомление помечается непрочитанным', async () => {
+    vi.mocked(markNotificationUnread).mockResolvedValue(true)
+    const res = await call('POST', '/5/unread', await employeeCookie())
+    expect(await res.json()).toEqual({ ok: true })
+    expect(vi.mocked(markNotificationRead)).not.toHaveBeenCalled()
+  })
+
+  it('/{id}/unread с нечисловым id → 400', async () => {
+    const res = await call('POST', '/abc/unread', await employeeCookie())
+    expect(res.status).toBe(400)
+    expect(vi.mocked(markNotificationUnread)).not.toHaveBeenCalled()
+  })
+
   it('read-all — только у вызывающего и не перехватывается /{id}/read (критерий 7)', async () => {
     vi.mocked(markAllNotificationsRead).mockResolvedValue()
     const res = await call('POST', '/read-all', await adminCookie())
@@ -199,6 +223,7 @@ describe('/api/notifications', () => {
     ['GET', '/unread-count'],
     ['POST', '/read-all'],
     ['POST', '/1/read'],
+    ['POST', '/1/unread'],
   ])('%s %s без базы → 503 (критерий 8)', async (method, path) => {
     vi.mocked(isDbReady).mockReturnValue(false)
     const res = await call(method, path, await employeeCookie())

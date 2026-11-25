@@ -44,7 +44,8 @@ export const notificationSchema = z.object({
   type: z.enum(NOTIFICATION_TYPES),
   title: z.string(),
   body: z.string(),
-  // Путь роутера; null, если открывать нечего.
+  // Путь роутера; null, если открывать нечего. Лента и каналы его сейчас не используют:
+  // из уведомлений никуда не переходят.
   link: z.string().nullable(),
   createdAt: z.string(),
   readAt: z.string().nullable(),

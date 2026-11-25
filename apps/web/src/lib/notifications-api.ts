@@ -20,6 +20,7 @@ import {
   postApiNotificationsPushSubscriptionsCurrent,
   getApiNotificationsUnreadCount,
   postApiNotificationsIdRead,
+  postApiNotificationsIdUnread,
   postApiNotificationsPushSubscriptions,
   postApiNotificationsReadAll,
   getApiNotificationsTelegram,
@@ -53,6 +54,10 @@ export function fetchUnreadNotificationsCount(): Promise<NotificationsUnreadResu
 
 export function markNotificationRead(id: number): Promise<NotificationReadResult> {
   return unwrap<NotificationReadResult>(() => postApiNotificationsIdRead(String(id)))
+}
+
+export function markNotificationUnread(id: number): Promise<NotificationReadResult> {
+  return unwrap<NotificationReadResult>(() => postApiNotificationsIdUnread(String(id)))
 }
 
 export function markAllNotificationsRead(): Promise<NotificationReadResult> {

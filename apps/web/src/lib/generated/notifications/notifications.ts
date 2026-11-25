@@ -31,6 +31,11 @@ import type {
   PostApiNotificationsIdRead404,
   PostApiNotificationsIdRead500,
   PostApiNotificationsIdRead503,
+  PostApiNotificationsIdUnread200,
+  PostApiNotificationsIdUnread400,
+  PostApiNotificationsIdUnread404,
+  PostApiNotificationsIdUnread500,
+  PostApiNotificationsIdUnread503,
   PostApiNotificationsPushSubscriptions200,
   PostApiNotificationsPushSubscriptions400,
   PostApiNotificationsPushSubscriptions500,
@@ -593,6 +598,60 @@ export const getPostApiNotificationsIdReadUrl = (id: string,) => {
 export const postApiNotificationsIdRead = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<postApiNotificationsIdReadResponse> => {
 
   return orvalFetch<postApiNotificationsIdReadResponse>(getPostApiNotificationsIdReadUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+export type postApiNotificationsIdUnreadResponse200 = {
+  data: PostApiNotificationsIdUnread200
+  status: 200
+}
+
+export type postApiNotificationsIdUnreadResponse400 = {
+  data: PostApiNotificationsIdUnread400
+  status: 400
+}
+
+export type postApiNotificationsIdUnreadResponse404 = {
+  data: PostApiNotificationsIdUnread404
+  status: 404
+}
+
+export type postApiNotificationsIdUnreadResponse500 = {
+  data: PostApiNotificationsIdUnread500
+  status: 500
+}
+
+export type postApiNotificationsIdUnreadResponse503 = {
+  data: PostApiNotificationsIdUnread503
+  status: 503
+}
+
+export type postApiNotificationsIdUnreadResponseSuccess = (postApiNotificationsIdUnreadResponse200) & {
+  headers: Headers;
+};
+export type postApiNotificationsIdUnreadResponseError = (postApiNotificationsIdUnreadResponse400 | postApiNotificationsIdUnreadResponse404 | postApiNotificationsIdUnreadResponse500 | postApiNotificationsIdUnreadResponse503) & {
+  headers: Headers;
+};
+
+export type postApiNotificationsIdUnreadResponse = (postApiNotificationsIdUnreadResponseSuccess | postApiNotificationsIdUnreadResponseError)
+
+export const getPostApiNotificationsIdUnreadUrl = (id: string,) => {
+
+
+
+
+  return `/api/notifications/${id}/unread`
+}
+
+export const postApiNotificationsIdUnread = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<postApiNotificationsIdUnreadResponse> => {
+
+  return orvalFetch<postApiNotificationsIdUnreadResponse>(getPostApiNotificationsIdUnreadUrl(id),
   {
     ...options,
     method: 'POST'

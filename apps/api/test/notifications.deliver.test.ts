@@ -6,7 +6,6 @@ const envMock = vi.hoisted(() => ({
   VAPID_PRIVATE_KEY: 'private' as string | undefined,
   VAPID_SUBJECT: 'mailto:owner@example.com' as string | undefined,
   TELEGRAM_BOT_TOKEN: 'test-bot-token',
-  WEB_ORIGIN: 'https://app.example, http://localhost:5173',
 }))
 
 vi.mock('../src/env.js', () => ({ env: envMock }))
@@ -25,7 +24,6 @@ import type { NotificationRow, PushSubscriptionRow } from '../src/db/schema.js'
 import { baseLogger } from '../src/log.js'
 import {
   _resetTelegramPauseForTest,
-  _resetWebOriginForTest,
   _setTelegramChatGapForTest,
   deliverNotifications,
   drainDeliveries,
@@ -238,8 +236,6 @@ beforeEach(() => {
   fakeTelegram(new Error('unexpected Telegram call'))
   _setTelegramChatGapForTest(0)
   _resetTelegramPauseForTest()
-  _resetWebOriginForTest()
-  envMock.WEB_ORIGIN = 'https://app.example, http://localhost:5173'
 })
 
 describe('deliverNotifications — Web Push', () => {
@@ -254,7 +250,7 @@ describe('deliverNotifications — Web Push', () => {
     expect(sent[0]!.payload).toEqual({
       title: 'Новая запись',
       body: '26.11, 10:00 · Kia Rio · Полировка',
-      link: '/bookings?booking=bk1',
+      link: '/notifications',
       tag: expect.any(String),
       unread: 3,
     })
@@ -269,7 +265,7 @@ describe('deliverNotifications — Web Push', () => {
     expect(releasesOf(db)).toHaveLength(0)
   })
 
-  it('без pushBody в пуш идет body, без ссылки — лента', async () => {
+  it('без pushBody в пуш идет body', async () => {
     makeDb({ subs: [sub(1, 'https://push.example/a')] })
     const sent = fakeSender()
     deliverNotifications([
@@ -413,7 +409,7 @@ describe('deliverNotifications — Telegram', () => {
     expect(db.calls.some((c) => c.table === 'users')).toBe(false)
   })
 
-  it('деньги уходят в чат: HTML экранирован, ссылка абсолютная на WEB_ORIGIN', async () => {
+  it('деньги уходят в чат: HTML экранирован, ссылки нет', async () => {
     envMock.VAPID_PRIVATE_KEY = undefined
     const db = makeDb({ chatId: '555' })
     const tg = fakeTelegram(200)
@@ -424,13 +420,9 @@ describe('deliverNotifications — Telegram', () => {
     expect(tg).toHaveLength(1)
     expect(tg[0]).toMatchObject({ chat_id: '555', parse_mode: 'HTML' })
     expect(tg[0]!.text).toBe(
-      [
-        '<b>Выплата &lt;3 000 ₽&gt;</b>',
-        'Аванс &amp; премия · 20.11.2026',
-        '',
-        '<a href="https://app.example/employee">Открыть в приложении</a>',
-      ].join('\n'),
+      ['<b>Выплата &lt;3 000 ₽&gt;</b>', 'Аванс &amp; премия · 20.11.2026'].join('\n'),
     )
+    expect(tg[0]!.text).not.toMatch(/href|<a\b/)
     expect(claimsOf(db, 'telegram')).toEqual([{ notificationId: n.id, channel: 'telegram' }])
     expect(vi.mocked(baseLogger.info)).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'telegram', type: 'payout.changed', status: 200 }),
@@ -447,8 +439,7 @@ describe('deliverNotifications — Telegram', () => {
     const tg = fakeTelegram(200)
     deliverNotifications([money({ pushBody: 'Коротко', link: null })])
     await drainDeliveries(1000)
-    expect(tg[0]!.text).toContain('\nКоротко\n')
-    expect(tg[0]!.text).toContain('href="https://app.example/notifications"')
+    expect(tg[0]!.text.split('\n')).toEqual([expect.any(String), 'Коротко'])
   })
 
   it('без привязанного чата ничего не шлет и канал не занимает', async () => {
@@ -546,38 +537,6 @@ describe('deliverNotifications — Telegram', () => {
     await drainDeliveries(2000)
     expect(tg.at).toHaveLength(2)
     expect(tg.at[1]! - tg.at[0]!).toBeGreaterThanOrEqual(55)
-  })
-
-  it('исключение на строке i>0 не возвращает уже отправленные', async () => {
-    envMock.VAPID_PRIVATE_KEY = undefined
-    const first = money()
-    // Абсолютная ссылка, которую не разобрать: new URL бросает.
-    const broken = money({ link: 'http://[' })
-    const db = makeDb({ chatId: '555' })
-    const tg = fakeTelegram(200)
-    deliverNotifications([first, broken])
-    await drainDeliveries(1000)
-    expect(tg).toHaveLength(1)
-    expect(render(releasesOf(db)[0]!.where).params).toEqual(['telegram', broken.id])
-    expect(db.claimed).toEqual(new Set([`${first.id}:telegram`]))
-  })
-
-  it('битый WEB_ORIGIN: сообщение уходит без ссылки, warn один раз', async () => {
-    envMock.VAPID_PRIVATE_KEY = undefined
-    envMock.WEB_ORIGIN = 'not a url'
-    const db = makeDb({ chatId: '555' })
-    const tg = fakeTelegram(200)
-    deliverNotifications([money(), money()])
-    await drainDeliveries(1000)
-    expect(tg).toHaveLength(2)
-    expect(tg[0]!.text).not.toContain('href')
-    expect(releasesOf(db)).toHaveLength(0)
-    const warns = vi
-      .mocked(baseLogger.warn)
-      .mock.calls.filter(
-        ([o]) => (o as { event?: string }).event === 'notification.web_origin_invalid',
-      )
-    expect(warns).toHaveLength(1)
   })
 
   it('обрыв сети на середине возвращает только неотправленное', async () => {
