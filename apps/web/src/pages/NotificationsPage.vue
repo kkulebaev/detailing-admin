@@ -10,6 +10,8 @@ import {
   type Notification,
 } from '@/lib/notifications-api'
 import { useInvalidateNotifications } from '@/lib/queries'
+import NotificationItem from '@/components/NotificationItem.vue'
+import { groupByDay } from '@/lib/notification-view'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -101,25 +103,19 @@ async function readAll() {
 
 const isEmpty = computed(() => !loading.value && !errorMessage.value && items.value.length === 0)
 
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+const days = computed(() => groupByDay(items.value))
 </script>
 
 <template>
   <div class="text-foreground p-2 sm:p-8">
     <div class="mx-auto max-w-2xl">
-      <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <header class="mb-4 flex items-center justify-between gap-3 px-2 sm:mb-6 sm:px-0">
         <h1 class="text-2xl font-semibold">Уведомления</h1>
         <Button
           v-if="unreadCount > 0"
           size="sm"
-          variant="outline"
+          variant="ghost"
+          class="text-primary"
           :disabled="markingAll"
           @click="readAll"
         >
@@ -132,8 +128,18 @@ function formatWhen(iso: string): string {
         <AlertDescription>{{ errorMessage }}</AlertDescription>
       </Alert>
 
-      <div v-if="loading" class="flex flex-col gap-2">
-        <Skeleton v-for="i in 4" :key="i" class="h-20" />
+      <div
+        v-if="loading"
+        class="bg-card divide-y overflow-hidden rounded-xl border"
+        aria-hidden="true"
+      >
+        <div v-for="i in 5" :key="i" class="flex items-start gap-3 py-3 pr-3 pl-4">
+          <Skeleton class="size-10 shrink-0 rounded-full" />
+          <div class="flex flex-1 flex-col gap-2">
+            <Skeleton class="h-4 w-2/3" />
+            <Skeleton class="h-3.5 w-full" />
+          </div>
+        </div>
       </div>
 
       <Empty v-else-if="isEmpty" class="border">
@@ -149,30 +155,18 @@ function formatWhen(iso: string): string {
       </Empty>
 
       <template v-else>
-        <ul class="flex flex-col gap-2">
-          <li v-for="n in items" :key="n.id">
-            <button
-              type="button"
-              class="flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
-              :class="n.readAt ? 'bg-background' : 'border-primary/40 bg-primary/5'"
-              @click="open(n)"
-            >
-              <span
-                class="mt-1.5 size-2 shrink-0 rounded-full"
-                :class="n.readAt ? 'bg-transparent' : 'bg-primary'"
-                aria-hidden="true"
-              />
-              <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span class="flex flex-wrap items-baseline justify-between gap-x-3">
-                  <span :class="n.readAt ? 'font-medium' : 'font-semibold'">{{ n.title }}</span>
-                  <span class="text-xs text-muted-foreground">{{ formatWhen(n.createdAt) }}</span>
-                </span>
-                <span class="text-sm break-words text-muted-foreground">{{ n.body }}</span>
-                <span v-if="!n.readAt" class="sr-only">Не прочитано</span>
-              </span>
-            </button>
-          </li>
-        </ul>
+        <section v-for="day in days" :key="day.key" class="mb-5 last:mb-0">
+          <h2
+            class="text-muted-foreground mb-1.5 px-2 text-xs font-medium tracking-wide uppercase sm:px-1"
+          >
+            {{ day.label }}
+          </h2>
+          <ul class="bg-card divide-y overflow-hidden rounded-xl border">
+            <li v-for="n in day.items" :key="n.id">
+              <NotificationItem :notification="n" @open="open(n)" />
+            </li>
+          </ul>
+        </section>
         <div v-if="hasMore" class="mt-4 flex justify-center">
           <Button variant="outline" size="sm" :disabled="loadingMore" @click="loadMore">
             {{ loadingMore ? 'Загрузка…' : 'Показать еще' }}
