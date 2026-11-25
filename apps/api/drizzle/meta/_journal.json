@@ -218,6 +218,13 @@
       "when": 1795621741578,
       "tag": "0030_late_odin",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1795627369766,
+      "tag": "0031_fearless_thunderball",
+      "breakpoints": true
     }
   ]
 }

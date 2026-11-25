@@ -334,12 +334,17 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     const { endpoint, keys } = c.req.valid('json')
+    const user = c.get('user')
     try {
-      await upsertPushSubscription(c.get('user').sub, {
+      await upsertPushSubscription(user.sub, {
         endpoint,
         p256dh: keys.p256dh,
         auth: keys.auth,
         userAgent: c.req.header('user-agent')?.slice(0, USER_AGENT_MAX) ?? null,
+        // Строка живет не дольше сохранившей ее сессии: телефон, вышедший по сроку, не
+        // получает пуши аккаунта. Web пересохраняет подписку при входе и каждом старте
+        // приложения, а /me перевыпускает токен, так что срок скользит вместе с сессией.
+        expiresAt: new Date(user.exp * 1000),
       })
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {

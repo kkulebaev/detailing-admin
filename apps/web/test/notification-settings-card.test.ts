@@ -1,5 +1,6 @@
 import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { page } from 'vitest/browser'
 import NotificationSettingsCard from '../src/components/NotificationSettingsCard.vue'
 import {
@@ -16,6 +17,7 @@ import {
   unlinkTelegram,
 } from '../src/lib/notifications-api'
 import { toast } from 'vue-sonner'
+import { useAuthStore } from '../src/stores/auth'
 
 vi.mock('../src/lib/push', () => ({
   fetchPushPublicKey: vi.fn(),
@@ -24,6 +26,9 @@ vi.mock('../src/lib/push', () => ({
   pushSupport: vi.fn(),
   subscribePush: vi.fn(),
   unsubscribePush: vi.fn(),
+  // Их импортирует стор auth, который нужен карточке ради логина.
+  detachPushSubscription: vi.fn(),
+  syncPushSubscription: vi.fn(),
 }))
 vi.mock('../src/lib/notifications-api', () => ({
   fetchTelegramStatus: vi.fn(),
@@ -32,12 +37,18 @@ vi.mock('../src/lib/notifications-api', () => ({
 }))
 vi.mock('vue-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
+function signIn() {
+  setActivePinia(createPinia())
+  useAuthStore().user = { login: 'emp1', role: 'employee', firstName: '', lastName: '' }
+}
+
 const toggle = () => page.getByRole('switch', { name: 'На этом устройстве' })
 
 enableAutoUnmount(afterEach)
 
 describe('NotificationSettingsCard', () => {
   beforeEach(() => {
+    signIn()
     vi.mocked(fetchPushPublicKey).mockReset().mockResolvedValue('BPublic')
     vi.mocked(isPushSubscribed).mockReset().mockResolvedValue(false)
     vi.mocked(notificationPermission).mockReset().mockReturnValue('default')
@@ -87,7 +98,7 @@ describe('NotificationSettingsCard', () => {
     mountCard()
     await expect.element(toggle()).toHaveAttribute('aria-checked', 'false')
     await toggle().click()
-    expect(subscribePush).toHaveBeenCalledWith('BPublic')
+    expect(subscribePush).toHaveBeenCalledWith('BPublic', 'emp1')
     await expect.element(toggle()).toHaveAttribute('aria-checked', 'true')
   })
 
@@ -115,7 +126,7 @@ describe('NotificationSettingsCard', () => {
     mountCard()
     await expect.element(toggle()).toHaveAttribute('aria-checked', 'true')
     await toggle().click()
-    expect(unsubscribePush).toHaveBeenCalledOnce()
+    expect(unsubscribePush).toHaveBeenCalledExactlyOnceWith('emp1')
     await expect.element(toggle()).toHaveAttribute('aria-checked', 'false')
   })
 })
@@ -125,6 +136,7 @@ describe('NotificationSettingsCard — Telegram', () => {
   const disconnect = () => page.getByRole('button', { name: 'Отключить' })
 
   beforeEach(() => {
+    signIn()
     vi.mocked(fetchPushPublicKey).mockReset().mockResolvedValue(null)
     vi.mocked(fetchTelegramStatus)
       .mockReset()

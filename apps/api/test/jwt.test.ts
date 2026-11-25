@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { assert, describe, it, expect } from 'vitest'
 import { sign } from 'hono/jwt'
 import { signToken, verifyToken } from '../src/auth/jwt.js'
 
@@ -26,7 +26,23 @@ describe('jwt', () => {
   it('sign → verify проходит туда и обратно и сохраняет claims', async () => {
     const token = await signToken(CLAIMS)
     const decoded = await verifyToken(token)
-    expect(decoded).toEqual(CLAIMS)
+    expect(decoded).toEqual({ ...CLAIMS, exp: decodeExp(token) })
+  })
+
+  it('перевыпуск из проверенной сессии ставит свежий exp, а не копирует старый', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const old = await sign({ ...CLAIMS, iat: now - 3600, exp: now + 60 }, SECRET, 'HS256')
+    const session = await verifyToken(old)
+    assert(session)
+    expect(session.exp).toBe(now + 60)
+    const reissued = decodeExp(await signToken(session))
+    expect(reissued).toBeGreaterThanOrEqual(now + 86400)
+  })
+
+  it('токен без exp не принимается', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const noExp = await sign({ ...CLAIMS, iat: now }, SECRET, 'HS256')
+    expect(await verifyToken(noExp)).toBeNull()
   })
 
   it('передает pwdChangedAt в payload', async () => {

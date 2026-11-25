@@ -84,19 +84,75 @@ function sameKey(a: ArrayBuffer | null, b: Uint8Array): boolean {
 }
 
 /** Подписан ли этот браузер на сервере за текущим аккаунтом. Браузеру одному верить
- * нельзя: подписку могли перевесить на другой аккаунт или удалить после 410. */
+ * нельзя: подписку могли перевесить на другой аккаунт или удалить после 410. Ждет
+ * пересохранения после входа, иначе профиль, открытый сразу после него, показал бы
+ * «выключено» за мгновение до того, как подписка вернулась. */
 export async function isPushSubscribed(): Promise<boolean> {
+  await pendingSync
   const sub = await currentPushSubscription()
   if (!sub) return false
   const res = await fetchPushSubscriptionStatus(sub.endpoint)
   return res.ok && res.subscribed
 }
 
+// Намерение «пуши на этом устройстве» хранится по логину: на общем телефоне вход
+// другого человека не должен молча перевесить подписку на него. Логин не секрет, а
+// localStorage в приватном режиме может бросать, поэтому каждый доступ под try.
+const intentKey = (login: string) => `push-intent:${login}`
+
+export function hasPushIntent(login: string): boolean {
+  try {
+    return localStorage.getItem(intentKey(login)) === '1'
+  } catch {
+    return false
+  }
+}
+
+function setPushIntent(login: string, on: boolean): void {
+  try {
+    if (on) localStorage.setItem(intentKey(login), '1')
+    else localStorage.removeItem(intentKey(login))
+  } catch {
+    // Без хранилища подписка просто не вернется сама после следующего входа.
+  }
+}
+
+async function saveSubscription(sub: PushSubscription): Promise<boolean> {
+  const json = sub.toJSON()
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return false
+  const res = await savePushSubscription({
+    endpoint: json.endpoint,
+    keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+  })
+  return res.ok
+}
+
+let pendingSync: Promise<void> = Promise.resolve()
+
+/** Возвращает подписку этого устройства аккаунту после входа и на каждом старте
+ * приложения: сервер отвязывает ее при выходе, а ее срок кончается вместе с сессией.
+ * Только пересохраняет уже существующую подписку (subscribe без жеста iOS не даст) и
+ * никогда не спрашивает разрешение. Заодно доносит до сервера endpoint, который
+ * браузер сменил сам. Никогда не бросает. */
+export function syncPushSubscription(login: string): Promise<void> {
+  pendingSync = (async () => {
+    try {
+      if (pushSupport() !== 'supported' || Notification.permission !== 'granted') return
+      if (!hasPushIntent(login)) return
+      const sub = await currentPushSubscription()
+      if (sub) await saveSubscription(sub)
+    } catch {
+      // Пуши не должны мешать ни входу, ни старту приложения.
+    }
+  })()
+  return pendingSync
+}
+
 export type SubscribeResult = 'subscribed' | 'denied' | 'error'
 
 /** Вызывать только из обработчика жеста: iOS дает запросить разрешение только по тапу,
  * поэтому requestPermission идет первым, до любого другого await. */
-export async function subscribePush(publicKey: string): Promise<SubscribeResult> {
+export async function subscribePush(publicKey: string, login: string): Promise<SubscribeResult> {
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return 'denied'
   try {
@@ -110,22 +166,30 @@ export async function subscribePush(publicKey: string): Promise<SubscribeResult>
       sub = null
     }
     sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
-    const json = sub.toJSON()
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return 'error'
-    const res = await savePushSubscription({
-      endpoint: json.endpoint,
-      keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-    })
-    return res.ok ? 'subscribed' : 'error'
+    if (!(await saveSubscription(sub))) return 'error'
+    setPushIntent(login, true)
+    return 'subscribed'
   } catch {
     return 'error'
   }
 }
 
-/** Снимает подписку и на сервере, и в браузере. Браузерная отписка выполняется, даже
- * если сервер не ответил или уже не узнает сессию (401): серверная строка тогда умрет
- * на первом 410 от push-сервиса. */
-export async function unsubscribePush(): Promise<void> {
+/** Выход: отвязывает подписку от аккаунта на сервере, пока сессия жива, но оставляет
+ * ее браузеру и намерение аккаунта. iOS дает вызвать pushManager.subscribe() только по
+ * жесту пользователя, а пересохранить уже существующую подписку можно без него, так что
+ * после следующего входа syncPushSubscription вернет пуши без похода в профиль. */
+export async function detachPushSubscription(): Promise<void> {
+  const sub = await currentPushSubscription()
+  if (!sub) return
+  await deletePushSubscription(sub.endpoint)
+}
+
+/** Переключатель в профиле: снимает подписку и на сервере, и в браузере, и забывает
+ * намерение аккаунта. Браузерная отписка выполняется, даже если сервер не ответил или
+ * уже не узнает сессию (401): серверная строка тогда умрет на первом 410 от
+ * push-сервиса. */
+export async function unsubscribePush(login: string): Promise<void> {
+  setPushIntent(login, false)
   const sub = await currentPushSubscription()
   if (!sub) return
   try {

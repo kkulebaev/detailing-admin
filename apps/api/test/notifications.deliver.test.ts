@@ -172,6 +172,7 @@ const sub = (id: number, endpoint: string): PushSubscriptionRow => ({
   userAgent: null,
   createdAt: new Date(),
   lastSuccessAt: null,
+  expiresAt: new Date(Date.now() + 3_600_000),
 })
 
 type Sent = { endpoint: string; payload: Record<string, unknown>; options: RequestOptions }
@@ -239,6 +240,17 @@ beforeEach(() => {
 })
 
 describe('deliverNotifications — Web Push', () => {
+  it('берет только подписки с живой сессией', async () => {
+    const db = makeDb({ subs: [sub(1, 'https://push.example/a')] })
+    fakeSender()
+    deliverNotifications([row()])
+    await drainDeliveries(1000)
+    const subsQuery = db.calls.find((c) => c.op === 'select' && c.table === 'push_subscriptions')
+    const where = render(subsQuery!.where)
+    expect(where.sql).toContain('"push_subscriptions"."expires_at" > now()')
+    expect(where.params).toEqual(['u-emp'])
+  })
+
   it('шлет на все подписки, payload без имени клиента у booking.* (критерий 6l)', async () => {
     const db = makeDb({ subs: [sub(1, 'https://push.example/a')], unread: 3 })
     const sent = fakeSender()
@@ -613,6 +625,8 @@ describe('sweepUndelivered', () => {
     // Отметка ищется по своему каналу, подключенность — по подпискам и chat id.
     expect(where.sql.match(/not exists \(select 1 from "notification_deliveries"/g)).toHaveLength(2)
     expect(where.sql).toContain('exists (select 1 from "push_subscriptions"')
+    // Подписка вышедшей по сроку сессии не делает канал подключенным.
+    expect(where.sql).toContain('"push_subscriptions"."expires_at" > now()')
     expect(where.sql).toContain('"users"."telegram_chat_id" is not null')
     expect(where.params).toContain('push')
     expect(where.params).toContain('telegram')

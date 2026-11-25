@@ -266,6 +266,20 @@ describe('cleanup', () => {
     expect(where.params).toEqual([90])
   })
 
+  it('убирает подписки истекших сессий', async () => {
+    const { db, captured } = makeDb({ del: [[], [], [{ id: 7 }]] })
+    vi.mocked(getDb).mockReturnValue(db as never)
+    vi.mocked(baseLogger.info).mockClear()
+    clearInterval(startNotificationsCleanup())
+    await vi.waitFor(() =>
+      expect(vi.mocked(baseLogger.info)).toHaveBeenCalledWith(
+        expect.objectContaining({ expired_push_subscriptions: 1 }),
+        expect.any(String),
+      ),
+    )
+    expect(render(captured.wheres[2]).sql).toBe('"push_subscriptions"."expires_at" < now()')
+  })
+
   it('без базы пропускает запуск, таймер не держит процесс', () => {
     vi.mocked(isDbReady).mockReturnValueOnce(false)
     vi.mocked(getDb).mockClear()

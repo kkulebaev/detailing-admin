@@ -16,7 +16,7 @@ import {
   type LoginResult,
   type UpdateProfileResult,
 } from '@/lib/auth-api'
-import { unsubscribePush } from '@/lib/push'
+import { detachPushSubscription, syncPushSubscription } from '@/lib/push'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserPublic | null>(null)
@@ -41,6 +41,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const result = await apiMe()
       user.value = result.ok ? result.user : null
+      // Не ждем: старт приложения не должен зависеть от push-сервиса.
+      if (result.ok) void syncPushSubscription(result.user.login)
     } catch {
       user.value = null
     } finally {
@@ -53,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (result.ok) {
       user.value = result.user
       ready.value = true
+      void syncPushSubscription(result.user.login)
     }
     return result
   }
@@ -67,9 +70,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     // До выхода, пока сессия жива: иначе серверную подписку удалить уже нельзя, и
-    // телефон получал бы пуши ушедшего аккаунта до первого 410.
+    // телефон получал бы пуши ушедшего аккаунта, пока не истечет ее срок.
     try {
-      await unsubscribePush()
+      await detachPushSubscription()
     } catch {
       // Пуши не должны мешать выйти.
     }

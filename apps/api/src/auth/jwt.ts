@@ -23,6 +23,11 @@ export interface AuthTokenClaims {
 
 type SignedPayload = AuthTokenClaims & JWTPayload & { exp: number; iat: number }
 
+/** Claims проверенного токена плюс его срок: `exp` нужен тем, кто привязывает что-то
+ * к времени жизни сессии (push-подписка). В `signToken` он не передается — новый токен
+ * всегда получает свежий срок. */
+export type AuthSession = AuthTokenClaims & { exp: number }
+
 /** Время жизни сессии в секундах, следующее из выбора «запомнить меня». */
 export function ttlForRemember(remember: boolean): number {
   return remember ? env.AUTH_REMEMBER_TTL_SECONDS : env.AUTH_TOKEN_TTL_SECONDS
@@ -39,7 +44,7 @@ export async function signToken(claims: AuthTokenClaims): Promise<string> {
 }
 
 /** Возвращает claims валидного неистекшего токена; `null` при любой ошибке. */
-export async function verifyToken(token: string): Promise<AuthTokenClaims | null> {
+export async function verifyToken(token: string): Promise<AuthSession | null> {
   try {
     const payload = await verify(token, env.JWT_SECRET, 'HS256')
     const role = roleSchema.safeParse(payload.role)
@@ -47,7 +52,8 @@ export async function verifyToken(token: string): Promise<AuthTokenClaims | null
       typeof payload.sub !== 'string' ||
       typeof payload.login !== 'string' ||
       !role.success ||
-      typeof payload.pwdChangedAt !== 'number'
+      typeof payload.pwdChangedAt !== 'number' ||
+      typeof payload.exp !== 'number'
     ) {
       return null
     }
@@ -63,6 +69,7 @@ export async function verifyToken(token: string): Promise<AuthTokenClaims | null
       // В токенах, выпущенных до появления этого claim, его нет — считаем «не
       // запомнено» (TTL по умолчанию): безопасный короткоживущий вариант.
       remember: payload.remember === true,
+      exp: payload.exp,
     }
   } catch {
     // Истек / плохая подпись / битый формат — все сводится к «нет сессии».

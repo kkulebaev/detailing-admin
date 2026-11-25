@@ -34,6 +34,7 @@ import {
   deletePushSubscriptionsById,
   listPushSubscriptions,
   markPushSubscriptionsSucceeded,
+  sessionAlive,
 } from './push-subscriptions.js'
 import { countUnreadNotifications } from './store.js'
 import { telegramChatIdOf, unlinkBlockedChat } from './telegram-link.js'
@@ -85,7 +86,7 @@ const pushChannel: ChannelSender = {
       qb
         .select({ one: sql`1` })
         .from(pushSubscriptions)
-        .where(eq(pushSubscriptions.userId, notifications.userId)),
+        .where(and(eq(pushSubscriptions.userId, notifications.userId), sessionAlive())),
     ),
   async prepare(userId) {
     const subs = await listPushSubscriptions(userId)

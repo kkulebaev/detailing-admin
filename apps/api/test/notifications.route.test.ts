@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { assert, describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../src/env.js', () => ({
   env: {
@@ -90,6 +90,7 @@ import {
   unlinkTelegram,
 } from '../src/notifications/telegram-link.js'
 import { _setBotUsernameForTest } from '../src/notifications/telegram-poller.js'
+import { verifyToken } from '../src/auth/jwt.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
 
 const row = (id: number, over: Partial<NotificationRow> = {}): NotificationRow => ({
@@ -273,8 +274,11 @@ describe('/api/notifications/push', () => {
     expect(await res.json()).toEqual({ ok: true, publicKey: 'BPublic' })
   })
 
-  it('подписка сохраняется за аккаунтом из сессии, а не из тела', async () => {
-    const res = await call('POST', '/subscriptions', await employeeCookie(), {
+  it('подписка сохраняется за аккаунтом из сессии, а не из тела, со сроком сессии', async () => {
+    const cookie = await employeeCookie()
+    const session = await verifyToken(cookie.slice(cookie.indexOf('=') + 1))
+    assert(session)
+    const res = await call('POST', '/subscriptions', cookie, {
       endpoint: ENDPOINT,
       keys: { p256dh: 'p', auth: 'a' },
       userId: 'u-admin',
@@ -285,6 +289,7 @@ describe('/api/notifications/push', () => {
       p256dh: 'p',
       auth: 'a',
       userAgent: 'Mozilla/5.0 Android',
+      expiresAt: new Date(session.exp * 1000),
     })
   })
 

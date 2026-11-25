@@ -515,6 +515,11 @@ export const pushSubscriptions = pgTable(
     userAgent: text('user_agent'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     lastSuccessAt: timestamp('last_success_at'),
+    // Срок сессии, сохранившей подписку (exp ее JWT): после выхода по сроку телефон не
+    // должен получать пуши аккаунта. Каждый upsert ставит настоящий exp; default нужен
+    // только миграции, чтобы добавить колонку к уже существующим строкам: они сразу
+    // считаются истекшими, и владелец заново включает пуши.
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('push_subscriptions_user_id_idx').on(t.userId)],
 )

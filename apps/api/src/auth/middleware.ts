@@ -1,13 +1,13 @@
 import type { Context, MiddlewareHandler } from 'hono'
 import { StatusCodes, canCreateBookings, canEditBookings, type Role } from '@detailing-admin/shared'
 import { getAuthToken } from './cookie.js'
-import { verifyToken, type AuthTokenClaims } from './jwt.js'
+import { verifyToken, type AuthSession } from './jwt.js'
 
 // Дополняет каждый контекст Hono декодированной сессией. Ее кладет `requireAuth`,
 // последующие обработчики читают через `c.get('user')`.
 declare module 'hono' {
   interface ContextVariableMap {
-    user: AuthTokenClaims
+    user: AuthSession
   }
 }
 

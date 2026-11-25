@@ -14,6 +14,7 @@ import {
   unsubscribePush,
 } from '@/lib/push'
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from '@/lib/notifications-api'
+import { useAuthStore } from '@/stores/auth'
 
 type State =
   | { kind: 'loading' }
@@ -23,6 +24,7 @@ type State =
   | { kind: 'denied' }
   | { kind: 'ready'; publicKey: string; enabled: boolean }
 
+const auth = useAuthStore()
 const state = ref<State>({ kind: 'loading' })
 const busy = ref(false)
 
@@ -136,15 +138,16 @@ onMounted(async () => {
 // бы соврать, если пользователь откажет в разрешении.
 async function onToggle(next: boolean) {
   const current = state.value
-  if (current.kind !== 'ready' || busy.value) return
+  const login = auth.user?.login
+  if (current.kind !== 'ready' || busy.value || !login) return
   busy.value = true
   try {
     if (!next) {
-      await unsubscribePush()
+      await unsubscribePush(login)
       state.value = { ...current, enabled: false }
       return
     }
-    const result = await subscribePush(current.publicKey)
+    const result = await subscribePush(current.publicKey, login)
     if (result === 'subscribed') {
       state.value = { ...current, enabled: true }
       toast.success('Уведомления на этом устройстве включены')
