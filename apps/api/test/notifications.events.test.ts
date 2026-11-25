@@ -62,10 +62,10 @@ describe('bookingNotifications', () => {
   it('удаление и восстановление', () => {
     expect(
       bookingNotifications({ kind: 'delete', booking, masterIds: [1] }, accounts, null),
-    ).toMatchObject([{ type: 'booking.unassigned', title: 'Запись удалили', link: '/bookings' }])
+    ).toMatchObject([{ type: 'booking.unassigned', title: 'Запись отменили', link: '/bookings' }])
     expect(
       bookingNotifications({ kind: 'restore', booking, masterIds: [1] }, accounts, null),
-    ).toMatchObject([{ type: 'booking.assigned', title: 'Удаленную запись вернули' }])
+    ).toMatchObject([{ type: 'booking.assigned', title: 'Отмененную запись вернули' }])
   })
 
   it('правка: добавлен A, снят B, перенесена дата, C остался — каждому по одному (6b)', () => {
@@ -205,7 +205,7 @@ describe('заявки на график', () => {
         userId: 'u-admin2',
         type: 'schedule_request.created',
         title: 'Заявка на изменение графика',
-        body: 'Иван просит 2 рабочих дня и 1 выходной',
+        body: 'Иван: 2 рабочих дня, 1 выходной',
         link: '/schedule',
         pushBody: null,
       },
@@ -220,13 +220,13 @@ describe('заявки на график', () => {
         ['a'],
         null,
       )[0]!.body
-    expect(body(1, true)).toBe('И просит 1 рабочий день')
-    expect(body(5, true)).toBe('И просит 5 рабочих дней')
-    expect(body(11, true)).toBe('И просит 11 рабочих дней')
-    expect(body(22, true)).toBe('И просит 22 рабочих дня')
-    expect(body(1, false)).toBe('И просит 1 выходной')
-    expect(body(3, false)).toBe('И просит 3 выходных')
-    expect(body(21, false)).toBe('И просит 21 выходной')
+    expect(body(1, true)).toBe('И: 1 рабочий день')
+    expect(body(5, true)).toBe('И: 5 рабочих дней')
+    expect(body(11, true)).toBe('И: 11 рабочих дней')
+    expect(body(22, true)).toBe('И: 22 рабочих дня')
+    expect(body(1, false)).toBe('И: 1 выходной')
+    expect(body(3, false)).toBe('И: 3 выходных')
+    expect(body(21, false)).toBe('И: 21 выходной')
   })
 
   it('одобрение говорит, что уже в графике', () => {
@@ -304,7 +304,7 @@ describe('moneyNotifications', () => {
       employee,
       null,
     )
-    expect(d).toMatchObject({ title: 'Удержание отменили', body: '−500 ₽ · 20.11.2026' })
+    expect(d).toMatchObject({ title: 'Удержание удалили', body: '−500 ₽ · 20.11.2026' })
   })
 
   it('создание, правка и удаление называются по-разному', () => {
@@ -314,7 +314,7 @@ describe('moneyNotifications', () => {
     expect(title({ type: 'payout.changed', action: 'update', payout, before: payout })).toBe(
       'Выплату изменили',
     )
-    expect(title({ type: 'payout.changed', action: 'delete', payout })).toBe('Выплату отменили')
+    expect(title({ type: 'payout.changed', action: 'delete', payout })).toBe('Выплату удалили')
     const minus = { ...payout, amount: -1000 }
     expect(title({ type: 'payout.changed', action: 'create', payout: minus })).toBe(
       'Новое удержание',

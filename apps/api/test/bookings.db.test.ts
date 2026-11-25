@@ -992,7 +992,7 @@ describe('уведомления мастерам из транзакций за
 
     expect(await deleteBooking('bk1', ACTOR)).toBe(true)
     expect(notificationInserts(capture)).toMatchObject([
-      [{ userId: 'uB', type: 'booking.unassigned', title: 'Запись удалили', link: '/bookings' }],
+      [{ userId: 'uB', type: 'booking.unassigned', title: 'Запись отменили', link: '/bookings' }],
     ])
   })
 
@@ -1024,7 +1024,7 @@ describe('уведомления мастерам из транзакций за
     const result = await restoreBooking('bk1', ACTOR)
     expect(result.ok).toBe(true)
     expect(notificationInserts(capture)).toMatchObject([
-      [{ userId: 'uB', type: 'booking.assigned', title: 'Удаленную запись вернули' }],
+      [{ userId: 'uB', type: 'booking.assigned', title: 'Отмененную запись вернули' }],
     ])
   })
 

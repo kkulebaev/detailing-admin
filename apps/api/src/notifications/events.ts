@@ -160,13 +160,13 @@ export function bookingNotifications(
       push(
         event.masterIds,
         'booking.assigned',
-        'Удаленную запись вернули',
+        'Отмененную запись вернули',
         event.booking,
         bookingLink(event.booking.id),
       )
       break
     case 'delete':
-      push(event.masterIds, 'booking.unassigned', 'Запись удалили', event.booking, '/bookings')
+      push(event.masterIds, 'booking.unassigned', 'Запись отменили', event.booking, '/bookings')
       break
     case 'update': {
       const before = new Set(event.beforeMasterIds)
@@ -199,7 +199,7 @@ function plural(n: number, one: string, few: string, many: string): string {
 }
 
 // Заявка хранит только перемены, так что working: true — день станет рабочим,
-// false — выходным. «2 рабочих дня и 1 выходной» понятнее голого «3 дня».
+// false — выходным. «2 рабочих дня, 1 выходной» понятнее голого «3 дня».
 function scheduleDaysText(days: readonly { working: boolean }[]): string {
   const working = days.filter((d) => d.working).length
   const off = days.length - working
@@ -208,7 +208,7 @@ function scheduleDaysText(days: readonly { working: boolean }[]): string {
     off > 0 ? plural(off, 'выходной', 'выходных', 'выходных') : '',
   ]
     .filter(Boolean)
-    .join(' и ')
+    .join(', ')
 }
 
 export function scheduleRequestCreatedNotifications(
@@ -216,7 +216,7 @@ export function scheduleRequestCreatedNotifications(
   adminIds: readonly string[],
   actorId: string | null,
 ): NotificationDraft[] {
-  const body = `${request.masterName} просит ${scheduleDaysText(request.days)}`
+  const body = `${request.masterName}: ${scheduleDaysText(request.days)}`
   return [...new Set(adminIds)]
     .filter((userId) => userId !== actorId)
     .map((userId) => ({
@@ -278,12 +278,12 @@ export type MoneyEvent =
 const PAYOUT_TITLES: Record<MoneyAction, string> = {
   create: 'Новая выплата',
   update: 'Выплату изменили',
-  delete: 'Выплату отменили',
+  delete: 'Выплату удалили',
 }
 const DEDUCTION_TITLES: Record<MoneyAction, string> = {
   create: 'Новое удержание',
   update: 'Удержание изменили',
-  delete: 'Удержание отменили',
+  delete: 'Удержание удалили',
 }
 const HOURS_TITLES: Record<MoneyAction, string> = {
   create: 'Вам записали часы',
