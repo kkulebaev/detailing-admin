@@ -14,7 +14,11 @@ test('сам восстанавливается, если соединение �
 
   await page.goto('/bookings')
 
-  await expect(page.getByRole('button', { name: /^С \d{2}\.\d{2}\.\d{4}$/ })).toBeVisible()
+  // По умолчанию /bookings открывается на текущем месяце, например «Ноябрь 2026».
+  const now = new Date()
+  const month = now.toLocaleString('ru-RU', { month: 'long' })
+  const currentMonth = `${month[0]!.toUpperCase()}${month.slice(1)} ${now.getFullYear()}`
+  await expect(page.getByRole('button', { name: currentMonth, exact: true })).toBeVisible()
   await expect.poll(() => attempts).toBe(2)
   await expect(page.getByText('Не удалось загрузить')).toHaveCount(0)
 })
