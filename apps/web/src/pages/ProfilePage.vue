@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import ProfileNameForm from '@/components/ProfileNameForm.vue'
 import ChangePasswordForm from '@/components/ChangePasswordForm.vue'
+import NotificationSettingsCard from '@/components/NotificationSettingsCard.vue'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -41,6 +42,8 @@ const secondaryLogin = computed(() =>
       </Card>
 
       <ProfileNameForm />
+
+      <NotificationSettingsCard />
 
       <ChangePasswordForm />
     </div>

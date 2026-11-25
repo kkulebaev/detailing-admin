@@ -190,6 +190,13 @@
       "when": 1795600014653,
       "tag": "0026_hesitant_susan_delgado",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1795601926520,
+      "tag": "0027_chief_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

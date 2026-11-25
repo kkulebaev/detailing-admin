@@ -297,12 +297,22 @@ export {
   notificationsUnreadOkSchema,
   notificationsUnreadResponseSchema,
   notificationReadResponseSchema,
+  PUSH_SERVICE_HOSTS,
+  isPushServiceEndpoint,
+  pushConfigOkSchema,
+  pushConfigResponseSchema,
+  pushSubscriptionInputSchema,
+  pushEndpointInputSchema,
+  pushSubscriptionStatusOkSchema,
+  pushSubscriptionStatusResponseSchema,
+  pushSubscriptionMutationResponseSchema,
 } from './notifications.js'
 export type {
   NotificationType,
   NotificationChannel,
   Notification,
   NotificationsListOk,
+  PushSubscriptionInput,
 } from './notifications.js'
 export type {
   ScheduleQuery,

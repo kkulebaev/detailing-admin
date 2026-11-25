@@ -22,6 +22,12 @@ vi.mock('@/lib/queries', async () => {
   }
 })
 
+// Настоящая регистрация поставила бы воркер в браузер прогона.
+vi.mock('@/lib/push', () => ({
+  registerServiceWorker: vi.fn(),
+  setAppBadge: vi.fn(),
+}))
+
 import AppSidebar from '@/components/AppSidebar.vue'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { useAuthStore } from '@/stores/auth'

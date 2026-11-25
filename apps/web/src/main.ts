@@ -1,11 +1,13 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { PiniaColada } from '@pinia/colada'
+import { PiniaColada, useQueryCache } from '@pinia/colada'
 import { PiniaColadaRetry } from '@pinia/colada-plugin-retry'
 import App from './App.vue'
 import { router } from './router'
 import { useAuthStore } from './stores/auth'
 import { setUnauthorizedHandler } from './lib/orval-mutator'
+import { listenServiceWorkerMessages } from './lib/push'
+import { NOTIFICATIONS_KEY } from './lib/queries'
 import 'vue-sonner/style.css'
 import './styles/globals.css'
 
@@ -25,6 +27,15 @@ app.use(router)
 setUnauthorizedHandler(() => {
   useAuthStore().clearSession()
   void router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
+})
+
+// На уровне приложения, а не в сайдбаре: тап по пушу может прийти на открытую вкладку
+// с /login, где сайдбара нет. Без сессии ссылку перехватит guard роутера и вернет на нее
+// после входа.
+const queryCache = app.runWithContext(() => useQueryCache())
+listenServiceWorkerMessages({
+  navigate: (link) => void router.push(link),
+  notification: () => void queryCache.invalidateQueries({ key: NOTIFICATIONS_KEY }),
 })
 
 // Монтируем только после того, как завершится первая навигация. Ее guard ждет

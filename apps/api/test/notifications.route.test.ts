@@ -45,6 +45,19 @@ vi.mock('../src/notifications/store.js', () => ({
   notifyMoney: vi.fn(),
 }))
 
+const push = vi.hoisted(() => ({ publicKey: null as string | null }))
+
+vi.mock('../src/notifications/push-subscriptions.js', () => ({
+  upsertPushSubscription: vi.fn(),
+  deletePushSubscription: vi.fn(),
+  hasPushSubscription: vi.fn(),
+}))
+
+vi.mock('../src/notifications/web-push.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/notifications/web-push.js')>()),
+  pushPublicKey: () => push.publicKey,
+}))
+
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
 import type { NotificationRow } from '../src/db/schema.js'
@@ -54,6 +67,11 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../src/notifications/store.js'
+import {
+  deletePushSubscription,
+  hasPushSubscription,
+  upsertPushSubscription,
+} from '../src/notifications/push-subscriptions.js'
 import { adminCookie, employeeCookie } from './auth-helpers.js'
 
 const row = (id: number, over: Partial<NotificationRow> = {}): NotificationRow => ({
@@ -171,5 +189,115 @@ describe('/api/notifications', () => {
     const res = await call(method, path, await employeeCookie())
     expect(res.status).toBe(503)
     expect((await res.json()).error).toBe('unavailable')
+  })
+})
+
+describe('/api/notifications/push', () => {
+  let app: ReturnType<typeof createApp>
+  const ENDPOINT = 'https://fcm.googleapis.com/fcm/send/abc'
+
+  beforeEach(() => {
+    app = createApp()
+    push.publicKey = null
+    vi.mocked(isDbReady).mockReturnValue(true)
+    for (const fn of [upsertPushSubscription, deletePushSubscription, hasPushSubscription]) {
+      vi.mocked(fn).mockReset()
+    }
+  })
+
+  const call = (method: string, path: string, cookie: string, body?: unknown) =>
+    app.request(`/api/notifications/push${path}`, {
+      method,
+      headers: {
+        Cookie: cookie,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 Android',
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+
+  it('без сессии → 401', async () => {
+    expect((await call('GET', '/config', '')).status).toBe(401)
+    expect((await call('POST', '/subscriptions', '', {})).status).toBe(401)
+  })
+
+  it('без VAPID config отдает publicKey: null (критерий 9)', async () => {
+    const res = await call('GET', '/config', await employeeCookie())
+    expect(await res.json()).toEqual({ ok: true, publicKey: null })
+  })
+
+  it('с VAPID отдает публичный ключ, даже без базы', async () => {
+    push.publicKey = 'BPublic'
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await call('GET', '/config', await employeeCookie())
+    expect(await res.json()).toEqual({ ok: true, publicKey: 'BPublic' })
+  })
+
+  it('подписка сохраняется за аккаунтом из сессии, а не из тела', async () => {
+    const res = await call('POST', '/subscriptions', await employeeCookie(), {
+      endpoint: ENDPOINT,
+      keys: { p256dh: 'p', auth: 'a' },
+      userId: 'u-admin',
+    })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(upsertPushSubscription)).toHaveBeenCalledWith('u-emp', {
+      endpoint: ENDPOINT,
+      p256dh: 'p',
+      auth: 'a',
+      userAgent: 'Mozilla/5.0 Android',
+    })
+  })
+
+  it('endpoint не https → 400, в базу не идет', async () => {
+    const res = await call('POST', '/subscriptions', await employeeCookie(), {
+      endpoint: 'http://169.254.169.254/latest',
+      keys: { p256dh: 'p', auth: 'a' },
+    })
+    expect(res.status).toBe(400)
+    expect(vi.mocked(upsertPushSubscription)).not.toHaveBeenCalled()
+  })
+
+  it('отписка удаляет только свою подписку', async () => {
+    const res = await call('DELETE', '/subscriptions', await adminCookie(), { endpoint: ENDPOINT })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(deletePushSubscription)).toHaveBeenCalledWith('u-admin', ENDPOINT)
+  })
+
+  it('endpoint не уходит в query: GET current не существует', async () => {
+    const res = await call(
+      'GET',
+      `/subscriptions/current?endpoint=${encodeURIComponent(ENDPOINT)}`,
+      await employeeCookie(),
+    )
+    expect(res.status).toBe(404)
+    expect(vi.mocked(hasPushSubscription)).not.toHaveBeenCalled()
+  })
+
+  it('чужой push-сервис отклоняется (SSRF)', async () => {
+    const res = await call('POST', '/subscriptions', await employeeCookie(), {
+      endpoint: 'https://internal.example.com/hook',
+      keys: { p256dh: 'p', auth: 'a' },
+    })
+    expect(res.status).toBe(400)
+    expect(vi.mocked(upsertPushSubscription)).not.toHaveBeenCalled()
+  })
+
+  it('current проверяет endpoint только у своего аккаунта', async () => {
+    vi.mocked(hasPushSubscription).mockResolvedValue(false)
+    const res = await call('POST', '/subscriptions/current', await employeeCookie(), {
+      endpoint: ENDPOINT,
+    })
+    expect(await res.json()).toEqual({ ok: true, subscribed: false })
+    expect(vi.mocked(hasPushSubscription)).toHaveBeenCalledWith('u-emp', ENDPOINT)
+  })
+
+  it.each([
+    ['POST', '/subscriptions', { endpoint: ENDPOINT, keys: { p256dh: 'p', auth: 'a' } }],
+    ['DELETE', '/subscriptions', { endpoint: ENDPOINT }],
+    ['POST', '/subscriptions/current', { endpoint: ENDPOINT }],
+  ])('%s %s без базы → 503', async (method, path, body) => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const res = await call(method, path, await employeeCookie(), body)
+    expect(res.status).toBe(503)
   })
 })

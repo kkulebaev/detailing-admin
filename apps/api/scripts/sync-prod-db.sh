@@ -64,6 +64,11 @@ docker compose exec -T postgres pg_dump "$PROD_DATABASE_URL" \
     --no-owner --no-privileges --no-comments \
   | docker compose exec -T postgres psql -U "$LOCAL_USER" -d "$LOCAL_DB" -q -v ON_ERROR_STOP=1 >/dev/null
 
+# Подписки прода указывают на телефоны реальных сотрудников: локальный API с такими
+# строками слал бы им пуши о тестовых действиях.
+docker compose exec -T postgres psql -U "$LOCAL_USER" -d "$LOCAL_DB" -q -v ON_ERROR_STOP=1 \
+  -c "TRUNCATE push_subscriptions;" >/dev/null
+
 echo "✓ synced. row counts:"
 docker compose exec -T postgres psql -U "$LOCAL_USER" -d "$LOCAL_DB" -At -F $'\t' -c "
   SELECT 'bookings', count(*) FROM bookings

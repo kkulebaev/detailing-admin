@@ -3,11 +3,14 @@
 // учетных данных, способных дотянуться до настоящей таблицы, бота или базы.
 import { serve } from '@hono/node-server'
 import postgres from 'postgres'
+import { generateVAPIDKeys } from 'web-push'
 import { EXPECTED_HEADERS } from '@detailing-admin/shared'
 
 const PORT = 3100
 const POSTGRES_URL = 'postgres://detailing:detailing@localhost:5432'
 const E2E_DATABASE = 'detailing_e2e'
+// Ключи на каждый запуск: с ними push включен, а отправку все равно ловит фейк ниже.
+const vapidKeys = generateVAPIDKeys()
 
 Object.assign(process.env, {
   PORT: String(PORT),
@@ -18,6 +21,9 @@ Object.assign(process.env, {
   JWT_SECRET: 'e2e-jwt-secret-at-least-32-chars-long',
   WEB_ORIGIN: 'http://localhost:5174',
   LOG_LEVEL: 'warn',
+  VAPID_PUBLIC_KEY: vapidKeys.publicKey,
+  VAPID_PRIVATE_KEY: vapidKeys.privateKey,
+  VAPID_SUBJECT: 'mailto:e2e@example.com',
 })
 
 const admin = postgres(`${POSTGRES_URL}/postgres`, { max: 1, onnotice: () => {} })
@@ -28,6 +34,7 @@ await admin.end()
 // Импортируется только сейчас: `env.ts` проверяет process.env при импорте.
 const { _setClientForTest } = await import('../src/sheets.js')
 const { _setFetchForTest } = await import('../src/telegram.js')
+const { _setPushSenderForTest } = await import('../src/notifications/web-push.js')
 const { getBootState, init, isDbReady } = await import('../src/boot.js')
 const { createApp } = await import('../src/server.js')
 const { hashPassword } = await import('../src/auth/password.js')
@@ -37,6 +44,7 @@ const { createSection, createService } = await import('../src/db/pricelist.js')
 
 const sheetRows: unknown[][] = []
 const telegramMessages: { chat_id: string; text: string }[] = []
+const pushMessages: { endpoint: string; payload: unknown }[] = []
 
 const fakeSheets = {
   spreadsheets: {
@@ -56,6 +64,11 @@ _setClientForTest(fakeSheets as unknown as Parameters<typeof _setClientForTest>[
 _setFetchForTest(async (_url, init) => {
   telegramMessages.push(JSON.parse(String(init?.body)))
   return Response.json({ ok: true })
+})
+
+_setPushSenderForTest(async (subscription, payload) => {
+  pushMessages.push({ endpoint: subscription.endpoint, payload: JSON.parse(String(payload)) })
+  return { statusCode: 201, body: '', headers: {} }
 })
 
 await init()
@@ -99,6 +112,6 @@ await createService({
 
 const app = createApp()
 // Дает спекам проверить, что дошло до фейков. Есть только в этой точке входа.
-app.get('/__e2e/state', (c) => c.json({ sheetRows, telegramMessages }))
+app.get('/__e2e/state', (c) => c.json({ sheetRows, telegramMessages, pushMessages }))
 
 serve({ fetch: app.fetch, port: PORT })

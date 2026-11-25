@@ -1,5 +1,11 @@
 import { z } from 'zod'
 
+const optionalString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => v || undefined)
+
 const envSchema = z
   .object({
     PORT: z.coerce.number().int().positive().default(3000),
@@ -31,8 +37,32 @@ const envSchema = z
     LOG_LEVEL: z
       .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
       .default('info'),
+    // Web Push необязателен: без ключей push выключен, а старт не падает. Пустая строка
+    // из .env.example значит то же, что отсутствие переменной.
+    VAPID_PUBLIC_KEY: optionalString,
+    VAPID_PRIVATE_KEY: optionalString,
+    // Должен быть настоящим mailto: или https: — на заглушку вроде localhost Apple
+    // отвечает 403 BadJwtToken.
+    VAPID_SUBJECT: optionalString,
   })
   .superRefine((v, ctx) => {
+    // Половина ключей — ошибка конфигурации, а не «push выключен»: без проверки такой
+    // деплой молча остался бы без пушей.
+    const vapid = [v.VAPID_PUBLIC_KEY, v.VAPID_PRIVATE_KEY, v.VAPID_SUBJECT]
+    if (vapid.some(Boolean) && !vapid.every(Boolean)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['VAPID_PRIVATE_KEY'],
+        message: 'VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT must be set together',
+      })
+    }
+    if (v.VAPID_SUBJECT && !/^(mailto:|https:)/.test(v.VAPID_SUBJECT)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['VAPID_SUBJECT'],
+        message: 'must start with mailto: or https:',
+      })
+    }
     // Cookie с SameSite=None браузеры отбрасывают, если нет Secure, — сочетание
     // none+insecure молча убило бы все сессии.
     if (v.AUTH_COOKIE_SAMESITE === 'none' && !v.AUTH_COOKIE_SECURE) {
@@ -56,7 +86,8 @@ export function parseEnv(raw: Record<string, string | undefined> = process.env):
         path === 'GOOGLE_SERVICE_ACCOUNT_JSON_B64' ||
         path === 'DATABASE_URL' ||
         path === 'TELEGRAM_BOT_TOKEN' ||
-        path === 'JWT_SECRET'
+        path === 'JWT_SECRET' ||
+        path === 'VAPID_PRIVATE_KEY'
       ) {
         return `  ${path}: [REDACTED] — ${issue.message}`
       }

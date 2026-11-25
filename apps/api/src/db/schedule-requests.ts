@@ -4,8 +4,14 @@ import { MY_SCHEDULE_REQUESTS_LIMIT } from '@detailing-admin/shared'
 import type { AuditActor } from './audit.js'
 import { getDb } from './client.js'
 import { applyScheduleDays, ScheduleError } from './schedule.js'
-import { masters, scheduleRequests, type ScheduleRequestRow } from './schema.js'
+import {
+  masters,
+  scheduleRequests,
+  type NotificationRow,
+  type ScheduleRequestRow,
+} from './schema.js'
 import { adminUserIds, insertNotifications } from '../notifications/store.js'
+import { deliverNotifications } from '../notifications/deliver.js'
 import {
   scheduleRequestCreatedNotifications,
   scheduleRequestDecidedNotifications,
@@ -65,7 +71,8 @@ export async function createScheduleRequest(
   days: readonly ScheduleRequestDay[],
   actorId: string,
 ): Promise<ScheduleRequest> {
-  return getDb().transaction(async (tx) => {
+  let notes: NotificationRow[] = []
+  const created = await getDb().transaction(async (tx) => {
     const [master] = await tx
       .select({ name: masters.name })
       .from(masters)
@@ -82,7 +89,7 @@ export async function createScheduleRequest(
 
     const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date))
     const [row] = await tx.insert(scheduleRequests).values({ masterId, days: sorted }).returning()
-    await insertNotifications(tx, async (sp) =>
+    notes = await insertNotifications(tx, async (sp) =>
       scheduleRequestCreatedNotifications(
         { masterName: master.name, dayCount: sorted.length },
         await adminUserIds(sp),
@@ -91,6 +98,8 @@ export async function createScheduleRequest(
     )
     return toWire(row!, master.name)
   })
+  deliverNotifications(notes)
+  return created
 }
 
 // Отозванная заявка удаляется: в истории ей делать нечего, решения по ней не было.
@@ -118,6 +127,7 @@ export async function decideScheduleRequest(
   actor: AuditActor,
   decision: Decision,
 ): Promise<void> {
+  let notes: NotificationRow[] = []
   await getDb().transaction(async (tx) => {
     const [row] = await tx
       .select()
@@ -152,7 +162,7 @@ export async function decideScheduleRequest(
       .where(eq(scheduleRequests.id, id))
 
     // Аккаунт берется на момент решения, а не подачи: мастера могли перепривязать.
-    await insertNotifications(tx, async (sp) => {
+    notes = await insertNotifications(tx, async (sp) => {
       const [master] = await sp
         .select({ userId: masters.userId })
         .from(masters)
@@ -168,4 +178,5 @@ export async function decideScheduleRequest(
       )
     })
   })
+  deliverNotifications(notes)
 }

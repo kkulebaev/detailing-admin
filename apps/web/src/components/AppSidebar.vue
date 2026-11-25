@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, type Component } from 'vue'
+import { computed, onMounted, watch, type Component } from 'vue'
 import {
   BarChart3,
   Bell,
@@ -33,6 +33,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { usePendingScheduleRequestsQuery, useUnreadNotificationsQuery } from '@/lib/queries'
+import { registerServiceWorker, setAppBadge } from '@/lib/push'
 import { useAuthStore } from '@/stores/auth'
 
 interface NavItem {
@@ -98,6 +99,8 @@ const pendingCount = computed(() =>
   pendingRequests.value?.ok ? pendingRequests.value.requests.length : 0,
 )
 const unreadCount = computed(() => (unread.value?.ok ? unread.value.unreadCount : 0))
+// Пуш ставит значок числом на момент отправки; прочитанное в приложении должно его гасить.
+watch(unreadCount, (count) => setAppBadge(count))
 
 function badgeFor(item: NavItem): number {
   return item.to.name === 'schedule' ? pendingCount.value : 0
@@ -112,6 +115,10 @@ watch(
     if (isMobile.value) setOpenMobile(false)
   },
 )
+
+// Сайдбар живет ровно столько, сколько сессия, поэтому воркер регистрируется здесь:
+// до входа пушам некому приходить. Сообщения воркера слушает main.ts.
+onMounted(() => void registerServiceWorker())
 
 async function onLogout() {
   await auth.logout()

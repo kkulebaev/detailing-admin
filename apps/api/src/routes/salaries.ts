@@ -39,8 +39,9 @@ import {
   type WorkHoursPatch,
 } from '../db/salaries.js'
 import { getDb } from '../db/client.js'
-import type { PayoutRow, WorkHoursRow } from '../db/schema.js'
+import type { NotificationRow, PayoutRow, WorkHoursRow } from '../db/schema.js'
 import { notifyMoney } from '../notifications/store.js'
+import { deliverNotifications } from '../notifications/deliver.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
@@ -420,18 +421,20 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     const { masterId, workDate, hours, note } = c.req.valid('json')
     try {
       const actorId = c.get('user').sub
+      let notes: NotificationRow[] = []
       const row = await getDb().transaction(async (tx) => {
         const created = await createWorkHours(
           { masterId, workDate, minutes: hoursToMinutes(hours), note: note ?? '' },
           tx,
         )
-        await notifyMoney(tx, actorId, masterId, {
+        notes = await notifyMoney(tx, actorId, masterId, {
           type: 'work_hours.changed',
           action: 'create',
           hours: created,
         })
         return created
       })
+      deliverNotifications(notes)
       baseLogger.info(
         {
           event: 'salaries.hours.create',
@@ -480,6 +483,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
     try {
       const actorId = c.get('user').sub
+      let notes: NotificationRow[] = []
       const row = await getDb().transaction(async (tx) => {
         const before = await getWorkHoursById(id, tx)
         const updated = await updateWorkHours(id, patch, tx)
@@ -490,7 +494,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
             before.minutes !== updated.minutes ||
             before.note !== updated.note)
         if (changed) {
-          await notifyMoney(tx, actorId, updated.masterId, {
+          notes = await notifyMoney(tx, actorId, updated.masterId, {
             type: 'work_hours.changed',
             action: 'update',
             hours: updated,
@@ -498,6 +502,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         }
         return updated
       })
+      deliverNotifications(notes)
       baseLogger.info(
         { event: 'salaries.hours.update', request_id: requestId, work_hours_id: id, status: 200 },
         'Work hours updated',
@@ -516,14 +521,16 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     const { id } = c.req.valid('param')
     try {
       const actorId = c.get('user').sub
+      let notes: NotificationRow[] = []
       await getDb().transaction(async (tx) => {
         const deleted = await deleteWorkHours(id, tx)
-        await notifyMoney(tx, actorId, deleted.masterId, {
+        notes = await notifyMoney(tx, actorId, deleted.masterId, {
           type: 'work_hours.changed',
           action: 'delete',
           hours: deleted,
         })
       })
+      deliverNotifications(notes)
       baseLogger.info(
         { event: 'salaries.hours.delete', request_id: requestId, work_hours_id: id, status: 200 },
         'Work hours deleted',
@@ -542,15 +549,17 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     const { masterId, payoutDate, amount, note } = c.req.valid('json')
     try {
       const actorId = c.get('user').sub
+      let notes: NotificationRow[] = []
       const row = await getDb().transaction(async (tx) => {
         const created = await createPayout({ masterId, payoutDate, amount, note: note ?? '' }, tx)
-        await notifyMoney(tx, actorId, masterId, {
+        notes = await notifyMoney(tx, actorId, masterId, {
           type: 'payout.changed',
           action: 'create',
           payout: created,
         })
         return created
       })
+      deliverNotifications(notes)
       baseLogger.info(
         {
           event: 'salaries.payout.create',
@@ -600,6 +609,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 
     try {
       const actorId = c.get('user').sub
+      let notes: NotificationRow[] = []
       const row = await getDb().transaction(async (tx) => {
         const before = await getPayoutById(id, tx)
         const updated = await updatePayout(id, patch, tx)
@@ -609,7 +619,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
             before.amount !== updated.amount ||
             before.note !== updated.note)
         if (changed) {
-          await notifyMoney(tx, actorId, updated.masterId, {
+          notes = await notifyMoney(tx, actorId, updated.masterId, {
             type: 'payout.changed',
             action: 'update',
             payout: updated,
@@ -617,6 +627,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
         }
         return updated
       })
+      deliverNotifications(notes)
       baseLogger.info(
         { event: 'salaries.payout.update', request_id: requestId, payout_id: id, status: 200 },
         'Payout updated',
@@ -635,14 +646,16 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     const { id } = c.req.valid('param')
     try {
       const actorId = c.get('user').sub
+      let notes: NotificationRow[] = []
       await getDb().transaction(async (tx) => {
         const deleted = await deletePayout(id, tx)
-        await notifyMoney(tx, actorId, deleted.masterId, {
+        notes = await notifyMoney(tx, actorId, deleted.masterId, {
           type: 'payout.changed',
           action: 'delete',
           payout: deleted,
         })
       })
+      deliverNotifications(notes)
       baseLogger.info(
         { event: 'salaries.payout.delete', request_id: requestId, payout_id: id, status: 200 },
         'Payout deleted',

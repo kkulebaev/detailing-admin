@@ -497,3 +497,25 @@ export const notifications = pgTable(
 
 export type NotificationRow = typeof notifications.$inferSelect
 export type NewNotificationRow = typeof notifications.$inferInsert
+
+// Web Push подписка одного браузера. Endpoint уникален: на общем телефоне сменили
+// логин, и та же подписка переходит к новому аккаунту, а не дублируется. Подписка,
+// на которую push-сервис ответил 404/410, удаляется: браузер ее уже забыл.
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: serial('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    lastSuccessAt: timestamp('last_success_at'),
+  },
+  (t) => [index('push_subscriptions_user_id_idx').on(t.userId)],
+)
+
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect

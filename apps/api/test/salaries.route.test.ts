@@ -70,7 +70,7 @@ vi.mock('../src/db/client.js', () => ({
   getDb: () => ({ transaction: (fn: (tx: unknown) => unknown) => fn(TX) }),
 }))
 
-vi.mock('../src/notifications/store.js', () => ({ notifyMoney: vi.fn() }))
+vi.mock('../src/notifications/store.js', () => ({ notifyMoney: vi.fn().mockResolvedValue([]) }))
 
 import { createApp } from '../src/server.js'
 import { notifyMoney } from '../src/notifications/store.js'

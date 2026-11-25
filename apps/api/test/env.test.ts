@@ -147,3 +147,53 @@ describe('parseEnv', () => {
     }
   })
 })
+
+describe('parseEnv — VAPID', () => {
+  const VAPID = {
+    VAPID_PUBLIC_KEY: 'BPublicKey',
+    VAPID_PRIVATE_KEY: 'super-secret-private-key',
+    VAPID_SUBJECT: 'mailto:owner@example.com',
+  }
+
+  it('без VAPID стартует, push выключен (критерий 9)', () => {
+    const result = parseEnv(BASE)
+    expect(result.VAPID_PUBLIC_KEY).toBeUndefined()
+    expect(result.VAPID_PRIVATE_KEY).toBeUndefined()
+    expect(result.VAPID_SUBJECT).toBeUndefined()
+  })
+
+  it('пустые строки из .env.example значат «не задано»', () => {
+    const result = parseEnv({
+      ...BASE,
+      VAPID_PUBLIC_KEY: '',
+      VAPID_PRIVATE_KEY: ' ',
+      VAPID_SUBJECT: '',
+    })
+    expect(result.VAPID_PUBLIC_KEY).toBeUndefined()
+    expect(result.VAPID_PRIVATE_KEY).toBeUndefined()
+  })
+
+  it('принимает полный набор', () => {
+    expect(parseEnv({ ...BASE, ...VAPID }).VAPID_SUBJECT).toBe('mailto:owner@example.com')
+  })
+
+  it('половина ключей — ошибка, приватный ключ не попадает в сообщение', () => {
+    let message = ''
+    try {
+      parseEnv({ ...BASE, VAPID_PRIVATE_KEY: VAPID.VAPID_PRIVATE_KEY })
+    } catch (err) {
+      message = String(err)
+    }
+    expect(message).toContain('VAPID_PRIVATE_KEY: [REDACTED]')
+    expect(message).not.toContain(VAPID.VAPID_PRIVATE_KEY)
+  })
+
+  it('VAPID_SUBJECT только mailto: или https:', () => {
+    expect(() => parseEnv({ ...BASE, ...VAPID, VAPID_SUBJECT: 'owner@example.com' })).toThrow(
+      /VAPID_SUBJECT/,
+    )
+    expect(
+      parseEnv({ ...BASE, ...VAPID, VAPID_SUBJECT: 'https://example.com' }).VAPID_SUBJECT,
+    ).toBe('https://example.com')
+  })
+})

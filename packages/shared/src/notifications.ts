@@ -78,6 +78,72 @@ export const notificationsUnreadResponseSchema = z.union([
   internalErrorSchema,
 ])
 
+// ── Web Push ────────────────────────────────────────────────────────────────
+
+export const pushConfigOkSchema = z.object({
+  ok: z.literal(true),
+  // null — VAPID на сервере не настроен, пуши выключены.
+  publicKey: z.string().nullable(),
+})
+
+export const pushConfigResponseSchema = z.union([pushConfigOkSchema, internalErrorSchema])
+
+// Сервер сам ходит POST-ом на endpoint, поэтому произвольный адрес превратил бы подписку
+// в способ дергать внутренние сервисы (SSRF). Пускаем только push-сервисы браузеров:
+// точный хост или его поддомен (сравнение через точку, чтобы evilpush.apple.com не прошел).
+export const PUSH_SERVICE_HOSTS = [
+  'fcm.googleapis.com',
+  'push.apple.com',
+  'push.services.mozilla.com',
+  'notify.windows.com',
+] as const
+
+export function isPushServiceEndpoint(endpoint: string): boolean {
+  let host: string
+  try {
+    host = new URL(endpoint).hostname.toLowerCase()
+  } catch {
+    return false
+  }
+  return PUSH_SERVICE_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+}
+
+const pushEndpointSchema = z
+  .url({ protocol: /^https$/ })
+  .max(2048)
+  .refine(isPushServiceEndpoint, { message: 'Unknown push service' })
+
+export const pushSubscriptionInputSchema = z.object({
+  endpoint: pushEndpointSchema,
+  keys: z.object({
+    p256dh: z.string().min(1).max(256),
+    auth: z.string().min(1).max(256),
+  }),
+})
+
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionInputSchema>
+
+export const pushEndpointInputSchema = z.object({ endpoint: pushEndpointSchema })
+
+export const pushSubscriptionStatusOkSchema = z.object({
+  ok: z.literal(true),
+  subscribed: z.boolean(),
+})
+
+export const pushSubscriptionStatusResponseSchema = z.union([
+  pushSubscriptionStatusOkSchema,
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export const pushSubscriptionMutationResponseSchema = z.union([
+  z.object({ ok: z.literal(true) }),
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
 export const notificationReadResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
   validationErrorSchema,

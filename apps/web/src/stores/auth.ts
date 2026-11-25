@@ -16,6 +16,7 @@ import {
   type LoginResult,
   type UpdateProfileResult,
 } from '@/lib/auth-api'
+import { unsubscribePush } from '@/lib/push'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserPublic | null>(null)
@@ -65,6 +66,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    // До выхода, пока сессия жива: иначе серверную подписку удалить уже нельзя, и
+    // телефон получал бы пуши ушедшего аккаунта до первого 410.
+    try {
+      await unsubscribePush()
+    } catch {
+      // Пуши не должны мешать выйти.
+    }
     try {
       await apiLogout()
     } catch {

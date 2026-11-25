@@ -34,9 +34,11 @@ import {
   type Booking,
   type BookingSnapshot,
   type NewBooking,
+  type NotificationRow,
 } from './schema.js'
 import { baseLogger } from '../log.js'
 import { insertNotifications, masterAccounts } from '../notifications/store.js'
+import { deliverNotifications } from '../notifications/deliver.js'
 import {
   bookingNotifications,
   type BookingEvent,
@@ -222,8 +224,8 @@ async function notifyBookingMasters(
   tx: Tx,
   actor: AuditActor,
   event: (sp: Tx) => Promise<{ event: BookingEvent; masterIds: number[] }>,
-) {
-  await insertNotifications(tx, async (sp) => {
+): Promise<NotificationRow[]> {
+  return insertNotifications(tx, async (sp) => {
     const { event: e, masterIds } = await event(sp)
     return bookingNotifications(e, await masterAccounts(sp, masterIds), actor.id)
   })
@@ -428,6 +430,7 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
   const ids = await resolveMasterIds([...b.master, b.responsible])
   const responsibleId = ids.get(b.responsible.trim()) ?? null
   const values = bookingToDbRow(b, meta, responsibleId)
+  let notes: NotificationRow[] = []
   const bookingId = await db.transaction(async (tx) => {
     const inserted = await tx
       .insert(bookings)
@@ -457,7 +460,7 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
       const id = inserted[0].id
       await recordBookingAudit(tx, actor, id, 'create')
       const masterIds = matchedMasterRows(id, b.master, ids).map((r) => r.masterId)
-      await notifyBookingMasters(tx, actor, async () => ({
+      notes = await notifyBookingMasters(tx, actor, async () => ({
         event: {
           kind: 'create',
           booking: toSummary({
@@ -476,6 +479,7 @@ export async function insertBooking(b: WireBooking, meta: BookingWriteMeta): Pro
     })
     return inserted[0].id
   })
+  deliverNotifications(notes)
   return bookingId !== null
 }
 
@@ -503,6 +507,7 @@ export async function updateBooking(
   const db = getDb()
   const ids = await resolveMasterIds([...b.master, b.responsible])
   const responsibleId = ids.get(b.responsible.trim()) ?? null
+  let notes: NotificationRow[] = []
   const row = await db.transaction(async (tx) => {
     const before = await lockBooking(tx, id)
     if (!before) return null
@@ -527,7 +532,7 @@ export async function updateBooking(
     if (changes.length > 0) await recordBookingAudit(tx, actor, id, 'update', { changes })
     // Уведомления читают связи «было», поэтому идут до их перезаписи.
     const afterMasterIds = matchedMasterRows(id, b.master, ids).map((r) => r.masterId)
-    await notifyBookingMasters(tx, actor, async (sp) => {
+    notes = await notifyBookingMasters(tx, actor, async (sp) => {
       const beforeMasterIds = await linkedMasterIds(sp, id, before.master)
       return {
         event: {
@@ -543,6 +548,7 @@ export async function updateBooking(
     await writeMasterLinks(tx, id, matchedMasterRows(id, b.master, ids), { replace: true })
     return after
   })
+  deliverNotifications(notes)
   if (!row) return null
 
   const [enriched] = await enrichForRead([row])
@@ -578,7 +584,8 @@ export async function updateBookingReadiness(
  * без снимка удаление не проходит. Возвращает false, если строка не нашлась. */
 export async function deleteBooking(id: string, actor: AuditActor): Promise<boolean> {
   const db = getDb()
-  return db.transaction(async (tx) => {
+  let notes: NotificationRow[] = []
+  const deleted = await db.transaction(async (tx) => {
     const before = await lockBooking(tx, id)
     if (!before) return false
     const links = await tx
@@ -593,7 +600,7 @@ export async function deleteBooking(id: string, actor: AuditActor): Promise<bool
     }
     await tx.delete(bookings).where(eq(bookings.id, id))
     await recordBookingAudit(tx, actor, id, 'delete', { snapshot })
-    await notifyBookingMasters(tx, actor, async (sp) => {
+    notes = await notifyBookingMasters(tx, actor, async (sp) => {
       const masterIds = await mastersOf(
         sp,
         links.map((l) => l.masterId),
@@ -603,6 +610,8 @@ export async function deleteBooking(id: string, actor: AuditActor): Promise<bool
     })
     return true
   })
+  deliverNotifications(notes)
+  return deleted
 }
 
 export type RestoreResult =
@@ -615,6 +624,7 @@ export type RestoreResult =
 export async function restoreBooking(id: string, actor: AuditActor): Promise<RestoreResult> {
   const db = getDb()
   type Restored = { ok: true; booking: Booking } | Extract<RestoreResult, { ok: false }>
+  let notes: NotificationRow[] = []
   const restored = await db.transaction(async (tx): Promise<Restored> => {
     const [entry] = await tx
       .select({ snapshot: auditLog.snapshot })
@@ -675,7 +685,7 @@ export async function restoreBooking(id: string, actor: AuditActor): Promise<Res
     await recordBookingAudit(tx, actor, id, 'restore')
     // Мастер, которого за это время архивировали или отвязали от аккаунта, выпадет
     // в masterAccounts.
-    await notifyBookingMasters(tx, actor, async (sp) => {
+    notes = await notifyBookingMasters(tx, actor, async (sp) => {
       const masterIds = await mastersOf(
         sp,
         links.map((m) => m.masterId),
@@ -685,6 +695,7 @@ export async function restoreBooking(id: string, actor: AuditActor): Promise<Res
     })
     return { ok: true, booking: row }
   })
+  deliverNotifications(notes)
   if (!restored.ok) return restored
   const [enriched] = await enrichForRead([restored.booking])
   return { ok: true, booking: enriched }

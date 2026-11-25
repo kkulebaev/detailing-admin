@@ -15,6 +15,7 @@ export async function login(page: Page, loginName: string) {
 export interface FakesState {
   sheetRows: unknown[][]
   telegramMessages: { chat_id: string; text: string }[]
+  pushMessages: { endpoint: string; payload: unknown }[]
 }
 
 export async function fakesState(): Promise<FakesState> {

@@ -34,6 +34,14 @@ server {
         add_header Cache-Control "no-cache";
     }
 
+    # Без try_files общий location / отдал бы на /sw.js index.html, и регистрация
+    # воркера падала бы с ошибкой MIME. no-cache — чтобы исправленный воркер доезжал до
+    # телефонов сразу, а не по истечении HTTP-кеша.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
     location / {
         # Обязательна перепроверка, иначе браузер продолжит ссылаться на чанки старого деплоя.
         add_header Cache-Control "no-cache";

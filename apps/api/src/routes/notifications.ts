@@ -10,6 +10,10 @@ import {
   notFoundErrorSchema,
   notificationsListOkSchema,
   notificationsUnreadOkSchema,
+  pushConfigOkSchema,
+  pushEndpointInputSchema,
+  pushSubscriptionInputSchema,
+  pushSubscriptionStatusOkSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
@@ -21,6 +25,12 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../notifications/store.js'
+import {
+  deletePushSubscription,
+  hasPushSubscription,
+  upsertPushSubscription,
+} from '../notifications/push-subscriptions.js'
+import { pushPublicKey } from '../notifications/web-push.js'
 import { defaultValidationHook } from '../openapi.js'
 
 // Лента уведомлений любой роли (guard в server.ts только проверяет сессию). Каждый
@@ -163,8 +173,124 @@ const readRoute = createRoute({
   },
 })
 
-// Статический /read-all регистрируется до /{id}/read, чтобы валидатор id его не перехватил.
+const pushConfigRoute = createRoute({
+  method: 'get',
+  path: '/push/config',
+  tags: ['notifications'],
+  responses: {
+    200: {
+      description: 'VAPID public key, null when push is not configured',
+      content: { 'application/json': { schema: pushConfigOkSchema } },
+    },
+  },
+})
+
+const pushSubscribeRoute = createRoute({
+  method: 'post',
+  path: '/push/subscriptions',
+  tags: ['notifications'],
+  request: {
+    body: { content: { 'application/json': { schema: pushSubscriptionInputSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Subscription saved for the current account',
+      content: { 'application/json': { schema: actionOk } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const pushUnsubscribeRoute = createRoute({
+  method: 'delete',
+  path: '/push/subscriptions',
+  tags: ['notifications'],
+  request: {
+    body: { content: { 'application/json': { schema: pushEndpointInputSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Own subscription removed (no-op when absent)',
+      content: { 'application/json': { schema: actionOk } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+// POST с телом, а не GET с query: endpoint — по сути секрет подписки, а query оседает
+// в access-логах прокси.
+const pushCurrentRoute = createRoute({
+  method: 'post',
+  path: '/push/subscriptions/current',
+  tags: ['notifications'],
+  request: {
+    body: { content: { 'application/json': { schema: pushEndpointInputSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Whether this endpoint is subscribed for the current account',
+      content: { 'application/json': { schema: pushSubscriptionStatusOkSchema } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const USER_AGENT_MAX = 512
+
+// Статические пути (/read-all, /push/*) регистрируются до /{id}/read, чтобы валидатор id
+// их не перехватил.
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
+  // Ключ отдается и без базы: он из env, а без него страница профиля прячет переключатель.
+  .openapi(pushConfigRoute, (c) =>
+    c.json({ ok: true as const, publicKey: pushPublicKey() }, StatusCodes.OK),
+  )
+  .openapi(pushSubscribeRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return unavailable(c)
+    const { endpoint, keys } = c.req.valid('json')
+    try {
+      await upsertPushSubscription(c.get('user').sub, {
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        userAgent: c.req.header('user-agent')?.slice(0, USER_AGENT_MAX) ?? null,
+      })
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'notifications.push.subscribe.error', requestId, err)
+    }
+  })
+  .openapi(pushUnsubscribeRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return unavailable(c)
+    const { endpoint } = c.req.valid('json')
+    try {
+      await deletePushSubscription(c.get('user').sub, endpoint)
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'notifications.push.unsubscribe.error', requestId, err)
+    }
+  })
+  .openapi(pushCurrentRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+    if (!isDbReady()) return unavailable(c)
+    const { endpoint } = c.req.valid('json')
+    try {
+      const subscribed = await hasPushSubscription(c.get('user').sub, endpoint)
+      return c.json({ ok: true as const, subscribed }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'notifications.push.current.error', requestId, err)
+    }
+  })
   .openapi(listRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)

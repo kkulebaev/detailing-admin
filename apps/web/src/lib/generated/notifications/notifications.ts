@@ -6,11 +6,17 @@
  * OpenAPI spec version: 0.0.1
  */
 import type {
+  DeleteApiNotificationsPushSubscriptions200,
+  DeleteApiNotificationsPushSubscriptions400,
+  DeleteApiNotificationsPushSubscriptions500,
+  DeleteApiNotificationsPushSubscriptions503,
+  DeleteApiNotificationsPushSubscriptionsBody,
   GetApiNotifications200,
   GetApiNotifications400,
   GetApiNotifications500,
   GetApiNotifications503,
   GetApiNotificationsParams,
+  GetApiNotificationsPushConfig200,
   GetApiNotificationsUnreadCount200,
   GetApiNotificationsUnreadCount500,
   GetApiNotificationsUnreadCount503,
@@ -19,12 +25,243 @@ import type {
   PostApiNotificationsIdRead404,
   PostApiNotificationsIdRead500,
   PostApiNotificationsIdRead503,
+  PostApiNotificationsPushSubscriptions200,
+  PostApiNotificationsPushSubscriptions400,
+  PostApiNotificationsPushSubscriptions500,
+  PostApiNotificationsPushSubscriptions503,
+  PostApiNotificationsPushSubscriptionsBody,
+  PostApiNotificationsPushSubscriptionsCurrent200,
+  PostApiNotificationsPushSubscriptionsCurrent400,
+  PostApiNotificationsPushSubscriptionsCurrent500,
+  PostApiNotificationsPushSubscriptionsCurrent503,
+  PostApiNotificationsPushSubscriptionsCurrentBody,
   PostApiNotificationsReadAll200,
   PostApiNotificationsReadAll500,
   PostApiNotificationsReadAll503
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
+
+export type getApiNotificationsPushConfigResponse200 = {
+  data: GetApiNotificationsPushConfig200
+  status: 200
+}
+
+export type getApiNotificationsPushConfigResponseSuccess = (getApiNotificationsPushConfigResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getApiNotificationsPushConfigResponse = (getApiNotificationsPushConfigResponseSuccess)
+
+export const getGetApiNotificationsPushConfigUrl = () => {
+
+
+
+
+  return `/api/notifications/push/config`
+}
+
+export const getApiNotificationsPushConfig = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<getApiNotificationsPushConfigResponse> => {
+
+  return orvalFetch<getApiNotificationsPushConfigResponse>(getGetApiNotificationsPushConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type postApiNotificationsPushSubscriptionsResponse200 = {
+  data: PostApiNotificationsPushSubscriptions200
+  status: 200
+}
+
+export type postApiNotificationsPushSubscriptionsResponse400 = {
+  data: PostApiNotificationsPushSubscriptions400
+  status: 400
+}
+
+export type postApiNotificationsPushSubscriptionsResponse500 = {
+  data: PostApiNotificationsPushSubscriptions500
+  status: 500
+}
+
+export type postApiNotificationsPushSubscriptionsResponse503 = {
+  data: PostApiNotificationsPushSubscriptions503
+  status: 503
+}
+
+export type postApiNotificationsPushSubscriptionsResponseSuccess = (postApiNotificationsPushSubscriptionsResponse200) & {
+  headers: Headers;
+};
+export type postApiNotificationsPushSubscriptionsResponseError = (postApiNotificationsPushSubscriptionsResponse400 | postApiNotificationsPushSubscriptionsResponse500 | postApiNotificationsPushSubscriptionsResponse503) & {
+  headers: Headers;
+};
+
+export type postApiNotificationsPushSubscriptionsResponse = (postApiNotificationsPushSubscriptionsResponseSuccess | postApiNotificationsPushSubscriptionsResponseError)
+
+export const getPostApiNotificationsPushSubscriptionsUrl = () => {
+
+
+
+
+  return `/api/notifications/push/subscriptions`
+}
+
+export const postApiNotificationsPushSubscriptions = async (postApiNotificationsPushSubscriptionsBody?: PostApiNotificationsPushSubscriptionsBody, options?: Parameters<typeof orvalFetch>[1]): Promise<postApiNotificationsPushSubscriptionsResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<postApiNotificationsPushSubscriptionsResponse>(getPostApiNotificationsPushSubscriptionsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(postApiNotificationsPushSubscriptionsBody)
+  }
+);}
+
+
+export type deleteApiNotificationsPushSubscriptionsResponse200 = {
+  data: DeleteApiNotificationsPushSubscriptions200
+  status: 200
+}
+
+export type deleteApiNotificationsPushSubscriptionsResponse400 = {
+  data: DeleteApiNotificationsPushSubscriptions400
+  status: 400
+}
+
+export type deleteApiNotificationsPushSubscriptionsResponse500 = {
+  data: DeleteApiNotificationsPushSubscriptions500
+  status: 500
+}
+
+export type deleteApiNotificationsPushSubscriptionsResponse503 = {
+  data: DeleteApiNotificationsPushSubscriptions503
+  status: 503
+}
+
+export type deleteApiNotificationsPushSubscriptionsResponseSuccess = (deleteApiNotificationsPushSubscriptionsResponse200) & {
+  headers: Headers;
+};
+export type deleteApiNotificationsPushSubscriptionsResponseError = (deleteApiNotificationsPushSubscriptionsResponse400 | deleteApiNotificationsPushSubscriptionsResponse500 | deleteApiNotificationsPushSubscriptionsResponse503) & {
+  headers: Headers;
+};
+
+export type deleteApiNotificationsPushSubscriptionsResponse = (deleteApiNotificationsPushSubscriptionsResponseSuccess | deleteApiNotificationsPushSubscriptionsResponseError)
+
+export const getDeleteApiNotificationsPushSubscriptionsUrl = () => {
+
+
+
+
+  return `/api/notifications/push/subscriptions`
+}
+
+export const deleteApiNotificationsPushSubscriptions = async (deleteApiNotificationsPushSubscriptionsBody?: DeleteApiNotificationsPushSubscriptionsBody, options?: Parameters<typeof orvalFetch>[1]): Promise<deleteApiNotificationsPushSubscriptionsResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<deleteApiNotificationsPushSubscriptionsResponse>(getDeleteApiNotificationsPushSubscriptionsUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(deleteApiNotificationsPushSubscriptionsBody)
+  }
+);}
+
+
+export type postApiNotificationsPushSubscriptionsCurrentResponse200 = {
+  data: PostApiNotificationsPushSubscriptionsCurrent200
+  status: 200
+}
+
+export type postApiNotificationsPushSubscriptionsCurrentResponse400 = {
+  data: PostApiNotificationsPushSubscriptionsCurrent400
+  status: 400
+}
+
+export type postApiNotificationsPushSubscriptionsCurrentResponse500 = {
+  data: PostApiNotificationsPushSubscriptionsCurrent500
+  status: 500
+}
+
+export type postApiNotificationsPushSubscriptionsCurrentResponse503 = {
+  data: PostApiNotificationsPushSubscriptionsCurrent503
+  status: 503
+}
+
+export type postApiNotificationsPushSubscriptionsCurrentResponseSuccess = (postApiNotificationsPushSubscriptionsCurrentResponse200) & {
+  headers: Headers;
+};
+export type postApiNotificationsPushSubscriptionsCurrentResponseError = (postApiNotificationsPushSubscriptionsCurrentResponse400 | postApiNotificationsPushSubscriptionsCurrentResponse500 | postApiNotificationsPushSubscriptionsCurrentResponse503) & {
+  headers: Headers;
+};
+
+export type postApiNotificationsPushSubscriptionsCurrentResponse = (postApiNotificationsPushSubscriptionsCurrentResponseSuccess | postApiNotificationsPushSubscriptionsCurrentResponseError)
+
+export const getPostApiNotificationsPushSubscriptionsCurrentUrl = () => {
+
+
+
+
+  return `/api/notifications/push/subscriptions/current`
+}
+
+export const postApiNotificationsPushSubscriptionsCurrent = async (postApiNotificationsPushSubscriptionsCurrentBody?: PostApiNotificationsPushSubscriptionsCurrentBody, options?: Parameters<typeof orvalFetch>[1]): Promise<postApiNotificationsPushSubscriptionsCurrentResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<postApiNotificationsPushSubscriptionsCurrentResponse>(getPostApiNotificationsPushSubscriptionsCurrentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(postApiNotificationsPushSubscriptionsCurrentBody)
+  }
+);}
+
 
 export type getApiNotificationsResponse200 = {
   data: GetApiNotifications200
