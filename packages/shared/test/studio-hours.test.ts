@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  datesOnClosedDays,
   formatStudioHours,
+  isoWeekday,
   minutesToTime,
   studioDaySchema,
   timeToMinutes,
@@ -38,5 +40,33 @@ describe('время дня', () => {
     expect(
       studioDaySchema.safeParse({ weekday: 0, opensAt: '10:00', closesAt: '10:00' }).success,
     ).toBe(false)
+  })
+})
+
+describe('datesOnClosedDays', () => {
+  // 2026-11-23 — понедельник, 2026-11-29 — воскресенье.
+  const weekdaysOnly = [0, 1, 2, 3, 4].map((weekday) => ({
+    weekday,
+    opensAt: '10:00',
+    closesAt: '20:00',
+  }))
+
+  it('считает понедельник нулем', () => {
+    expect(isoWeekday('2026-11-23')).toBe(0)
+    expect(isoWeekday('2026-11-29')).toBe(6)
+  })
+
+  it('находит только рабочие дни, выпавшие на выходные студии', () => {
+    expect(
+      datesOnClosedDays(weekdaysOnly, [
+        { date: '2026-11-29', working: true },
+        { date: '2026-11-28', working: false },
+        { date: '2026-11-23', working: true },
+      ]),
+    ).toEqual(['2026-11-29'])
+  })
+
+  it('без заданного режима ничего не запрещает', () => {
+    expect(datesOnClosedDays([], [{ date: '2026-11-29', working: true }])).toEqual([])
   })
 })

@@ -337,5 +337,8 @@ export {
   studioHoursOkSchema,
   studioHoursResponseSchema,
   formatStudioHours,
+  isoWeekday,
+  datesOnClosedDays,
+  studioClosedErrorSchema,
 } from './studio-hours.js'
 export type { StudioDay, StudioHoursInput } from './studio-hours.js'

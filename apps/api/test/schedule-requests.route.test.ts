@@ -42,7 +42,10 @@ vi.mock('../src/sheets.js', () => ({
 // Настоящий ScheduleRequestError, чтобы в роутах работал `err instanceof`.
 vi.mock('../src/db/schedule-requests.js', () => {
   class ScheduleRequestError extends Error {
-    constructor(public readonly code: string) {
+    constructor(
+      public readonly code: string,
+      public readonly dates: string[] = [],
+    ) {
       super(code)
       this.name = 'ScheduleRequestError'
     }
@@ -186,6 +189,23 @@ describe('/api/me/schedule-requests', () => {
     expect(await res.json()).toMatchObject({ reason: 'not_linked' })
   })
 
+  it('POST с рабочим днем в выходной студии → 400 studio_closed', async () => {
+    vi.mocked(createScheduleRequest).mockRejectedValue(
+      new ScheduleRequestError('studio_closed', ['2026-11-29']),
+    )
+    const res = await req(app, 'POST', '/api/me/schedule-requests', {
+      body,
+      cookie: await employeeCookie(),
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: 'validation',
+      reason: 'studio_closed',
+      dates: ['2026-11-29'],
+    })
+  })
+
   it('POST при заявке на согласовании → 409 pending_exists', async () => {
     vi.mocked(createScheduleRequest).mockRejectedValue(new ScheduleRequestError('pending_exists'))
     const res = await req(app, 'POST', '/api/me/schedule-requests', {
@@ -264,6 +284,17 @@ describe('/api/schedule-requests', () => {
       approve: false,
       comment: null,
     })
+  })
+
+  it('approve заявки с рабочим днем в выходной студии → 400 studio_closed', async () => {
+    vi.mocked(decideScheduleRequest).mockRejectedValue(
+      new ScheduleRequestError('studio_closed', ['2026-11-29']),
+    )
+    const res = await req(app, 'POST', '/api/schedule-requests/3/approve', {
+      cookie: await adminCookie(),
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ reason: 'studio_closed', dates: ['2026-11-29'] })
   })
 
   it('решение по уже рассмотренной заявке → 409, по несуществующей → 404', async () => {

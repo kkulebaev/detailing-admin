@@ -159,10 +159,55 @@ describe('SchedulePage', () => {
 
     const closed = page.getByRole('button', { name: `${secondDayLabel}, студия закрыта` })
     await expect.element(closed).toHaveClass(/closed-hatch/)
+    // Поставить рабочий день в выходной студии нельзя.
+    await expect.element(closed).toBeDisabled()
     await expect
       .element(page.getByRole('button', { name: dayLabel(3) }))
       .not.toHaveClass(/closed-hatch/)
     await expect.element(page.getByText('Студия закрыта', { exact: true })).toBeInTheDocument()
+  })
+
+  it('день, отмеченный до смены режима, в выходной студии можно снять', async () => {
+    const [y, m] = month.split('-').map(Number)
+    const closedWeekday = (new Date(Date.UTC(y!, m! - 1, 1)).getUTCDay() + 6) % 7
+    state.studioDays.value = [0, 1, 2, 3, 4, 5, 6]
+      .filter((w) => w !== closedWeekday)
+      .map((weekday) => ({ weekday, opensAt: '10:00', closesAt: '20:00' }))
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    const first = page.getByRole('button', { name: `${dayLabel(1)}, студия закрыта` })
+    await expect.element(first).toHaveAttribute('aria-pressed', 'true')
+    await first.click()
+    await expect.element(first).toHaveAttribute('aria-pressed', 'false')
+    await expect.element(first).toBeDisabled()
+  })
+
+  it('«Весь месяц» не отмечает выходные студии', async () => {
+    const [y, m] = month.split('-').map(Number)
+    const closedWeekday = (new Date(Date.UTC(y!, m! - 1, 2)).getUTCDay() + 6) % 7
+    state.studioDays.value = [0, 1, 2, 3, 4, 5, 6]
+      .filter((w) => w !== closedWeekday)
+      .map((weekday) => ({ weekday, opensAt: '10:00', closesAt: '20:00' }))
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    await page.getByRole('button', { name: 'Иван: отметить весь месяц' }).click()
+
+    await expect
+      .element(page.getByRole('button', { name: `${secondDayLabel}, студия закрыта` }))
+      .toHaveAttribute('aria-pressed', 'false')
+    await expect
+      .element(page.getByRole('button', { name: dayLabel(3) }))
+      .toHaveAttribute('aria-pressed', 'true')
+    // Все дни, когда студия работает, отмечены — кнопка предлагает снять месяц.
+    await expect
+      .element(page.getByRole('button', { name: 'Иван: снять весь месяц' }))
+      .toBeInTheDocument()
   })
 
   it('без заданного режима ничего не штрихуется', async () => {
@@ -564,6 +609,30 @@ describe('SchedulePage', () => {
         .element(dialog.getByRole('img', { name: `23 ${monthName}: выходной` }))
         .not.toHaveClass(/closed-hatch/)
       await expect.element(dialog.getByText('Студия закрыта', { exact: true })).toBeInTheDocument()
+    })
+
+    it('заявку с рабочим днем в выходной студии одобрить нельзя', async () => {
+      const [y, m] = month.split('-').map(Number)
+      const closedWeekday = (new Date(Date.UTC(y!, m! - 1, 20)).getUTCDay() + 6) % 7
+      state.studioDays.value = [0, 1, 2, 3, 4, 5, 6]
+        .filter((w) => w !== closedWeekday)
+        .map((weekday) => ({ weekday, opensAt: '10:00', closesAt: '20:00' }))
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
+
+      await page.getByRole('button', { name: 'Предпросмотр заявки: Иван' }).click()
+
+      const dialog = page.getByRole('dialog')
+      await expect
+        .element(dialog.getByRole('alert'))
+        .toHaveTextContent(
+          `Заявка просит рабочие дни, когда студия закрыта: 20 ${monthName}. Одобрить ее нельзя, только отклонить.`,
+        )
+      await expect
+        .element(dialog.getByRole('button', { name: 'Одобрить', exact: true }))
+        .toBeDisabled()
     })
 
     it('админ отклоняет заявку с комментарием', async () => {

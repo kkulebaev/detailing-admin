@@ -1,9 +1,10 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
 import type { ScheduleRequest, ScheduleRequestDay } from '@detailing-admin/shared'
-import { MY_SCHEDULE_REQUESTS_LIMIT } from '@detailing-admin/shared'
+import { MY_SCHEDULE_REQUESTS_LIMIT, datesOnClosedDays } from '@detailing-admin/shared'
 import type { AuditActor } from './audit.js'
 import { getDb } from './client.js'
 import { applyScheduleDays, ScheduleError } from './schedule.js'
+import { getStudioHours } from './studio-hours.js'
 import {
   masters,
   scheduleRequests,
@@ -17,10 +18,18 @@ import {
   scheduleRequestDecidedNotifications,
 } from '../notifications/events.js'
 
-export type ScheduleRequestErrorCode = 'not_found' | 'pending_exists' | 'already_decided'
+export type ScheduleRequestErrorCode =
+  | 'not_found'
+  | 'pending_exists'
+  | 'already_decided'
+  | 'studio_closed'
 
 export class ScheduleRequestError extends Error {
-  constructor(public readonly code: ScheduleRequestErrorCode) {
+  constructor(
+    public readonly code: ScheduleRequestErrorCode,
+    // Для studio_closed: рабочие дни заявки, выпавшие на выходные студии.
+    public readonly dates: string[] = [],
+  ) {
     super(code)
     this.name = 'ScheduleRequestError'
   }
@@ -87,6 +96,9 @@ export async function createScheduleRequest(
       .limit(1)
     if (pending) throw new ScheduleRequestError('pending_exists')
 
+    const closed = datesOnClosedDays(await getStudioHours(tx), days)
+    if (closed.length > 0) throw new ScheduleRequestError('studio_closed', closed)
+
     const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date))
     const [row] = await tx.insert(scheduleRequests).values({ masterId, days: sorted }).returning()
     notes = await insertNotifications(tx, async (sp) =>
@@ -144,6 +156,11 @@ export async function decideScheduleRequest(
           row.days.map((d) => ({ masterId: row.masterId, date: d.date, working: d.working })),
         )
       } catch (err) {
+        // Режим студии могли поменять, пока заявка ждала решения: такую заявку
+        // остается только отклонить.
+        if (err instanceof ScheduleError && err.code === 'studio_closed') {
+          throw new ScheduleRequestError('studio_closed', err.dates)
+        }
         // Мастера заархивировали, пока заявка ждала решения.
         if (err instanceof ScheduleError) throw new ScheduleRequestError('not_found')
         throw err

@@ -12,6 +12,7 @@ import {
   scheduleRequestInputSchema,
   scheduleRequestRejectedErrorSchema,
   scheduleRequestSchema,
+  studioClosedErrorSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
@@ -95,6 +96,13 @@ const respInternal = {
   content: { 'application/json': { schema: internalErrorSchema } },
 }
 
+function studioClosed(c: Context, dates: string[]) {
+  return c.json(
+    { ok: false as const, error: 'validation' as const, reason: 'studio_closed' as const, dates },
+    StatusCodes.BAD_REQUEST,
+  )
+}
+
 function rejected(c: Context, reason: 'not_linked' | 'too_far') {
   return c.json(
     { ok: false as const, error: 'validation' as const, reason },
@@ -131,10 +139,15 @@ const submitRoute = createRoute({
       },
     },
     400: {
-      description: 'Validation error, account not linked, or a date too far ahead',
+      description:
+        'Validation error, account not linked, a date too far ahead, or a working day on a day the studio is closed',
       content: {
         'application/json': {
-          schema: z.union([validationErrorSchema, scheduleRequestRejectedErrorSchema]),
+          schema: z.union([
+            validationErrorSchema,
+            scheduleRequestRejectedErrorSchema,
+            studioClosedErrorSchema,
+          ]),
         },
       },
     },
@@ -214,6 +227,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       if (err instanceof ScheduleRequestError) {
         if (err.code === 'pending_exists') return conflict(c, 'pending_exists')
         if (err.code === 'not_found') return rejected(c, 'not_linked')
+        if (err.code === 'studio_closed') return studioClosed(c, err.dates)
       }
       return internal(c, 'me.schedule_request.create.error', requestId, err)
     }

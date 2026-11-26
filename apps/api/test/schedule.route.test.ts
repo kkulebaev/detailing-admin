@@ -42,7 +42,10 @@ vi.mock('../src/sheets.js', () => ({
 // Настоящий ScheduleError, чтобы в роуте работал `err instanceof ScheduleError`.
 vi.mock('../src/db/schedule.js', () => {
   class ScheduleError extends Error {
-    constructor(public readonly code: string) {
+    constructor(
+      public readonly code: string,
+      public readonly dates: string[] = [],
+    ) {
       super(code)
       this.name = 'ScheduleError'
     }
@@ -147,6 +150,18 @@ describe('/api/schedule', () => {
     vi.mocked(setScheduleDays).mockRejectedValue(new ScheduleError('not_found'))
     const res = await req(app, 'PATCH', { body, cookie: await adminCookie() })
     expect(res.status).toBe(404)
+  })
+
+  it('PATCH с рабочим днем в выходной студии → 400 с этими датами', async () => {
+    vi.mocked(setScheduleDays).mockRejectedValue(new ScheduleError('studio_closed', ['2026-11-29']))
+    const res = await req(app, 'PATCH', { body, cookie: await adminCookie() })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: 'validation',
+      reason: 'studio_closed',
+      dates: ['2026-11-29'],
+    })
   })
 
   it('PATCH с несуществующей датой → 400', async () => {

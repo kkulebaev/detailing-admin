@@ -11,6 +11,7 @@ import {
   scheduleQuerySchema,
   scheduleRangeDays,
   scheduleUpdateInputSchema,
+  studioClosedErrorSchema,
   studioHoursInputSchema,
   studioHoursOkSchema,
   validationErrorSchema,
@@ -88,7 +89,12 @@ const setScheduleDaysRoute = createRoute({
       description: 'Days marked as working or off, all in one transaction',
       content: { 'application/json': { schema: z.object({ ok: z.literal(true) }) } },
     },
-    400: respValidation,
+    400: {
+      description: 'Validation error, or a working day on a day the studio is closed',
+      content: {
+        'application/json': { schema: z.union([validationErrorSchema, studioClosedErrorSchema]) },
+      },
+    },
     404: {
       description: 'A master not found or archived; nothing saved',
       content: { 'application/json': { schema: notFoundErrorSchema } },
@@ -202,6 +208,17 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return c.json({ ok: true as const }, StatusCodes.OK)
     } catch (err) {
       if (err instanceof ScheduleError) {
+        if (err.code === 'studio_closed') {
+          return c.json(
+            {
+              ok: false as const,
+              error: 'validation' as const,
+              reason: 'studio_closed' as const,
+              dates: err.dates,
+            },
+            StatusCodes.BAD_REQUEST,
+          )
+        }
         return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
       }
       return internal(c, 'schedule.days.error', requestId, err)

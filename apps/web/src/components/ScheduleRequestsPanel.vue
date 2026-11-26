@@ -51,6 +51,8 @@ function offDays(r: ScheduleRequest) {
 
 function errorMessage(result: Exclude<ScheduleRequestActionResult, { ok: true }>): string {
   if (result.error === 'conflict') return 'Заявку уже рассмотрели'
+  if ('reason' in result && result.reason === 'studio_closed')
+    return `Студия закрыта: ${formatDayList(result.dates)} — заявку можно только отклонить`
   if (result.error === 'not_found') return 'Заявка не найдена — возможно, ее отозвали'
   if (result.error === 'unavailable') return result.message
   return 'Не удалось сохранить решение'

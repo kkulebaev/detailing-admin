@@ -6,6 +6,7 @@ import {
   validationErrorSchema,
 } from './api.js'
 import { isoDateSchema } from './salaries.js'
+import { studioClosedErrorSchema } from './studio-hours.js'
 
 // Хватает на квартал: странице нужен месяц, форме записи — месяцы ее дат.
 export const SCHEDULE_MAX_RANGE_DAYS = 93
@@ -61,6 +62,7 @@ export type ScheduleUpdateInput = z.infer<typeof scheduleUpdateInputSchema>
 export const scheduleDayResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
   validationErrorSchema,
+  studioClosedErrorSchema,
   notFoundErrorSchema,
   dbUnavailableErrorSchema,
   internalErrorSchema,

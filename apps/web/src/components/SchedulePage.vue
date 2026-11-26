@@ -8,6 +8,7 @@ import {
   WEEKDAY_SHORT,
   formatStudioHours,
   isoDaysBetween,
+  isoWeekday,
   monthScheduleRange,
 } from '@detailing-admin/shared'
 import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
@@ -22,7 +23,7 @@ import {
 import { STUDIO_CLOSED_SUFFIX, useStudioWeekdays } from '@/composables/use-studio-weekdays'
 import { saveSchedule } from '@/lib/schedule-api'
 import { submitScheduleRequest } from '@/lib/schedule-requests-api'
-import { dayLabel } from '@/lib/schedule-format'
+import { dayLabel, formatDayList } from '@/lib/schedule-format'
 import { useAuthStore } from '@/stores/auth'
 import { useQueryCache } from '@pinia/colada'
 import MyScheduleRequestCard from '@/components/MyScheduleRequestCard.vue'
@@ -182,8 +183,15 @@ function workingCount(masterId: number): number {
   return days.value.filter((d) => isWorking(masterId, d.iso)).length
 }
 
+// В выходной студии день можно только снять — так убирают отметки, оставшиеся
+// с прежнего режима, — но не поставить.
+function isLocked(masterId: number, iso: string): boolean {
+  return isStudioClosed(isoWeekday(iso)) && !isWorking(masterId, iso)
+}
+
 function toggle(masterId: number, iso: string) {
   if (!canToggle(masterId) || !dataReady.value || saving.value) return
+  if (isLocked(masterId, iso)) return
   setWorking(masterId, iso, !isWorking(masterId, iso))
 }
 
@@ -194,7 +202,7 @@ function setWorking(masterId: number, iso: string, working: boolean) {
 }
 
 function isMonthFull(masterId: number): boolean {
-  return days.value.every((d) => isWorking(masterId, d.iso))
+  return days.value.every((d) => d.closed || isWorking(masterId, d.iso))
 }
 
 // Повторное нажатие на заполненный месяц снимает все дни: так одна кнопка
@@ -202,7 +210,10 @@ function isMonthFull(masterId: number): boolean {
 function toggleMonth(masterId: number) {
   if (!canToggle(masterId) || !dataReady.value || saving.value) return
   const working = !isMonthFull(masterId)
-  for (const d of days.value) setWorking(masterId, d.iso, working)
+  for (const d of days.value) {
+    if (working && d.closed) continue
+    setWorking(masterId, d.iso, working)
+  }
 }
 
 function draftDays() {
@@ -216,11 +227,13 @@ async function saveAsAdmin() {
   const result = await saveSchedule({ days: draftDays() })
   if (!result.ok) {
     toast.error(
-      result.error === 'not_found'
-        ? 'Мастер не найден — обновите страницу'
-        : result.error === 'unavailable'
-          ? result.message
-          : 'Не удалось сохранить график',
+      'dates' in result
+        ? `Студия закрыта: ${formatDayList(result.dates)}`
+        : result.error === 'not_found'
+          ? 'Мастер не найден — обновите страницу'
+          : result.error === 'unavailable'
+            ? result.message
+            : 'Не удалось сохранить график',
     )
     return
   }
@@ -242,7 +255,10 @@ async function sendRequest() {
   })
   if (!result.ok) {
     if (result.error === 'validation') {
-      toast.error('reason' in result ? REQUEST_ERRORS[result.reason] : 'Проверьте выбранные дни')
+      if (!('reason' in result)) toast.error('Проверьте выбранные дни')
+      else if (result.reason === 'studio_closed')
+        toast.error(`Студия закрыта: ${formatDayList(result.dates)}`)
+      else toast.error(REQUEST_ERRORS[result.reason])
     } else if (result.error === 'conflict') {
       toast.error('У вас уже есть заявка на согласовании')
     } else if (result.error === 'unavailable') {
@@ -471,12 +487,13 @@ const showSkeleton = computed(
               <button
                 v-if="canToggle(m.id)"
                 type="button"
-                class="block size-9 rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                class="block size-9 rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed"
                 :class="[
                   cellClass(m.id, d.iso, 'hover:bg-primary/85', d.closed),
-                  { 'hover:bg-accent': !isWorking(m.id, d.iso) },
+                  { 'hover:bg-accent': !isWorking(m.id, d.iso) && !isLocked(m.id, d.iso) },
                 ]"
                 :aria-pressed="isWorking(m.id, d.iso)"
+                :disabled="isLocked(m.id, d.iso)"
                 :aria-label="`${m.name}, ${dayLabel(d.iso)}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
                 @click="toggle(m.id, d.iso)"
               />
@@ -531,12 +548,13 @@ const showSkeleton = computed(
           <button
             v-if="canToggle(selectedMaster.id)"
             type="button"
-            class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors"
+            class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors disabled:cursor-not-allowed"
             :class="[
               cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
               { 'ring-2 ring-foreground ring-offset-1': d.today },
             ]"
             :aria-pressed="isWorking(selectedMaster.id, d.iso)"
+            :disabled="isLocked(selectedMaster.id, d.iso)"
             :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
             @click="toggle(selectedMaster.id, d.iso)"
           >

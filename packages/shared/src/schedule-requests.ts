@@ -6,6 +6,7 @@ import {
   validationErrorSchema,
 } from './api.js'
 import { isoDateSchema } from './salaries.js'
+import { studioClosedErrorSchema } from './studio-hours.js'
 
 // Заявка — правка, а не целый график: квартала изменений хватает с запасом.
 export const SCHEDULE_REQUEST_MAX_DAYS = 93
@@ -86,6 +87,7 @@ export const scheduleRequestSubmitResponseSchema = z.union([
   z.object({ ok: z.literal(true), request: scheduleRequestSchema }),
   validationErrorSchema,
   scheduleRequestRejectedErrorSchema,
+  studioClosedErrorSchema,
   scheduleRequestConflictSchema,
   dbUnavailableErrorSchema,
   internalErrorSchema,
@@ -112,6 +114,7 @@ export type ScheduleRequestRejectInput = z.infer<typeof scheduleRequestRejectInp
 export const scheduleRequestActionResponseSchema = z.union([
   z.object({ ok: z.literal(true) }),
   validationErrorSchema,
+  studioClosedErrorSchema,
   notFoundErrorSchema,
   scheduleRequestConflictSchema,
   dbUnavailableErrorSchema,

@@ -17,4 +17,9 @@ export type PostApiMeScheduleRequests400 = {
   ok: false;
   error: 'validation';
   reason: 'not_linked' | 'too_far';
+} | {
+  ok: false;
+  error: 'validation';
+  reason: 'studio_closed';
+  dates: string[];
 };

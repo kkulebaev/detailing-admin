@@ -5,11 +5,17 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
-import type { PostApiScheduleRequestsIdApprove400Error } from './postApiScheduleRequestsIdApprove400Error';
-import type { PostApiScheduleRequestsIdApprove400IssuesItem } from './postApiScheduleRequestsIdApprove400IssuesItem';
 
 export type PostApiScheduleRequestsIdApprove400 = {
   ok: false;
-  error: PostApiScheduleRequestsIdApprove400Error;
-  issues: PostApiScheduleRequestsIdApprove400IssuesItem[];
+  error: 'validation';
+  issues: ({
+  path: (string | number)[];
+  message: string;
+})[];
+} | {
+  ok: false;
+  error: 'validation';
+  reason: 'studio_closed';
+  dates: string[];
 };

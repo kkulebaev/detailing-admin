@@ -13693,7 +13693,7 @@
             }
           },
           "400": {
-            "description": "Validation error, account not linked, or a date too far ahead",
+            "description": "Validation error, account not linked, a date too far ahead, or a working day on a day the studio is closed",
             "content": {
               "application/json": {
                 "schema": {
@@ -13775,6 +13775,41 @@
                         "ok",
                         "error",
                         "reason"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "validation"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "studio_closed"
+                          ]
+                        },
+                        "dates": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "reason",
+                        "dates"
                       ]
                     }
                   ]
@@ -14728,57 +14763,96 @@
             }
           },
           "400": {
-            "description": "Validation error",
+            "description": "Validation error, or a working day on a day the studio is closed",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "error": {
-                      "type": "string",
-                      "enum": [
-                        "validation"
-                      ]
-                    },
-                    "issues": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "path": {
-                            "type": "array",
-                            "items": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "number"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "validation"
+                          ]
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
                                 }
-                              ]
-                            }
-                          },
-                          "message": {
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "issues"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "validation"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "studio_closed"
+                          ]
+                        },
+                        "dates": {
+                          "type": "array",
+                          "items": {
                             "type": "string"
                           }
-                        },
-                        "required": [
-                          "path",
-                          "message"
-                        ]
-                      }
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "reason",
+                        "dates"
+                      ]
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "error",
-                    "issues"
                   ]
                 }
               }
@@ -15086,57 +15160,96 @@
             }
           },
           "400": {
-            "description": "Validation error",
+            "description": "Validation error, or the request asks for a working day on a day the studio is closed",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "error": {
-                      "type": "string",
-                      "enum": [
-                        "validation"
-                      ]
-                    },
-                    "issues": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "path": {
-                            "type": "array",
-                            "items": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "number"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "validation"
+                          ]
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
                                 }
-                              ]
-                            }
-                          },
-                          "message": {
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "issues"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "validation"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "studio_closed"
+                          ]
+                        },
+                        "dates": {
+                          "type": "array",
+                          "items": {
                             "type": "string"
                           }
-                        },
-                        "required": [
-                          "path",
-                          "message"
-                        ]
-                      }
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "reason",
+                        "dates"
+                      ]
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "error",
-                    "issues"
                   ]
                 }
               }
@@ -15329,57 +15442,96 @@
             }
           },
           "400": {
-            "description": "Validation error",
+            "description": "Validation error, or the request asks for a working day on a day the studio is closed",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "error": {
-                      "type": "string",
-                      "enum": [
-                        "validation"
-                      ]
-                    },
-                    "issues": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "path": {
-                            "type": "array",
-                            "items": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "number"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "validation"
+                          ]
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
                                 }
-                              ]
-                            }
-                          },
-                          "message": {
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "issues"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "validation"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "studio_closed"
+                          ]
+                        },
+                        "dates": {
+                          "type": "array",
+                          "items": {
                             "type": "string"
                           }
-                        },
-                        "required": [
-                          "path",
-                          "message"
-                        ]
-                      }
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "reason",
+                        "dates"
+                      ]
                     }
-                  },
-                  "required": [
-                    "ok",
-                    "error",
-                    "issues"
                   ]
                 }
               }

@@ -1,11 +1,20 @@
 import { and, asc, eq, gte, inArray, lte, or } from 'drizzle-orm'
-import type { MasterSchedule, ScheduleDayInput } from '@detailing-admin/shared'
+import {
+  datesOnClosedDays,
+  type MasterSchedule,
+  type ScheduleDayInput,
+} from '@detailing-admin/shared'
 import type { Tx } from './audit.js'
 import { getDb, type Db } from './client.js'
 import { masterSchedule, masters } from './schema.js'
+import { getStudioHours } from './studio-hours.js'
 
 export class ScheduleError extends Error {
-  constructor(public readonly code: 'not_found') {
+  constructor(
+    public readonly code: 'not_found' | 'studio_closed',
+    // Для studio_closed: рабочие дни, выпавшие на выходные студии.
+    public readonly dates: string[] = [],
+  ) {
     super(code)
     this.name = 'ScheduleError'
   }
@@ -55,6 +64,10 @@ export async function applyScheduleDays(
     .from(masters)
     .where(and(inArray(masters.id, ids), eq(masters.archived, false)))
   if (found.length !== ids.length) throw new ScheduleError('not_found')
+
+  // Снять день можно всегда: так убирают отметки, оставшиеся с прежнего режима.
+  const closed = datesOnClosedDays(await getStudioHours(tx), days)
+  if (closed.length > 0) throw new ScheduleError('studio_closed', [...new Set(closed)])
 
   const working = days.filter((d) => d.working)
   const off = days.filter((d) => !d.working)

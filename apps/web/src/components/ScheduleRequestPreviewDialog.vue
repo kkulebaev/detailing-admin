@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { WEEKDAY_SHORT, isoDaysBetween, monthScheduleRange } from '@detailing-admin/shared'
+import {
+  WEEKDAY_SHORT,
+  datesOnClosedDays,
+  isoDaysBetween,
+  monthScheduleRange,
+} from '@detailing-admin/shared'
 import { STUDIO_CLOSED_SUFFIX, useStudioWeekdays } from '@/composables/use-studio-weekdays'
 import { useScheduleQuery } from '@/lib/queries'
 import type { ScheduleRequest } from '@/lib/schedule-requests-api'
 import { MONTH_NAMES } from '@/lib/month-options'
-import { dayLabel } from '@/lib/schedule-format'
+import { dayLabel, formatDayList } from '@/lib/schedule-format'
 import { ArrowRight, ChevronLeft, ChevronRight } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -51,7 +56,10 @@ watch(
 const month = computed(() => months.value[monthIndex.value] ?? null)
 const range = computed(() => (month.value ? monthScheduleRange(month.value) : null))
 const { data, error } = useScheduleQuery(range)
-const { openWeekdays, isStudioClosed, isClosedWeekday } = useStudioWeekdays()
+const { studioDays, openWeekdays, isStudioClosed, isClosedWeekday } = useStudioWeekdays()
+
+// Режим студии могли поменять после подачи заявки; сервер такую не одобрит.
+const closedAsked = computed(() => datesOnClosedDays(studioDays.value, props.request?.days ?? []))
 
 const monthTitle = computed(() => {
   if (!month.value) return ''
@@ -220,6 +228,15 @@ function cellLabel(d: {
             </span>
           </div>
 
+          <p
+            v-if="closedAsked.length > 0"
+            role="alert"
+            class="rounded-md border border-destructive/50 p-3 text-sm text-destructive"
+          >
+            Заявка просит рабочие дни, когда студия закрыта: {{ formatDayList(closedAsked) }}.
+            Одобрить ее нельзя, только отклонить.
+          </p>
+
           <p class="text-sm text-muted-foreground">
             Рабочих дней в месяце:
             <span
@@ -247,7 +264,7 @@ function cellLabel(d: {
         <!-- Одобрять, не видя календаря, нельзя: предпросмотр затем и открыт. -->
         <Button
           class="h-10 sm:h-9"
-          :disabled="busy || !dataReady"
+          :disabled="busy || !dataReady || closedAsked.length > 0"
           @click="request && emit('approve', request)"
         >
           Одобрить

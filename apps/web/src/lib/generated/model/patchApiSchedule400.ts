@@ -5,11 +5,17 @@
  * Internal API for the detailing booking form and admin panel.
  * OpenAPI spec version: 0.0.1
  */
-import type { PatchApiSchedule400Error } from './patchApiSchedule400Error';
-import type { PatchApiSchedule400IssuesItem } from './patchApiSchedule400IssuesItem';
 
 export type PatchApiSchedule400 = {
   ok: false;
-  error: PatchApiSchedule400Error;
-  issues: PatchApiSchedule400IssuesItem[];
+  error: 'validation';
+  issues: ({
+  path: (string | number)[];
+  message: string;
+})[];
+} | {
+  ok: false;
+  error: 'validation';
+  reason: 'studio_closed';
+  dates: string[];
 };

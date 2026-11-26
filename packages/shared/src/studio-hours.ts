@@ -79,3 +79,32 @@ export function formatStudioHours(days: readonly StudioDay[]): string[] {
     return `${name} ${g.hours ?? 'выходной'}`
   })
 }
+
+// 0 — понедельник, как у weekday в режиме работы.
+export function isoWeekday(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number)
+  return (new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay() + 6) % 7
+}
+
+// Рабочие дни мастера, выпавшие на дни, когда студия закрыта. Пока режим не задан
+// (`days` пуст), ограничений нет.
+export function datesOnClosedDays(
+  studio: readonly StudioDay[],
+  dates: readonly { date: string; working: boolean }[],
+): string[] {
+  if (studio.length === 0) return []
+  const open = new Set(studio.map((d) => d.weekday))
+  return dates
+    .filter((d) => d.working && !open.has(isoWeekday(d.date)))
+    .map((d) => d.date)
+    .sort()
+}
+
+// Рабочий день мастера в выходной студии. `dates` — какие именно, чтобы сказать
+// пользователю, а не просто отказать.
+export const studioClosedErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal('validation'),
+  reason: z.literal('studio_closed'),
+  dates: z.array(z.string()),
+})

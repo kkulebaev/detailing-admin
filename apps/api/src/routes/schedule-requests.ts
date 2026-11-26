@@ -9,6 +9,7 @@ import {
   scheduleRequestConflictSchema,
   scheduleRequestRejectInputSchema,
   scheduleRequestsOkSchema,
+  studioClosedErrorSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import type { AuthTokenClaims } from '../auth/jwt.js'
@@ -53,6 +54,13 @@ function internal(c: Context, event: string, requestId: string, err: unknown) {
   )
 }
 
+function studioClosed(c: Context, dates: string[]) {
+  return c.json(
+    { ok: false as const, error: 'validation' as const, reason: 'studio_closed' as const, dates },
+    StatusCodes.BAD_REQUEST,
+  )
+}
+
 function notFound(c: Context) {
   return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
 }
@@ -70,9 +78,14 @@ const idParamSchema = z.object({
 
 const actionOk = z.object({ ok: z.literal(true) })
 
-const respValidation = {
-  description: 'Validation error',
-  content: { 'application/json': { schema: validationErrorSchema } },
+// Общий для одобрения и отказа: оба идут через decide(), а одобрение может
+// упереться в выходной студии.
+const respDecideValidation = {
+  description:
+    'Validation error, or the request asks for a working day on a day the studio is closed',
+  content: {
+    'application/json': { schema: z.union([validationErrorSchema, studioClosedErrorSchema]) },
+  },
 }
 const respNotFound = {
   description: 'Request not found',
@@ -123,7 +136,7 @@ const approveRoute = createRoute({
       description: 'Request approved and applied to the schedule',
       content: { 'application/json': { schema: actionOk } },
     },
-    400: respValidation,
+    400: respDecideValidation,
     404: respNotFound,
     409: respConflict,
     500: respInternal,
@@ -141,7 +154,7 @@ const rejectRoute = createRoute({
   },
   responses: {
     200: { description: 'Request rejected', content: { 'application/json': { schema: actionOk } } },
-    400: respValidation,
+    400: respDecideValidation,
     404: respNotFound,
     409: respConflict,
     500: respInternal,
@@ -172,6 +185,7 @@ async function decide(
     if (err instanceof ScheduleRequestError) {
       if (err.code === 'not_found') return notFound(c)
       if (err.code === 'already_decided') return conflict(c, 'already_decided')
+      if (err.code === 'studio_closed') return studioClosed(c, err.dates)
     }
     return internal(c, 'schedule_request.decide.error', requestId, err)
   }

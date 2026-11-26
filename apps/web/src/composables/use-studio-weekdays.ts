@@ -6,6 +6,8 @@ export const STUDIO_CLOSED_SUFFIX = ', студия закрыта'
 export function useStudioWeekdays() {
   const { data } = useStudioHoursQuery()
 
+  const studioDays = computed(() => (data.value?.ok ? data.value.days : []))
+
   const openWeekdays = computed(() => {
     const r = data.value
     return r?.ok && r.days.length > 0 ? new Set(r.days.map((d) => d.weekday)) : null
@@ -22,5 +24,5 @@ export function useStudioWeekdays() {
     return openWeekdays.value ? !openWeekdays.value.has(weekday) : weekday >= 5
   }
 
-  return { data, openWeekdays, isStudioClosed, isClosedWeekday }
+  return { data, studioDays, openWeekdays, isStudioClosed, isClosedWeekday }
 }
