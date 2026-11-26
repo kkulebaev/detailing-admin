@@ -7,12 +7,13 @@
    особенно в установленном приложении. max() сохраняет обычный отступ там, где
    выреза нет и env() равен нулю. */
 /* Дни, когда студия закрыта: штриховка, а не заливка — заливкой в графике уже
-   отмечены рабочие дни и колонки выходных. */
+   отмечены рабочие и выходные дни мастеров. Линии тонкие и бледные: в сетке
+   графика закрыты целые колонки, и плотная штриховка рябила. */
 @utility closed-hatch {
   background-image: repeating-linear-gradient(
     135deg,
-    color-mix(in oklch, var(--color-muted-foreground) 30%, transparent) 0 1.5px,
-    transparent 1.5px 6px
+    color-mix(in oklch, var(--color-muted-foreground) 22%, transparent) 0 1px,
+    transparent 1px 5px
   );
 }
 
