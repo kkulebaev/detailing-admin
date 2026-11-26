@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown, Minus, Plus, X } from '@lucide/vue'
 import { type PricelistSection, type PricelistService } from '@/lib/pricelist-api'
 import { usePricelistQuery } from '@/lib/queries'
 import { maskThousands } from '@/lib/number-mask'
+import { pluralize } from '@/lib/plural'
 import type { ServiceBreakdownRow } from '@/lib/service-breakdown'
 import { servicePriceForClass } from '@detailing-admin/shared'
 import type { BookingServiceLine, CarClass } from '@detailing-admin/shared'
@@ -389,15 +390,6 @@ const triggerLabel = computed(() => {
   if (n === 0) return 'Выбрать услугу'
   return `Выбрано ${n} ${pluralize(n, ['услуга', 'услуги', 'услуг'])}`
 })
-
-function pluralize(n: number, forms: [string, string, string]): string {
-  const abs = Math.abs(n) % 100
-  const n1 = abs % 10
-  if (abs > 10 && abs < 20) return forms[2]
-  if (n1 > 1 && n1 < 5) return forms[1]
-  if (n1 === 1) return forms[0]
-  return forms[2]
-}
 
 // Синхронизация выбора завязана на `sections`, а не на `onMounted`: когда прайс
 // уже в кэше, он доступен синхронно, и CSV родителя можно перевести в id уже
