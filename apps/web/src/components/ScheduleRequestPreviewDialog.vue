@@ -164,63 +164,67 @@ function cellLabel(d: {
       </DialogHeader>
 
       <div class="grid gap-3">
-        <div class="flex items-center justify-between gap-2">
-          <Button
-            v-if="months.length > 1"
-            variant="ghost"
-            size="icon"
-            class="size-9"
-            aria-label="Предыдущий месяц заявки"
-            :disabled="monthIndex === 0"
-            @click="monthIndex--"
-          >
-            <ChevronLeft class="size-4" />
-          </Button>
-          <span class="flex-1 text-center text-sm font-medium">{{ monthTitle }}</span>
-          <Button
-            v-if="months.length > 1"
-            variant="ghost"
-            size="icon"
-            class="size-9"
-            aria-label="Следующий месяц заявки"
-            :disabled="monthIndex >= months.length - 1"
-            @click="monthIndex++"
-          >
-            <ChevronRight class="size-4" />
-          </Button>
-        </div>
-
-        <p
-          v-if="loadError"
-          role="alert"
-          class="rounded-md border border-destructive/50 p-3 text-sm text-destructive"
-        >
-          Не удалось загрузить график: {{ loadError }}
-        </p>
-        <Skeleton v-else-if="!dataReady" class="h-64 w-full sm:h-72" />
-        <template v-else>
-          <div class="grid grid-cols-7 gap-1">
-            <div
-              v-for="(w, i) in WEEKDAY_SHORT"
-              :key="w"
-              class="text-center text-xs"
-              :class="isClosedWeekday(i) ? 'text-destructive/80' : 'text-muted-foreground'"
+        <div class="rounded-md border border-border p-3">
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-9"
+              aria-label="Предыдущий месяц заявки"
+              :disabled="monthIndex === 0"
+              @click="monthIndex--"
             >
-              {{ w }}
-            </div>
-            <div v-for="n in leadingBlanks" :key="`blank-${n}`" />
-            <div
-              v-for="d in days"
-              :key="d.iso"
-              role="img"
-              class="flex h-9 items-center justify-center rounded-md border text-sm tabular-nums sm:h-10"
-              :class="cellClass(d)"
-              :aria-label="cellLabel(d)"
+              <ChevronLeft class="size-4" />
+            </Button>
+            <span class="text-sm font-medium">{{ monthTitle }}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-9"
+              aria-label="Следующий месяц заявки"
+              :disabled="monthIndex >= months.length - 1"
+              @click="monthIndex++"
             >
-              {{ d.day }}
-            </div>
+              <ChevronRight class="size-4" />
+            </Button>
           </div>
 
+          <p
+            v-if="loadError"
+            role="alert"
+            class="rounded-md border border-destructive/50 p-3 text-sm text-destructive"
+          >
+            Не удалось загрузить график: {{ loadError }}
+          </p>
+          <Skeleton v-else-if="!dataReady" class="h-72 w-full" />
+          <template v-else>
+            <div class="mb-2 grid grid-cols-7 gap-1">
+              <div
+                v-for="(w, i) in WEEKDAY_SHORT"
+                :key="w"
+                class="text-center text-xs"
+                :class="isClosedWeekday(i) ? 'text-destructive/80' : 'text-muted-foreground'"
+              >
+                {{ w }}
+              </div>
+            </div>
+            <div class="grid grid-cols-7 gap-1">
+              <div v-for="n in leadingBlanks" :key="`blank-${n}`" />
+              <div
+                v-for="d in days"
+                :key="d.iso"
+                role="img"
+                class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums"
+                :class="cellClass(d)"
+                :aria-label="cellLabel(d)"
+              >
+                {{ d.day }}
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <template v-if="!loadError && dataReady">
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span class="flex items-center gap-1.5">
               <span class="size-3 rounded-sm bg-primary" /> Рабочий
