@@ -56,6 +56,8 @@ vi.mock('@/lib/queries', async () => {
       asyncStatus: ref('idle'),
     }),
     useMastersQuery: () => ({ data: ref({ ok: true, masters }), error: ref(null) }),
+    STUDIO_HOURS_KEY: ['studio-hours'],
+    useStudioHoursQuery: () => ({ data: ref({ ok: true, days: [] }), error: ref(null) }),
   }
 })
 

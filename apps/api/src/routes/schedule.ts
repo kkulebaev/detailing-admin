@@ -11,10 +11,13 @@ import {
   scheduleQuerySchema,
   scheduleRangeDays,
   scheduleUpdateInputSchema,
+  studioHoursInputSchema,
+  studioHoursOkSchema,
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
 import { ScheduleError, listSchedule, setScheduleDays } from '../db/schedule.js'
+import { getStudioHours, setStudioHours } from '../db/studio-hours.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
@@ -95,7 +98,68 @@ const setScheduleDaysRoute = createRoute({
   },
 })
 
+const getStudioHoursRoute = createRoute({
+  method: 'get',
+  path: '/studio-hours',
+  tags: ['schedule'],
+  responses: {
+    200: {
+      description: 'Studio working days of the week with opening hours; empty when not set',
+      content: { 'application/json': { schema: studioHoursOkSchema } },
+    },
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const setStudioHoursRoute = createRoute({
+  method: 'put',
+  path: '/studio-hours',
+  tags: ['schedule'],
+  request: { body: { content: { 'application/json': { schema: studioHoursInputSchema } } } },
+  responses: {
+    200: {
+      description: 'Studio hours replaced as a whole',
+      content: { 'application/json': { schema: studioHoursOkSchema } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
+  .openapi(getStudioHoursRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    try {
+      return c.json({ ok: true as const, days: await getStudioHours() }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'studio_hours.get.error', requestId, err)
+    }
+  })
+  .openapi(setStudioHoursRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { days } = c.req.valid('json')
+    try {
+      await setStudioHours(days)
+      baseLogger.info(
+        { event: 'studio_hours.set', request_id: requestId, count: days.length, status: 200 },
+        'Studio hours set',
+      )
+      const sorted = [...days].sort((a, b) => a.weekday - b.weekday)
+      return c.json({ ok: true as const, days: sorted }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'studio_hours.set.error', requestId, err)
+    }
+  })
   .openapi(listScheduleRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)

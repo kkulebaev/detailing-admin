@@ -11,15 +11,130 @@ import type {
   GetApiSchedule500,
   GetApiSchedule503,
   GetApiScheduleParams,
+  GetApiScheduleStudioHours200,
+  GetApiScheduleStudioHours500,
+  GetApiScheduleStudioHours503,
   PatchApiSchedule200,
   PatchApiSchedule400,
   PatchApiSchedule404,
   PatchApiSchedule500,
   PatchApiSchedule503,
-  PatchApiScheduleBody
+  PatchApiScheduleBody,
+  PutApiScheduleStudioHours200,
+  PutApiScheduleStudioHours400,
+  PutApiScheduleStudioHours500,
+  PutApiScheduleStudioHours503,
+  PutApiScheduleStudioHoursBody
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
+
+export type getApiScheduleStudioHoursResponse200 = {
+  data: GetApiScheduleStudioHours200
+  status: 200
+}
+
+export type getApiScheduleStudioHoursResponse500 = {
+  data: GetApiScheduleStudioHours500
+  status: 500
+}
+
+export type getApiScheduleStudioHoursResponse503 = {
+  data: GetApiScheduleStudioHours503
+  status: 503
+}
+
+export type getApiScheduleStudioHoursResponseSuccess = (getApiScheduleStudioHoursResponse200) & {
+  headers: Headers;
+};
+export type getApiScheduleStudioHoursResponseError = (getApiScheduleStudioHoursResponse500 | getApiScheduleStudioHoursResponse503) & {
+  headers: Headers;
+};
+
+export type getApiScheduleStudioHoursResponse = (getApiScheduleStudioHoursResponseSuccess | getApiScheduleStudioHoursResponseError)
+
+export const getGetApiScheduleStudioHoursUrl = () => {
+
+
+
+
+  return `/api/schedule/studio-hours`
+}
+
+export const getApiScheduleStudioHours = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<getApiScheduleStudioHoursResponse> => {
+
+  return orvalFetch<getApiScheduleStudioHoursResponse>(getGetApiScheduleStudioHoursUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type putApiScheduleStudioHoursResponse200 = {
+  data: PutApiScheduleStudioHours200
+  status: 200
+}
+
+export type putApiScheduleStudioHoursResponse400 = {
+  data: PutApiScheduleStudioHours400
+  status: 400
+}
+
+export type putApiScheduleStudioHoursResponse500 = {
+  data: PutApiScheduleStudioHours500
+  status: 500
+}
+
+export type putApiScheduleStudioHoursResponse503 = {
+  data: PutApiScheduleStudioHours503
+  status: 503
+}
+
+export type putApiScheduleStudioHoursResponseSuccess = (putApiScheduleStudioHoursResponse200) & {
+  headers: Headers;
+};
+export type putApiScheduleStudioHoursResponseError = (putApiScheduleStudioHoursResponse400 | putApiScheduleStudioHoursResponse500 | putApiScheduleStudioHoursResponse503) & {
+  headers: Headers;
+};
+
+export type putApiScheduleStudioHoursResponse = (putApiScheduleStudioHoursResponseSuccess | putApiScheduleStudioHoursResponseError)
+
+export const getPutApiScheduleStudioHoursUrl = () => {
+
+
+
+
+  return `/api/schedule/studio-hours`
+}
+
+export const putApiScheduleStudioHours = async (putApiScheduleStudioHoursBody?: PutApiScheduleStudioHoursBody, options?: Parameters<typeof orvalFetch>[1]): Promise<putApiScheduleStudioHoursResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<putApiScheduleStudioHoursResponse>(getPutApiScheduleStudioHoursUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(putApiScheduleStudioHoursBody)
+  }
+);}
+
 
 export type getApiScheduleResponse200 = {
   data: GetApiSchedule200

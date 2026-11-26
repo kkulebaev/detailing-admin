@@ -327,3 +327,15 @@ export type {
   ScheduleUpdateInput,
   MasterDaysOff,
 } from './schedule.js'
+export {
+  WEEKDAY_SHORT,
+  timeOfDaySchema,
+  timeToMinutes,
+  minutesToTime,
+  studioDaySchema,
+  studioHoursInputSchema,
+  studioHoursOkSchema,
+  studioHoursResponseSchema,
+  formatStudioHours,
+} from './studio-hours.js'
+export type { StudioDay, StudioHoursInput } from './studio-hours.js'

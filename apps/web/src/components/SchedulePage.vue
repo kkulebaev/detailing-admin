@@ -4,7 +4,12 @@ import { useEventListener, useMediaQuery } from '@vueuse/core'
 import { onBeforeRouteLeave } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getLocalTimeZone, today } from '@internationalized/date'
-import { isoDaysBetween, monthScheduleRange } from '@detailing-admin/shared'
+import {
+  WEEKDAY_SHORT,
+  formatStudioHours,
+  isoDaysBetween,
+  monthScheduleRange,
+} from '@detailing-admin/shared'
 import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
 import { monthParam, useQueryParam } from '@/composables/use-query-param'
 import {
@@ -13,6 +18,7 @@ import {
   useMastersQuery,
   useMyScheduleRequestsQuery,
   useScheduleQuery,
+  useStudioHoursQuery,
 } from '@/lib/queries'
 import { saveSchedule } from '@/lib/schedule-api'
 import { submitScheduleRequest } from '@/lib/schedule-requests-api'
@@ -21,9 +27,10 @@ import { useAuthStore } from '@/stores/auth'
 import { useQueryCache } from '@pinia/colada'
 import MyScheduleRequestCard from '@/components/MyScheduleRequestCard.vue'
 import ScheduleRequestsPanel from '@/components/ScheduleRequestsPanel.vue'
+import StudioHoursDialog from '@/components/StudioHoursDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { CalendarCheck, CalendarX } from '@lucide/vue'
+import { CalendarCheck, CalendarX, Clock } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -33,8 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const
 
 const auth = useAuthStore()
 // Админ правит график напрямую, остальные — заявкой на согласование своего мастера.
@@ -53,7 +58,24 @@ const { data: mastersData, error: mastersError } = useMastersQuery()
 // Нужен всем ролям: по нему страница узнает своего мастера и выделяет его строку,
 // в том числе у админа, привязанного к мастеру.
 const { data: myRequestsData } = useMyScheduleRequestsQuery(computed(() => true))
+const { data: studioHoursData } = useStudioHoursQuery()
+const studioHoursOpen = ref(false)
 const queryCache = useQueryCache()
+
+// Выделяются дни, когда студия закрыта; пока режим не задан — суббота и воскресенье.
+const studioOpenWeekdays = computed(() => {
+  const r = studioHoursData.value
+  return r?.ok && r.days.length > 0 ? new Set(r.days.map((d) => d.weekday)) : null
+})
+// Без ответа сервера кнопки нет: пустой режим в диалоге затер бы сохраненный.
+const studioDays = computed(() => (studioHoursData.value?.ok ? studioHoursData.value.days : null))
+const studioHoursLines = computed(() =>
+  studioDays.value && studioDays.value.length > 0 ? formatStudioHours(studioDays.value) : null,
+)
+
+function isClosedWeekday(weekday: number): boolean {
+  return studioOpenWeekdays.value ? !studioOpenWeekdays.value.has(weekday) : weekday >= 5
+}
 
 const masters = computed(() => (mastersData.value?.ok ? mastersData.value.masters : []))
 
@@ -85,7 +107,13 @@ const days = computed(() =>
   isoDaysBetween(range.value.from, range.value.to).map((iso) => {
     const [y, m, d] = iso.split('-').map(Number)
     const weekday = (new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay() + 6) % 7
-    return { iso, day: d!, weekday, weekend: weekday >= 5, today: iso === todayIso.value }
+    return {
+      iso,
+      day: d!,
+      weekday,
+      weekend: isClosedWeekday(weekday),
+      today: iso === todayIso.value,
+    }
   }),
 )
 
@@ -279,12 +307,6 @@ const selectedMaster = computed(() =>
   masters.value.find((m) => String(m.id) === selectedMasterId.value),
 )
 
-const hint = computed(() => {
-  if (canEdit.value) return 'Отметьте рабочие дни и нажмите «Сохранить»'
-  if (canRequest.value) return 'Отметьте дни, которые хотите изменить, и отправьте заявку'
-  return null
-})
-
 const error = computed<string | null>(() => {
   if (scheduleError.value || mastersError.value) return 'Проверьте соединение и обновите страницу'
   const r = scheduleData.value
@@ -302,10 +324,29 @@ const showSkeleton = computed(
 <template>
   <div class="p-2 text-foreground sm:p-8">
     <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
+      <div class="min-w-0 flex-1">
         <h1 class="text-2xl font-semibold">График</h1>
-        <p v-if="hint" class="mt-1 text-sm text-muted-foreground">{{ hint }}</p>
+        <p
+          v-if="studioHoursLines"
+          class="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground"
+        >
+          <Clock class="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            Студия:
+            <template v-for="(line, i) in studioHoursLines" :key="line">
+              <span class="whitespace-nowrap">{{ line }}</span
+              ><template v-if="i < studioHoursLines.length - 1">, </template>
+            </template>
+          </span>
+        </p>
       </div>
+      <template v-if="canEdit && studioDays !== null">
+        <Button variant="outline" size="sm" class="h-9 shrink-0" @click="studioHoursOpen = true">
+          <Clock class="size-4" />
+          Режим работы
+        </Button>
+        <StudioHoursDialog v-model:open="studioHoursOpen" :days="studioDays" />
+      </template>
     </header>
 
     <ScheduleRequestsPanel v-if="canEdit" />
@@ -391,7 +432,7 @@ const showSkeleton = computed(
                 class="text-xs"
                 :class="d.weekend ? 'text-destructive/80' : 'text-muted-foreground'"
               >
-                {{ WEEKDAYS[d.weekday] }}
+                {{ WEEKDAY_SHORT[d.weekday] }}
               </div>
               <div
                 class="mx-auto flex size-6 items-center justify-center rounded-full tabular-nums"
@@ -472,10 +513,10 @@ const showSkeleton = computed(
     <div v-else-if="selectedMaster" class="rounded-md border border-border p-3">
       <div class="mb-2 grid grid-cols-7 gap-1">
         <div
-          v-for="(w, i) in WEEKDAYS"
+          v-for="(w, i) in WEEKDAY_SHORT"
           :key="w"
           class="text-center text-xs"
-          :class="i >= 5 ? 'text-destructive/80' : 'text-muted-foreground'"
+          :class="isClosedWeekday(i) ? 'text-destructive/80' : 'text-muted-foreground'"
         >
           {{ w }}
         </div>

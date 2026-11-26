@@ -225,6 +225,13 @@
       "when": 1795627369766,
       "tag": "0031_fearless_thunderball",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795700085204,
+      "tag": "0032_third_penance",
+      "breakpoints": true
     }
   ]
 }

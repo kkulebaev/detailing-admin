@@ -367,6 +367,25 @@ export const masterSchedule = pgTable(
   (t) => [primaryKey({ columns: [t.masterId, t.workDate] })],
 )
 
+// Режим работы студии: строка на каждый рабочий день недели (0 — понедельник),
+// нет строки — студия в этот день закрыта, пустая таблица — режим не задан.
+// Время в минутах от полуночи; закрытие строго позже открытия, через полночь не работают.
+export const studioHours = pgTable(
+  'studio_hours',
+  {
+    weekday: smallint('weekday').primaryKey(),
+    opensAt: smallint('opens_at').notNull(),
+    closesAt: smallint('closes_at').notNull(),
+  },
+  (t) => [
+    check('studio_hours_weekday', sql`${t.weekday} between 0 and 6`),
+    check(
+      'studio_hours_range',
+      sql`${t.opensAt} >= 0 and ${t.closesAt} <= 1440 and ${t.opensAt} < ${t.closesAt}`,
+    ),
+  ],
+)
+
 // Заявка сотрудника на изменение своего графика. Дни — снимок заявки в jsonb: их
 // не ищут по дате, а применяются они к master_schedule только при одобрении.
 // Частичный UNIQUE держит у мастера не больше одной заявки на согласовании.

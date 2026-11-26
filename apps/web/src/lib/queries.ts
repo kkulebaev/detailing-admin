@@ -22,7 +22,7 @@ import {
 import type { GetApiBookingsJournalParams } from './generated/model'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 import { fetchWorkRules } from './work-rules-api'
-import { fetchSchedule } from './schedule-api'
+import { fetchSchedule, fetchStudioHours } from './schedule-api'
 import { fetchMyScheduleRequests, fetchPendingScheduleRequests } from './schedule-requests-api'
 import { fetchUnreadNotificationsCount } from './notifications-api'
 import type { ScheduleQuery } from '@detailing-admin/shared'
@@ -42,6 +42,7 @@ export const MY_SALARY_KEY = ['my-salary'] as const
 export const SCHEDULE_KEY = ['schedule'] as const
 export const SCHEDULE_REQUESTS_KEY = ['schedule-requests'] as const
 export const MY_SCHEDULE_REQUESTS_KEY = ['my-schedule-requests'] as const
+export const STUDIO_HOURS_KEY = ['studio-hours'] as const
 export const NOTIFICATIONS_KEY = ['notifications'] as const
 
 // Реактивный ключ, чтобы смена поискового запроса, сортировки или пагинации
@@ -271,6 +272,13 @@ export function useScheduleQuery(range: Ref<ScheduleQuery | null>) {
     query: () => fetchSchedule(range.value!),
     enabled: () => range.value != null,
     placeholderData: (previous) => previous,
+  })
+}
+
+export function useStudioHoursQuery() {
+  return useQuery({
+    key: STUDIO_HOURS_KEY,
+    query: fetchStudioHours,
   })
 }
 

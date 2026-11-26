@@ -50,9 +50,12 @@ vi.mock('../src/db/schedule.js', () => {
   return { ScheduleError, listSchedule: vi.fn(), setScheduleDays: vi.fn() }
 })
 
+vi.mock('../src/db/studio-hours.js', () => ({ getStudioHours: vi.fn(), setStudioHours: vi.fn() }))
+
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
 import { ScheduleError, listSchedule, setScheduleDays } from '../src/db/schedule.js'
+import { getStudioHours, setStudioHours } from '../src/db/studio-hours.js'
 import { adminCookie, bookerCookie, employeeCookie } from './auth-helpers.js'
 
 function req(
@@ -158,5 +161,74 @@ describe('/api/schedule', () => {
     const res = await req(app, 'PATCH', { body: { days: [] }, cookie: await adminCookie() })
     expect(res.status).toBe(400)
     expect(vi.mocked(setScheduleDays)).not.toHaveBeenCalled()
+  })
+})
+
+describe('/api/schedule/studio-hours', () => {
+  let app: ReturnType<typeof createApp>
+
+  function studio(method: string, opts: { body?: unknown; cookie: string }) {
+    return app.request('/api/schedule/studio-hours', {
+      method,
+      headers: { 'Content-Type': 'application/json', Cookie: opts.cookie },
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    })
+  }
+
+  const monday = { weekday: 0, opensAt: '09:00', closesAt: '21:00' }
+  const saturday = { weekday: 5, opensAt: '10:00', closesAt: '24:00' }
+
+  beforeEach(() => {
+    app = createApp()
+    vi.mocked(isDbReady).mockReturnValue(true)
+    vi.mocked(getStudioHours).mockReset()
+    vi.mocked(setStudioHours).mockReset()
+  })
+
+  it('GET без сессии → 401', async () => {
+    expect((await studio('GET', { cookie: '' })).status).toBe(401)
+  })
+
+  it('GET открыт сотруднику', async () => {
+    vi.mocked(getStudioHours).mockResolvedValue([monday])
+    const res = await studio('GET', { cookie: await employeeCookie() })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, days: [monday] })
+  })
+
+  it('GET при недоступной БД → 503', async () => {
+    vi.mocked(isDbReady).mockReturnValue(false)
+    expect((await studio('GET', { cookie: await adminCookie() })).status).toBe(503)
+  })
+
+  it('PUT доступен только админу', async () => {
+    for (const cookie of [await employeeCookie(), await bookerCookie()]) {
+      const res = await studio('PUT', { body: { days: [monday] }, cookie })
+      expect(res.status).toBe(403)
+    }
+    expect(vi.mocked(setStudioHours)).not.toHaveBeenCalled()
+  })
+
+  it('PUT от админа заменяет режим и отдает дни по порядку недели', async () => {
+    vi.mocked(setStudioHours).mockResolvedValue()
+    const res = await studio('PUT', {
+      body: { days: [saturday, monday] },
+      cookie: await adminCookie(),
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, days: [monday, saturday] })
+    expect(vi.mocked(setStudioHours)).toHaveBeenCalledWith([saturday, monday])
+  })
+
+  it.each([
+    ['пустой список', { days: [] }],
+    ['закрытие раньше открытия', { days: [{ weekday: 0, opensAt: '21:00', closesAt: '09:00' }] }],
+    ['кривое время', { days: [{ weekday: 0, opensAt: '9:00', closesAt: '25:00' }] }],
+    ['день недели вне 0–6', { days: [{ ...monday, weekday: 7 }] }],
+    ['день недели дважды', { days: [monday, { ...monday, opensAt: '10:00' }] }],
+  ])('PUT: %s → 400', async (_name, body) => {
+    const res = await studio('PUT', { body, cookie: await adminCookie() })
+    expect(res.status).toBe(400)
+    expect(vi.mocked(setStudioHours)).not.toHaveBeenCalled()
   })
 })
