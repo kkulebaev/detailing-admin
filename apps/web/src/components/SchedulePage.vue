@@ -688,17 +688,17 @@ const showSkeleton = computed(
             v-if="!viewingBookings"
             type="button"
             class="flex h-11 flex-col items-center justify-center rounded-md border text-sm leading-none tabular-nums transition-colors disabled:cursor-not-allowed"
-            :class="[
-              cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
-              { 'ring-2 ring-foreground ring-offset-1': d.today },
-            ]"
+            :class="[cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed)]"
+            :aria-current="d.today ? 'date' : undefined"
             :aria-pressed="isWorking(selectedMaster.id, d.iso)"
             :disabled="isLocked(selectedMaster.id, d.iso)"
             :title="bookingsTitle(selectedMaster.id, d.iso)"
             :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(selectedMaster.id, d.iso)}`"
             @click="toggle(selectedMaster.id, d.iso)"
           >
-            {{ d.day }}
+            <span :class="{ 'font-semibold underline decoration-2 underline-offset-4': d.today }">{{
+              d.day
+            }}</span>
             <BookingMark
               v-if="bookingCount(selectedMaster.id, d.iso) > 0"
               class="mt-1"
@@ -706,22 +706,28 @@ const showSkeleton = computed(
               :working="isWorking(selectedMaster.id, d.iso)"
             />
           </button>
-          <!-- Выбранный день — кольцо с отступом побольше, чем у сегодняшнего. -->
+          <!-- Кольцо только у выбранного дня, сегодня — подчеркнутое число: так оба
+               видны, даже когда выбран сегодняшний день. На конфликтном дне кольцо
+               красное, чтобы не было двойного контура поверх красной рамки. -->
           <button
             v-else
             type="button"
             class="flex h-11 flex-col items-center justify-center rounded-md border text-sm leading-none tabular-nums transition-colors"
             :class="[
               cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
-              d.iso === shownDay
-                ? 'ring-2 ring-foreground ring-offset-2'
-                : { 'ring-1 ring-foreground ring-offset-1': d.today },
+              d.iso === shownDay && [
+                'ring-2 ring-offset-2',
+                hasConflict(selectedMaster.id, d.iso) ? 'ring-destructive' : 'ring-foreground',
+              ],
             ]"
+            :aria-current="d.today ? 'date' : undefined"
             :aria-pressed="d.iso === shownDay"
             :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(selectedMaster.id, d.iso)}`"
             @click="pickDay(d.iso)"
           >
-            {{ d.day }}
+            <span :class="{ 'font-semibold underline decoration-2 underline-offset-4': d.today }">{{
+              d.day
+            }}</span>
             <BookingMark
               v-if="bookingCount(selectedMaster.id, d.iso) > 0"
               class="mt-1"

@@ -271,6 +271,12 @@ describe('SchedulePage', () => {
     await expect
       .element(page.getByRole('button', { name: 'Смотреть записи' }))
       .toHaveAttribute('data-state', 'on')
+    // Сегодня отмечено не кольцом, а атрибутом и подчеркнутым числом.
+    const todayCell = page.getByRole('button', {
+      name: new RegExp(`^${new Date().getDate()} ${monthName}:`),
+    })
+    await expect.element(todayCell).toHaveAttribute('aria-current', 'date')
+    await expect.element(todayCell).not.toHaveClass(/ring-/)
     // Пока день не выбран, под календарем пусто.
     await expect.element(page.getByRole('region', { name: /^Записи на / })).not.toBeInTheDocument()
     const day = page.getByRole('button', { name: /^2 [а-я]+: выходной, запись в выходной/ })
