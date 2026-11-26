@@ -25,6 +25,15 @@ import {
 import { formatPastedPhone, usePhoneInput } from '@/composables/use-phone-input'
 import { useDaysOffWarning } from '@/composables/use-days-off-warning'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -107,6 +116,7 @@ const originalAmount = ref<number | null>(null)
 const servicesDirty = ref(false)
 
 const submitting = ref(false)
+const confirmDiscardOpen = ref(false)
 const error = ref<string | null>(null)
 const fieldErrors = ref<Record<string, string>>({})
 
@@ -220,9 +230,37 @@ function switchToText() {
   serviceMode.value = 'text'
 }
 
+// Снимок полей в момент открытия: несохраненной правкой считается любое отличие от него.
+// Строки пикера в снимок не входят, потому что пикер пересобирает их сам при открытии;
+// правку услуг ловит servicesDirty, который ставят только действия пользователя.
+function formSnapshot(): string {
+  return JSON.stringify([
+    dateFromCal.value?.toString() ?? null,
+    dateToCal.value?.toString() ?? null,
+    timeValue.value,
+    timeToValue.value,
+    name.value,
+    phoneRaw.value,
+    car.value,
+    service.value,
+    note.value,
+    amountRaw.value,
+    readiness.value,
+    master.value,
+    responsible.value ?? null,
+    carClass.value,
+    serviceMode.value,
+  ])
+}
+const initialSnapshot = ref('')
+const isDirty = computed(
+  () => props.open && (servicesDirty.value || formSnapshot() !== initialSnapshot.value),
+)
+
 watch(
   () => props.open,
   (v) => {
+    confirmDiscardOpen.value = false
     if (!v) return
     const b = props.booking
     error.value = null
@@ -251,6 +289,7 @@ watch(
     textBeforeLines.value = ''
     discount.value = b?.discount ?? 0
     originalAmount.value = b?.amount ?? null
+    initialSnapshot.value = formSnapshot()
   },
 )
 
@@ -304,7 +343,21 @@ function clearDateTo() {
 
 function close() {
   if (submitting.value) return
+  if (isDirty.value) {
+    confirmDiscardOpen.value = true
+    return
+  }
   emit('update:open', false)
+}
+
+function discardAndClose() {
+  confirmDiscardOpen.value = false
+  emit('update:open', false)
+}
+
+function onDialogOpenChange(v: boolean) {
+  if (v) emit('update:open', true)
+  else close()
 }
 
 async function submit() {
@@ -401,7 +454,7 @@ async function submit() {
 </script>
 
 <template>
-  <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
+  <Dialog :open="open" @update:open="onDialogOpenChange">
     <DialogContent class="max-h-svh overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Редактировать запись</DialogTitle>
@@ -784,4 +837,25 @@ async function submit() {
       </form>
     </DialogContent>
   </Dialog>
+
+  <AlertDialog v-model:open="confirmDiscardOpen">
+    <!-- Уже окна редактирования, чтобы не сливаться с ним по краям; в узком окне кнопки
+         не помещаются в ряд, поэтому стоят столбиком и на десктопе. -->
+    <AlertDialogContent class="sm:max-w-sm">
+      <AlertDialogHeader>
+        <AlertDialogTitle>Изменения не сохранены</AlertDialogTitle>
+        <AlertDialogDescription>
+          Если закрыть окно, внесенные правки в записи пропадут
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter class="sm:flex-col-reverse">
+        <!-- h-11 дает на телефоне тап не меньше 44 px: стандартные 36 px легко промахнуть
+             пальцем рядом с опасной кнопкой. -->
+        <AlertDialogCancel class="h-11 sm:h-9">Продолжить редактирование</AlertDialogCancel>
+        <Button variant="destructive" class="h-11 sm:h-9" @click="discardAndClose">
+          Закрыть без сохранения
+        </Button>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>
