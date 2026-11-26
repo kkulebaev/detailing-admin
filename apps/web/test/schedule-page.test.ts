@@ -23,6 +23,7 @@ const state = await vi.hoisted(async () => {
     pending: ref<ScheduleRequest[]>([]),
     studioDays: ref<{ weekday: number; opensAt: string; closesAt: string }[]>([]),
     closedDates: ref<string[]>([]),
+    wide: ref(true),
     bookingDays: ref<
       {
         masterId: number
@@ -78,6 +79,7 @@ vi.mock('@/lib/queries', async () => {
         to: '',
         days: state.bookingDays.value,
       })),
+      error: ref(null),
     }),
     STUDIO_HOURS_KEY: ['studio-hours'],
     CLOSED_DAYS_KEY: ['closed-days'],
@@ -107,7 +109,7 @@ vi.mock('@pinia/colada', () => ({
 vi.mock('@vueuse/core', async () => {
   const actual = await vi.importActual<typeof import('@vueuse/core')>('@vueuse/core')
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
-  return { ...actual, useMediaQuery: () => ref(true) }
+  return { ...actual, useMediaQuery: () => state.wide }
 })
 
 vi.mock('@/lib/schedule-api', () => ({ saveSchedule: vi.fn() }))
@@ -168,6 +170,7 @@ describe('SchedulePage', () => {
     state.studioDays.value = []
     state.closedDates.value = []
     state.bookingDays.value = []
+    state.wide.value = true
     vi.mocked(saveSchedule).mockReset()
     vi.mocked(submitScheduleRequest).mockReset()
     vi.mocked(approveScheduleRequest).mockReset()
@@ -246,6 +249,70 @@ describe('SchedulePage', () => {
       .toBeInTheDocument()
     await expect.element(page.getByRole('button', { name: /1 запись/ })).not.toBeInTheDocument()
     await expect.element(page.getByText('Записей в день')).not.toBeInTheDocument()
+  })
+
+  it('на телефоне админ смотрит записи дня в режиме «Записи», не меняя график', async () => {
+    state.wide.value = false
+    state.bookingDays.value = [
+      {
+        masterId: 1,
+        date: `${month}-02`,
+        bookings: [
+          { id: 'a', timeFrom: '10:00', timeTo: '12:00', car: 'Kia Rio', service: 'Мойка' },
+        ],
+      },
+    ]
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    // По умолчанию нажатие на день показывает записи, а не меняет график.
+    await expect
+      .element(page.getByRole('button', { name: 'Смотреть записи' }))
+      .toHaveAttribute('data-state', 'on')
+    const day = page.getByRole('button', { name: /^2 [а-я]+: выходной, запись в выходной/ })
+    await day.click()
+    await expect.element(day).toHaveAttribute('aria-pressed', 'true')
+
+    const list = page.getByRole('region', { name: `Записи на 2 ${monthName}` })
+    await expect
+      .element(list.getByRole('heading', { name: new RegExp(`^2 ${monthName}, `) }))
+      .toBeInTheDocument()
+    await expect.element(list.getByText('10:00')).toBeInTheDocument()
+    await expect.element(list.getByText('Kia Rio')).toBeInTheDocument()
+    await expect.element(list.getByText('Мастер в этот день выходной')).toBeInTheDocument()
+    // Нажатие выбрало день, а не отметило его рабочим.
+    await expect.element(page.getByText(/Несохраненных изменений/)).not.toBeInTheDocument()
+
+    await page.getByRole('button', { name: 'Править график' }).click()
+    await expect.element(list).not.toBeInTheDocument()
+  })
+
+  it('на телефоне тот, кто не отмечает дни, сразу видит записи выбранного дня', async () => {
+    state.wide.value = false
+    state.isAdmin.value = false
+    state.bookingDays.value = [
+      {
+        masterId: 1,
+        date: `${month}-03`,
+        bookings: [
+          { id: 'a', timeFrom: '09:00', timeTo: null, car: 'BMW X5', service: 'Полировка' },
+        ],
+      },
+    ]
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    await expect
+      .element(page.getByRole('button', { name: 'Смотреть записи' }))
+      .not.toBeInTheDocument()
+    await page.getByRole('button', { name: /^2 [а-я]+: выходной$/ }).click()
+    await expect.element(page.getByText('Записей нет')).toBeInTheDocument()
+    await page.getByRole('button', { name: /^3 [а-я]+: выходной, запись в выходной/ }).click()
+    await expect.element(page.getByText('BMW X5')).toBeInTheDocument()
   })
 
   it('без записей легенды о них нет', async () => {

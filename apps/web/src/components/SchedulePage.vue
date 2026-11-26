@@ -23,7 +23,7 @@ import {
 import { STUDIO_CLOSED_SUFFIX, useStudioWeekdays } from '@/composables/use-studio-weekdays'
 import { saveSchedule } from '@/lib/schedule-api'
 import { submitScheduleRequest } from '@/lib/schedule-requests-api'
-import { dayLabel, describeDayBookings, formatDayList } from '@/lib/schedule-format'
+import { dayLabel, describeDayBookings, formatDayList, weekdayName } from '@/lib/schedule-format'
 import type { ScheduleBooking } from '@/lib/schedule-api'
 import { useAuthStore } from '@/stores/auth'
 import { useQueryCache } from '@pinia/colada'
@@ -34,9 +34,17 @@ import ClosedDaysDialog from '@/components/ClosedDaysDialog.vue'
 import BookingMark from '@/components/ScheduleBookingMark.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { CalendarCheck, CalendarPlus, CalendarX, Clock } from '@lucide/vue'
+import {
+  CalendarCheck,
+  CalendarPlus,
+  CalendarX,
+  ClipboardList,
+  Clock,
+  TriangleAlert,
+} from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   Select,
   SelectContent,
@@ -60,7 +68,7 @@ const range = computed(() => monthScheduleRange(month.value))
 const { data: scheduleData, error: scheduleError, asyncStatus } = useScheduleQuery(range)
 const { data: mastersData, error: mastersError } = useMastersQuery()
 // Без ошибки на экране: отметки записей — подсказка, график без них остается рабочим.
-const { data: bookingsData } = useScheduleBookingsQuery(range)
+const { data: bookingsData, error: bookingsError } = useScheduleBookingsQuery(range)
 // Нужен всем ролям: по нему страница узнает своего мастера и выделяет его строку,
 // в том числе у админа, привязанного к мастеру.
 const { data: myRequestsData } = useMyScheduleRequestsQuery(computed(() => true))
@@ -388,6 +396,41 @@ const selectedMaster = computed(() =>
   masters.value.find((m) => String(m.id) === selectedMasterId.value),
 )
 
+// На телефоне нажатие на день у того, кто может его отмечать, переключает рабочий
+// день, поэтому записи дня смотрят в отдельном режиме. Остальным отмечать нечего,
+// и нажатие сразу показывает записи.
+type MobileMode = 'mark' | 'bookings'
+// Сначала просмотр: случайное нажатие не должно менять график.
+const mobileMode = ref<MobileMode>('bookings')
+const viewingBookings = computed(
+  () =>
+    !selectedMaster.value || !canToggle(selectedMaster.value.id) || mobileMode.value === 'bookings',
+)
+
+function onModeChange(value: unknown) {
+  // Повторное нажатие на выбранный пункт ToggleGroup снимает выбор — режим остается.
+  if (value === 'mark' || value === 'bookings') mobileMode.value = value
+}
+
+const pickedDay = ref<string | null>(null)
+// Выбор из другого месяца не переносится: тогда показываем сегодня или первое число.
+const shownDay = computed(() => {
+  const picked = pickedDay.value
+  if (picked && days.value.some((d) => d.iso === picked)) return picked
+  return days.value.find((d) => d.today)?.iso ?? days.value[0]?.iso ?? null
+})
+
+const bookingsReady = computed(
+  () => bookingsData.value?.ok === true && bookingsData.value.from === range.value.from,
+)
+
+const shownDayBookings = computed(() => {
+  const m = selectedMaster.value
+  const iso = shownDay.value
+  if (!m || !iso) return []
+  return bookingsByCell.value.get(`${m.id}|${iso}`) ?? []
+})
+
 const error = computed<string | null>(() => {
   if (scheduleError.value || mastersError.value) return 'Проверьте соединение и обновите страницу'
   const r = scheduleData.value
@@ -597,6 +640,33 @@ const showSkeleton = computed(
 
     <!-- Телефон: месяц одного мастера календарем, ячейки под палец. -->
     <div v-else-if="selectedMaster" class="rounded-md border border-border p-3">
+      <div v-if="canToggle(selectedMaster.id)" class="mb-3">
+        <!-- Залитый сегмент перекликается с залитыми рабочими днями: в каком режиме
+             нажатие меняет график, должно быть видно сразу. -->
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          class="w-full"
+          aria-label="Что делает нажатие на день"
+          :model-value="mobileMode"
+          @update:model-value="onModeChange"
+        >
+          <ToggleGroupItem
+            value="bookings"
+            class="h-11 flex-1 text-muted-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          >
+            <ClipboardList class="size-4" aria-hidden="true" />
+            Смотреть записи
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="mark"
+            class="h-11 flex-1 text-muted-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          >
+            <CalendarCheck class="size-4" aria-hidden="true" />
+            Править график
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
       <div class="mb-2 grid grid-cols-7 gap-1">
         <div
           v-for="(w, i) in WEEKDAY_SHORT"
@@ -611,7 +681,7 @@ const showSkeleton = computed(
         <div v-for="n in leadingBlanks" :key="`blank-${n}`" />
         <template v-for="d in days" :key="d.iso">
           <button
-            v-if="canToggle(selectedMaster.id)"
+            v-if="!viewingBookings"
             type="button"
             class="flex h-11 flex-col items-center justify-center rounded-md border text-sm leading-none tabular-nums transition-colors disabled:cursor-not-allowed"
             :class="[
@@ -632,16 +702,20 @@ const showSkeleton = computed(
               :working="isWorking(selectedMaster.id, d.iso)"
             />
           </button>
-          <div
+          <!-- Выбранный день — кольцо с отступом побольше, чем у сегодняшнего. -->
+          <button
             v-else
-            role="img"
-            class="flex h-11 flex-col items-center justify-center rounded-md border text-sm leading-none tabular-nums"
+            type="button"
+            class="flex h-11 flex-col items-center justify-center rounded-md border text-sm leading-none tabular-nums transition-colors"
             :class="[
               cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
-              { 'ring-2 ring-foreground ring-offset-1': d.today },
+              d.iso === shownDay
+                ? 'ring-2 ring-foreground ring-offset-2'
+                : { 'ring-1 ring-foreground ring-offset-1': d.today },
             ]"
-            :title="bookingsTitle(selectedMaster.id, d.iso)"
+            :aria-pressed="d.iso === shownDay"
             :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(selectedMaster.id, d.iso)}`"
+            @click="pickedDay = d.iso"
           >
             {{ d.day }}
             <BookingMark
@@ -650,7 +724,7 @@ const showSkeleton = computed(
               :count="bookingCount(selectedMaster.id, d.iso)"
               :working="isWorking(selectedMaster.id, d.iso)"
             />
-          </div>
+          </button>
         </template>
       </div>
       <div class="mt-3 flex items-center justify-between gap-2">
@@ -658,7 +732,7 @@ const showSkeleton = computed(
           Рабочих дней: <span class="tabular-nums">{{ workingCount(selectedMaster.id) }}</span>
         </p>
         <Button
-          v-if="canToggle(selectedMaster.id)"
+          v-if="!viewingBookings"
           variant="outline"
           size="sm"
           class="h-10 shrink-0"
@@ -670,6 +744,50 @@ const showSkeleton = computed(
           {{ isMonthFull(selectedMaster.id) ? 'Снять все' : 'Весь месяц' }}
         </Button>
       </div>
+      <section
+        v-if="viewingBookings && shownDay"
+        class="mt-3 border-t border-border pt-3"
+        :aria-label="`Записи на ${dayLabel(shownDay)}`"
+      >
+        <!-- Вслух при смене дня читается только заголовок, а не все карточки. -->
+        <h2 class="text-base font-semibold" aria-live="polite">
+          {{ dayLabel(shownDay)
+          }}<span class="font-normal text-muted-foreground">, {{ weekdayName(shownDay) }}</span>
+        </h2>
+        <p
+          v-if="hasConflict(selectedMaster.id, shownDay)"
+          class="mt-2 flex items-center gap-2 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive"
+        >
+          <TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
+          Мастер в этот день выходной
+        </p>
+        <p v-if="!bookingsReady" class="py-4 text-center text-sm text-muted-foreground">
+          {{ bookingsError ? 'Не удалось загрузить записи' : 'Загрузка записей…' }}
+        </p>
+        <p
+          v-else-if="shownDayBookings.length === 0"
+          class="py-4 text-center text-sm text-muted-foreground"
+        >
+          Записей нет
+        </p>
+        <ul v-else class="mt-2 flex flex-col gap-2">
+          <li
+            v-for="b in shownDayBookings"
+            :key="b.id"
+            class="flex gap-3 rounded-md border border-border p-3 text-sm"
+          >
+            <!-- Колонка времени, как в календаре: по ней глаз проходит список. -->
+            <div class="w-12 shrink-0 tabular-nums">
+              <div class="text-base font-semibold">{{ b.timeFrom }}</div>
+              <div v-if="b.timeTo" class="text-xs text-muted-foreground">до {{ b.timeTo }}</div>
+            </div>
+            <div class="min-w-0">
+              <div class="font-medium">{{ b.car }}</div>
+              <div class="whitespace-pre-line text-muted-foreground">{{ b.service }}</div>
+            </div>
+          </li>
+        </ul>
+      </section>
     </div>
 
     <div

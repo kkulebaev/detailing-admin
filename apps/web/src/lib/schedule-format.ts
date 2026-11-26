@@ -1,4 +1,4 @@
-import type { ScheduleBooking } from '@detailing-admin/shared'
+import { isoWeekday, type ScheduleBooking } from '@detailing-admin/shared'
 import { pluralize } from './plural'
 
 export const MONTHS_GENITIVE = [
@@ -44,9 +44,26 @@ export function formatSentAt(isoTimestamp: string): string {
   return dateTime.format(new Date(isoTimestamp))
 }
 
+const WEEKDAY_LONG = [
+  'понедельник',
+  'вторник',
+  'среда',
+  'четверг',
+  'пятница',
+  'суббота',
+  'воскресенье',
+] as const
+
+export function weekdayName(iso: string): string {
+  return WEEKDAY_LONG[isoWeekday(iso)]
+}
+
+function bookingTime(b: ScheduleBooking): string {
+  return b.timeTo ? `${b.timeFrom}–${b.timeTo}` : b.timeFrom
+}
+
 function bookingLine(b: ScheduleBooking): string {
-  const time = b.timeTo ? `${b.timeFrom}–${b.timeTo}` : b.timeFrom
-  return `${time} ${b.car} — ${b.service}`
+  return `${bookingTime(b)} ${b.car} — ${b.service}`
 }
 
 // title показывает записи построчно, aria-label читается одной фразой.
