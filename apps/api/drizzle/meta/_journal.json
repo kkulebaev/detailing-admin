@@ -232,6 +232,13 @@
       "when": 1795700085204,
       "tag": "0032_third_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795702150474,
+      "tag": "0033_handy_multiple_man",
+      "breakpoints": true
     }
   ]
 }

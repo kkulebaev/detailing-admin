@@ -340,5 +340,18 @@ export {
   isoWeekday,
   datesOnClosedDays,
   studioClosedErrorSchema,
+  CLOSED_DAYS_MAX_RANGE_DAYS,
+  CLOSED_DAYS_MAX_BATCH,
+  closedDaysInputSchema,
+  closedDateParamSchema,
+  closedDaysQuerySchema,
+  closedDaysOkSchema,
+  closedDaysResponseSchema,
+  closedDayMutationResponseSchema,
 } from './studio-hours.js'
-export type { StudioDay, StudioHoursInput } from './studio-hours.js'
+export type {
+  StudioDay,
+  StudioHoursInput,
+  ClosedDaysInput,
+  ClosedDaysQuery,
+} from './studio-hours.js'

@@ -386,6 +386,11 @@ export const studioHours = pgTable(
   ],
 )
 
+// Разовые выходные студии (праздники и т. п.) поверх режима по дням недели.
+export const studioClosedDays = pgTable('studio_closed_days', {
+  date: date('date').primaryKey(),
+})
+
 // Заявка сотрудника на изменение своего графика. Дни — снимок заявки в jsonb: их
 // не ищут по дате, а применяются они к master_schedule только при одобрении.
 // Частичный UNIQUE держит у мастера не больше одной заявки на согласовании.

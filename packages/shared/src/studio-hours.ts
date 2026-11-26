@@ -1,5 +1,11 @@
 import { z } from 'zod'
-import { dbUnavailableErrorSchema, internalErrorSchema, validationErrorSchema } from './api.js'
+import {
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+  notFoundErrorSchema,
+  validationErrorSchema,
+} from './api.js'
+import { isoDateSchema } from './salaries.js'
 
 export const WEEKDAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const
 
@@ -86,16 +92,20 @@ export function isoWeekday(iso: string): number {
   return (new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay() + 6) % 7
 }
 
-// Рабочие дни мастера, выпавшие на дни, когда студия закрыта. Пока режим не задан
-// (`days` пуст), ограничений нет.
+// Рабочие дни мастера, выпавшие на дни, когда студия закрыта: по дню недели или
+// разовым выходным (`closedDates`). Пока режим не задан (`studio` пуст), дни недели
+// не ограничены, а разовые выходные — да.
 export function datesOnClosedDays(
   studio: readonly StudioDay[],
   dates: readonly { date: string; working: boolean }[],
+  closedDates: readonly string[] = [],
 ): string[] {
-  if (studio.length === 0) return []
-  const open = new Set(studio.map((d) => d.weekday))
+  const open = studio.length > 0 ? new Set(studio.map((d) => d.weekday)) : null
+  const oneOff = new Set(closedDates)
   return dates
-    .filter((d) => d.working && !open.has(isoWeekday(d.date)))
+    .filter(
+      (d) => d.working && (oneOff.has(d.date) || (open !== null && !open.has(isoWeekday(d.date)))),
+    )
     .map((d) => d.date)
     .sort()
 }
@@ -108,3 +118,54 @@ export const studioClosedErrorSchema = z.object({
   reason: z.literal('studio_closed'),
   dates: z.array(z.string()),
 })
+
+// Разовые выходные студии поверх режима по дням недели.
+// Год вперед с запасом: столько показывает окно выходных.
+export const CLOSED_DAYS_MAX_RANGE_DAYS = 400
+
+// За раз — не больше квартала: длиннее выходных у студии не бывает, а опечатка в
+// годе не должна закрыть студию на годы.
+export const CLOSED_DAYS_MAX_BATCH = 93
+
+// Один день — это диапазон с from === to.
+export const closedDaysInputSchema = z
+  .object({ from: isoDateSchema, to: isoDateSchema })
+  .refine((v) => v.from <= v.to, { path: ['to'], message: 'Конец раньше начала' })
+  .refine(
+    (v) =>
+      Math.round((Date.parse(v.to) - Date.parse(v.from)) / 86_400_000) + 1 <= CLOSED_DAYS_MAX_BATCH,
+    { path: ['to'], message: `Не больше ${CLOSED_DAYS_MAX_BATCH} дней за раз` },
+  )
+
+export type ClosedDaysInput = z.infer<typeof closedDaysInputSchema>
+
+export const closedDateParamSchema = z.object({ date: isoDateSchema })
+
+export const closedDaysQuerySchema = z.object({
+  from: isoDateSchema,
+  to: isoDateSchema,
+})
+
+export type ClosedDaysQuery = z.infer<typeof closedDaysQuerySchema>
+
+export const closedDaysOkSchema = z.object({
+  ok: z.literal(true),
+  from: z.string(),
+  to: z.string(),
+  dates: z.array(z.string()),
+})
+
+export const closedDaysResponseSchema = z.union([
+  closedDaysOkSchema,
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
+export const closedDayMutationResponseSchema = z.union([
+  z.object({ ok: z.literal(true) }),
+  validationErrorSchema,
+  notFoundErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])

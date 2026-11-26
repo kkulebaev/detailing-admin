@@ -4,7 +4,7 @@ import { MY_SCHEDULE_REQUESTS_LIMIT, datesOnClosedDays } from '@detailing-admin/
 import type { AuditActor } from './audit.js'
 import { getDb } from './client.js'
 import { applyScheduleDays, ScheduleError } from './schedule.js'
-import { getStudioHours } from './studio-hours.js'
+import { closedDatesAmong, getStudioHours } from './studio-hours.js'
 import {
   masters,
   scheduleRequests,
@@ -96,7 +96,14 @@ export async function createScheduleRequest(
       .limit(1)
     if (pending) throw new ScheduleRequestError('pending_exists')
 
-    const closed = datesOnClosedDays(await getStudioHours(tx), days)
+    const closed = datesOnClosedDays(
+      await getStudioHours(tx),
+      days,
+      await closedDatesAmong(
+        tx,
+        days.filter((d) => d.working).map((d) => d.date),
+      ),
+    )
     if (closed.length > 0) throw new ScheduleRequestError('studio_closed', closed)
 
     const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date))

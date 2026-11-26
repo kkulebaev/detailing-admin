@@ -7,7 +7,7 @@ import {
 import type { Tx } from './audit.js'
 import { getDb, type Db } from './client.js'
 import { masterSchedule, masters } from './schema.js'
-import { getStudioHours } from './studio-hours.js'
+import { closedDatesAmong, getStudioHours } from './studio-hours.js'
 
 export class ScheduleError extends Error {
   constructor(
@@ -66,7 +66,14 @@ export async function applyScheduleDays(
   if (found.length !== ids.length) throw new ScheduleError('not_found')
 
   // Снять день можно всегда: так убирают отметки, оставшиеся с прежнего режима.
-  const closed = datesOnClosedDays(await getStudioHours(tx), days)
+  const closed = datesOnClosedDays(
+    await getStudioHours(tx),
+    days,
+    await closedDatesAmong(
+      tx,
+      days.filter((d) => d.working).map((d) => d.date),
+    ),
+  )
   if (closed.length > 0) throw new ScheduleError('studio_closed', [...new Set(closed)])
 
   const working = days.filter((d) => d.working)

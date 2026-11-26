@@ -40,7 +40,7 @@ const weekdaysOnly = [0, 1, 2, 3, 4].map((weekday) => ({ weekday, opensAt: 600, 
 
 describe('applyScheduleDays и режим студии', () => {
   it('не ставит рабочий день в выходной студии и ничего не пишет', async () => {
-    const { tx, writes } = fakeTx([[{ id: 1 }], weekdaysOnly])
+    const { tx, writes } = fakeTx([[{ id: 1 }], weekdaysOnly, []])
     const err = await applyScheduleDays(tx, [
       { masterId: 1, date: '2026-11-23', working: true },
       { masterId: 1, date: '2026-11-29', working: true },
@@ -57,8 +57,17 @@ describe('applyScheduleDays и режим студии', () => {
   })
 
   it('пока режим не задан, ограничений нет', async () => {
-    const { tx, writes } = fakeTx([[{ id: 1 }], []])
+    const { tx, writes } = fakeTx([[{ id: 1 }], [], []])
     await applyScheduleDays(tx, [{ masterId: 1, date: '2026-11-29', working: true }])
     expect(writes).toEqual(['insert'])
+  })
+
+  it('не ставит рабочий день на разовый выходной', async () => {
+    const { tx, writes } = fakeTx([[{ id: 1 }], [], [{ date: '2026-12-31' }]])
+    const err = await applyScheduleDays(tx, [
+      { masterId: 1, date: '2026-12-31', working: true },
+    ]).catch((e: unknown) => e)
+    expect(err).toMatchObject({ code: 'studio_closed', dates: ['2026-12-31'] })
+    expect(writes).toEqual([])
   })
 })

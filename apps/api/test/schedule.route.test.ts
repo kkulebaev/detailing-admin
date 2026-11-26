@@ -53,12 +53,24 @@ vi.mock('../src/db/schedule.js', () => {
   return { ScheduleError, listSchedule: vi.fn(), setScheduleDays: vi.fn() }
 })
 
-vi.mock('../src/db/studio-hours.js', () => ({ getStudioHours: vi.fn(), setStudioHours: vi.fn() }))
+vi.mock('../src/db/studio-hours.js', () => ({
+  getStudioHours: vi.fn(),
+  setStudioHours: vi.fn(),
+  listClosedDays: vi.fn(),
+  addClosedDays: vi.fn(),
+  deleteClosedDay: vi.fn(),
+}))
 
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
 import { ScheduleError, listSchedule, setScheduleDays } from '../src/db/schedule.js'
-import { getStudioHours, setStudioHours } from '../src/db/studio-hours.js'
+import {
+  addClosedDays,
+  deleteClosedDay,
+  getStudioHours,
+  listClosedDays,
+  setStudioHours,
+} from '../src/db/studio-hours.js'
 import { adminCookie, bookerCookie, employeeCookie } from './auth-helpers.js'
 
 function req(
@@ -245,5 +257,88 @@ describe('/api/schedule/studio-hours', () => {
     const res = await studio('PUT', { body, cookie: await adminCookie() })
     expect(res.status).toBe(400)
     expect(vi.mocked(setStudioHours)).not.toHaveBeenCalled()
+  })
+})
+
+describe('/api/schedule/closed-days', () => {
+  let app: ReturnType<typeof createApp>
+
+  function call(method: string, path: string, opts: { body?: unknown; cookie: string }) {
+    return app.request(`/api/schedule/closed-days${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', Cookie: opts.cookie },
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    })
+  }
+
+  beforeEach(() => {
+    app = createApp()
+    vi.mocked(isDbReady).mockReturnValue(true)
+    vi.mocked(listClosedDays).mockReset()
+    vi.mocked(addClosedDays).mockReset()
+    vi.mocked(deleteClosedDay).mockReset()
+  })
+
+  it('GET открыт сотруднику', async () => {
+    vi.mocked(listClosedDays).mockResolvedValue(['2026-12-31'])
+    const res = await call('GET', '?from=2026-12-01&to=2026-12-31', {
+      cookie: await employeeCookie(),
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      ok: true,
+      from: '2026-12-01',
+      to: '2026-12-31',
+      dates: ['2026-12-31'],
+    })
+  })
+
+  it('GET с периодом длиннее допустимого → 400', async () => {
+    const res = await call('GET', '?from=2026-01-01&to=2027-12-31', { cookie: await adminCookie() })
+    expect(res.status).toBe(400)
+    expect(vi.mocked(listClosedDays)).not.toHaveBeenCalled()
+  })
+
+  it('добавлять и удалять выходные может только админ', async () => {
+    for (const cookie of [await employeeCookie(), await bookerCookie()]) {
+      expect(
+        (await call('POST', '', { body: { from: '2026-12-31', to: '2026-12-31' }, cookie })).status,
+      ).toBe(403)
+      expect((await call('DELETE', '/2026-12-31', { cookie })).status).toBe(403)
+    }
+    expect(vi.mocked(addClosedDays)).not.toHaveBeenCalled()
+    expect(vi.mocked(deleteClosedDay)).not.toHaveBeenCalled()
+  })
+
+  it('POST от админа добавляет каждый день диапазона', async () => {
+    vi.mocked(addClosedDays).mockResolvedValue()
+    const res = await call('POST', '', {
+      body: { from: '2026-12-30', to: '2027-01-02' },
+      cookie: await adminCookie(),
+    })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(addClosedDays)).toHaveBeenCalledWith([
+      '2026-12-30',
+      '2026-12-31',
+      '2027-01-01',
+      '2027-01-02',
+    ])
+  })
+
+  it.each([
+    ['несуществующая дата', { from: '2026-02-30', to: '2026-03-01' }],
+    ['конец раньше начала', { from: '2026-12-31', to: '2026-12-30' }],
+    ['больше квартала', { from: '2026-01-01', to: '2026-06-30' }],
+  ])('POST: %s → 400', async (_name, body) => {
+    const res = await call('POST', '', { body, cookie: await adminCookie() })
+    expect(res.status).toBe(400)
+    expect(vi.mocked(addClosedDays)).not.toHaveBeenCalled()
+  })
+
+  it('DELETE удаляет выходной, а несуществующий → 404', async () => {
+    const cookie = await adminCookie()
+    vi.mocked(deleteClosedDay).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+    expect((await call('DELETE', '/2026-12-31', { cookie })).status).toBe(200)
+    expect((await call('DELETE', '/2026-12-30', { cookie })).status).toBe(404)
   })
 })

@@ -22,6 +22,7 @@ const state = await vi.hoisted(async () => {
     } | null>(null),
     pending: ref<ScheduleRequest[]>([]),
     studioDays: ref<{ weekday: number; opensAt: string; closesAt: string }[]>([]),
+    closedDates: ref<string[]>([]),
   }
 })
 
@@ -58,6 +59,11 @@ vi.mock('@/lib/queries', async () => {
     }),
     useMastersQuery: () => ({ data: ref({ ok: true, masters }), error: ref(null) }),
     STUDIO_HOURS_KEY: ['studio-hours'],
+    CLOSED_DAYS_KEY: ['closed-days'],
+    useClosedDaysQuery: () => ({
+      data: computed(() => ({ ok: true, from: '', to: '', dates: state.closedDates.value })),
+      error: ref(null),
+    }),
     useStudioHoursQuery: () => ({
       data: computed(() => ({ ok: true, days: state.studioDays.value })),
       error: ref(null),
@@ -139,6 +145,7 @@ describe('SchedulePage', () => {
     state.my.value = null
     state.pending.value = []
     state.studioDays.value = []
+    state.closedDates.value = []
     vi.mocked(saveSchedule).mockReset()
     vi.mocked(submitScheduleRequest).mockReset()
     vi.mocked(approveScheduleRequest).mockReset()
@@ -208,6 +215,19 @@ describe('SchedulePage', () => {
     await expect
       .element(page.getByRole('button', { name: 'Иван: снять весь месяц' }))
       .toBeInTheDocument()
+  })
+
+  it('разовый выходной заштрихован и рабочим его не поставить', async () => {
+    state.closedDates.value = [`${month}-02`]
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    const closed = page.getByRole('button', { name: `${secondDayLabel}, студия закрыта` })
+    await expect.element(closed).toHaveClass(/closed-hatch/)
+    await expect.element(closed).toBeDisabled()
+    await expect.element(page.getByText('Студия закрыта', { exact: true })).toBeInTheDocument()
   })
 
   it('без заданного режима ничего не штрихуется', async () => {

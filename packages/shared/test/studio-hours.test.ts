@@ -66,6 +66,19 @@ describe('datesOnClosedDays', () => {
     ).toEqual(['2026-11-29'])
   })
 
+  it('разовый выходной запрещает рабочий день и без режима', () => {
+    expect(
+      datesOnClosedDays(
+        [],
+        [
+          { date: '2026-12-31', working: true },
+          { date: '2026-12-30', working: true },
+        ],
+        ['2026-12-31'],
+      ),
+    ).toEqual(['2026-12-31'])
+  })
+
   it('без заданного режима ничего не запрещает', () => {
     expect(datesOnClosedDays([], [{ date: '2026-11-29', working: true }])).toEqual([])
   })

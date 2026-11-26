@@ -6,10 +6,20 @@
  * OpenAPI spec version: 0.0.1
  */
 import type {
+  DeleteApiScheduleClosedDaysDate200,
+  DeleteApiScheduleClosedDaysDate400,
+  DeleteApiScheduleClosedDaysDate404,
+  DeleteApiScheduleClosedDaysDate500,
+  DeleteApiScheduleClosedDaysDate503,
   GetApiSchedule200,
   GetApiSchedule400,
   GetApiSchedule500,
   GetApiSchedule503,
+  GetApiScheduleClosedDays200,
+  GetApiScheduleClosedDays400,
+  GetApiScheduleClosedDays500,
+  GetApiScheduleClosedDays503,
+  GetApiScheduleClosedDaysParams,
   GetApiScheduleParams,
   GetApiScheduleStudioHours200,
   GetApiScheduleStudioHours500,
@@ -20,6 +30,11 @@ import type {
   PatchApiSchedule500,
   PatchApiSchedule503,
   PatchApiScheduleBody,
+  PostApiScheduleClosedDays200,
+  PostApiScheduleClosedDays400,
+  PostApiScheduleClosedDays500,
+  PostApiScheduleClosedDays503,
+  PostApiScheduleClosedDaysBody,
   PutApiScheduleStudioHours200,
   PutApiScheduleStudioHours400,
   PutApiScheduleStudioHours500,
@@ -28,6 +43,179 @@ import type {
 } from '../model';
 
 import { orvalFetch } from '../../orval-mutator';
+
+export type getApiScheduleClosedDaysResponse200 = {
+  data: GetApiScheduleClosedDays200
+  status: 200
+}
+
+export type getApiScheduleClosedDaysResponse400 = {
+  data: GetApiScheduleClosedDays400
+  status: 400
+}
+
+export type getApiScheduleClosedDaysResponse500 = {
+  data: GetApiScheduleClosedDays500
+  status: 500
+}
+
+export type getApiScheduleClosedDaysResponse503 = {
+  data: GetApiScheduleClosedDays503
+  status: 503
+}
+
+export type getApiScheduleClosedDaysResponseSuccess = (getApiScheduleClosedDaysResponse200) & {
+  headers: Headers;
+};
+export type getApiScheduleClosedDaysResponseError = (getApiScheduleClosedDaysResponse400 | getApiScheduleClosedDaysResponse500 | getApiScheduleClosedDaysResponse503) & {
+  headers: Headers;
+};
+
+export type getApiScheduleClosedDaysResponse = (getApiScheduleClosedDaysResponseSuccess | getApiScheduleClosedDaysResponseError)
+
+export const getGetApiScheduleClosedDaysUrl = (params: GetApiScheduleClosedDaysParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/schedule/closed-days?${stringifiedParams}` : `/api/schedule/closed-days`
+}
+
+export const getApiScheduleClosedDays = async (params: GetApiScheduleClosedDaysParams, options?: Parameters<typeof orvalFetch>[1]): Promise<getApiScheduleClosedDaysResponse> => {
+
+  return orvalFetch<getApiScheduleClosedDaysResponse>(getGetApiScheduleClosedDaysUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type postApiScheduleClosedDaysResponse200 = {
+  data: PostApiScheduleClosedDays200
+  status: 200
+}
+
+export type postApiScheduleClosedDaysResponse400 = {
+  data: PostApiScheduleClosedDays400
+  status: 400
+}
+
+export type postApiScheduleClosedDaysResponse500 = {
+  data: PostApiScheduleClosedDays500
+  status: 500
+}
+
+export type postApiScheduleClosedDaysResponse503 = {
+  data: PostApiScheduleClosedDays503
+  status: 503
+}
+
+export type postApiScheduleClosedDaysResponseSuccess = (postApiScheduleClosedDaysResponse200) & {
+  headers: Headers;
+};
+export type postApiScheduleClosedDaysResponseError = (postApiScheduleClosedDaysResponse400 | postApiScheduleClosedDaysResponse500 | postApiScheduleClosedDaysResponse503) & {
+  headers: Headers;
+};
+
+export type postApiScheduleClosedDaysResponse = (postApiScheduleClosedDaysResponseSuccess | postApiScheduleClosedDaysResponseError)
+
+export const getPostApiScheduleClosedDaysUrl = () => {
+
+
+
+
+  return `/api/schedule/closed-days`
+}
+
+export const postApiScheduleClosedDays = async (postApiScheduleClosedDaysBody?: PostApiScheduleClosedDaysBody, options?: Parameters<typeof orvalFetch>[1]): Promise<postApiScheduleClosedDaysResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<postApiScheduleClosedDaysResponse>(getPostApiScheduleClosedDaysUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(postApiScheduleClosedDaysBody)
+  }
+);}
+
+
+export type deleteApiScheduleClosedDaysDateResponse200 = {
+  data: DeleteApiScheduleClosedDaysDate200
+  status: 200
+}
+
+export type deleteApiScheduleClosedDaysDateResponse400 = {
+  data: DeleteApiScheduleClosedDaysDate400
+  status: 400
+}
+
+export type deleteApiScheduleClosedDaysDateResponse404 = {
+  data: DeleteApiScheduleClosedDaysDate404
+  status: 404
+}
+
+export type deleteApiScheduleClosedDaysDateResponse500 = {
+  data: DeleteApiScheduleClosedDaysDate500
+  status: 500
+}
+
+export type deleteApiScheduleClosedDaysDateResponse503 = {
+  data: DeleteApiScheduleClosedDaysDate503
+  status: 503
+}
+
+export type deleteApiScheduleClosedDaysDateResponseSuccess = (deleteApiScheduleClosedDaysDateResponse200) & {
+  headers: Headers;
+};
+export type deleteApiScheduleClosedDaysDateResponseError = (deleteApiScheduleClosedDaysDateResponse400 | deleteApiScheduleClosedDaysDateResponse404 | deleteApiScheduleClosedDaysDateResponse500 | deleteApiScheduleClosedDaysDateResponse503) & {
+  headers: Headers;
+};
+
+export type deleteApiScheduleClosedDaysDateResponse = (deleteApiScheduleClosedDaysDateResponseSuccess | deleteApiScheduleClosedDaysDateResponseError)
+
+export const getDeleteApiScheduleClosedDaysDateUrl = (date: string,) => {
+
+
+
+
+  return `/api/schedule/closed-days/${date}`
+}
+
+export const deleteApiScheduleClosedDaysDate = async (date: string, options?: Parameters<typeof orvalFetch>[1]): Promise<deleteApiScheduleClosedDaysDateResponse> => {
+
+  return orvalFetch<deleteApiScheduleClosedDaysDateResponse>(getDeleteApiScheduleClosedDaysDateUrl(date),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
 
 export type getApiScheduleStudioHoursResponse200 = {
   data: GetApiScheduleStudioHours200

@@ -11,6 +11,12 @@ import {
   scheduleQuerySchema,
   scheduleRangeDays,
   scheduleUpdateInputSchema,
+  CLOSED_DAYS_MAX_RANGE_DAYS,
+  closedDateParamSchema,
+  closedDaysInputSchema,
+  isoDaysBetween,
+  closedDaysOkSchema,
+  closedDaysQuerySchema,
   studioClosedErrorSchema,
   studioHoursInputSchema,
   studioHoursOkSchema,
@@ -18,7 +24,13 @@ import {
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
 import { ScheduleError, listSchedule, setScheduleDays } from '../db/schedule.js'
-import { getStudioHours, setStudioHours } from '../db/studio-hours.js'
+import {
+  addClosedDays,
+  deleteClosedDay,
+  getStudioHours,
+  listClosedDays,
+  setStudioHours,
+} from '../db/studio-hours.js'
 import { baseLogger } from '../log.js'
 import { defaultValidationHook } from '../openapi.js'
 
@@ -134,7 +146,126 @@ const setStudioHoursRoute = createRoute({
   },
 })
 
+const listClosedDaysRoute = createRoute({
+  method: 'get',
+  path: '/closed-days',
+  tags: ['schedule'],
+  request: { query: closedDaysQuerySchema },
+  responses: {
+    200: {
+      description: 'One-off days the studio is closed (holidays etc.) in the range',
+      content: { 'application/json': { schema: closedDaysOkSchema } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const addClosedDayRoute = createRoute({
+  method: 'post',
+  path: '/closed-days',
+  tags: ['schedule'],
+  request: { body: { content: { 'application/json': { schema: closedDaysInputSchema } } } },
+  responses: {
+    200: {
+      description: 'Every day of the range marked as closed; days already closed are kept',
+      content: { 'application/json': { schema: z.object({ ok: z.literal(true) }) } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const deleteClosedDayRoute = createRoute({
+  method: 'delete',
+  path: '/closed-days/{date}',
+  tags: ['schedule'],
+  request: { params: closedDateParamSchema },
+  responses: {
+    200: {
+      description: 'Closed day removed',
+      content: { 'application/json': { schema: z.object({ ok: z.literal(true) }) } },
+    },
+    400: respValidation,
+    404: {
+      description: 'No closed day on this date',
+      content: { 'application/json': { schema: notFoundErrorSchema } },
+    },
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
+  .openapi(listClosedDaysRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { from, to } = c.req.valid('query')
+    const span = scheduleRangeDays(from, to)
+    if (span < 1 || span > CLOSED_DAYS_MAX_RANGE_DAYS) {
+      return c.json(
+        {
+          ok: false as const,
+          error: 'validation' as const,
+          issues: [
+            { path: ['to'], message: `Период — от 1 до ${CLOSED_DAYS_MAX_RANGE_DAYS} дней` },
+          ],
+        },
+        StatusCodes.BAD_REQUEST,
+      )
+    }
+    try {
+      return c.json(
+        { ok: true as const, from, to, dates: await listClosedDays(from, to) },
+        StatusCodes.OK,
+      )
+    } catch (err) {
+      return internal(c, 'closed_days.list.error', requestId, err)
+    }
+  })
+  .openapi(addClosedDayRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { from, to } = c.req.valid('json')
+    try {
+      await addClosedDays(isoDaysBetween(from, to))
+      baseLogger.info(
+        { event: 'closed_day.set', request_id: requestId, from, to, status: 200 },
+        'Closed day set',
+      )
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'closed_day.set.error', requestId, err)
+    }
+  })
+  .openapi(deleteClosedDayRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { date } = c.req.valid('param')
+    try {
+      if (!(await deleteClosedDay(date))) {
+        return c.json({ ok: false as const, error: 'not_found' as const }, StatusCodes.NOT_FOUND)
+      }
+      baseLogger.info(
+        { event: 'closed_day.delete', request_id: requestId, status: 200 },
+        'Closed day removed',
+      )
+      return c.json({ ok: true as const }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'closed_day.delete.error', requestId, err)
+    }
+  })
   .openapi(getStudioHoursRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)

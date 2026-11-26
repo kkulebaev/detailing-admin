@@ -205,8 +205,9 @@ describe('лента', () => {
 describe('заявки на график', () => {
   it('новая заявка — уведомление каждому админу, у автора нет (критерий 5)', async () => {
     const { db, captured } = makeDb({
-      // Мастер, нет заявки на согласовании, режим студии не задан, админы.
-      select: [[{ name: 'Иван' }], [], [], [{ id: 'u-admin' }, { id: 'u-admin2' }]],
+      // Мастер, нет заявки на согласовании, режим студии не задан, разовых
+      // выходных нет, админы.
+      select: [[{ name: 'Иван' }], [], [], [], [{ id: 'u-admin' }, { id: 'u-admin2' }]],
       insert: [[{ id: 3, masterId: 7, status: 'pending', days: [], createdAt: new Date() }], []],
     })
     vi.mocked(getDb).mockReturnValue(db as never)

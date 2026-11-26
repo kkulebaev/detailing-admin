@@ -8,7 +8,6 @@ import {
   WEEKDAY_SHORT,
   formatStudioHours,
   isoDaysBetween,
-  isoWeekday,
   monthScheduleRange,
 } from '@detailing-admin/shared'
 import { buildMonthOptions, currentMonthKey } from '@/lib/month-options'
@@ -29,9 +28,10 @@ import { useQueryCache } from '@pinia/colada'
 import MyScheduleRequestCard from '@/components/MyScheduleRequestCard.vue'
 import ScheduleRequestsPanel from '@/components/ScheduleRequestsPanel.vue'
 import StudioHoursDialog from '@/components/StudioHoursDialog.vue'
+import ClosedDaysDialog from '@/components/ClosedDaysDialog.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { CalendarCheck, CalendarX, Clock } from '@lucide/vue'
+import { CalendarCheck, CalendarPlus, CalendarX, Clock } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -61,11 +61,13 @@ const { data: mastersData, error: mastersError } = useMastersQuery()
 const { data: myRequestsData } = useMyScheduleRequestsQuery(computed(() => true))
 const {
   data: studioHoursData,
-  openWeekdays: studioOpenWeekdays,
-  isStudioClosed,
+  hasClosedDays,
+  isOneOffClosed,
+  isDateClosed,
   isClosedWeekday,
-} = useStudioWeekdays()
+} = useStudioWeekdays(range)
 const studioHoursOpen = ref(false)
+const closedDaysOpen = ref(false)
 const queryCache = useQueryCache()
 
 // Без ответа сервера кнопки нет: пустой режим в диалоге затер бы сохраненный.
@@ -108,8 +110,8 @@ const days = computed(() =>
       iso,
       day: d!,
       weekday,
-      weekend: isClosedWeekday(weekday),
-      closed: isStudioClosed(weekday),
+      weekend: isClosedWeekday(weekday) || isOneOffClosed(iso),
+      closed: isDateClosed(iso),
       today: iso === todayIso.value,
     }
   }),
@@ -186,7 +188,7 @@ function workingCount(masterId: number): number {
 // В выходной студии день можно только снять — так убирают отметки, оставшиеся
 // с прежнего режима, — но не поставить.
 function isLocked(masterId: number, iso: string): boolean {
-  return isStudioClosed(isoWeekday(iso)) && !isWorking(masterId, iso)
+  return isDateClosed(iso) && !isWorking(masterId, iso)
 }
 
 function toggle(masterId: number, iso: string) {
@@ -356,13 +358,20 @@ const showSkeleton = computed(
           </span>
         </p>
       </div>
-      <template v-if="canEdit && studioDays !== null">
-        <Button variant="outline" size="sm" class="h-9 shrink-0" @click="studioHoursOpen = true">
-          <Clock class="size-4" />
-          Режим работы
+      <div v-if="canEdit" class="flex shrink-0 flex-wrap gap-2">
+        <template v-if="studioDays !== null">
+          <Button variant="outline" size="sm" class="h-9" @click="studioHoursOpen = true">
+            <Clock class="size-4" />
+            Режим работы
+          </Button>
+          <StudioHoursDialog v-model:open="studioHoursOpen" :days="studioDays" />
+        </template>
+        <Button variant="outline" size="sm" class="h-9" @click="closedDaysOpen = true">
+          <CalendarPlus class="size-4" />
+          Добавить выходные
         </Button>
-        <StudioHoursDialog v-model:open="studioHoursOpen" :days="studioDays" />
-      </template>
+        <ClosedDaysDialog v-model:open="closedDaysOpen" :today="todayIso" />
+      </div>
     </header>
 
     <ScheduleRequestsPanel v-if="canEdit" />
@@ -406,7 +415,7 @@ const showSkeleton = computed(
         <span class="flex items-center gap-1.5">
           <span class="size-3 rounded-sm border border-border" /> Выходной
         </span>
-        <span v-if="studioOpenWeekdays" class="flex items-center gap-1.5">
+        <span v-if="hasClosedDays" class="flex items-center gap-1.5">
           <span class="closed-hatch size-3 rounded-sm border border-border" /> Студия закрыта
         </span>
         <span v-if="canEdit || ownMasterId !== null" class="flex items-center gap-1.5">

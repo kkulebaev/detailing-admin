@@ -56,10 +56,18 @@ watch(
 const month = computed(() => months.value[monthIndex.value] ?? null)
 const range = computed(() => (month.value ? monthScheduleRange(month.value) : null))
 const { data, error } = useScheduleQuery(range)
-const { studioDays, openWeekdays, isStudioClosed, isClosedWeekday } = useStudioWeekdays()
+const { studioDays, closedDates, hasClosedDays, isDateClosed, isClosedWeekday } =
+  useStudioWeekdays(range)
 
-// Режим студии могли поменять после подачи заявки; сервер такую не одобрит.
-const closedAsked = computed(() => datesOnClosedDays(studioDays.value, props.request?.days ?? []))
+// Режим студии и выходные могли поменять после подачи заявки; сервер такую не одобрит.
+// Выходные грузятся по показанному месяцу, поэтому и проверка — по его дням.
+const closedAsked = computed(() =>
+  datesOnClosedDays(
+    studioDays.value,
+    (props.request?.days ?? []).filter((d) => d.date.startsWith(month.value ?? '')),
+    closedDates.value,
+  ),
+)
 
 const monthTitle = computed(() => {
   if (!month.value) return ''
@@ -105,7 +113,7 @@ const days = computed(() => {
       iso,
       day: d!,
       weekday,
-      closed: isStudioClosed(weekday),
+      closed: isDateClosed(iso),
       before,
       after: asked ?? before,
       asked: asked !== undefined,
@@ -223,7 +231,7 @@ function cellLabel(d: {
             <span class="flex items-center gap-1.5">
               <span class="size-3 rounded-sm border border-dashed border-primary" /> Станет выходным
             </span>
-            <span v-if="openWeekdays" class="flex items-center gap-1.5">
+            <span v-if="hasClosedDays" class="flex items-center gap-1.5">
               <span class="closed-hatch size-3 rounded-sm border border-border" /> Студия закрыта
             </span>
           </div>
