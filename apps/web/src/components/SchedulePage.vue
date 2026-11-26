@@ -468,36 +468,6 @@ const showSkeleton = computed(
           </SelectContent>
         </Select>
       </div>
-
-      <div
-        class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:ml-auto"
-      >
-        <span class="flex items-center gap-1.5">
-          <span class="size-3 rounded-sm bg-primary" /> Рабочий
-        </span>
-        <span class="flex items-center gap-1.5">
-          <span class="size-3 rounded-sm border border-border" /> Выходной
-        </span>
-        <span v-if="hasClosedDays" class="flex items-center gap-1.5">
-          <span class="closed-hatch size-3 rounded-sm border border-border" /> Студия закрыта
-        </span>
-        <span v-if="hasVisibleBookings" class="flex items-center gap-1.5">
-          <span class="flex items-center gap-0.5 font-medium text-foreground tabular-nums">
-            <span class="size-1.5 rounded-full bg-current" />2
-          </span>
-          Записей в день
-        </span>
-        <span v-if="hasConflicts" class="flex items-center gap-1.5">
-          <span class="size-3 rounded-sm border border-destructive" /> Запись в выходной
-        </span>
-        <span v-if="canEdit || ownMasterId !== null" class="flex items-center gap-1.5">
-          <span class="flex gap-0.5">
-            <span class="size-3 rounded-sm border border-primary bg-primary/50" />
-            <span class="size-3 rounded-sm border border-dashed border-primary" />
-          </span>
-          {{ canEdit ? 'Не сохранено' : 'Не согласовано' }}
-        </span>
-      </div>
     </div>
 
     <Alert v-if="error" variant="destructive">
@@ -700,6 +670,37 @@ const showSkeleton = computed(
           {{ isMonthFull(selectedMaster.id) ? 'Снять все' : 'Весь месяц' }}
         </Button>
       </div>
+    </div>
+
+    <div
+      v-if="!error && !showSkeleton && masters.length > 0"
+      class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
+    >
+      <span class="flex items-center gap-1.5">
+        <span class="size-3 rounded-sm bg-primary" /> Рабочий
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="size-3 rounded-sm border border-border" /> Выходной
+      </span>
+      <span v-if="hasClosedDays" class="flex items-center gap-1.5">
+        <span class="closed-hatch size-3 rounded-sm border border-border" /> Студия закрыта
+      </span>
+      <span v-if="hasVisibleBookings" class="flex items-center gap-1.5">
+        <span class="flex items-center gap-0.5 font-medium text-foreground tabular-nums">
+          <span class="size-1.5 rounded-full bg-current" />2
+        </span>
+        Записей в день
+      </span>
+      <span v-if="hasConflicts" class="flex items-center gap-1.5">
+        <span class="size-3 rounded-sm border border-destructive" /> Запись в выходной
+      </span>
+      <span v-if="canEdit || ownMasterId !== null" class="flex items-center gap-1.5">
+        <span class="flex gap-0.5">
+          <span class="size-3 rounded-sm border border-primary bg-primary/50" />
+          <span class="size-3 rounded-sm border border-dashed border-primary" />
+        </span>
+        {{ canEdit ? 'Не сохранено' : 'Не согласовано' }}
+      </span>
     </div>
 
     <div
