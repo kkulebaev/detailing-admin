@@ -35,6 +35,7 @@ export interface ServiceInputPayload {
   name: string
   description: string | null
   countable: boolean
+  durationMinutes: number | null
   priceClass1Min: number
   priceClass1Max: number | null
   priceClass2Min: number

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ChevronRight, Info, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { ChevronRight, Clock, Info, Pencil, Plus, Trash2 } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import { useMediaQuery } from '@vueuse/core'
 import {
@@ -10,7 +10,7 @@ import {
   type PricelistSectionRow,
   type PricelistService,
 } from '@/lib/pricelist-api'
-import { servicePriceForClass } from '@detailing-admin/shared'
+import { formatServiceDuration, servicePriceForClass } from '@detailing-admin/shared'
 import type { CarClass } from '@detailing-admin/shared'
 import { useInvalidatePricelist, usePricelistQuery } from '@/lib/queries'
 import SectionFormDialog from './SectionFormDialog.vue'
@@ -39,7 +39,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-// Таблица прайса — семь колонок и почти тысяча пикселей ширины, поэтому ниже
+// Таблица прайса — восемь колонок и почти тысяча пикселей ширины, поэтому ниже
 // 640px услуги показываются карточками. Данные и диалоги у раскладок общие.
 const isWideScreen = useMediaQuery('(min-width: 640px)')
 
@@ -255,6 +255,7 @@ async function confirmDelete() {
           <colgroup>
             <col class="w-72" />
             <col v-for="c in CLASS_COLUMNS" :key="c" class="w-36" />
+            <col class="w-28" />
             <col class="w-16 md:w-auto" />
             <col class="w-24" />
           </colgroup>
@@ -264,6 +265,7 @@ async function confirmDelete() {
               <TableHead v-for="c in CLASS_COLUMNS" :key="c" class="px-4 text-right">
                 {{ classLabel(c) }}
               </TableHead>
+              <TableHead class="px-4 text-right">Время</TableHead>
               <TableHead class="px-4 text-center md:text-left">
                 <span class="hidden md:inline">Примечание</span>
                 <span class="md:hidden">Прим.</span>
@@ -278,18 +280,19 @@ async function confirmDelete() {
                 <TableCell v-for="c in CLASS_COLUMNS" :key="c" class="px-4 text-right">
                   <Skeleton class="h-4 w-24 ml-auto" />
                 </TableCell>
+                <TableCell class="px-4 text-right"><Skeleton class="h-4 w-14 ml-auto" /></TableCell>
                 <TableCell class="px-4"><Skeleton class="h-4 w-8 md:w-40" /></TableCell>
                 <TableCell class="px-4 text-right"><Skeleton class="h-4 w-16 ml-auto" /></TableCell>
               </TableRow>
             </template>
-            <TableEmpty v-else-if="sections.length === 0" :colspan="7">
+            <TableEmpty v-else-if="sections.length === 0" :colspan="8">
               Прайс-лист пуст.
             </TableEmpty>
             <template v-else v-for="section in sections" :key="section.id">
               <TableRow class="bg-muted/30 hover:bg-muted/30">
                 <TableHead
                   scope="colgroup"
-                  colspan="7"
+                  colspan="8"
                   class="px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   <div class="flex flex-wrap items-center justify-between gap-2">
@@ -341,6 +344,14 @@ async function confirmDelete() {
                   class="px-4 text-right tabular-nums whitespace-nowrap"
                 >
                   {{ formatClassPrice(svc, c) }}
+                </TableCell>
+                <TableCell
+                  class="px-4 text-right tabular-nums whitespace-nowrap"
+                  :class="{ 'text-muted-foreground': svc.durationMinutes === null }"
+                >
+                  {{
+                    svc.durationMinutes === null ? '—' : formatServiceDuration(svc.durationMinutes)
+                  }}
                 </TableCell>
                 <TableCell class="px-4 text-xs text-muted-foreground whitespace-pre-line">
                   <span class="hidden md:inline">{{ svc.description || '' }}</span>
@@ -540,6 +551,15 @@ async function confirmDelete() {
                   <span class="tabular-nums">{{ group.price }}</span>
                 </div>
               </div>
+              <p
+                v-if="svc.durationMinutes !== null"
+                class="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums"
+              >
+                <Clock class="size-3.5" aria-hidden="true" />
+                <span class="sr-only">Время работ:</span>
+                {{ formatServiceDuration(svc.durationMinutes) }}
+                <template v-if="svc.countable">на единицу</template>
+              </p>
             </div>
           </template>
         </div>

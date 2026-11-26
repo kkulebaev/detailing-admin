@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import { servicePriceForClass } from '@detailing-admin/shared'
+import { MAX_SERVICE_DURATION_MINUTES, servicePriceForClass } from '@detailing-admin/shared'
 import {
   createService,
   updateService,
@@ -57,6 +57,7 @@ const sectionId = ref<string>('')
 const name = ref('')
 const description = ref('')
 const countable = ref(false)
+const durationHours = ref('')
 const classPrices = ref<ClassPriceRaw[]>(emptyClassPrices())
 
 const submitting = ref(false)
@@ -73,6 +74,8 @@ watch(
       name.value = s.name
       description.value = s.description ?? ''
       countable.value = s.countable
+      // API хранит минуты; не кратное часу значение могло прийти только не из этой формы.
+      durationHours.value = s.durationMinutes === null ? '' : String(s.durationMinutes / 60)
       classPrices.value = ([1, 2, 3, 4] as const).map((cls) => {
         const { min, max } = servicePriceForClass(s, cls)
         return { min: String(min), max: max === null ? '' : String(max) }
@@ -87,6 +90,7 @@ watch(
       name.value = ''
       description.value = ''
       countable.value = false
+      durationHours.value = ''
       classPrices.value = emptyClassPrices()
     }
     error.value = null
@@ -103,6 +107,19 @@ function parsePrice(raw: string): ParsedPrice {
   const n = Number(trimmed)
   if (!Number.isInteger(n) || n < 0 || n > 100_000_000) return { ok: false, reason: 'invalid' }
   return { ok: true, value: n }
+}
+
+// API хранит минуты, чтобы потом можно было задавать время точнее часа без миграции.
+type ParsedDuration = { ok: true; value: number | null } | { ok: false; message: string }
+
+function parseDuration(raw: string): ParsedDuration {
+  const h = raw.trim()
+  if (h === '') return { ok: true, value: null }
+  if (!/^\d+$/.test(h)) return { ok: false, message: 'Целое число часов' }
+  const total = Number(h) * 60
+  if (total === 0) return { ok: false, message: 'Время должно быть больше нуля' }
+  if (total > MAX_SERVICE_DURATION_MINUTES) return { ok: false, message: 'Не больше 200 ч' }
+  return { ok: true, value: total }
 }
 
 function close() {
@@ -123,6 +140,9 @@ async function submit() {
   }
   if (trimmedName.length === 0) errs.name = 'Укажите название услуги'
   if (trimmedName.length > 200) errs.name = 'Максимум 200 символов'
+
+  const duration = parseDuration(durationHours.value)
+  if (!duration.ok) errs.durationMinutes = duration.message
 
   // Пустой max означает фиксированную цену; max, равный min, тоже сводится к фиксированной.
   const parsedPrices: { min: number; max: number | null }[] = []
@@ -151,7 +171,7 @@ async function submit() {
   })
 
   const [c1, c2, c3, c4] = parsedPrices
-  if (Object.keys(errs).length > 0 || !c1 || !c2 || !c3 || !c4) {
+  if (Object.keys(errs).length > 0 || !duration.ok || !c1 || !c2 || !c3 || !c4) {
     fieldErrors.value = errs
     return
   }
@@ -161,6 +181,7 @@ async function submit() {
     name: trimmedName,
     description: description.value.trim() === '' ? null : description.value.trim(),
     countable: countable.value,
+    durationMinutes: duration.value,
     priceClass1Min: c1.min,
     priceClass1Max: c1.max,
     priceClass2Min: c2.min,
@@ -322,6 +343,7 @@ async function submit() {
                 inputmode="numeric"
                 autocomplete="off"
                 placeholder="—"
+                class="placeholder:text-muted-foreground/50"
                 :disabled="submitting"
               />
               <p v-if="fieldErrors[`priceClass${i + 1}Max`]" class="text-sm text-destructive">
@@ -329,6 +351,40 @@ async function submit() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div class="grid gap-1.5">
+          <div class="flex items-center justify-between gap-3">
+            <div class="grid gap-1">
+              <Label for="service-duration-hours">Время работ, ч</Label>
+              <p v-if="countable" id="service-duration-hint" class="text-xs text-muted-foreground">
+                Время работ на одну единицу
+              </p>
+            </div>
+            <div class="relative w-24 shrink-0">
+              <Input
+                id="service-duration-hours"
+                v-model="durationHours"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="—"
+                class="pr-7 text-right tabular-nums placeholder:text-muted-foreground/50"
+                :aria-describedby="countable ? 'service-duration-hint' : undefined"
+                :aria-invalid="fieldErrors.durationMinutes ? true : undefined"
+                :disabled="submitting"
+              />
+              <span
+                class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
+                aria-hidden="true"
+              >
+                ч
+              </span>
+            </div>
+          </div>
+          <p v-if="fieldErrors.durationMinutes" class="text-sm text-destructive">
+            {{ fieldErrors.durationMinutes }}
+          </p>
         </div>
 
         <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
