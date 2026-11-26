@@ -88,6 +88,8 @@ export {
   sectionInputSchema,
   serviceInputSchema,
   servicePriceForClass,
+  formatServiceDuration,
+  MAX_SERVICE_DURATION_MINUTES,
   PRICE_CLASS_FIELDS,
   pricelistServiceSchema,
   pricelistSectionRowSchema,

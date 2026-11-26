@@ -168,6 +168,9 @@ export const services = pgTable('services', {
   // Штучная услуга: в форме записи у нее появляется счетчик количества,
   // а сумма считается как цена за единицу × количество.
   countable: boolean('countable').notNull().default(false),
+  // Время работ в минутах, одно на все классы кузова; у штучной услуги — на единицу.
+  // NULL — еще не задано: услуги из прайса старше этой колонки заполняются вручную.
+  durationMinutes: integer('duration_minutes'),
   // Одна цена на класс кузова (I–IV); *Max равен NULL → фиксированная цена (*Min),
   // не NULL → диапазон «Min–Max»
   priceClass1Min: integer('price_class_1_min').notNull(),

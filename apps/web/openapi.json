@@ -6440,6 +6440,10 @@
                                 "countable": {
                                   "type": "boolean"
                                 },
+                                "durationMinutes": {
+                                  "type": "integer",
+                                  "nullable": true
+                                },
                                 "priceClass1Min": {
                                   "type": "number"
                                 },
@@ -6475,6 +6479,7 @@
                                 "name",
                                 "description",
                                 "countable",
+                                "durationMinutes",
                                 "priceClass1Min",
                                 "priceClass1Max",
                                 "priceClass2Min",
@@ -7371,6 +7376,14 @@
                     "type": "boolean",
                     "default": false
                   },
+                  "durationMinutes": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 12000,
+                    "default": null
+                  },
                   "priceClass1Min": {
                     "type": "integer",
                     "minimum": 0,
@@ -7465,6 +7478,10 @@
                         "countable": {
                           "type": "boolean"
                         },
+                        "durationMinutes": {
+                          "type": "integer",
+                          "nullable": true
+                        },
                         "priceClass1Min": {
                           "type": "number"
                         },
@@ -7500,6 +7517,7 @@
                         "name",
                         "description",
                         "countable",
+                        "durationMinutes",
                         "priceClass1Min",
                         "priceClass1Max",
                         "priceClass2Min",
@@ -7760,6 +7778,14 @@
                     "type": "boolean",
                     "default": false
                   },
+                  "durationMinutes": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 12000,
+                    "default": null
+                  },
                   "priceClass1Min": {
                     "type": "integer",
                     "minimum": 0,
@@ -7854,6 +7880,10 @@
                         "countable": {
                           "type": "boolean"
                         },
+                        "durationMinutes": {
+                          "type": "integer",
+                          "nullable": true
+                        },
                         "priceClass1Min": {
                           "type": "number"
                         },
@@ -7889,6 +7919,7 @@
                         "name",
                         "description",
                         "countable",
+                        "durationMinutes",
                         "priceClass1Min",
                         "priceClass1Max",
                         "priceClass2Min",

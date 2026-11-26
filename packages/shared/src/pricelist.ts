@@ -19,6 +19,8 @@ export const pricelistServiceSchema = z.object({
   description: z.string().nullable(),
   // Штучная услуга — в форме записи получает счетчик количества.
   countable: z.boolean(),
+  // Сколько минут занимает услуга (у штучной — одна единица); null — не задано.
+  durationMinutes: z.number().int().nullable(),
   priceClass1Min: z.number(),
   priceClass1Max: z.number().nullable(),
   priceClass2Min: z.number(),
@@ -116,6 +118,9 @@ export const pricelistDeleteResponseSchema = z.union([
 // Обработка trim и пустых строк переезжает в обработчик роута.
 const requiredPrice = z.number().int().nonnegative().max(100_000_000)
 
+// Многодневные работы (оклейка, керамика) идут десятками часов, но не сотнями.
+export const MAX_SERVICE_DURATION_MINUTES = 200 * 60
+
 export const sectionInputSchema = z.object({
   name: z.string().trim().min(1, 'Укажите название раздела').max(120),
 })
@@ -137,6 +142,13 @@ export const serviceInputSchema = z
     name: z.string().trim().min(1, 'Укажите название услуги').max(200),
     description: z.string().max(2000).nullable().default(null),
     countable: z.boolean().default(false),
+    durationMinutes: z
+      .number()
+      .int()
+      .positive('Время должно быть больше нуля')
+      .max(MAX_SERVICE_DURATION_MINUTES, 'Не больше 200 ч')
+      .nullable()
+      .default(null),
     priceClass1Min: requiredPrice,
     priceClass1Max: requiredPrice.nullable().default(null),
     priceClass2Min: requiredPrice,
@@ -160,3 +172,11 @@ export const serviceInputSchema = z
   })
 
 export type ServiceInput = z.infer<typeof serviceInputSchema>
+
+export function formatServiceDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m} мин`
+  if (m === 0) return `${h} ч`
+  return `${h} ч ${m} мин`
+}

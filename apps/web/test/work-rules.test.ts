@@ -8,6 +8,7 @@ const svc = (id: number, sectionId: number, name: string) => ({
   name,
   description: null,
   countable: false,
+  durationMinutes: null,
   priceClass1Min: 0,
   priceClass1Max: null,
   priceClass2Min: 0,
