@@ -341,7 +341,7 @@ const showSkeleton = computed(
 
 <template>
   <div class="p-2 text-foreground sm:p-8">
-    <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0 flex-1">
         <h1 class="text-2xl font-semibold">График</h1>
         <p
