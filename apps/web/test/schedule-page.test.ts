@@ -21,6 +21,7 @@ const state = await vi.hoisted(async () => {
       requests: ScheduleRequest[]
     } | null>(null),
     pending: ref<ScheduleRequest[]>([]),
+    studioDays: ref<{ weekday: number; opensAt: string; closesAt: string }[]>([]),
   }
 })
 
@@ -57,7 +58,10 @@ vi.mock('@/lib/queries', async () => {
     }),
     useMastersQuery: () => ({ data: ref({ ok: true, masters }), error: ref(null) }),
     STUDIO_HOURS_KEY: ['studio-hours'],
-    useStudioHoursQuery: () => ({ data: ref({ ok: true, days: [] }), error: ref(null) }),
+    useStudioHoursQuery: () => ({
+      data: computed(() => ({ ok: true, days: state.studioDays.value })),
+      error: ref(null),
+    }),
   }
 })
 
@@ -134,11 +138,43 @@ describe('SchedulePage', () => {
     state.schedule.value = [{ masterId: 1, dates: [`${month}-01`] }]
     state.my.value = null
     state.pending.value = []
+    state.studioDays.value = []
     vi.mocked(saveSchedule).mockReset()
     vi.mocked(submitScheduleRequest).mockReset()
     vi.mocked(approveScheduleRequest).mockReset()
     vi.mocked(rejectScheduleRequest).mockReset()
     vi.mocked(toast.error).mockReset()
+  })
+
+  it('дни, когда студия закрыта, заштрихованы и подписаны', async () => {
+    const [y, m] = month.split('-').map(Number)
+    const closedWeekday = (new Date(Date.UTC(y!, m! - 1, 2)).getUTCDay() + 6) % 7
+    state.studioDays.value = [0, 1, 2, 3, 4, 5, 6]
+      .filter((w) => w !== closedWeekday)
+      .map((weekday) => ({ weekday, opensAt: '10:00', closesAt: '20:00' }))
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    const closed = page.getByRole('button', { name: `${secondDayLabel}, студия закрыта` })
+    await expect.element(closed).toHaveClass(/closed-hatch/)
+    await expect
+      .element(page.getByRole('button', { name: dayLabel(3) }))
+      .not.toHaveClass(/closed-hatch/)
+    await expect.element(page.getByText('Студия закрыта', { exact: true })).toBeInTheDocument()
+  })
+
+  it('без заданного режима ничего не штрихуется', async () => {
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    await expect
+      .element(page.getByRole('button', { name: secondDayLabel }))
+      .not.toHaveClass(/closed-hatch/)
+    await expect.element(page.getByText('Студия закрыта', { exact: true })).not.toBeInTheDocument()
   })
 
   it('отметки не уходят на сервер, пока админ не нажмет «Сохранить»', async () => {
@@ -505,6 +541,29 @@ describe('SchedulePage', () => {
 
       expect(approveScheduleRequest).toHaveBeenCalledWith(3)
       await expect.element(page.getByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('в предпросмотре дни, когда студия закрыта, заштрихованы', async () => {
+      const [y, m] = month.split('-').map(Number)
+      const closedWeekday = (new Date(Date.UTC(y!, m! - 1, 22)).getUTCDay() + 6) % 7
+      state.studioDays.value = [0, 1, 2, 3, 4, 5, 6]
+        .filter((w) => w !== closedWeekday)
+        .map((weekday) => ({ weekday, opensAt: '10:00', closesAt: '20:00' }))
+      mount(SchedulePage, {
+        attachTo: document.body,
+        global: { plugins: [await createTestRouter()] },
+      })
+
+      await page.getByRole('button', { name: 'Предпросмотр заявки: Иван' }).click()
+
+      const dialog = page.getByRole('dialog')
+      await expect
+        .element(dialog.getByRole('img', { name: `22 ${monthName}: выходной, студия закрыта` }))
+        .toHaveClass(/closed-hatch/)
+      await expect
+        .element(dialog.getByRole('img', { name: `23 ${monthName}: выходной` }))
+        .not.toHaveClass(/closed-hatch/)
+      await expect.element(dialog.getByText('Студия закрыта', { exact: true })).toBeInTheDocument()
     })
 
     it('админ отклоняет заявку с комментарием', async () => {

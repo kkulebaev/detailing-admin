@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { isoDaysBetween, monthScheduleRange } from '@detailing-admin/shared'
+import { WEEKDAY_SHORT, isoDaysBetween, monthScheduleRange } from '@detailing-admin/shared'
+import { STUDIO_CLOSED_SUFFIX, useStudioWeekdays } from '@/composables/use-studio-weekdays'
 import { useScheduleQuery } from '@/lib/queries'
 import type { ScheduleRequest } from '@/lib/schedule-requests-api'
 import { MONTH_NAMES } from '@/lib/month-options'
@@ -16,8 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const
 
 const props = defineProps<{
   request: ScheduleRequest | null
@@ -52,6 +51,7 @@ watch(
 const month = computed(() => months.value[monthIndex.value] ?? null)
 const range = computed(() => (month.value ? monthScheduleRange(month.value) : null))
 const { data, error } = useScheduleQuery(range)
+const { openWeekdays, isStudioClosed, isClosedWeekday } = useStudioWeekdays()
 
 const monthTitle = computed(() => {
   if (!month.value) return ''
@@ -93,7 +93,15 @@ const days = computed(() => {
     const weekday = (new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay() + 6) % 7
     const before = current.value.has(iso)
     const asked = requested.value.get(iso)
-    return { iso, day: d!, weekday, before, after: asked ?? before, asked: asked !== undefined }
+    return {
+      iso,
+      day: d!,
+      weekday,
+      closed: isStudioClosed(weekday),
+      before,
+      after: asked ?? before,
+      asked: asked !== undefined,
+    }
   })
 })
 
@@ -103,20 +111,29 @@ const countAfter = computed(() => days.value.filter((d) => d.after).length)
 
 // Те же обозначения, что в графике у сотрудника: запрошенный рабочий день бледнее,
 // запрошенный выходной — пунктиром.
-function cellClass(d: { after: boolean; asked: boolean }): string {
-  if (!d.asked)
-    return d.after ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
+function cellClass(d: { after: boolean; asked: boolean; closed: boolean }): string {
+  if (!d.asked) {
+    if (d.after) return 'border-primary bg-primary text-primary-foreground'
+    return d.closed ? 'closed-hatch border-border text-muted-foreground' : 'border-border'
+  }
   return d.after
     ? 'border-primary bg-primary/50 text-primary-foreground'
     : 'border-dashed border-primary'
 }
 
-function cellLabel(d: { iso: string; after: boolean; asked: boolean; before: boolean }): string {
+function cellLabel(d: {
+  iso: string
+  after: boolean
+  asked: boolean
+  before: boolean
+  closed: boolean
+}): string {
   const state = d.after ? 'рабочий' : 'выходной'
-  if (!d.asked) return `${dayLabel(d.iso)}: ${state}`
+  const closed = d.closed ? STUDIO_CLOSED_SUFFIX : ''
+  if (!d.asked) return `${dayLabel(d.iso)}: ${state}${closed}`
   return d.before === d.after
-    ? `${dayLabel(d.iso)}: ${state}, по заявке без изменений`
-    : `${dayLabel(d.iso)}: станет ${state}`
+    ? `${dayLabel(d.iso)}: ${state}, по заявке без изменений${closed}`
+    : `${dayLabel(d.iso)}: станет ${state}${closed}`
 }
 </script>
 
@@ -168,10 +185,10 @@ function cellLabel(d: { iso: string; after: boolean; asked: boolean; before: boo
         <template v-else>
           <div class="grid grid-cols-7 gap-1">
             <div
-              v-for="(w, i) in WEEKDAYS"
+              v-for="(w, i) in WEEKDAY_SHORT"
               :key="w"
               class="text-center text-xs"
-              :class="i >= 5 ? 'text-destructive/80' : 'text-muted-foreground'"
+              :class="isClosedWeekday(i) ? 'text-destructive/80' : 'text-muted-foreground'"
             >
               {{ w }}
             </div>
@@ -197,6 +214,9 @@ function cellLabel(d: { iso: string; after: boolean; asked: boolean; before: boo
             </span>
             <span class="flex items-center gap-1.5">
               <span class="size-3 rounded-sm border border-dashed border-primary" /> Станет выходным
+            </span>
+            <span v-if="openWeekdays" class="flex items-center gap-1.5">
+              <span class="closed-hatch size-3 rounded-sm border border-border" /> Студия закрыта
             </span>
           </div>
 

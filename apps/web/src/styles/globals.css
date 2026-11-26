@@ -6,6 +6,16 @@
 /* С viewport-fit=cover прижатая к низу панель уходит под полоску «домой» iPhone,
    особенно в установленном приложении. max() сохраняет обычный отступ там, где
    выреза нет и env() равен нулю. */
+/* Дни, когда студия закрыта: штриховка, а не заливка — заливкой в графике уже
+   отмечены рабочие дни и колонки выходных. */
+@utility closed-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--color-muted-foreground) 30%, transparent) 0 1.5px,
+    transparent 1.5px 6px
+  );
+}
+
 @utility pb-safe {
   padding-bottom: max(--spacing(4), env(safe-area-inset-bottom));
 }

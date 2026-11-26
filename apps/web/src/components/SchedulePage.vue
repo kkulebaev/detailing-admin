@@ -18,8 +18,8 @@ import {
   useMastersQuery,
   useMyScheduleRequestsQuery,
   useScheduleQuery,
-  useStudioHoursQuery,
 } from '@/lib/queries'
+import { STUDIO_CLOSED_SUFFIX, useStudioWeekdays } from '@/composables/use-studio-weekdays'
 import { saveSchedule } from '@/lib/schedule-api'
 import { submitScheduleRequest } from '@/lib/schedule-requests-api'
 import { dayLabel } from '@/lib/schedule-format'
@@ -58,24 +58,20 @@ const { data: mastersData, error: mastersError } = useMastersQuery()
 // Нужен всем ролям: по нему страница узнает своего мастера и выделяет его строку,
 // в том числе у админа, привязанного к мастеру.
 const { data: myRequestsData } = useMyScheduleRequestsQuery(computed(() => true))
-const { data: studioHoursData } = useStudioHoursQuery()
+const {
+  data: studioHoursData,
+  openWeekdays: studioOpenWeekdays,
+  isStudioClosed,
+  isClosedWeekday,
+} = useStudioWeekdays()
 const studioHoursOpen = ref(false)
 const queryCache = useQueryCache()
 
-// Выделяются дни, когда студия закрыта; пока режим не задан — суббота и воскресенье.
-const studioOpenWeekdays = computed(() => {
-  const r = studioHoursData.value
-  return r?.ok && r.days.length > 0 ? new Set(r.days.map((d) => d.weekday)) : null
-})
 // Без ответа сервера кнопки нет: пустой режим в диалоге затер бы сохраненный.
 const studioDays = computed(() => (studioHoursData.value?.ok ? studioHoursData.value.days : null))
 const studioHoursLines = computed(() =>
   studioDays.value && studioDays.value.length > 0 ? formatStudioHours(studioDays.value) : null,
 )
-
-function isClosedWeekday(weekday: number): boolean {
-  return studioOpenWeekdays.value ? !studioOpenWeekdays.value.has(weekday) : weekday >= 5
-}
 
 const masters = computed(() => (mastersData.value?.ok ? mastersData.value.masters : []))
 
@@ -112,6 +108,7 @@ const days = computed(() =>
       day: d!,
       weekday,
       weekend: isClosedWeekday(weekday),
+      closed: isStudioClosed(weekday),
       today: iso === todayIso.value,
     }
   }),
@@ -169,10 +166,13 @@ function isOwn(masterId: number): boolean {
   return masterId === ownMasterId.value
 }
 
-function cellClass(masterId: number, iso: string, filled: string): string {
+function cellClass(masterId: number, iso: string, filled: string, closed = false): string {
   const working = isWorking(masterId, iso)
-  if (!isChanged(masterId, iso))
-    return working ? `border-primary bg-primary ${filled}` : 'border-border'
+  if (!isChanged(masterId, iso)) {
+    if (working) return `border-primary bg-primary ${filled}`
+    // Мастер, отмеченный в день закрытия, остается обычной заливкой — так он заметнее.
+    return closed ? 'closed-hatch border-border text-muted-foreground' : 'border-border'
+  }
   // Несохраненная отметка бледнее сохраненной, а снятая — пунктиром, чтобы до
   // сохранения было видно, что именно изменится.
   return working ? `border-primary bg-primary/50 ${filled}` : 'border-dashed border-primary'
@@ -390,6 +390,9 @@ const showSkeleton = computed(
         <span class="flex items-center gap-1.5">
           <span class="size-3 rounded-sm border border-border" /> Выходной
         </span>
+        <span v-if="studioOpenWeekdays" class="flex items-center gap-1.5">
+          <span class="closed-hatch size-3 rounded-sm border border-border" /> Студия закрыта
+        </span>
         <span v-if="canEdit || ownMasterId !== null" class="flex items-center gap-1.5">
           <span class="flex gap-0.5">
             <span class="size-3 rounded-sm border border-primary bg-primary/50" />
@@ -427,6 +430,7 @@ const showSkeleton = computed(
               :key="d.iso"
               class="w-10 min-w-10 px-0 py-1 text-center font-normal"
               :class="{ 'bg-muted/60': d.weekend }"
+              :title="d.closed ? 'Студия закрыта' : undefined"
             >
               <div
                 class="text-xs"
@@ -469,19 +473,19 @@ const showSkeleton = computed(
                 type="button"
                 class="block size-9 rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 :class="[
-                  cellClass(m.id, d.iso, 'hover:bg-primary/85'),
+                  cellClass(m.id, d.iso, 'hover:bg-primary/85', d.closed),
                   { 'hover:bg-accent': !isWorking(m.id, d.iso) },
                 ]"
                 :aria-pressed="isWorking(m.id, d.iso)"
-                :aria-label="`${m.name}, ${dayLabel(d.iso)}`"
+                :aria-label="`${m.name}, ${dayLabel(d.iso)}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
                 @click="toggle(m.id, d.iso)"
               />
               <div
                 v-else
                 role="img"
                 class="size-9 rounded-md border"
-                :class="cellClass(m.id, d.iso, '')"
-                :aria-label="`${m.name}, ${dayLabel(d.iso)}: ${isWorking(m.id, d.iso) ? 'рабочий' : 'выходной'}`"
+                :class="cellClass(m.id, d.iso, '', d.closed)"
+                :aria-label="`${m.name}, ${dayLabel(d.iso)}: ${isWorking(m.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
               />
             </td>
             <td class="px-3 text-right">
@@ -529,11 +533,11 @@ const showSkeleton = computed(
             type="button"
             class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors"
             :class="[
-              cellClass(selectedMaster.id, d.iso, 'text-primary-foreground'),
+              cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
               { 'ring-2 ring-foreground ring-offset-1': d.today },
             ]"
             :aria-pressed="isWorking(selectedMaster.id, d.iso)"
-            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}`"
+            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
             @click="toggle(selectedMaster.id, d.iso)"
           >
             {{ d.day }}
@@ -543,10 +547,10 @@ const showSkeleton = computed(
             role="img"
             class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums"
             :class="[
-              cellClass(selectedMaster.id, d.iso, 'text-primary-foreground'),
+              cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
               { 'ring-2 ring-foreground ring-offset-1': d.today },
             ]"
-            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}`"
+            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
           >
             {{ d.day }}
           </div>
