@@ -13,7 +13,12 @@ vi.mock('../src/env.js', () => ({
 }))
 
 import type { Db } from '../src/db/client.js'
-import { ScheduleError, applyScheduleDays } from '../src/db/schedule.js'
+import {
+  ScheduleError,
+  applyScheduleDays,
+  groupBookingsByDay,
+  type ScheduleBookingRow,
+} from '../src/db/schedule.js'
 
 // Thenable-фейк: select-запросы по очереди забирают `selects`, вставки и удаления
 // только запоминаются.
@@ -69,5 +74,53 @@ describe('applyScheduleDays и режим студии', () => {
     ]).catch((e: unknown) => e)
     expect(err).toMatchObject({ code: 'studio_closed', dates: ['2026-12-31'] })
     expect(writes).toEqual([])
+  })
+})
+
+describe('groupBookingsByDay', () => {
+  const row = (over: Partial<ScheduleBookingRow>): ScheduleBookingRow => ({
+    id: 'b1',
+    masterId: 1,
+    dateFrom: '2026-11-10',
+    dateTo: null,
+    timeFrom: '10:00',
+    timeTo: null,
+    car: 'Kia Rio',
+    service: 'Мойка',
+    ...over,
+  })
+
+  it('многодневная запись попадает в каждый свой день в пределах периода', () => {
+    const days = groupBookingsByDay(
+      [row({ dateFrom: '2026-10-30', dateTo: '2026-11-02' })],
+      '2026-11-01',
+      '2026-11-30',
+    )
+    expect(days.map((d) => d.date)).toEqual(['2026-11-01', '2026-11-02'])
+  })
+
+  it('запись дольше периода обрезается с обеих сторон', () => {
+    const days = groupBookingsByDay(
+      [row({ dateFrom: '2026-10-30', dateTo: '2026-12-03' })],
+      '2026-11-28',
+      '2026-11-30',
+    )
+    expect(days.map((d) => d.date)).toEqual(['2026-11-28', '2026-11-29', '2026-11-30'])
+  })
+
+  it('запись нескольких мастеров есть у каждого, порядок внутри дня сохраняется', () => {
+    const days = groupBookingsByDay(
+      [
+        row({ id: 'a', masterId: 2 }),
+        row({ id: 'a', masterId: 1 }),
+        row({ id: 'b', masterId: 1, timeFrom: '14:00' }),
+      ],
+      '2026-11-01',
+      '2026-11-30',
+    )
+    expect(days.map((d) => [d.masterId, d.bookings.map((b) => b.id)])).toEqual([
+      [1, ['a', 'b']],
+      [2, ['a']],
+    ])
   })
 })

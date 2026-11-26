@@ -1,3 +1,6 @@
+import type { ScheduleBooking } from '@detailing-admin/shared'
+import { pluralize } from './plural'
+
 export const MONTHS_GENITIVE = [
   'января',
   'февраля',
@@ -39,4 +42,20 @@ const dateTime = new Intl.DateTimeFormat('ru-RU', {
 
 export function formatSentAt(isoTimestamp: string): string {
   return dateTime.format(new Date(isoTimestamp))
+}
+
+function bookingLine(b: ScheduleBooking): string {
+  const time = b.timeTo ? `${b.timeFrom}–${b.timeTo}` : b.timeFrom
+  return `${time} ${b.car} — ${b.service}`
+}
+
+// title показывает записи построчно, aria-label читается одной фразой.
+export function describeDayBookings(bookings: readonly ScheduleBooking[]): {
+  title: string
+  label: string
+} {
+  const n = bookings.length
+  const count = `${n} ${pluralize(n, ['запись', 'записи', 'записей'])}`
+  const lines = bookings.map(bookingLine)
+  return { title: [count, ...lines].join('\n\n'), label: `${count}: ${lines.join('; ')}` }
 }

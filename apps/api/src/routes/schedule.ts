@@ -7,6 +7,7 @@ import {
   dbUnavailableErrorSchema,
   internalErrorSchema,
   notFoundErrorSchema,
+  scheduleBookingsOkSchema,
   scheduleOkSchema,
   scheduleQuerySchema,
   scheduleRangeDays,
@@ -23,7 +24,12 @@ import {
   validationErrorSchema,
 } from '@detailing-admin/shared'
 import { isDbReady } from '../boot.js'
-import { ScheduleError, listSchedule, setScheduleDays } from '../db/schedule.js'
+import {
+  ScheduleError,
+  listSchedule,
+  listScheduleBookings,
+  setScheduleDays,
+} from '../db/schedule.js'
 import {
   addClosedDays,
   deleteClosedDay,
@@ -62,6 +68,22 @@ function internal(c: Context, event: string, requestId: string, err: unknown) {
   )
 }
 
+function scheduleRangeOk(from: string, to: string): boolean {
+  const span = scheduleRangeDays(from, to)
+  return span >= 1 && span <= SCHEDULE_MAX_RANGE_DAYS
+}
+
+function rangeError(c: Context) {
+  return c.json(
+    {
+      ok: false as const,
+      error: 'validation' as const,
+      issues: [{ path: ['to'], message: `Период — от 1 до ${SCHEDULE_MAX_RANGE_DAYS} дней` }],
+    },
+    StatusCodes.BAD_REQUEST,
+  )
+}
+
 const respValidation = {
   description: 'Validation error',
   content: { 'application/json': { schema: validationErrorSchema } },
@@ -84,6 +106,23 @@ const listScheduleRoute = createRoute({
     200: {
       description: 'Working days of every active master in the range',
       content: { 'application/json': { schema: scheduleOkSchema } },
+    },
+    400: respValidation,
+    500: respInternal,
+    503: respDbUnavailable,
+  },
+})
+
+const listScheduleBookingsRoute = createRoute({
+  method: 'get',
+  path: '/bookings',
+  tags: ['schedule'],
+  request: { query: scheduleQuerySchema },
+  responses: {
+    200: {
+      description:
+        'Bookings of every active master by day in the range, without clients or amounts',
+      content: { 'application/json': { schema: scheduleBookingsOkSchema } },
     },
     400: respValidation,
     500: respInternal,
@@ -297,6 +336,22 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
       return internal(c, 'studio_hours.set.error', requestId, err)
     }
   })
+  .openapi(listScheduleBookingsRoute, async (c) => {
+    const requestId = uuidv4()
+    c.header('X-Request-Id', requestId)
+
+    if (!isDbReady()) return unavailable(c)
+
+    const { from, to } = c.req.valid('query')
+    if (!scheduleRangeOk(from, to)) return rangeError(c)
+
+    try {
+      const days = await listScheduleBookings(from, to)
+      return c.json({ ok: true as const, from, to, days }, StatusCodes.OK)
+    } catch (err) {
+      return internal(c, 'schedule.bookings.error', requestId, err)
+    }
+  })
   .openapi(listScheduleRoute, async (c) => {
     const requestId = uuidv4()
     c.header('X-Request-Id', requestId)
@@ -304,17 +359,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     if (!isDbReady()) return unavailable(c)
 
     const { from, to } = c.req.valid('query')
-    const span = scheduleRangeDays(from, to)
-    if (span < 1 || span > SCHEDULE_MAX_RANGE_DAYS) {
-      return c.json(
-        {
-          ok: false as const,
-          error: 'validation' as const,
-          issues: [{ path: ['to'], message: `Период — от 1 до ${SCHEDULE_MAX_RANGE_DAYS} дней` }],
-        },
-        StatusCodes.BAD_REQUEST,
-      )
-    }
+    if (!scheduleRangeOk(from, to)) return rangeError(c)
 
     try {
       const schedule = await listSchedule(from, to)

@@ -50,7 +50,12 @@ vi.mock('../src/db/schedule.js', () => {
       this.name = 'ScheduleError'
     }
   }
-  return { ScheduleError, listSchedule: vi.fn(), setScheduleDays: vi.fn() }
+  return {
+    ScheduleError,
+    listSchedule: vi.fn(),
+    listScheduleBookings: vi.fn(),
+    setScheduleDays: vi.fn(),
+  }
 })
 
 vi.mock('../src/db/studio-hours.js', () => ({
@@ -63,7 +68,12 @@ vi.mock('../src/db/studio-hours.js', () => ({
 
 import { createApp } from '../src/server.js'
 import { isDbReady } from '../src/boot.js'
-import { ScheduleError, listSchedule, setScheduleDays } from '../src/db/schedule.js'
+import {
+  ScheduleError,
+  listSchedule,
+  listScheduleBookings,
+  setScheduleDays,
+} from '../src/db/schedule.js'
 import {
   addClosedDays,
   deleteClosedDay,
@@ -95,6 +105,7 @@ describe('/api/schedule', () => {
     app = createApp()
     vi.mocked(isDbReady).mockReturnValue(true)
     vi.mocked(listSchedule).mockReset()
+    vi.mocked(listScheduleBookings).mockReset()
     vi.mocked(setScheduleDays).mockReset()
   })
 
@@ -135,6 +146,38 @@ describe('/api/schedule', () => {
       cookie: await adminCookie(),
     })
     expect(res.status).toBe(503)
+  })
+
+  it('GET /bookings открыт сотруднику и отдает записи по дням', async () => {
+    const days = [
+      {
+        masterId: 1,
+        date: '2026-11-16',
+        bookings: [{ id: 'b1', timeFrom: '10:00', timeTo: null, car: 'Kia Rio', service: 'Мойка' }],
+      },
+    ]
+    vi.mocked(listScheduleBookings).mockResolvedValue(days)
+    const res = await req(app, 'GET', {
+      query: '/bookings?from=2026-11-01&to=2026-11-30',
+      cookie: await employeeCookie(),
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, from: '2026-11-01', to: '2026-11-30', days })
+    expect(vi.mocked(listScheduleBookings)).toHaveBeenCalledWith('2026-11-01', '2026-11-30')
+  })
+
+  it('GET /bookings со слишком длинным периодом → 400, при недоступной БД → 503', async () => {
+    const cookie = await adminCookie()
+    const tooLong = await req(app, 'GET', {
+      query: '/bookings?from=2026-01-01&to=2026-12-31',
+      cookie,
+    })
+    expect(tooLong.status).toBe(400)
+    expect(vi.mocked(listScheduleBookings)).not.toHaveBeenCalled()
+
+    vi.mocked(isDbReady).mockReturnValue(false)
+    const down = await req(app, 'GET', { query: '/bookings?from=2026-11-01&to=2026-11-30', cookie })
+    expect(down.status).toBe(503)
   })
 
   it('PATCH без сессии → 401', async () => {

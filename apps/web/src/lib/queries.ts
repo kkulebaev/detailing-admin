@@ -22,7 +22,12 @@ import {
 import type { GetApiBookingsJournalParams } from './generated/model'
 import { fetchSalaries, fetchSalaryEntries } from './salaries-api'
 import { fetchWorkRules } from './work-rules-api'
-import { fetchClosedDays, fetchSchedule, fetchStudioHours } from './schedule-api'
+import {
+  fetchClosedDays,
+  fetchSchedule,
+  fetchScheduleBookings,
+  fetchStudioHours,
+} from './schedule-api'
 import { fetchMyScheduleRequests, fetchPendingScheduleRequests } from './schedule-requests-api'
 import { fetchUnreadNotificationsCount } from './notifications-api'
 import type { ScheduleQuery } from '@detailing-admin/shared'
@@ -272,6 +277,15 @@ export function useScheduleQuery(range: Ref<ScheduleQuery | null>) {
     // enabled включает запрос только при range != null, так что утверждение ! безопасно.
     query: () => fetchSchedule(range.value!),
     enabled: () => range.value != null,
+    placeholderData: (previous) => previous,
+  })
+}
+
+// Под BOOKINGS_KEY: правка, удаление и восстановление записи освежают и отметки в графике.
+export function useScheduleBookingsQuery(range: Ref<ScheduleQuery>) {
+  return useQuery({
+    key: () => [...BOOKINGS_KEY, 'schedule', range.value.from, range.value.to],
+    query: () => fetchScheduleBookings(range.value),
     placeholderData: (previous) => previous,
   })
 }

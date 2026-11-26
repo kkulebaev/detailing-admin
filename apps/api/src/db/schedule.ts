@@ -1,12 +1,14 @@
-import { and, asc, eq, gte, inArray, lte, or } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm'
 import {
   datesOnClosedDays,
+  isoDaysBetween,
+  type MasterDayBookings,
   type MasterSchedule,
   type ScheduleDayInput,
 } from '@detailing-admin/shared'
 import type { Tx } from './audit.js'
 import { getDb, type Db } from './client.js'
-import { masterSchedule, masters } from './schema.js'
+import { bookingMasters, bookings, masterSchedule, masters } from './schema.js'
 import { closedDatesAmong, getStudioHours } from './studio-hours.js'
 
 export class ScheduleError extends Error {
@@ -44,6 +46,78 @@ export async function listSchedule(from: string, to: string): Promise<MasterSche
     else byMaster.set(r.masterId, [r.workDate])
   }
   return [...byMaster].map(([masterId, dates]) => ({ masterId, dates }))
+}
+
+export interface ScheduleBookingRow {
+  id: string
+  masterId: number
+  dateFrom: string
+  dateTo: string | null
+  timeFrom: string
+  timeTo: string | null
+  car: string
+  service: string
+}
+
+// Многодневная запись занимает мастера каждый свой день, но только в пределах
+// запрошенного периода. Порядок записей внутри дня — порядок `rows`.
+export function groupBookingsByDay(
+  rows: readonly ScheduleBookingRow[],
+  from: string,
+  to: string,
+): MasterDayBookings[] {
+  const byCell = new Map<string, MasterDayBookings>()
+  for (const r of rows) {
+    const start = r.dateFrom > from ? r.dateFrom : from
+    const last = r.dateTo ?? r.dateFrom
+    const end = last < to ? last : to
+    for (const date of isoDaysBetween(start, end)) {
+      const key = `${r.masterId}|${date}`
+      let cell = byCell.get(key)
+      if (!cell) {
+        cell = { masterId: r.masterId, date, bookings: [] }
+        byCell.set(key, cell)
+      }
+      cell.bookings.push({
+        id: r.id,
+        timeFrom: r.timeFrom,
+        timeTo: r.timeTo,
+        car: r.car,
+        service: r.service,
+      })
+    }
+  }
+  return [...byCell.values()].sort(
+    (a, b) => a.masterId - b.masterId || a.date.localeCompare(b.date),
+  )
+}
+
+// Только по связям booking_masters: у старых записей без связей их восстанавливает
+// backfill:master-ids. Архивные мастера исключены, как в listSchedule.
+export async function listScheduleBookings(from: string, to: string): Promise<MasterDayBookings[]> {
+  const rows = await getDb()
+    .select({
+      id: bookings.id,
+      masterId: bookingMasters.masterId,
+      dateFrom: bookings.dateFrom,
+      dateTo: bookings.dateTo,
+      timeFrom: bookings.timeFrom,
+      timeTo: bookings.timeTo,
+      car: bookings.car,
+      service: bookings.service,
+    })
+    .from(bookingMasters)
+    .innerJoin(bookings, eq(bookings.id, bookingMasters.bookingId))
+    .innerJoin(masters, eq(masters.id, bookingMasters.masterId))
+    .where(
+      and(
+        eq(masters.archived, false),
+        lte(bookings.dateFrom, to),
+        gte(sql`coalesce(${bookings.dateTo}, ${bookings.dateFrom})`, from),
+      ),
+    )
+    .orderBy(asc(bookings.timeFrom), asc(bookings.createdAt))
+  return groupBookingsByDay(rows, from, to)
 }
 
 // Все или ничего: если хоть один мастер архивный или не найден, не пишется ни один

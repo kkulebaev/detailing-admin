@@ -40,6 +40,40 @@ export const scheduleListResponseSchema = z.union([
   internalErrorSchema,
 ])
 
+// Записи мастера по дням для отметок на странице графика. Без клиента и сумм:
+// график открыт всем ролям.
+export const scheduleBookingSchema = z.object({
+  id: z.string(),
+  timeFrom: z.string(),
+  timeTo: z.string().nullable(),
+  car: z.string(),
+  service: z.string(),
+})
+
+export type ScheduleBooking = z.infer<typeof scheduleBookingSchema>
+
+export const masterDayBookingsSchema = z.object({
+  masterId: z.number().int(),
+  date: z.string(),
+  bookings: z.array(scheduleBookingSchema),
+})
+
+export type MasterDayBookings = z.infer<typeof masterDayBookingsSchema>
+
+export const scheduleBookingsOkSchema = z.object({
+  ok: z.literal(true),
+  from: z.string(),
+  to: z.string(),
+  days: z.array(masterDayBookingsSchema),
+})
+
+export const scheduleBookingsResponseSchema = z.union([
+  scheduleBookingsOkSchema,
+  validationErrorSchema,
+  dbUnavailableErrorSchema,
+  internalErrorSchema,
+])
+
 export const scheduleDayInputSchema = z.object({
   masterId: z.number().int().positive(),
   date: isoDateSchema,

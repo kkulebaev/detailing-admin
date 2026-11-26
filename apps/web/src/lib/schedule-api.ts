@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  scheduleBookingsResponseSchema,
   scheduleDayResponseSchema,
   scheduleListResponseSchema,
   studioHoursResponseSchema,
@@ -8,6 +9,7 @@ import {
   type ClosedDaysInput,
   type ClosedDaysQuery,
   type MasterSchedule,
+  type ScheduleBooking,
   type StudioDay,
   type StudioHoursInput,
   type ScheduleQuery,
@@ -17,6 +19,7 @@ import { unwrap } from './api-client'
 import {
   deleteApiScheduleClosedDaysDate,
   getApiSchedule,
+  getApiScheduleBookings,
   getApiScheduleClosedDays,
   postApiScheduleClosedDays,
   getApiScheduleStudioHours,
@@ -24,9 +27,10 @@ import {
   putApiScheduleStudioHours,
 } from './generated/schedule/schedule'
 
-export type { MasterSchedule, StudioDay }
+export type { MasterSchedule, ScheduleBooking, StudioDay }
 
 export type ScheduleListResult = z.infer<typeof scheduleListResponseSchema>
+export type ScheduleBookingsResult = z.infer<typeof scheduleBookingsResponseSchema>
 export type ScheduleDayResult = z.infer<typeof scheduleDayResponseSchema>
 export type StudioHoursResult = z.infer<typeof studioHoursResponseSchema>
 export type ClosedDaysResult = z.infer<typeof closedDaysResponseSchema>
@@ -34,6 +38,10 @@ export type ClosedDayMutationResult = z.infer<typeof closedDayMutationResponseSc
 
 export function fetchSchedule(range: ScheduleQuery): Promise<ScheduleListResult> {
   return unwrap<ScheduleListResult>(() => getApiSchedule(range))
+}
+
+export function fetchScheduleBookings(range: ScheduleQuery): Promise<ScheduleBookingsResult> {
+  return unwrap<ScheduleBookingsResult>(() => getApiScheduleBookings(range))
 }
 
 export function saveSchedule(payload: ScheduleUpdateInput): Promise<ScheduleDayResult> {

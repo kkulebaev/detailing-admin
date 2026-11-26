@@ -17,18 +17,21 @@ import {
   SCHEDULE_KEY,
   useMastersQuery,
   useMyScheduleRequestsQuery,
+  useScheduleBookingsQuery,
   useScheduleQuery,
 } from '@/lib/queries'
 import { STUDIO_CLOSED_SUFFIX, useStudioWeekdays } from '@/composables/use-studio-weekdays'
 import { saveSchedule } from '@/lib/schedule-api'
 import { submitScheduleRequest } from '@/lib/schedule-requests-api'
-import { dayLabel, formatDayList } from '@/lib/schedule-format'
+import { dayLabel, describeDayBookings, formatDayList } from '@/lib/schedule-format'
+import type { ScheduleBooking } from '@/lib/schedule-api'
 import { useAuthStore } from '@/stores/auth'
 import { useQueryCache } from '@pinia/colada'
 import MyScheduleRequestCard from '@/components/MyScheduleRequestCard.vue'
 import ScheduleRequestsPanel from '@/components/ScheduleRequestsPanel.vue'
 import StudioHoursDialog from '@/components/StudioHoursDialog.vue'
 import ClosedDaysDialog from '@/components/ClosedDaysDialog.vue'
+import BookingMark from '@/components/ScheduleBookingMark.vue'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { CalendarCheck, CalendarPlus, CalendarX, Clock } from '@lucide/vue'
@@ -56,6 +59,8 @@ const range = computed(() => monthScheduleRange(month.value))
 
 const { data: scheduleData, error: scheduleError, asyncStatus } = useScheduleQuery(range)
 const { data: mastersData, error: mastersError } = useMastersQuery()
+// Без ошибки на экране: отметки записей — подсказка, график без них остается рабочим.
+const { data: bookingsData } = useScheduleBookingsQuery(range)
 // Нужен всем ролям: по нему страница узнает своего мастера и выделяет его строку,
 // в том числе у админа, привязанного к мастеру.
 const { data: myRequestsData } = useMyScheduleRequestsQuery(computed(() => true))
@@ -141,6 +146,58 @@ const serverWorking = computed(() => {
   return set
 })
 
+const bookingsByCell = computed(() => {
+  const map = new Map<string, ScheduleBooking[]>()
+  const r = bookingsData.value
+  if (!r?.ok || r.from !== range.value.from) return map
+  for (const d of r.days) map.set(`${d.masterId}|${d.date}`, d.bookings)
+  return map
+})
+
+function bookingCount(masterId: number, iso: string): number {
+  return bookingsByCell.value.get(`${masterId}|${iso}`)?.length ?? 0
+}
+
+// Учитывает черновик и заявку: снятие дня с записью сразу видно до сохранения.
+function hasConflict(masterId: number, iso: string): boolean {
+  return bookingCount(masterId, iso) > 0 && !isWorking(masterId, iso)
+}
+
+// Легенда описывает только то, что на экране: на телефоне виден один мастер.
+const visibleBookingKeys = computed(() => {
+  const keys = [...bookingsByCell.value.keys()]
+  if (isWideScreen.value) return keys
+  const prefix = `${selectedMaster.value?.id}|`
+  return keys.filter((key) => key.startsWith(prefix))
+})
+
+const hasVisibleBookings = computed(() => visibleBookingKeys.value.length > 0)
+
+const hasConflicts = computed(() =>
+  visibleBookingKeys.value.some((key) => {
+    const [masterId, iso] = key.split('|')
+    return !isWorking(Number(masterId), iso!)
+  }),
+)
+
+// Ячейка спрашивает текст и для title, и для aria-label на каждом рендере сетки.
+const bookingsText = computed(() => {
+  const map = new Map<string, { title: string; label: string }>()
+  for (const [key, list] of bookingsByCell.value) map.set(key, describeDayBookings(list))
+  return map
+})
+
+function bookingsTitle(masterId: number, iso: string): string | undefined {
+  return bookingsText.value.get(`${masterId}|${iso}`)?.title
+}
+
+// Конфликт назван словами: красная рамка не видна программе чтения с экрана.
+function bookingsLabel(masterId: number, iso: string): string {
+  const text = bookingsText.value.get(`${masterId}|${iso}`)
+  if (!text) return ''
+  return `${hasConflict(masterId, iso) ? ', запись в выходной' : ''}, ${text.label}`
+}
+
 // Дни из заявки на согласовании рисуются поверх графика, как черновик: сотрудник
 // видит, что попросил, пока админ не решил.
 const requested = computed(() => {
@@ -171,14 +228,20 @@ function isOwn(masterId: number): boolean {
 
 function cellClass(masterId: number, iso: string, filled: string, closed = false): string {
   const working = isWorking(masterId, iso)
+  // Запись в выходной мастера — красным: ее надо развести с графиком.
+  const conflict = hasConflict(masterId, iso)
   if (!isChanged(masterId, iso)) {
     if (working) return `border-primary bg-primary ${filled}`
+    if (conflict) return `${closed ? 'closed-hatch ' : ''}border-destructive text-destructive`
     // Мастер, отмеченный в день закрытия, остается обычной заливкой — так он заметнее.
     return closed ? 'closed-hatch border-border text-muted-foreground' : 'border-border'
   }
   // Несохраненная отметка бледнее сохраненной, а снятая — пунктиром, чтобы до
   // сохранения было видно, что именно изменится.
-  return working ? `border-primary bg-primary/50 ${filled}` : 'border-dashed border-primary'
+  if (working) return `border-primary bg-primary/50 ${filled}`
+  return conflict
+    ? 'border-dashed border-destructive text-destructive'
+    : 'border-dashed border-primary'
 }
 
 function workingCount(masterId: number): number {
@@ -418,6 +481,15 @@ const showSkeleton = computed(
         <span v-if="hasClosedDays" class="flex items-center gap-1.5">
           <span class="closed-hatch size-3 rounded-sm border border-border" /> Студия закрыта
         </span>
+        <span v-if="hasVisibleBookings" class="flex items-center gap-1.5">
+          <span class="flex items-center gap-0.5 font-medium text-foreground tabular-nums">
+            <span class="size-1.5 rounded-full bg-current" />2
+          </span>
+          Записей в день
+        </span>
+        <span v-if="hasConflicts" class="flex items-center gap-1.5">
+          <span class="size-3 rounded-sm border border-destructive" /> Запись в выходной
+        </span>
         <span v-if="canEdit || ownMasterId !== null" class="flex items-center gap-1.5">
           <span class="flex gap-0.5">
             <span class="size-3 rounded-sm border border-primary bg-primary/50" />
@@ -496,23 +568,37 @@ const showSkeleton = computed(
               <button
                 v-if="canToggle(m.id)"
                 type="button"
-                class="block size-9 rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed"
+                class="flex size-9 items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed"
                 :class="[
                   cellClass(m.id, d.iso, 'hover:bg-primary/85', d.closed),
                   { 'hover:bg-accent': !isWorking(m.id, d.iso) && !isLocked(m.id, d.iso) },
                 ]"
                 :aria-pressed="isWorking(m.id, d.iso)"
                 :disabled="isLocked(m.id, d.iso)"
-                :aria-label="`${m.name}, ${dayLabel(d.iso)}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
+                :title="bookingsTitle(m.id, d.iso)"
+                :aria-label="`${m.name}, ${dayLabel(d.iso)}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(m.id, d.iso)}`"
                 @click="toggle(m.id, d.iso)"
-              />
+              >
+                <BookingMark
+                  v-if="bookingCount(m.id, d.iso) > 0"
+                  :count="bookingCount(m.id, d.iso)"
+                  :working="isWorking(m.id, d.iso)"
+                />
+              </button>
               <div
                 v-else
                 role="img"
-                class="size-9 rounded-md border"
+                class="flex size-9 items-center justify-center rounded-md border"
                 :class="cellClass(m.id, d.iso, '', d.closed)"
-                :aria-label="`${m.name}, ${dayLabel(d.iso)}: ${isWorking(m.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
-              />
+                :title="bookingsTitle(m.id, d.iso)"
+                :aria-label="`${m.name}, ${dayLabel(d.iso)}: ${isWorking(m.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(m.id, d.iso)}`"
+              >
+                <BookingMark
+                  v-if="bookingCount(m.id, d.iso) > 0"
+                  :count="bookingCount(m.id, d.iso)"
+                  :working="isWorking(m.id, d.iso)"
+                />
+              </div>
             </td>
             <td class="px-3 text-right">
               <span class="flex items-center justify-end gap-2">
@@ -557,29 +643,43 @@ const showSkeleton = computed(
           <button
             v-if="canToggle(selectedMaster.id)"
             type="button"
-            class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums transition-colors disabled:cursor-not-allowed"
+            class="flex h-11 flex-col items-center justify-center rounded-md border text-sm leading-none tabular-nums transition-colors disabled:cursor-not-allowed"
             :class="[
               cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
               { 'ring-2 ring-foreground ring-offset-1': d.today },
             ]"
             :aria-pressed="isWorking(selectedMaster.id, d.iso)"
             :disabled="isLocked(selectedMaster.id, d.iso)"
-            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
+            :title="bookingsTitle(selectedMaster.id, d.iso)"
+            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(selectedMaster.id, d.iso)}`"
             @click="toggle(selectedMaster.id, d.iso)"
           >
             {{ d.day }}
+            <BookingMark
+              v-if="bookingCount(selectedMaster.id, d.iso) > 0"
+              class="mt-1"
+              :count="bookingCount(selectedMaster.id, d.iso)"
+              :working="isWorking(selectedMaster.id, d.iso)"
+            />
           </button>
           <div
             v-else
             role="img"
-            class="flex h-11 items-center justify-center rounded-md border text-sm tabular-nums"
+            class="flex h-11 flex-col items-center justify-center rounded-md border text-sm leading-none tabular-nums"
             :class="[
               cellClass(selectedMaster.id, d.iso, 'text-primary-foreground', d.closed),
               { 'ring-2 ring-foreground ring-offset-1': d.today },
             ]"
-            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}`"
+            :title="bookingsTitle(selectedMaster.id, d.iso)"
+            :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(selectedMaster.id, d.iso)}`"
           >
             {{ d.day }}
+            <BookingMark
+              v-if="bookingCount(selectedMaster.id, d.iso) > 0"
+              class="mt-1"
+              :count="bookingCount(selectedMaster.id, d.iso)"
+              :working="isWorking(selectedMaster.id, d.iso)"
+            />
           </div>
         </template>
       </div>

@@ -23,6 +23,19 @@ const state = await vi.hoisted(async () => {
     pending: ref<ScheduleRequest[]>([]),
     studioDays: ref<{ weekday: number; opensAt: string; closesAt: string }[]>([]),
     closedDates: ref<string[]>([]),
+    bookingDays: ref<
+      {
+        masterId: number
+        date: string
+        bookings: {
+          id: string
+          timeFrom: string
+          timeTo: string | null
+          car: string
+          service: string
+        }[]
+      }[]
+    >([]),
   }
 })
 
@@ -58,6 +71,14 @@ vi.mock('@/lib/queries', async () => {
       asyncStatus: ref('idle'),
     }),
     useMastersQuery: () => ({ data: ref({ ok: true, masters }), error: ref(null) }),
+    useScheduleBookingsQuery: () => ({
+      data: computed(() => ({
+        ok: true,
+        from: state.from.value,
+        to: '',
+        days: state.bookingDays.value,
+      })),
+    }),
     STUDIO_HOURS_KEY: ['studio-hours'],
     CLOSED_DAYS_KEY: ['closed-days'],
     useClosedDaysQuery: () => ({
@@ -146,11 +167,95 @@ describe('SchedulePage', () => {
     state.pending.value = []
     state.studioDays.value = []
     state.closedDates.value = []
+    state.bookingDays.value = []
     vi.mocked(saveSchedule).mockReset()
     vi.mocked(submitScheduleRequest).mockReset()
     vi.mocked(approveScheduleRequest).mockReset()
     vi.mocked(rejectScheduleRequest).mockReset()
     vi.mocked(toast.error).mockReset()
+  })
+
+  it('отмечает дни с записями и выделяет запись в выходной мастера', async () => {
+    const booking = (id: string, timeFrom: string) => ({
+      id,
+      timeFrom,
+      timeTo: null,
+      car: 'Kia Rio',
+      service: 'Мойка',
+    })
+    state.bookingDays.value = [
+      { masterId: 1, date: `${month}-01`, bookings: [booking('a', '10:00')] },
+      {
+        masterId: 1,
+        date: `${month}-02`,
+        bookings: [booking('b', '10:00'), booking('c', '14:00')],
+      },
+    ]
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+
+    const working = page.getByRole('button', {
+      name: `${dayLabel(1)}, 1 запись: 10:00 Kia Rio — Мойка`,
+    })
+    await expect.element(working).toHaveTextContent('1')
+    await expect.element(working).not.toHaveClass(/border-destructive/)
+
+    const off = page.getByRole('button', {
+      name: `${secondDayLabel}, запись в выходной, 2 записи: 10:00 Kia Rio — Мойка; 14:00 Kia Rio — Мойка`,
+    })
+    await expect.element(off).toHaveTextContent('2')
+    await expect.element(off).toHaveClass(/border-destructive/)
+    await expect.element(page.getByText('Запись в выходной')).toBeInTheDocument()
+
+    // Конфликт уходит, как только день становится рабочим, еще до сохранения.
+    await off.click()
+    const nowWorking = page.getByRole('button', {
+      name: `${secondDayLabel}, 2 записи: 10:00 Kia Rio — Мойка; 14:00 Kia Rio — Мойка`,
+    })
+    await expect.element(nowWorking).not.toHaveClass(/border-destructive/)
+    await expect.element(page.getByText('Запись в выходной')).not.toBeInTheDocument()
+
+    // И появляется, если снять рабочий день с записью.
+    await working.click()
+    await expect
+      .element(
+        page.getByRole('button', {
+          name: `${dayLabel(1)}, запись в выходной, 1 запись: 10:00 Kia Rio — Мойка`,
+        }),
+      )
+      .toHaveClass(/border-destructive/)
+  })
+
+  it('не показывает отметки прошлого месяца, пока грузится новый', async () => {
+    state.from.value = '2000-01-01'
+    state.bookingDays.value = [
+      {
+        masterId: 1,
+        date: `${month}-01`,
+        bookings: [{ id: 'a', timeFrom: '10:00', timeTo: null, car: 'Kia Rio', service: 'Мойка' }],
+      },
+    ]
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+    await expect
+      .element(page.getByText('Мастеров пока нет').or(page.getByRole('table')))
+      .toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: /1 запись/ })).not.toBeInTheDocument()
+    await expect.element(page.getByText('Записей в день')).not.toBeInTheDocument()
+  })
+
+  it('без записей легенды о них нет', async () => {
+    mount(SchedulePage, {
+      attachTo: document.body,
+      global: { plugins: [await createTestRouter()] },
+    })
+    await expect.element(page.getByRole('button', { name: dayLabel(1) })).toBeInTheDocument()
+    await expect.element(page.getByText('Записей в день')).not.toBeInTheDocument()
+    await expect.element(page.getByText('Запись в выходной')).not.toBeInTheDocument()
   })
 
   it('дни, когда студия закрыта, заштрихованы и подписаны', async () => {

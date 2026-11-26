@@ -15,6 +15,11 @@ import type {
   GetApiSchedule400,
   GetApiSchedule500,
   GetApiSchedule503,
+  GetApiScheduleBookings200,
+  GetApiScheduleBookings400,
+  GetApiScheduleBookings500,
+  GetApiScheduleBookings503,
+  GetApiScheduleBookingsParams,
   GetApiScheduleClosedDays200,
   GetApiScheduleClosedDays400,
   GetApiScheduleClosedDays500,
@@ -320,6 +325,62 @@ return orvalFetch<putApiScheduleStudioHoursResponse>(getPutApiScheduleStudioHour
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(putApiScheduleStudioHoursBody)
+  }
+);}
+
+
+export type getApiScheduleBookingsResponse200 = {
+  data: GetApiScheduleBookings200
+  status: 200
+}
+
+export type getApiScheduleBookingsResponse400 = {
+  data: GetApiScheduleBookings400
+  status: 400
+}
+
+export type getApiScheduleBookingsResponse500 = {
+  data: GetApiScheduleBookings500
+  status: 500
+}
+
+export type getApiScheduleBookingsResponse503 = {
+  data: GetApiScheduleBookings503
+  status: 503
+}
+
+export type getApiScheduleBookingsResponseSuccess = (getApiScheduleBookingsResponse200) & {
+  headers: Headers;
+};
+export type getApiScheduleBookingsResponseError = (getApiScheduleBookingsResponse400 | getApiScheduleBookingsResponse500 | getApiScheduleBookingsResponse503) & {
+  headers: Headers;
+};
+
+export type getApiScheduleBookingsResponse = (getApiScheduleBookingsResponseSuccess | getApiScheduleBookingsResponseError)
+
+export const getGetApiScheduleBookingsUrl = (params: GetApiScheduleBookingsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/schedule/bookings?${stringifiedParams}` : `/api/schedule/bookings`
+}
+
+export const getApiScheduleBookings = async (params: GetApiScheduleBookingsParams, options?: Parameters<typeof orvalFetch>[1]): Promise<getApiScheduleBookingsResponse> => {
+
+  return orvalFetch<getApiScheduleBookingsResponse>(getGetApiScheduleBookingsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
   }
 );}
 
