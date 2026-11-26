@@ -271,6 +271,8 @@ describe('SchedulePage', () => {
     await expect
       .element(page.getByRole('button', { name: 'Смотреть записи' }))
       .toHaveAttribute('data-state', 'on')
+    // Пока день не выбран, под календарем пусто.
+    await expect.element(page.getByRole('region', { name: /^Записи на / })).not.toBeInTheDocument()
     const day = page.getByRole('button', { name: /^2 [а-я]+: выходной, запись в выходной/ })
     await day.click()
     await expect.element(day).toHaveAttribute('aria-pressed', 'true')
@@ -285,6 +287,13 @@ describe('SchedulePage', () => {
     // Нажатие выбрало день, а не отметило его рабочим.
     await expect.element(page.getByText(/Несохраненных изменений/)).not.toBeInTheDocument()
 
+    // Повторное нажатие на тот же день снимает выбор и прячет список.
+    await day.click()
+    await expect.element(day).toHaveAttribute('aria-pressed', 'false')
+    await expect.element(list).not.toBeInTheDocument()
+
+    await day.click()
+    await expect.element(list).toBeInTheDocument()
     await page.getByRole('button', { name: 'Править график' }).click()
     await expect.element(list).not.toBeInTheDocument()
   })

@@ -412,13 +412,17 @@ function onModeChange(value: unknown) {
   if (value === 'mark' || value === 'bookings') mobileMode.value = value
 }
 
+// Изначально день не выбран, и под календарем ничего нет; повторное нажатие на
+// выбранный день снимает выбор. Выбор из другого месяца не переносится.
 const pickedDay = ref<string | null>(null)
-// Выбор из другого месяца не переносится: тогда показываем сегодня или первое число.
 const shownDay = computed(() => {
   const picked = pickedDay.value
-  if (picked && days.value.some((d) => d.iso === picked)) return picked
-  return days.value.find((d) => d.today)?.iso ?? days.value[0]?.iso ?? null
+  return picked && days.value.some((d) => d.iso === picked) ? picked : null
 })
+
+function pickDay(iso: string) {
+  pickedDay.value = shownDay.value === iso ? null : iso
+}
 
 const bookingsReady = computed(
   () => bookingsData.value?.ok === true && bookingsData.value.from === range.value.from,
@@ -715,7 +719,7 @@ const showSkeleton = computed(
             ]"
             :aria-pressed="d.iso === shownDay"
             :aria-label="`${dayLabel(d.iso)}: ${isWorking(selectedMaster.id, d.iso) ? 'рабочий' : 'выходной'}${d.closed ? STUDIO_CLOSED_SUFFIX : ''}${bookingsLabel(selectedMaster.id, d.iso)}`"
-            @click="pickedDay = d.iso"
+            @click="pickDay(d.iso)"
           >
             {{ d.day }}
             <BookingMark
