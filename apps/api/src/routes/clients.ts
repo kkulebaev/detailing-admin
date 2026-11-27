@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   clientDetailOkSchema,
@@ -267,7 +266,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
 router.get('/export', clientsExportHandler)
 
 router.openapi(lookupClientRoute, async (c) => {
-  const requestId = uuidv4()
+  const requestId = crypto.randomUUID()
   c.header('X-Request-Id', requestId)
 
   if (!isDbReady()) return unavailable(c)
@@ -320,7 +319,7 @@ router.openapi(lookupClientRoute, async (c) => {
 
 router
   .openapi(getClientRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -379,7 +378,7 @@ router
     }
   })
   .openapi(listClientsRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -425,7 +424,7 @@ router
     }
   })
   .openapi(createClientRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -452,7 +451,7 @@ router
     }
   })
   .openapi(updateClientRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -478,7 +477,7 @@ router
     }
   })
   .openapi(deleteClientRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -509,7 +508,7 @@ router
 // (см. там), чтобы тот его не перекрыл. У обычного маршрута нет OpenAPI-валидации query →
 // query списка разбирается вручную (400 при плохом фильтре).
 async function clientsExportHandler(c: Context) {
-  const requestId = uuidv4()
+  const requestId = crypto.randomUUID()
   c.header('X-Request-Id', requestId)
 
   if (!isDbReady()) return unavailable(c)

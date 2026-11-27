@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   SCHEDULE_MAX_RANGE_DAYS,
   StatusCodes,
@@ -239,7 +238,7 @@ const deleteClosedDayRoute = createRoute({
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
   .openapi(listClosedDaysRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -268,7 +267,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(addClosedDayRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -286,7 +285,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(deleteClosedDayRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -306,7 +305,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(getStudioHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -318,7 +317,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(setStudioHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -337,7 +336,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(listScheduleBookingsRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -353,7 +352,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(listScheduleRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -369,7 +368,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(setScheduleDaysRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)

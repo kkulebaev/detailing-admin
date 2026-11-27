@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   accountSchema,
@@ -46,7 +45,7 @@ const listAccountsRoute = createRoute({
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook }).openapi(
   listAccountsRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)

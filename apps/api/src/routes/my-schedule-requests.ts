@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   dbUnavailableErrorSchema,
@@ -177,7 +176,7 @@ const withdrawRoute = createRoute({
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
   .openapi(listRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -195,7 +194,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(submitRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -233,7 +232,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(withdrawRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)

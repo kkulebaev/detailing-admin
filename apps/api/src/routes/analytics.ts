@@ -1,5 +1,4 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   analyticsOverviewOkSchema,
@@ -133,7 +132,7 @@ const router = new OpenAPIHono<{ Variables: Vars }>()
 router.openapi(
   overviewRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) {

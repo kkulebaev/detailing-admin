@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import { bookingSchema } from '@detailing-admin/shared/booking'
 import { bookingToRow } from '@detailing-admin/shared/sheet-row'
 import {
@@ -465,7 +464,7 @@ function bookingsValidationHook(
   c: Context<{ Variables: Vars }>,
 ) {
   if (!result.success) {
-    const requestId = c.get('requestId') ?? uuidv4()
+    const requestId = c.get('requestId') ?? crypto.randomUUID()
     const idempotencyKey = c.req.header('Idempotency-Key') ?? null
     const issues = result.error.issues.map((i) => ({
       path: i.path.map((p) => {
@@ -502,7 +501,7 @@ const router = new OpenAPIHono<{ Variables: Vars }>({ defaultHook: bookingsValid
 // Назначается императивно, потому что `.use()` у OpenAPIHono возвращает обычный `Hono`,
 // который в цепочке потерял бы метод `.openapi()`.
 router.use('/', async (c, next) => {
-  const requestId = uuidv4()
+  const requestId = crypto.randomUUID()
   c.header('X-Request-Id', requestId)
   c.set('requestId', requestId)
 
@@ -774,7 +773,7 @@ router.openapi(
 router.openapi(
   patchBookingRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) {
@@ -851,7 +850,7 @@ router.openapi(
 router.openapi(
   deleteBookingRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) {
@@ -899,7 +898,7 @@ router.openapi(
 router.openapi(
   patchReadinessRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) {
@@ -958,7 +957,7 @@ router.openapi(
 )
 
 router.openapi(deletedRoute, async (c) => {
-  const requestId = uuidv4()
+  const requestId = crypto.randomUUID()
   c.header('X-Request-Id', requestId)
   if (!isDbReady()) return dbUnavailable(c)
   try {
@@ -977,7 +976,7 @@ router.openapi(deletedRoute, async (c) => {
 router.openapi(
   journalRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return dbUnavailable(c)
     const query = c.req.valid('query')
@@ -1006,7 +1005,7 @@ router.openapi(
 router.openapi(
   historyRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return dbUnavailable(c)
     const { id } = c.req.valid('param')
@@ -1031,7 +1030,7 @@ router.openapi(
 router.openapi(
   restoreRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return dbUnavailable(c)
     const { id } = c.req.valid('param')
@@ -1111,7 +1110,7 @@ function bookingCsvRow(r: BookingRow, includeAmount: boolean): string[] {
 // не сужать тип OpenAPIHono. OpenAPI-валидации query здесь нет → схема query
 // списка разбирается вручную (400 при плохом фильтре).
 router.get('/export', async (c) => {
-  const requestId = uuidv4()
+  const requestId = crypto.randomUUID()
   c.header('X-Request-Id', requestId)
 
   if (!isDbReady()) {
@@ -1214,7 +1213,7 @@ router.get('/export', async (c) => {
 router.openapi(
   getBookingRoute,
   async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return dbUnavailable(c)
     const { id } = c.req.valid('param')

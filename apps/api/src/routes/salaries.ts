@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   dbUnavailableErrorSchema,
@@ -323,7 +322,7 @@ const deletePayoutRoute = createRoute({
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
   .openapi(listSalariesRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -353,7 +352,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(setRateRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -374,7 +373,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(listEntriesRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -413,7 +412,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(createWorkHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -467,7 +466,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(updateWorkHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -514,7 +513,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(deleteWorkHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -542,7 +541,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(createPayoutRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -595,7 +594,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(updatePayoutRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -640,7 +639,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(deletePayoutRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)

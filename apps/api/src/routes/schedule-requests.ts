@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   dbUnavailableErrorSchema,
@@ -167,7 +166,7 @@ async function decide(
   id: number,
   decision: { approve: true } | { approve: false; comment: string | null },
 ) {
-  const requestId = uuidv4()
+  const requestId = crypto.randomUUID()
   c.header('X-Request-Id', requestId)
   try {
     await decideScheduleRequest(id, actorOf(c.get('user')), decision)
@@ -193,7 +192,7 @@ async function decide(
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
   .openapi(listRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)

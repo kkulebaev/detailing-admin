@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   changePasswordRequestSchema,
@@ -145,7 +144,7 @@ router.use('/me', async (c, next) => {
 
 router
   .openapi(loginRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return dbUnavailable(c)
@@ -261,7 +260,7 @@ router
     )
   })
   .openapi(changePasswordRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return dbUnavailable(c)

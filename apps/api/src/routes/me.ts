@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   StatusCodes,
   computeSalary,
@@ -193,7 +192,7 @@ const deleteHoursRoute = createRoute({
 
 const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
   .openapi(getSalaryRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -256,7 +255,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(createHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -290,7 +289,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(updateHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)
@@ -332,7 +331,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(deleteHoursRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
 
     if (!isDbReady()) return unavailable(c)

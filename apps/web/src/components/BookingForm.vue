@@ -4,7 +4,6 @@ import { onKeyStroke } from '@vueuse/core'
 import { z } from 'zod'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
-import { v4 as uuid } from 'uuid'
 import { toast } from 'vue-sonner'
 import { Calendar as CalendarIcon, Pencil, TriangleAlert, User } from '@lucide/vue'
 import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
@@ -118,7 +117,7 @@ const mastersWarning = computed(() => {
 })
 
 // ── Ключ идемпотентности: один на все повторы, перегенерируется после успеха ───
-const idempotencyKey = ref(uuid())
+const idempotencyKey = ref(crypto.randomUUID())
 
 // ── Состояние календаря ───────────────────────────────────────────────────────
 const localTz = getLocalTimeZone()
@@ -869,7 +868,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
 
   if (result.ok) {
     toast.success('Запись сохранена')
-    idempotencyKey.value = uuid()
+    idempotencyKey.value = crypto.randomUUID()
     resetFormState()
     clearDraft()
   } else if (result.error === 'unavailable' && result.reason === 'headers_mismatch') {
@@ -949,7 +948,7 @@ function resetFormState() {
 
 function clearForm() {
   resetFormState()
-  idempotencyKey.value = uuid()
+  idempotencyKey.value = crypto.randomUUID()
   unavailableBanner.value = null
   clearDraft()
 }

@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { v4 as uuidv4 } from 'uuid'
 import {
   NOTIFICATIONS_MAX_LIMIT,
   NOTIFICATIONS_PAGE_SIZE,
@@ -330,7 +329,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     c.json({ ok: true as const, publicKey: pushPublicKey() }, StatusCodes.OK),
   )
   .openapi(pushSubscribeRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     const { endpoint, keys } = c.req.valid('json')
@@ -352,7 +351,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(pushUnsubscribeRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     const { endpoint } = c.req.valid('json')
@@ -364,7 +363,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(pushCurrentRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     const { endpoint } = c.req.valid('json')
@@ -376,7 +375,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(telegramStatusRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     try {
@@ -390,7 +389,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(telegramLinkRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     const username = getBotUsername()
@@ -411,7 +410,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(telegramUnlinkRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     try {
@@ -422,7 +421,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(listRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
 
@@ -447,7 +446,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(unreadRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     try {
@@ -458,7 +457,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(readAllRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     try {
@@ -469,7 +468,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(readRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     const { id } = c.req.valid('param')
@@ -484,7 +483,7 @@ const router = new OpenAPIHono({ defaultHook: defaultValidationHook })
     }
   })
   .openapi(unreadMarkRoute, async (c) => {
-    const requestId = uuidv4()
+    const requestId = crypto.randomUUID()
     c.header('X-Request-Id', requestId)
     if (!isDbReady()) return unavailable(c)
     const { id } = c.req.valid('param')
