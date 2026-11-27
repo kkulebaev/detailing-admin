@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, onMounted, onUnmounted, provide } from 'vue'
+import { ref, shallowRef, computed, watch, onUnmounted, provide } from 'vue'
 import { onKeyStroke } from '@vueuse/core'
-import { z } from 'zod'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { toast } from 'vue-sonner'
 import { Calendar as CalendarIcon, Pencil, TriangleAlert, User } from '@lucide/vue'
-import { today, getLocalTimeZone, CalendarDate } from '@internationalized/date'
+import { today, getLocalTimeZone } from '@internationalized/date'
 import type { DateValue } from 'reka-ui'
 import {
   bookingSchema,
@@ -16,13 +15,36 @@ import {
 } from '@detailing-admin/shared'
 import type { BookingApiResult, CarClass, MissedBookings } from '@detailing-admin/shared'
 import { submitBooking } from '@/lib/api'
-import { usePricelistQuery, useMastersQuery } from '@/lib/queries'
+import { usePricelistQuery } from '@/lib/queries'
 import { useAuthStore } from '@/stores/auth'
-import { isoToDdmmyyyy } from '@/lib/date'
-import { resolveMasterOptions } from '@/lib/master-options'
+import { calToDdmmyyyy, isoToDdmmyyyy, parseDdmmyyyyToCal } from '@/lib/date'
 import { CAR_SUGGESTIONS } from '@/lib/car-suggestions'
-import { maskThousands } from '@/lib/number-mask'
-import { maskLicensePlate, PLATE_LETTERS } from '@/lib/license-plate'
+import { formatAmount } from '@/lib/money'
+import { groupThousands, maskThousands } from '@/lib/number-mask'
+import { maskLicensePlate } from '@/lib/license-plate'
+import {
+  amountDigits,
+  isComposingInput,
+  maskCar,
+  maskDateText,
+  maskName,
+  maskTimeText,
+  writeMasked,
+} from '@/lib/input-masks'
+import {
+  BOOKING_DRAFT_KEY,
+  bookingDraftSchema,
+  isMeaningfulBookingDraft,
+  type BookingDraft,
+} from '@/lib/booking-draft'
+import {
+  pickRandom,
+  pickRandomMasters,
+  randomDigits,
+  randomPlate,
+  TEST_NAMES,
+  TEST_NOTES,
+} from '@/lib/test-fill'
 import {
   formatServiceCell,
   formatAmountFormula,
@@ -31,6 +53,10 @@ import {
 import { usePhoneInput, formatPastedPhone } from '@/composables/use-phone-input'
 import { useClientLookup } from '@/composables/use-client-lookup'
 import { useDaysOffWarning } from '@/composables/use-days-off-warning'
+import { useMasterOptions } from '@/composables/use-master-options'
+import { useDiscount } from '@/composables/use-discount'
+import { useCarSuggestions } from '@/composables/use-car-suggestions'
+import { useFormDraft } from '@/composables/use-form-draft'
 import type { Car } from '@/lib/clients-api'
 
 import { Button } from '@/components/ui/button'
@@ -91,30 +117,11 @@ function isBookingField(s: string): s is BookingField {
   return s in BOOKING_FIELDS
 }
 
-// Выпадающие списки мастера/ответственного строятся по живой таблице `masters`, но
-// никогда не должны делать оформление записи зависимым от Postgres — `resolveMasterOptions`
-// откатывается к зашитому enum, когда списка нет или он пуст.
-const { data: mastersData, asyncStatus: mastersStatus } = useMastersQuery()
-const mastersForMaster = computed(() =>
-  resolveMasterOptions(mastersData.value?.ok ? mastersData.value.masters : undefined, () => true),
-)
-const mastersForResponsible = computed(() =>
-  resolveMasterOptions(
-    mastersData.value?.ok ? mastersData.value.masters : undefined,
-    (m) => m.canBeResponsible,
-  ),
-)
-const mastersLoading = computed(
-  () => mastersStatus.value === 'loading' && mastersData.value === undefined,
-)
-// Без запасного enum незагруженный или пустой список оставляет селект мастера
-// пустым — предупреждаем явно, чтобы форма не выглядела молча сломанной.
-const mastersWarning = computed(() => {
-  if (mastersLoading.value || mastersForMaster.value.length > 0) return null
-  return mastersData.value?.ok
-    ? 'Список мастеров пуст. Добавьте мастеров на странице «Мастера».'
-    : 'Список мастеров недоступен. Обновите страницу.'
-})
+const {
+  forMaster: mastersForMaster,
+  forResponsible: mastersForResponsible,
+  warning: mastersWarning,
+} = useMasterOptions()
 
 // ── Ключ идемпотентности: один на все повторы, перегенерируется после успеха ───
 const idempotencyKey = ref(crypto.randomUUID())
@@ -133,17 +140,11 @@ const isRangeMode = ref(false)
 const dateFromOpen = ref(false)
 const dateToOpen = ref(false)
 
-function calToString(d: DateValue): string {
-  const dd = String(d.day).padStart(2, '0')
-  const mm = String(d.month).padStart(2, '0')
-  return `${dd}.${mm}.${d.year}`
-}
-
 // Дата/время живут в собственных ref, чтобы пользователь мог печатать прямо в
 // текстовые поля с маской. Поповер календаря — лишь альтернативный ввод, который
 // пишет обратно в эти ref.
-const dateFromText = ref(calToString(todayVal))
-const dateToText = ref(calToString(todayVal))
+const dateFromText = ref(calToDdmmyyyy(todayVal))
+const dateToText = ref(calToDdmmyyyy(todayVal))
 const timeValue = ref('')
 const timeToValue = ref('')
 
@@ -151,56 +152,6 @@ const timeToValue = ref('')
 // отправить форму, иначе пустая исходная форма мелькает красным при монтировании.
 const submitAttempted = ref(false)
 provide(FORM_SHOW_ERRORS_KEY, submitAttempted)
-
-function maskDateText(raw: string): string {
-  const d = raw.replace(/\D/g, '').slice(0, 8)
-  if (d.length <= 2) return d
-  if (d.length <= 4) return `${d.slice(0, 2)}.${d.slice(2)}`
-  return `${d.slice(0, 2)}.${d.slice(2, 4)}.${d.slice(4)}`
-}
-
-function maskTimeText(raw: string): string {
-  const d = raw.replace(/\D/g, '').slice(0, 4)
-  if (d.length <= 2) return d
-  return `${d.slice(0, 2)}:${d.slice(2)}`
-}
-
-function capitalizeWords(raw: string): string {
-  return raw.replace(
-    /(^|[\s\-])(\p{L})/gu,
-    (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('ru'),
-  )
-}
-
-function maskName(raw: string): string {
-  return capitalizeWords(raw.replace(/\d/g, ''))
-}
-
-function maskCar(raw: string): string {
-  return capitalizeWords(raw)
-}
-
-// Gboard держит набираемое слово в композиции до пробела/коммита, и правка
-// value/каретки в этот момент сбивает сессию ввода: символы теряются, курсор
-// прыгает. Пока композиция активна, маска не применяется — в форму уходит сырой
-// текст, а закрывающий `input` (он приходит уже без флага) домаскирует его.
-function isComposingInput(e: Event): boolean {
-  return e instanceof InputEvent && e.isComposing
-}
-
-function parseDateText(text: string): DateValue | null {
-  const m = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
-  if (!m) return null
-  const day = parseInt(m[1], 10)
-  const month = parseInt(m[2], 10)
-  const year = parseInt(m[3], 10)
-  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) return null
-  try {
-    return new CalendarDate(year, month, day)
-  } catch {
-    return null
-  }
-}
 
 function sameDay(a: DateValue | undefined, b: DateValue | undefined): boolean {
   if (!a || !b) return false
@@ -273,23 +224,16 @@ const servicesTotal = ref<number | null>(null)
 // таблицы (само поле формы остается простым CSV из названий).
 const serviceBreakdown = ref<ServiceBreakdownRow[]>([])
 
-function formatAmount(digits: string): string {
-  if (!digits) return ''
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-}
-
-function amountDigits(formatted: string): string {
-  return formatted.replace(/\D/g, '')
-}
+const baseAmount = computed(() => {
+  const digits = amountDigits(amountRaw.value)
+  return digits === '' ? 0 : parseInt(digits, 10)
+})
 
 // Разница со знаком между «Сумма» и итогом по услугам (текущая − итог).
 // null, когда сравнивать не с чем. Пустая сумма считается за 0.
-const amountDelta = computed<number | null>(() => {
-  if (servicesTotal.value === null) return null
-  const digits = amountDigits(amountRaw.value)
-  const current = digits === '' ? 0 : parseInt(digits, 10)
-  return current - servicesTotal.value
-})
+const amountDelta = computed<number | null>(() =>
+  servicesTotal.value === null ? null : baseAmount.value - servicesTotal.value,
+)
 
 // True, когда услуги выбраны, а «Сумма» уже не равна их итогу — т. е. оператор
 // ввел свое значение (или воспользовался +пресетом).
@@ -299,86 +243,30 @@ const amountOverridden = computed(() => amountDelta.value !== null && amountDelt
 const amountDeltaLabel = computed(() => {
   const d = amountDelta.value ?? 0
   const sign = d > 0 ? '+' : '−'
-  return `${sign}${formatAmount(String(Math.abs(d)))} ₽`
+  return `${sign}${formatAmount(Math.abs(d))} ₽`
 })
+
+function setAmount(value: number) {
+  amountRaw.value = groupThousands(String(value))
+  setFieldValue('amount', value)
+}
 
 function resetAmountToServices() {
   if (servicesTotal.value === null) return
-  amountRaw.value = formatAmount(String(servicesTotal.value))
-  setFieldValue('amount', servicesTotal.value)
+  setAmount(servicesTotal.value)
 }
 
-// ── Скидка (₽ или %) ──────────────────────────────────────────────────────────
-// Чисто UI-помощник: применяется к «Сумма» (базе) и дает «Итого к оплате». При
-// отправке в колонку суммы таблицы сохраняется итог со скидкой, а к примечанию
-// дописывается строка «Скидка …» — отдельной колонки для скидки нет.
-const discountRaw = ref('')
-const discountUnit = ref<'rub' | 'pct'>('rub')
-
-const baseAmount = computed(() => {
-  const digits = amountDigits(amountRaw.value)
-  return digits === '' ? 0 : parseInt(digits, 10)
-})
-
-// Скидка в рублях, ограниченная так, чтобы не превышать базу (% не больше 100).
-// Процентная скидка округляется до ближайшего рубля.
-const discountAmount = computed(() => {
-  const digits = discountRaw.value.replace(/\D/g, '')
-  if (digits === '') return 0
-  const n = parseInt(digits, 10)
-  if (discountUnit.value === 'pct') {
-    return Math.round((baseAmount.value * Math.min(n, 100)) / 100)
-  }
-  return Math.min(n, baseAmount.value)
-})
-
-const finalAmount = computed(() => Math.max(0, baseAmount.value - discountAmount.value))
-const hasDiscount = computed(() => discountAmount.value > 0)
-
-function onDiscountInput(e: Event) {
-  const target = e.target
-  if (!(target instanceof HTMLInputElement)) return
-  if (discountUnit.value === 'pct') {
-    let digits = target.value.replace(/\D/g, '').slice(0, 3)
-    if (digits !== '' && parseInt(digits, 10) > 100) digits = '100'
-    if (target.value !== digits) {
-      target.value = digits
-      target.setSelectionRange(digits.length, digits.length)
-    }
-    discountRaw.value = digits
-    return
-  }
-  const caretPos = target.selectionStart ?? target.value.length
-  const { value, caret } = maskThousands(target.value, caretPos, 8)
-  if (target.value !== value) {
-    target.value = value
-    target.setSelectionRange(caret, caret)
-  }
-  discountRaw.value = value
-}
-
-// Перенормализуем сырое значение при смене единиц: для % убираем группировку и
-// ограничиваем 100; для ₽ заново группируем разделителями тысяч.
-function setDiscountUnit(unit: 'rub' | 'pct') {
-  if (unit === discountUnit.value) return
-  discountUnit.value = unit
-  const digits = discountRaw.value.replace(/\D/g, '')
-  if (digits === '') return
-  discountRaw.value =
-    unit === 'pct' ? String(Math.min(parseInt(digits, 10), 100)) : formatAmount(digits)
-}
-
-// «Скидка 10%» / «Скидка 950 ₽» — дописывается к примечанию при сохранении.
-// Конкретная сумма в рублях, вычисленная из процентной скидки, намеренно не
-// пишется; сохраняется только сам размер скидки.
-function discountNoteLine(): string {
-  if (!hasDiscount.value) return ''
-  if (discountUnit.value === 'pct') {
-    const pct = Math.min(parseInt(discountRaw.value.replace(/\D/g, '') || '0', 10), 100)
-    return `Скидка ${pct}%`
-  }
-  return `Скидка ${formatAmount(String(discountAmount.value))} ₽`
-}
+const {
+  raw: discountRaw,
+  unit: discountUnit,
+  amount: discountAmount,
+  finalAmount,
+  hasDiscount,
+  onInput: onDiscountInput,
+  setUnit: setDiscountUnit,
+  noteLine: discountNoteLine,
+  reset: resetDiscount,
+} = useDiscount(baseAmount)
 
 // ── Пресеты быстрого выбора ──────────────────────────────────────────────────
 const AMOUNT_PRESETS = [1000, 5000, 10000, 50000] as const
@@ -426,20 +314,22 @@ interface BookingFormInitial {
   carClass: CarClass
 }
 
-const initialFormValues: BookingFormInitial = {
-  dateFrom: calToString(todayVal),
-  dateTo: undefined,
-  time: '',
-  timeTo: undefined,
-  name: '',
-  phone: '',
-  car: '',
-  service: '',
-  note: '',
-  amount: '',
-  master: [],
-  responsible: undefined,
-  carClass: DEFAULT_CAR_CLASS,
+function emptyFormValues(date: DateValue): BookingFormInitial {
+  return {
+    dateFrom: calToDdmmyyyy(date),
+    dateTo: undefined,
+    time: '',
+    timeTo: undefined,
+    name: '',
+    phone: '',
+    car: '',
+    service: '',
+    note: '',
+    amount: '',
+    master: [],
+    responsible: undefined,
+    carClass: DEFAULT_CAR_CLASS,
+  }
 }
 
 const {
@@ -453,7 +343,7 @@ const {
   isSubmitting,
 } = useForm({
   validationSchema: toTypedSchema(bookingSchema),
-  initialValues: initialFormValues,
+  initialValues: emptyFormValues(todayVal),
 })
 
 // Поля дат — текст, который вводят посимвольно: пока строка неполная, предупреждать не о чем.
@@ -512,8 +402,8 @@ function pickDay(days: number) {
   const d = shiftedDate(days)
   isRangeMode.value = false
   dateFromCal.value = d
-  dateFromText.value = calToString(d)
-  setFieldValue('dateFrom', calToString(d))
+  dateFromText.value = calToDdmmyyyy(d)
+  setFieldValue('dateFrom', calToDdmmyyyy(d))
   setFieldValue('dateTo', undefined)
   setFieldValue('timeTo', undefined)
   timeToValue.value = ''
@@ -556,133 +446,29 @@ function pickTimeTo(t: string) {
 }
 
 // ── Подсказки машины (автодополнение) ────────────────────────────────────────
-// Список подсказок сознательно собран на голом DOM, без Popover: на Android
-// выбор тапом не доезжал ни через `mousedown`, ни через `click`. Что здесь
-// принципиально и ломается при «упрощении»:
-//   • список — обычный `absolute`-элемент рядом с полем, а не портал. У
-//     `PopoverContent` есть `tabindex="-1"`, и тап по нему уводил фокус с поля;
-//   • выбор висит на `pointerup`, а не на mouse-событиях: `pointer*` браузер
-//     шлет всегда, а эмулированные mouse-события Chrome внутри прокручиваемого
-//     контейнера придерживает и часто не шлет вовсе;
-//   • скролл списка отделяется от тапа порогом сдвига пальца, иначе протяжка
-//     выбирала бы случайный пункт (сам скролл жив: его решает `touch-action`, а
-//     не `preventDefault` на pointerdown — тот лишь удерживает фокус в поле);
-//   • пункты — `<li>`, а не `<button>`: неинтерактивный элемент не забирает
-//     фокус, поле не теряет каретку и клавиатуру;
-//   • список не закрывается по `blur` — тот прилетал раньше тапа. Закрытие: сам
-//     выбор, Escape и `pointerdown` мимо поля и списка.
-const carPopoverOpen = ref(false)
-const carActiveIndex = ref(0)
-const carListEl = ref<HTMLElement | null>(null)
-const carInputEl = ref<HTMLInputElement | null>(null)
-const MAX_CAR_SUGGESTIONS = 30
-const filteredCars = computed<readonly string[]>(() => {
-  const q = (values.car ?? '').trim().toLowerCase()
-  if (!q) return CAR_SUGGESTIONS.slice(0, MAX_CAR_SUGGESTIONS)
-  return CAR_SUGGESTIONS.filter((c) => c.toLowerCase().includes(q)).slice(0, MAX_CAR_SUGGESTIONS)
-})
-watch(filteredCars, () => {
-  carActiveIndex.value = 0
-})
-
-function selectCar(car: string) {
-  const el = carInputEl.value
-  if (el) {
-    // У PopoverContent есть `tabindex="-1"`, поэтому тап мимо `mousedown.prevent`
-    // мог увести на него фокус — на мобильном это гасит клавиатуру.
-    el.focus()
-    // Фокус в поле означает, что Gboard может держать слово в композиции, а
-    // v-model из Vue не трогает DOM, пока выставлен `el.composing`. Коммитим
-    // композицию сами, иначе подсказка осядет только в состоянии формы.
-    el.value = car
-    el.setSelectionRange(car.length, car.length)
-    el.dispatchEvent(new CompositionEvent('compositionend', { data: car }))
-  }
-  setFieldValue('car', car)
-  carPopoverOpen.value = false
-}
-
-// Тап по уже сфокусированному полю не дает `focus`, поэтому список открывается и
-// по клику — иначе вернуть его после выбора можно было бы только новым символом.
-function openCarSuggestions(e: Event) {
-  if (e.target instanceof HTMLInputElement) carInputEl.value = e.target
-  carPopoverOpen.value = true
-}
-
-// Тап по самому полю или по списку список не гасит, все остальное — закрывает.
-function onDocumentPointerDown(e: Event) {
-  if (!carPopoverOpen.value) return
-  const target = e.target
-  if (
-    target instanceof Element &&
-    (target.closest('[data-car-input]') || target.closest('[data-car-suggestions]'))
-  )
-    return
-  carPopoverOpen.value = false
-}
-
-// Тап и протяжка приходят одной и той же парой pointer-событий, поэтому выбор
-// засчитывается только если палец практически не сдвинулся.
-const CAR_TAP_SLOP_PX = 12
-let carTapOrigin: { x: number; y: number } | null = null
-
-function onCarItemPointerDown(e: PointerEvent, index: number) {
-  carTapOrigin = { x: e.clientX, y: e.clientY }
-  carActiveIndex.value = index
-}
-
-function onCarItemPointerUp(e: PointerEvent, car: string) {
-  const origin = carTapOrigin
-  carTapOrigin = null
-  if (!origin) return
-  if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > CAR_TAP_SLOP_PX) return
-  selectCar(car)
-}
-
-function scrollActiveCarIntoView() {
-  requestAnimationFrame(() => {
-    const el = carListEl.value?.querySelector<HTMLElement>('[data-active="true"]')
-    el?.scrollIntoView({ block: 'nearest' })
-  })
-}
-
-function onCarKeydown(e: KeyboardEvent) {
-  const list = filteredCars.value
-  if (e.key === 'ArrowDown') {
-    if (!carPopoverOpen.value && list.length) carPopoverOpen.value = true
-    if (!list.length) return
-    e.preventDefault()
-    carActiveIndex.value = (carActiveIndex.value + 1) % list.length
-    scrollActiveCarIntoView()
-  } else if (e.key === 'ArrowUp') {
-    if (!list.length) return
-    e.preventDefault()
-    carActiveIndex.value = (carActiveIndex.value - 1 + list.length) % list.length
-    scrollActiveCarIntoView()
-  } else if (e.key === 'Enter') {
-    if (!carPopoverOpen.value || !list.length) return
-    e.preventDefault()
-    const picked = list[carActiveIndex.value]
-    if (picked) selectCar(picked)
-  } else if (e.key === 'Escape') {
-    if (!carPopoverOpen.value) return
-    e.preventDefault()
-    carPopoverOpen.value = false
-  }
-}
+const {
+  open: carPopoverOpen,
+  activeIndex: carActiveIndex,
+  listEl: carListEl,
+  filtered: filteredCars,
+  openSuggestions: openCarSuggestions,
+  trackInput: trackCarInput,
+  onItemPointerDown: onCarItemPointerDown,
+  onItemPointerUp: onCarItemPointerUp,
+  onKeydown: onCarKeydown,
+} = useCarSuggestions(
+  () => values.car ?? '',
+  (car) => setFieldValue('car', car),
+)
 
 // ── Обработчики текстовых полей даты / времени ───────────────────────────────
 function onDateFromTextInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
   const masked = maskDateText(target.value)
-  if (target.value !== masked) {
-    dateFromText.value = masked
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  if (writeMasked(target, masked)) dateFromText.value = masked
   setFieldValue('dateFrom', masked)
-  const parsed = parseDateText(masked)
+  const parsed = parseDdmmyyyyToCal(masked)
   if (parsed) dateFromCal.value = parsed
 }
 
@@ -690,13 +476,9 @@ function onDateToTextInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
   const masked = maskDateText(target.value)
-  if (target.value !== masked) {
-    dateToText.value = masked
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  if (writeMasked(target, masked)) dateToText.value = masked
   setFieldValue('dateTo', masked)
-  const parsed = parseDateText(masked)
+  const parsed = parseDdmmyyyyToCal(masked)
   if (parsed) dateToCal.value = parsed
 }
 
@@ -704,11 +486,7 @@ function onTimeTextInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
   const masked = maskTimeText(target.value)
-  if (target.value !== masked) {
-    timeValue.value = masked
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  if (writeMasked(target, masked)) timeValue.value = masked
   setFieldValue('time', masked)
 }
 
@@ -716,11 +494,7 @@ function onTimeToTextInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
   const masked = maskTimeText(target.value)
-  if (target.value !== masked) {
-    timeToValue.value = masked
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  if (writeMasked(target, masked)) timeToValue.value = masked
   setFieldValue('timeTo', masked)
 }
 
@@ -732,27 +506,20 @@ function onNameInput(e: Event) {
     return
   }
   const masked = maskName(target.value)
-  if (target.value !== masked) {
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  writeMasked(target, masked)
   setFieldValue('name', masked)
 }
 
 function onCarInput(e: Event) {
-  carPopoverOpen.value = true
+  trackCarInput(e)
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
-  carInputEl.value = target
   if (isComposingInput(e)) {
     setFieldValue('car', target.value)
     return
   }
   const masked = maskCar(target.value)
-  if (target.value !== masked) {
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  writeMasked(target, masked)
   setFieldValue('car', masked)
 }
 
@@ -764,11 +531,7 @@ function onLicensePlateInput(e: Event) {
     return
   }
   const masked = maskLicensePlate(target.value)
-  if (target.value !== masked) {
-    licensePlate.value = masked
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  if (writeMasked(target, masked)) licensePlate.value = masked
 }
 
 // ── Обработчик поля суммы ─────────────────────────────────────────────────────
@@ -777,21 +540,14 @@ function onAmountInput(e: Event) {
   if (!(target instanceof HTMLInputElement)) return
   const caretPos = target.selectionStart ?? target.value.length
   const { value, caret } = maskThousands(target.value, caretPos)
-  if (target.value !== value) {
-    amountRaw.value = value
-    target.value = value
-    target.setSelectionRange(caret, caret)
-  }
+  if (writeMasked(target, value, caret)) amountRaw.value = value
   const digits = amountDigits(value)
   const parsed: '' | number = digits === '' ? '' : parseInt(digits, 10)
   setFieldValue('amount', parsed)
 }
 
 function addAmount(delta: number) {
-  const current = parseInt(amountDigits(amountRaw.value), 10) || 0
-  const next = current + delta
-  amountRaw.value = formatAmount(String(next))
-  setFieldValue('amount', next)
+  setAmount(baseAmount.value + delta)
 }
 
 // Автозаполнение «Сумма» по ценам услуг из пикера. Поле остается
@@ -804,8 +560,7 @@ function onServicesTotal(total: number | null) {
     setFieldValue('amount', '')
     return
   }
-  amountRaw.value = formatAmount(String(total))
-  setFieldValue('amount', total)
+  setAmount(total)
 }
 
 function onServiceBreakdown(rows: ServiceBreakdownRow[]) {
@@ -816,7 +571,7 @@ function onServiceBreakdown(rows: ServiceBreakdownRow[]) {
 function onDateFromSelect(date: DateValue | undefined) {
   if (!date) return
   dateFromCal.value = date
-  const str = calToString(date)
+  const str = calToDdmmyyyy(date)
   dateFromText.value = str
   setFieldValue('dateFrom', str)
   dateFromOpen.value = false
@@ -825,13 +580,19 @@ function onDateFromSelect(date: DateValue | undefined) {
 function onDateToSelect(date: DateValue | undefined) {
   if (!date) return
   dateToCal.value = date
-  const str = calToString(date)
+  const str = calToDdmmyyyy(date)
   dateToText.value = str
   setFieldValue('dateTo', str)
   dateToOpen.value = false
 }
 
 // ── Отправка ──────────────────────────────────────────────────────────────────
+function toastSaveError() {
+  toast.error('Ошибка при сохранении', {
+    action: { label: 'Повторить', onClick: () => void onSubmit() },
+  })
+}
+
 const handleValidatedSubmit = handleSubmit(async (values) => {
   unavailableBanner.value = null
   const plate = licensePlate.value.trim()
@@ -857,12 +618,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
   try {
     result = await submitBooking(payload, idempotencyKey.value)
   } catch {
-    const retry = () => {
-      void onSubmit()
-    }
-    toast.error('Ошибка при сохранении', {
-      action: { label: 'Повторить', onClick: retry },
-    })
+    toastSaveError()
     return
   }
 
@@ -891,12 +647,7 @@ const handleValidatedSubmit = handleSubmit(async (values) => {
       }
     }
   } else {
-    const retry = () => {
-      void onSubmit()
-    }
-    toast.error('Ошибка при сохранении', {
-      action: { label: 'Повторить', onClick: retry },
-    })
+    toastSaveError()
   }
 })
 
@@ -912,34 +663,17 @@ async function onSubmit() {
 // Общий сброс и для кнопки очистки, и после отправки.
 function resetFormState() {
   const fresh = today(localTz)
-  resetForm({
-    values: {
-      dateFrom: calToString(fresh),
-      dateTo: undefined,
-      time: '',
-      timeTo: undefined,
-      name: '',
-      phone: '',
-      car: '',
-      service: '',
-      note: '',
-      amount: '',
-      master: [],
-      responsible: undefined,
-      carClass: DEFAULT_CAR_CLASS,
-    },
-  })
+  resetForm({ values: emptyFormValues(fresh) })
   resetPhone()
   licensePlate.value = ''
   amountRaw.value = ''
   servicesTotal.value = null
   serviceBreakdown.value = []
-  discountRaw.value = ''
-  discountUnit.value = 'rub'
+  resetDiscount()
   timeValue.value = ''
   timeToValue.value = ''
-  dateFromText.value = calToString(fresh)
-  dateToText.value = calToString(fresh)
+  dateFromText.value = calToDdmmyyyy(fresh)
+  dateToText.value = calToDdmmyyyy(fresh)
   dateFromCal.value = fresh
   dateToCal.value = fresh
   isRangeMode.value = false
@@ -954,245 +688,83 @@ function clearForm() {
 }
 
 // ── Сохранение черновика (localStorage) ──────────────────────────────────────
-// v5: поле услуги перешло со свободного текста на пикер (выбор восстанавливается из CSV
-// названий услуг по загруженному прайс-листу); добавлен carClass.
-const DRAFT_KEY = 'detailing-admin:booking-draft:v5'
-
-// Схема черновика намеренно либеральна — все поля необязательны, чтобы наполовину
-// заполненная или более старая запись в localStorage парсилась без отказа.
-const draftSchema = z.object({
-  dateFromText: z.string().optional(),
-  dateToText: z.string().optional(),
-  timeValue: z.string().optional(),
-  timeToValue: z.string().optional(),
-  isRangeMode: z.boolean().optional(),
-  name: z.string().optional(),
-  phoneRaw: z.string().optional(),
-  car: z.string().optional(),
-  licensePlate: z.string().optional(),
-  service: z.string().optional(),
-  note: z.string().optional(),
-  amountRaw: z.string().optional(),
-  discountRaw: z.string().optional(),
-  discountUnit: z.union([z.literal('rub'), z.literal('pct')]).optional(),
-  // Принимает и устаревшую форму одной строки из черновиков до мультимастеров (v5),
-  // и текущий массив — loadDraft() ветвится в зависимости от того, что пришло.
-  master: z.array(z.string()).or(z.string()).optional(),
-  responsible: z.string().optional(),
-  carClass: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
-})
-
-type Draft = z.infer<typeof draftSchema>
-
-function clearDraft() {
-  try {
-    localStorage.removeItem(DRAFT_KEY)
-  } catch {
-    /* хранилище может быть отключено */
+function draftSnapshot(): BookingDraft {
+  return {
+    dateFromText: dateFromText.value,
+    dateToText: dateToText.value,
+    timeValue: timeValue.value,
+    timeToValue: timeToValue.value,
+    isRangeMode: isRangeMode.value,
+    name: values.name ?? '',
+    phoneRaw: phoneRaw.value,
+    car: values.car ?? '',
+    licensePlate: licensePlate.value,
+    service: values.service ?? '',
+    note: values.note ?? '',
+    amountRaw: amountRaw.value,
+    discountRaw: discountRaw.value,
+    discountUnit: discountUnit.value,
+    master: values.master,
+    responsible: values.responsible,
+    carClass: values.carClass,
   }
 }
 
-function saveDraft() {
-  try {
-    const draft: Draft = {
-      dateFromText: dateFromText.value,
-      dateToText: dateToText.value,
-      timeValue: timeValue.value,
-      timeToValue: timeToValue.value,
-      isRangeMode: isRangeMode.value,
-      name: values.name ?? '',
-      phoneRaw: phoneRaw.value,
-      car: values.car ?? '',
-      licensePlate: licensePlate.value,
-      service: values.service ?? '',
-      note: values.note ?? '',
-      amountRaw: amountRaw.value,
-      discountRaw: discountRaw.value,
-      discountUnit: discountUnit.value,
-      master: values.master,
-      responsible: values.responsible,
-      carClass: values.carClass,
-    }
-    // `draft.master` теперь массив — `[]` в JS truthy, поэтому простая проверка `||`
-    // сочла бы нетронутый черновик с пустым выбором «содержательным».
-    const hasMaster = Array.isArray(draft.master) ? draft.master.length > 0 : Boolean(draft.master)
-    const meaningful =
-      draft.isRangeMode ||
-      draft.timeValue ||
-      draft.name ||
-      draft.car ||
-      draft.licensePlate ||
-      draft.service ||
-      draft.note ||
-      draft.amountRaw ||
-      draft.discountRaw ||
-      hasMaster ||
-      draft.responsible ||
-      (draft.phoneRaw && draft.phoneRaw.replace(/\D/g, '').length > 1)
-    if (!meaningful) {
-      clearDraft()
-      return
-    }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
-  } catch {
-    /* игнорируем */
+function restoreDraft(d: BookingDraft) {
+  if (d.dateFromText) {
+    dateFromText.value = d.dateFromText
+    const parsed = parseDdmmyyyyToCal(d.dateFromText)
+    if (parsed) dateFromCal.value = parsed
+    setFieldValue('dateFrom', d.dateFromText)
   }
-}
-
-function loadDraft() {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY)
-    if (!raw) return
-    const parsed = draftSchema.safeParse(JSON.parse(raw))
-    if (!parsed.success) return
-    const d = parsed.data
-    if (d.dateFromText) {
-      dateFromText.value = d.dateFromText
-      const parsed = parseDateText(d.dateFromText)
-      if (parsed) dateFromCal.value = parsed
-      setFieldValue('dateFrom', d.dateFromText)
-    }
-    if (d.dateToText) {
-      dateToText.value = d.dateToText
-      const parsed = parseDateText(d.dateToText)
-      if (parsed) dateToCal.value = parsed
-    }
-    if (d.isRangeMode) {
-      isRangeMode.value = true
-      setFieldValue('dateTo', d.dateToText)
-      if (d.timeToValue) {
-        timeToValue.value = d.timeToValue
-        setFieldValue('timeTo', d.timeToValue)
-      }
-    }
-    if (d.timeValue) {
-      timeValue.value = d.timeValue
-      setFieldValue('time', d.timeValue)
-    }
-    if (d.name) setFieldValue('name', d.name)
-    if (d.phoneRaw) phoneRaw.value = d.phoneRaw
-    if (d.car) setFieldValue('car', d.car)
-    if (d.licensePlate) licensePlate.value = d.licensePlate
-    if (d.service) setFieldValue('service', d.service)
-    if (d.note) setFieldValue('note', d.note)
-    if (d.amountRaw) {
-      amountRaw.value = d.amountRaw
-      const digits = amountDigits(d.amountRaw)
-      if (digits) setFieldValue('amount', parseInt(digits, 10))
-    }
-    if (d.discountUnit) discountUnit.value = d.discountUnit
-    if (d.discountRaw) discountRaw.value = d.discountRaw
-    // Старые черновики (до мультимастеров) хранили `master` одной строкой; наивный
-    // `.trim()` здесь упал бы на новой форме-массиве, а исключение проглотил бы
-    // внешний catch ниже, и весь черновик молча потерялся бы.
-    if (Array.isArray(d.master)) {
-      if (d.master.length > 0) setFieldValue('master', d.master)
-    } else if (typeof d.master === 'string' && d.master.trim()) {
-      setFieldValue('master', [d.master])
-    }
-    if (d.responsible && d.responsible.trim()) setFieldValue('responsible', d.responsible)
-    if (d.carClass) setFieldValue('carClass', d.carClass)
-  } catch {
-    /* поврежденный черновик: игнорируем */
+  if (d.dateToText) {
+    dateToText.value = d.dateToText
+    const parsed = parseDdmmyyyyToCal(d.dateToText)
+    if (parsed) dateToCal.value = parsed
   }
-}
-
-// ── Тестовое заполнение (Ctrl+Shift+X) ───────────────────────────────────────
-// Быстро набивает форму правдоподобными случайными данными для ручного
-// тестирования. Услугу берем из уже загруженного прайс-листа — тогда «Сумма»
-// пересчитается сама через ServicePicker; иначе выставляем сумму вручную.
-const { data: pricelistData } = usePricelistQuery()
-
-const TEST_NAMES = [
-  'Иван Петров',
-  'Мария Смирнова',
-  'Алексей Иванов',
-  'Ольга Кузнецова',
-  'Дмитрий Соколов',
-]
-const TEST_NOTES = ['', 'Тестовая запись', 'Клиент просил перезвонить', 'Оплата картой']
-const PLATE_LETTER_LIST = [...PLATE_LETTERS]
-
-function pickRandom<T>(arr: readonly T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!
-}
-
-function pickRandomMasters(arr: readonly string[], count: number): string[] {
-  const pool = [...arr]
-  const picked: string[] = []
-  while (picked.length < count && pool.length > 0) {
-    const idx = Math.floor(Math.random() * pool.length)
-    picked.push(pool.splice(idx, 1)[0]!)
+  if (d.isRangeMode) {
+    isRangeMode.value = true
+    setFieldValue('dateTo', d.dateToText)
+    if (d.timeToValue) {
+      timeToValue.value = d.timeToValue
+      setFieldValue('timeTo', d.timeToValue)
+    }
   }
-  return picked
-}
-
-function randomDigits(n: number): string {
-  let out = ''
-  for (let i = 0; i < n; i++) out += Math.floor(Math.random() * 10)
-  return out
-}
-
-function randomPlate(): string {
-  const l = () => pickRandom(PLATE_LETTER_LIST)
-  const region = Math.random() < 0.5 ? randomDigits(2) : randomDigits(3)
-  return `${l()}${randomDigits(3)}${l()}${l()}${region}`
-}
-
-function fillTestData() {
-  pickDay(pickRandom([0, 1, 2]))
-  pickTime(pickRandom(TIME_PRESETS))
-
-  setFieldValue('name', pickRandom(TEST_NAMES))
-  phoneRaw.value = formatPastedPhone(`9${randomDigits(9)}`)
-  setFieldValue('car', pickRandom(CAR_SUGGESTIONS))
-  licensePlate.value = randomPlate()
-  setFieldValue('note', pickRandom(TEST_NOTES))
-  setFieldValue('master', pickRandomMasters(mastersForMaster.value, pickRandom([1, 2])))
-  setFieldValue('responsible', pickRandom(mastersForResponsible.value))
-
-  const r = pricelistData.value
-  const allServices = r?.ok ? r.sections.flatMap((s) => s.services) : []
-  if (allServices.length > 0) {
-    const svc = pickRandom(allServices)
-    // ServicePicker слушает modelValue: подхватит выбор и сам эмитнет «Сумму».
-    setFieldValue('service', svc.name)
-  } else {
-    const amount = (Math.floor(Math.random() * 40) + 5) * 500
-    amountRaw.value = formatAmount(String(amount))
-    setFieldValue('amount', amount)
+  if (d.timeValue) {
+    timeValue.value = d.timeValue
+    setFieldValue('time', d.timeValue)
   }
-
-  toast.success('Форма заполнена тестовыми данными')
+  if (d.name) setFieldValue('name', d.name)
+  if (d.phoneRaw) phoneRaw.value = d.phoneRaw
+  if (d.car) setFieldValue('car', d.car)
+  if (d.licensePlate) licensePlate.value = d.licensePlate
+  if (d.service) setFieldValue('service', d.service)
+  if (d.note) setFieldValue('note', d.note)
+  if (d.amountRaw) {
+    amountRaw.value = d.amountRaw
+    const digits = amountDigits(d.amountRaw)
+    if (digits) setFieldValue('amount', parseInt(digits, 10))
+  }
+  if (d.discountUnit) discountUnit.value = d.discountUnit
+  if (d.discountRaw) discountRaw.value = d.discountRaw
+  // Старые черновики (до мультимастеров) хранили `master` одной строкой; наивный
+  // `.trim()` здесь упал бы на новой форме-массиве, и весь черновик молча потерялся бы.
+  if (Array.isArray(d.master)) {
+    if (d.master.length > 0) setFieldValue('master', d.master)
+  } else if (typeof d.master === 'string' && d.master.trim()) {
+    setFieldValue('master', [d.master])
+  }
+  if (d.responsible && d.responsible.trim()) setFieldValue('responsible', d.responsible)
+  if (d.carClass) setFieldValue('carClass', d.carClass)
 }
 
-// Инструмент только для локальной отладки — в прод-сборку не попадает.
-if (import.meta.env.DEV) {
-  onKeyStroke(
-    (e) => e.ctrlKey && e.shiftKey && e.code === 'KeyX',
-    (e) => {
-      e.preventDefault()
-      fillTestData()
-    },
-  )
-}
-
-onMounted(loadDraft)
-onMounted(() => document.addEventListener('pointerdown', onDocumentPointerDown, true))
-onUnmounted(() => document.removeEventListener('pointerdown', onDocumentPointerDown, true))
-
-let saveScheduled = false
-function scheduleSave() {
-  if (saveScheduled) return
-  saveScheduled = true
-  requestAnimationFrame(() => {
-    saveScheduled = false
-    saveDraft()
-  })
-}
-
-watch(
-  [
+const { clearDraft } = useFormDraft({
+  key: BOOKING_DRAFT_KEY,
+  schema: bookingDraftSchema,
+  snapshot: draftSnapshot,
+  isMeaningful: isMeaningfulBookingDraft,
+  restore: restoreDraft,
+  sources: [
     dateFromText,
     dateToText,
     timeValue,
@@ -1211,8 +783,48 @@ watch(
     () => values.responsible,
     () => values.carClass,
   ],
-  scheduleSave,
-)
+})
+
+// ── Тестовое заполнение (Ctrl+Shift+X) ───────────────────────────────────────
+// Быстро набивает форму правдоподобными случайными данными для ручного
+// тестирования. Услугу берем из уже загруженного прайс-листа — тогда «Сумма»
+// пересчитается сама через ServicePicker; иначе выставляем сумму вручную.
+const { data: pricelistData } = usePricelistQuery()
+
+function fillTestData() {
+  pickDay(pickRandom([0, 1, 2]))
+  pickTime(pickRandom(TIME_PRESETS))
+
+  setFieldValue('name', pickRandom(TEST_NAMES))
+  phoneRaw.value = formatPastedPhone(`9${randomDigits(9)}`)
+  setFieldValue('car', pickRandom(CAR_SUGGESTIONS))
+  licensePlate.value = randomPlate()
+  setFieldValue('note', pickRandom(TEST_NOTES))
+  setFieldValue('master', pickRandomMasters(mastersForMaster.value, pickRandom([1, 2])))
+  setFieldValue('responsible', pickRandom(mastersForResponsible.value))
+
+  const r = pricelistData.value
+  const allServices = r?.ok ? r.sections.flatMap((s) => s.services) : []
+  if (allServices.length > 0) {
+    // ServicePicker слушает modelValue: подхватит выбор и сам эмитнет «Сумму».
+    setFieldValue('service', pickRandom(allServices).name)
+  } else {
+    setAmount((Math.floor(Math.random() * 40) + 5) * 500)
+  }
+
+  toast.success('Форма заполнена тестовыми данными')
+}
+
+// Инструмент только для локальной отладки — в прод-сборку не попадает.
+if (import.meta.env.DEV) {
+  onKeyStroke(
+    (e) => e.ctrlKey && e.shiftKey && e.code === 'KeyX',
+    (e) => {
+      e.preventDefault()
+      fillTestData()
+    },
+  )
+}
 </script>
 
 <template>
@@ -1518,7 +1130,7 @@ watch(
                     </p>
                     <p v-else>Завершенных визитов еще не было</p>
                     <p v-if="matchedClientSummary.totalSpent" class="tabular-nums">
-                      Потрачено: {{ formatAmount(String(matchedClientSummary.totalSpent)) }} ₽
+                      Потрачено: {{ formatAmount(matchedClientSummary.totalSpent) }} ₽
                     </p>
                     <p
                       v-if="matchedClientSummary.lastService"
@@ -1717,7 +1329,7 @@ watch(
                 class="text-xs px-3 py-1.5 rounded-full border border-input bg-background hover:bg-accent transition-colors"
                 @click="addAmount(delta)"
               >
-                +{{ formatAmount(String(delta)) }}
+                +{{ formatAmount(delta) }}
               </button>
             </div>
             <p
@@ -1788,9 +1400,9 @@ watch(
             <div class="mt-3 flex items-center justify-between border-t border-border pt-3">
               <span class="text-sm text-muted-foreground">Итого к оплате</span>
               <span class="tabular-nums font-semibold">
-                {{ formatAmount(String(finalAmount)) }} ₽
+                {{ formatAmount(finalAmount) }} ₽
                 <span v-if="hasDiscount" class="ml-1 text-xs font-normal text-muted-foreground">
-                  (−{{ formatAmount(String(discountAmount)) }} ₽)
+                  (−{{ formatAmount(discountAmount) }} ₽)
                 </span>
               </span>
             </div>
