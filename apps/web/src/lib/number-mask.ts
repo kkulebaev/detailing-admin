@@ -5,7 +5,7 @@
 // прыгать. `maskThousands` заново вычисляет позицию каретки по числу цифр
 // слева от нее, удерживая ее на той же границе между цифрами при переформатировании.
 
-function groupThousands(digits: string): string {
+export function groupThousands(digits: string): string {
   if (!digits) return ''
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 }
