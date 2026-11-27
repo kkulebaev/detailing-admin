@@ -69,7 +69,7 @@ pnpm --filter @detailing-admin/api user:reset-password --login <login>
 pnpm --filter @detailing-admin/api push:gen-vapid     # one-time VAPID key pair for Web Push (keep the private key out of the transcript and git)
 ```
 
-Local dev needs `apps/api/.env` (copy from `apps/api/.env.example`). Required: `GOOGLE_SERVICE_ACCOUNT_JSON_B64`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET` (≥32 chars); `DATABASE_URL` already points at the docker-compose instance. A missing/invalid required var makes `env.ts` throw at import — this is the one failure that does stop the process. Optional: `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` (all three or none; without them Web Push is off, a partial set or a `VAPID_SUBJECT` that is not `mailto:`/`https:` fails `env.ts`) and `TELEGRAM_POLLING` (default `false`; set `true` only where this bot should answer `/start` — dev and prod use different bots). API runs migrations automatically on boot. Accounts are created only via `user:create` (no self-registration); see `apps/api/AUTH.md`. Web `.env.local` is optional — Vite dev server proxies `/api` to `localhost:3000` by default; override with `VITE_API_PROXY_TARGET` to point dev at a remote API.
+Local dev needs `apps/api/.env` (copy from `apps/api/.env.example`). Required: `GOOGLE_SERVICE_ACCOUNT_JSON_B64`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET` (≥32 chars); `DATABASE_URL` already points at the docker-compose instance. A missing/invalid required var makes `env.ts` throw at import — this is the one failure that does stop the process. Optional: `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` (all three or none; without them Web Push is off, a partial set or a `VAPID_SUBJECT` that is not `mailto:`/`https:` fails `env.ts`), `SENTRY_DSN` (errors of the API go to the Sentry project `detailing-api`; leave it empty locally) and `TELEGRAM_POLLING` (default `false`; set `true` only where this bot should answer `/start` — dev and prod use different bots). API runs migrations automatically on boot. Accounts are created only via `user:create` (no self-registration); see `apps/api/AUTH.md`. Web `.env.local` is optional — Vite dev server proxies `/api` to `localhost:3000` by default; override with `VITE_API_PROXY_TARGET` to point dev at a remote API.
 
 ### E2E tests
 
@@ -232,6 +232,10 @@ Client (`BookingForm.vue`) generates a UUID v4 at form mount and reuses it acros
 ### Phone normalization edge case
 
 `normalizePhone()` accepts mixed legacy formats and emits E.164 `+7XXXXXXXXXX` (or `''`). The Vue form binds the phone field to the **raw user-typed string**, not to the schema's parsed output — binding to the parsed value would rewrite the visible input mid-typing and trash the cursor. Validation is permissive per-keystroke (`z.string().max(40)`) and strict only at submit time via the schema's object-level `.transform()`.
+
+### Sentry
+
+Errors only, no tracing or replay. The API inits in `src/instrument.ts`, imported first by `main.ts`, and `createApp`'s `instrument` hook puts the `sentry()` middleware ahead of every route; tests and e2e never set `SENTRY_DSN`, so nothing inits there. The web inits in `src/lib/sentry.ts` from `VITE_SENTRY_DSN`, baked in at build time (a Dockerfile `ARG`, set in Railway). SDK v11 collects bodies, query strings, cookies and frame variables by default, so both sides pin `dataCollection` down; the API also rewrites breadcrumb URLs (`sentry-scrub.ts`: bot token, push endpoint paths) and the web strips query strings, which carry phones from list searches.
 
 ### Logging redactions
 
