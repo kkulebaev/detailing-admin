@@ -51,6 +51,11 @@ const envSchema = z
     // Должен быть настоящим mailto: или https: — на заглушку вроде localhost Apple
     // отвечает 403 BadJwtToken.
     VAPID_SUBJECT: optionalString,
+    // Sentry необязателен: без DSN ошибки никуда не отправляются.
+    SENTRY_DSN: optionalString.pipe(z.url().optional()),
+    // Задает сам Railway; помечают события окружением и коммитом деплоя.
+    RAILWAY_ENVIRONMENT_NAME: optionalString,
+    RAILWAY_GIT_COMMIT_SHA: optionalString,
   })
   .superRefine((v, ctx) => {
     // Половина ключей — ошибка конфигурации, а не «push выключен»: без проверки такой

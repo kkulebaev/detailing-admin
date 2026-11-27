@@ -17,6 +17,8 @@ process.env.TELEGRAM_POLLING = 'false'
 delete process.env.VAPID_PUBLIC_KEY
 delete process.env.VAPID_PRIVATE_KEY
 delete process.env.VAPID_SUBJECT
+// С DSN разработчика тесты, импортирующие instrument.ts, слали бы события в Sentry.
+delete process.env.SENTRY_DSN
 
 // Настоящая отправка ушла бы в сеть: любой вызов мимо _setPushSenderForTest падает.
 vi.mock('web-push', async (importOriginal) => ({

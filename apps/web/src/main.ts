@@ -8,10 +8,12 @@ import { useAuthStore } from './stores/auth'
 import { setUnauthorizedHandler } from './lib/orval-mutator'
 import { listenServiceWorkerMessages } from './lib/push'
 import { NOTIFICATIONS_KEY } from './lib/queries'
+import { initSentry } from './lib/sentry'
 import 'vue-sonner/style.css'
 import './styles/globals.css'
 
 const app = createApp(App)
+initSentry(app)
 app.use(createPinia())
 // Сюда как ошибка доходят только обрыв соединения или не-JSON ответ (страница 502
 // от прокси): HTTP-ошибки `orvalFetch` возвращает данными `{ ok: false }`, так что

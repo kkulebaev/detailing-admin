@@ -1,4 +1,7 @@
+// Первым: SDK должен подняться раньше, чем остальные модули начнут работу.
+import './instrument.js'
 import { serve } from '@hono/node-server'
+import { sentry } from '@sentry/hono/node'
 import { env } from './env.js'
 import { baseLogger } from './log.js'
 import { init, isDbReady } from './boot.js'
@@ -12,7 +15,9 @@ import { startTelegramPoller } from './notifications/telegram-poller.js'
 // данных он выставляет bootState и возвращается, чтобы listener все равно поднялся.
 await init()
 
-const app = createApp()
+const app = createApp((a) => {
+  if (env.SENTRY_DSN) a.use(sentry(a))
+})
 
 const server = serve({ fetch: app.fetch, port: env.PORT })
 

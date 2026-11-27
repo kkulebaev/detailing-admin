@@ -18,6 +18,9 @@ FROM deps AS builder
 # Весь исходный код — фильтруется .dockerignore (без .env и node_modules хоста)
 COPY . .
 
+# Railway передает переменные сервиса в сборку только как объявленные ARG, а Vite
+# вшивает VITE_* в бандл именно на этом шаге.
+ARG VITE_SENTRY_DSN
 RUN pnpm -F @detailing-admin/web build
 
 # ── Этап 3: раздача статической сборки и проксирование /api ──────────────────

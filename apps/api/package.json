@@ -40,6 +40,8 @@
     "@detailing-admin/shared": "workspace:*",
     "@hono/node-server": "^2.1.6",
     "@hono/zod-openapi": "^1.6.3",
+    "@sentry/hono": "11.19.0",
+    "@sentry/node": "11.19.0",
     "drizzle-orm": "^0.45.4",
     "googleapis": "^189.0.0",
     "hono": "^4.13.16",

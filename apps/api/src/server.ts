@@ -26,12 +26,15 @@ import {
 
 const BOOKINGS_ADMIN_ONLY = /^\/api\/bookings\/(deleted|journal|[^/]+\/(history|restore))$/
 
-export function createApp() {
+// `instrument` вызывается до всех middleware и роутов: Hono запускает обработчики в
+// порядке регистрации, и middleware Sentry должен оборачивать каждый запрос.
+export function createApp(instrument?: (app: OpenAPIHono) => void) {
   // Собирается императивно, а не цепочкой, чтобы тип OpenAPIHono пережил
   // `.notFound()` (в цепочке он расширяется до обычного Hono, который теряет
   // `.doc()`). Веб-клиент генерирует orval по OpenAPI-документу, а не
   // `hc<AppType>`, так что вывод AppType из цепочки здесь не важен.
   const app = new OpenAPIHono()
+  instrument?.(app)
 
   app.use(
     '/api/*',
