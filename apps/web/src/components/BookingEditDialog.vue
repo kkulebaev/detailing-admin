@@ -3,7 +3,6 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { Calendar as CalendarIcon, ListChecks, TriangleAlert, X } from '@lucide/vue'
 import type { DateValue } from 'reka-ui'
-import { CalendarDate } from '@internationalized/date'
 import {
   bookingSchema,
   DEFAULT_CAR_CLASS,
@@ -14,9 +13,11 @@ import {
   type CarClass,
 } from '@detailing-admin/shared'
 import { updateBooking, type PatchApiBookingsIdBody } from '@/lib/bookings-api'
-import { calToDdmmyyyy } from '@/lib/date'
-import { useMastersQuery } from '@/lib/queries'
-import { resolveMasterOptions } from '@/lib/master-options'
+import { calToDdmmyyyy, isoToCal } from '@/lib/date'
+import { groupThousands } from '@/lib/number-mask'
+import { formatAmount } from '@/lib/money'
+import { amountDigits, maskTimeText, writeMasked } from '@/lib/input-masks'
+import { useMasterOptions } from '@/composables/use-master-options'
 import {
   formatAmountFormula,
   formatServiceCell,
@@ -130,7 +131,7 @@ const {
   resetPhone,
 } = usePhoneInput()
 
-const { data: mastersData } = useMastersQuery()
+const { forMaster, forResponsible } = useMasterOptions()
 // Пока диалог закрыт, даты пусты, и запрос графика простаивает.
 const daysOff = useDaysOffWarning(
   computed(() => (props.open ? (dateFromCal.value?.toString() ?? null) : null)),
@@ -142,46 +143,15 @@ const daysOff = useDaysOffWarning(
 // Добавляем текущих мастеров/ответственного записи, даже если их уже нет в
 // актуальном списке, чтобы правка молча не потеряла значение, которое уже есть в строке.
 const masterOptions = computed(() => {
-  const base = resolveMasterOptions(
-    mastersData.value?.ok ? mastersData.value.masters : undefined,
-    () => true,
-  )
+  const base = forMaster.value
   const missing = master.value.filter((m) => !base.includes(m))
   return missing.length > 0 ? [...missing, ...base] : base
 })
 const responsibleOptions = computed(() => {
-  const base = resolveMasterOptions(
-    mastersData.value?.ok ? mastersData.value.masters : undefined,
-    (m) => m.canBeResponsible,
-  )
+  const base = forResponsible.value
   const cur = responsible.value
   return cur && !base.includes(cur) ? [cur, ...base] : base
 })
-
-function isoToCal(iso: string): DateValue | undefined {
-  const [y, m, d] = iso.split('-').map(Number)
-  if (!y || !m || !d) return undefined
-  try {
-    return new CalendarDate(y, m, d)
-  } catch {
-    return undefined
-  }
-}
-
-function maskTimeText(raw: string): string {
-  const d = raw.replace(/\D/g, '').slice(0, 4)
-  if (d.length <= 2) return d
-  return `${d.slice(0, 2)}:${d.slice(2)}`
-}
-
-function formatAmount(digits: string): string {
-  if (!digits) return ''
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-}
-
-function amountDigits(formatted: string): string {
-  return formatted.replace(/\D/g, '')
-}
 
 const currentAmount = computed(() => {
   const digits = amountDigits(amountRaw.value)
@@ -203,7 +173,7 @@ const amountOffServices = computed(
 )
 
 function setAmount(value: number) {
-  amountRaw.value = formatAmount(String(value))
+  amountRaw.value = groupThousands(String(value))
 }
 
 // Пикер эмитит итог только на действия пользователя (выбор, цена, количество, класс),
@@ -275,7 +245,7 @@ watch(
     car.value = b?.car ?? ''
     service.value = b?.service ?? ''
     note.value = b?.note ?? ''
-    amountRaw.value = b?.amount != null ? formatAmount(String(b.amount)) : ''
+    amountRaw.value = b?.amount != null ? groupThousands(String(b.amount)) : ''
     readiness.value = b && READINESS.some((r) => r === b.readiness) ? b.readiness : READINESS_NONE
     master.value = b?.master ?? []
     responsible.value = b?.responsible ? b.responsible : undefined
@@ -298,10 +268,7 @@ function onTimeInput(e: Event) {
   if (!(target instanceof HTMLInputElement)) return
   const masked = maskTimeText(target.value)
   timeValue.value = masked
-  if (target.value !== masked) {
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  writeMasked(target, masked)
 }
 
 function onTimeToInput(e: Event) {
@@ -309,21 +276,15 @@ function onTimeToInput(e: Event) {
   if (!(target instanceof HTMLInputElement)) return
   const masked = maskTimeText(target.value)
   timeToValue.value = masked
-  if (target.value !== masked) {
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  writeMasked(target, masked)
 }
 
 function onAmountInput(e: Event) {
   const target = e.target
   if (!(target instanceof HTMLInputElement)) return
-  const masked = formatAmount(amountDigits(target.value))
+  const masked = groupThousands(amountDigits(target.value))
   amountRaw.value = masked
-  if (target.value !== masked) {
-    target.value = masked
-    target.setSelectionRange(masked.length, masked.length)
-  }
+  writeMasked(target, masked)
 }
 
 function onDateFromSelect(d: DateValue | undefined) {
@@ -360,6 +321,17 @@ function onDialogOpenChange(v: boolean) {
   else close()
 }
 
+function firstIssuePerField(
+  issues: readonly { path: readonly PropertyKey[]; message: string }[],
+): Record<string, string> {
+  const mapped: Record<string, string> = {}
+  for (const issue of issues) {
+    const key = String(issue.path[0] ?? '_')
+    if (!(key in mapped)) mapped[key] = issue.message
+  }
+  return mapped
+}
+
 async function submit() {
   if (!props.booking) return
   fieldErrors.value = {}
@@ -387,12 +359,7 @@ async function submit() {
 
   const parsed = bookingSchema.safeParse(rawInput)
   if (!parsed.success) {
-    const mapped: Record<string, string> = {}
-    for (const issue of parsed.error.issues) {
-      const key = String(issue.path[0] ?? '_')
-      if (!(key in mapped)) mapped[key] = issue.message
-    }
-    fieldErrors.value = mapped
+    fieldErrors.value = firstIssuePerField(parsed.error.issues)
     error.value = parsed.error.issues[0]?.message ?? 'Проверьте заполнение полей'
     return
   }
@@ -431,12 +398,7 @@ async function submit() {
       return
     }
     if (result.error === 'validation') {
-      const mapped: Record<string, string> = {}
-      for (const i of result.issues) {
-        const key = String(i.path[0] ?? '_')
-        if (!(key in mapped)) mapped[key] = i.message
-      }
-      fieldErrors.value = mapped
+      fieldErrors.value = firstIssuePerField(result.issues)
       error.value = result.issues[0]?.message ?? 'Неверные данные'
     } else if (result.error === 'not_found') {
       error.value = 'Запись не найдена — возможно, была удалена'
@@ -735,7 +697,7 @@ async function submit() {
             class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-600 dark:text-amber-500"
           >
             <TriangleAlert class="size-3.5 shrink-0" />
-            <span>Сумма изменилась: было {{ formatAmount(String(originalAmount)) }} ₽</span>
+            <span>Сумма изменилась: было {{ formatAmount(originalAmount ?? 0) }} ₽</span>
             <button
               type="button"
               class="underline underline-offset-2 hover:no-underline"
@@ -749,7 +711,7 @@ async function submit() {
             v-if="amountOffServices"
             class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
           >
-            <span>По услугам: {{ formatAmount(String(servicesAmount)) }} ₽</span>
+            <span>По услугам: {{ formatAmount(servicesAmount ?? 0) }} ₽</span>
             <button
               type="button"
               class="underline underline-offset-2 hover:no-underline"
@@ -760,7 +722,7 @@ async function submit() {
             </button>
           </p>
           <p v-if="serviceMode === 'lines' && discount > 0" class="text-xs text-muted-foreground">
-            Скидка {{ formatAmount(String(discount)) }} ₽ вычитается из суммы по услугам
+            Скидка {{ formatAmount(discount) }} ₽ вычитается из суммы по услугам
           </p>
           <p v-if="fieldErrors.amount" class="text-sm text-destructive">
             {{ fieldErrors.amount }}
