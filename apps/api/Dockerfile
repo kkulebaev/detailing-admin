@@ -19,7 +19,7 @@ FROM deps AS builder
 # Копируем весь исходный код (фильтруется .dockerignore — без .env и node_modules хоста)
 COPY . .
 
-# Компилируем @detailing-admin/api (tsup → apps/api/dist/)
+# Компилируем @detailing-admin/api (tsdown → apps/api/dist/)
 # @detailing-admin/shared вшивается через noExternal, отдельная сборка не нужна
 RUN pnpm -F @detailing-admin/api build
 

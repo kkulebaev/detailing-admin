@@ -264,7 +264,7 @@ curl https://<detailing-api>/healthz
 pnpm test        # vitest во всех пакетах (Sheets и Telegram замоканы)
 pnpm typecheck   # tsc / vue-tsc -b --noEmit во всех пакетах
 pnpm lint        # eslint
-pnpm build       # tsup (api) + vue-tsc + vite build (web)
+pnpm build       # tsdown (api) + vue-tsc + vite build (web)
 pnpm test:e2e    # Playwright, нужен `docker compose up -d postgres`
 ```
 

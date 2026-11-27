@@ -15,7 +15,7 @@ Node 26+, pnpm 12+ (`engines` / `packageManager` in the root `package.json`). Ru
 ```bash
 pnpm install              # workspace install
 pnpm dev                  # parallel: web (5173) + api (3000)
-pnpm build                # vue-tsc + vite build (web); tsup (api)
+pnpm build                # vue-tsc + vite build (web); tsdown (api)
 pnpm test                 # vitest in all packages
 pnpm typecheck            # tsc/vue-tsc --noEmit in all packages
 pnpm lint                 # eslint over the whole workspace
