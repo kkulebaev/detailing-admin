@@ -69,3 +69,5 @@ export function useDiscount(baseAmount: Ref<number>) {
 
   return { raw, unit, amount, finalAmount, hasDiscount, onInput, setUnit, noteLine, reset }
 }
+
+export type Discount = ReturnType<typeof useDiscount>
